@@ -307,14 +307,16 @@ def test_embedded_frame_endpoint_and_crc32_verification(wal_client: TestClient) 
     assert "text/plain" in resp.headers["content-type"]
 
     frame_text = resp.text
-    assert len(frame_text.encode("utf-8")) < 4096  # Ultra-léger (< 4 Ko)
+    assert len(frame_text.encode("utf-8")) < 8192  # Ultra-léger (< 8 Ko)
     assert verify_embedded_frame_crc(frame_text) is True
 
     lines = [line for line in frame_text.strip().split("\n") if line]
-    assert lines[0].startswith("HEAD|1.1|")
-    assert "|tab5|RED|" in lines[0]
-    assert any(line.startswith("GPS|35.6800|139.6900|") for line in lines)
-    assert sum(1 for line in lines if line.startswith("ZONE|")) == 5
+    assert lines[0].startswith("HEAD|")
+    assert "|0|1.1|tab5|RED|" in lines[0]
+    assert any(line.startswith("ZONE|GPS|Position GPS / Bateau|35.6800|139.6900|") for line in lines)
+    assert sum(1 for line in lines if line.startswith("ZONE|")) == 6  # 1 GPS + 5 zones surveillées
+    assert sum(1 for line in lines if line.startswith("RAIN5M|")) == 6
+    assert sum(1 for line in lines if line.startswith("DAY|")) >= 6
     assert sum(1 for line in lines if line.startswith("HAZ|")) >= 2
     assert lines[-1].startswith("END|") and len(lines[-1].split("|")[1]) == 8
 
@@ -323,3 +325,4 @@ def test_embedded_frame_endpoint_and_crc32_verification(wal_client: TestClient) 
     assert cached_snap is not None
     assert cached_snap.device_type == DeviceType.TAB5
     assert cached_snap.global_status.max_severity == SeverityLevel.RED
+
