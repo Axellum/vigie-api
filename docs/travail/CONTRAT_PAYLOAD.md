@@ -1,4 +1,4 @@
-# Contrat de Payload — API ↔ Terminal Waveshare 7B, Mobile GPS & Clients SIG/CAP
+# Contrat de Payload — API ↔ Terminal Waveshare 7B, M5Stack Tab5, Marine & Clients SIG/CAP
 
 `maj: 2026-10-18` · Spécification des formats d'échange de `alerte_mondiale_api` (OpenAPI 3.1).
 
@@ -8,32 +8,62 @@
 
 | Endpoint | Méthode | Standard / Format | Usage Principal |
 | :--- | :--- | :--- | :--- |
-| `/v1/health` | `GET` | JSON | Santé globale du serveur, écrans supportés, résumé des collecteurs |
+| `/v1/health` | `GET` | JSON | Santé globale du serveur, mode SQLite WAL, écrans supportés, résumé des 12 collecteurs |
 | `/v1/providers` | `GET` | JSON | État détaillé de chaque provider (Circuit Breaker, latence ms, erreurs, âge du cache) |
-| `/v1/point` | `GET` | JSON Compact (`< 6 Ko`) | **Mode GPS Mobile / Bateau / M5Stack Tab5 (GPS Grove)** : météo hyper-locale (`lat, lon`), pluie 15 min, radar, conditions marines (`marine=true`), météo spatiale et alertes dans un rayon `radius_km` avec cap et ETA tsunami. Supporte `device_type=tab5\|waveshare-7b\|marine\|web`, `max_hazards`, `compact=true` |
-| `/v1/snapshot` | `GET` | JSON Compact (`< 12 Ko`) | **Mode Multi-Écrans (`waveshare-7b` 1024×600, `tab5` 1280×720, `marine`, `web`)** : statut global DEFCON + météo multi-zones + alertes mondiales dédupliquées (`?device_type=...&max_hazards=...&compact=true`) |
+| `/v1/zones` | `GET`/`POST`/`DELETE` | JSON | Gestion dynamique et persistante (SQLite WAL) de la Watchlist des zones mondiales surveillées |
+| `/v1/history` | `GET` | JSON | Historique SQLite WAL des catastrophes mondiales dédupliquées (`?category=...&min_severity=...&limit=50`) |
+| `/v1/point` | `GET` | JSON Compact (`< 6 Ko`) | **Mode GPS Mobile / Bateau / M5Stack Tab5 (GPS Grove)** : météo hyper-locale (`lat, lon`), pluie 15 min, radar, conditions marines (`marine=true`), crues fluviales GloFAS (`flood_risk`), qualité de l'air / poussières (`air_quality`), météo spatiale et alertes dans un rayon `radius_km` |
+| `/v1/snapshot` | `GET` | JSON Compact (`< 12 Ko`) | **Mode Multi-Écrans (`waveshare-7b` 1024×600, `tab5` 1280×720, `marine`, `web`)** : statut global DEFCON + météo multi-zones + alertes mondiales dédupliquées |
+| `/v1/embedded/frame` | `GET` | **Texte Pipe-Delimited + CRC32 (`< 4 Ko`)** | **Trame C++ sans `malloc`** (`HEAD\|...`, `GPS\|...`, `ZONE\|...`, `HAZ\|...`, `END\|<CRC32>`) décodable en un seul passage sur ESP32-P4 |
 | `/v1/geojson/hazards` | `GET` | **IETF RFC 7946 GeoJSON** | `FeatureCollection` standard pour cartes Web (MapLibre, Leaflet, Mapbox) et SIG (QGIS) |
 | `/v1/cap/alerts` | `GET` | **OASIS CAP 1.2 JSON** | Alertes normalisées selon le *Common Alerting Protocol 1.2* (`urgency`, `severity`, `certainty`, `area`) |
-| `/v1/simulate` | `POST` | JSON | Injection de scénarios de crise réalistes (Séisme M7.8 + Tsunami, Ouragan Cat 5, Volcan, Grain en mer) |
+| `/v1/simulate` | `POST` | JSON | Injection de scénarios de crise réalistes (Séisme M7.8 + Tsunami, Ouragan Cat 5, Volcan + Cendres, Grain en mer) |
 | `/v1/stream` | `WS` | WebSocket JSON | Flux temps réel (`alert_new`, `simulation_update`, `initial_snapshot`) |
 
 ---
 
-## 2. Schéma JSON du Point GPS / Marine (`GET /v1/point`)
+## 2. Spécification de la Trame Compacte Embarquée (`GET /v1/embedded/frame`)
 
-Idéal pour un terminal embarqué sur un bateau ou un véhicule disposant d'une puce GPS (`?lat=47.75&lon=-3.36&marine=true&radius_km=500&sog_knots=7.5&cog_deg=245`) :
+Pour les firmwares C++ ESP32-P4 (`alerte_mondiale_7b` sur Waveshare 7B et M5Stack Tab5), l'endpoint `GET /v1/embedded/frame?device_type=waveshare-7b|tab5&lat=48.8566&lon=2.3522&marine=true` retourne une trame `text/plain; charset=utf-8` ultra-compacte (`< 4 Ko`), conçue pour être parsée avec `strtok_r` / `sscanf` dans un tampon statique sans aucune allocation dynamique (`malloc`) :
+
+```text
+HEAD|1.1|1792334800|tab5|RED|2|1|0|6.3|G2|1|1|1
+GPS|35.6800|139.6900|RED|17.5|22.0|34.0|1014.0|0.20|2|1.20|MODERATE|GREEN|20|0.0
+ZONE|z0|Paris, FR|48.8566|2.3522|GREEN|17.5|22.0|0.20|2|22
+ZONE|z1|Tokyo, JP|35.6762|139.6503|RED|17.5|22.0|0.20|2|22
+HAZ|sim_eq_sendai_m78|EARTHQUAKE|RED|38.1000|142.8500|7.8|Mw|1|29|383.3|45.5|NE|USGS+EMSC+GDACS|M 7.8 - Fosse du Japon au large de Sendai (SIMULATION)
+END|A1B2C3D4
+```
+
+### Structure exacte des enregistrements :
+1. **`HEAD`** : `HEAD|<version>|<server_utc>|<device_type>|<max_severity>|<red_cnt>|<orange_cnt>|<yellow_cnt>|<solar_kp>|<solar_g>|<gps_degraded_0_1>|<hf_risk_0_1>|<sim_active_0_1>`
+2. **`GPS`** *(optionnel, présent si `lat` et `lon` sont passés en paramètres)* :
+   `GPS|<lat>|<lon>|<local_alert>|<temp_c>|<wind_kmh>|<gust_kmh>|<pressure_hpa>|<rain_1h_mm>|<wmo_code>|<wave_m>|<sea_state>|<flood_alert>|<aqi_eu>|<dust_ugm3>`
+3. **`ZONE`** *(1 ligne par zone de la Watchlist)* :
+   `ZONE|<id>|<name>|<lat>|<lon>|<local_alert>|<temp_c>|<wind_kmh>|<rain_1h_mm>|<wmo_code>|<aqi_eu>`
+4. **`HAZ`** *(1 ligne par catastrophe active triée par criticité)* :
+   `HAZ|<id>|<category>|<severity>|<lat>|<lon>|<value_primary>|<unit>|<tsunami_0_1>|<eta_min>|<dist_km>|<bearing_deg>|<cardinal>|<sources>|<title>`
+5. **`END`** : `END|<CRC32_HEX8>` — Somme de contrôle **CRC32 IEEE 802.3** (8 chiffres hexadécimaux majuscules) calculée sur tous les octets qui précèdent `END|` (incluant le `\n` de la ligne précédente).
+
+---
+
+## 3. Schéma JSON du Point GPS / Marine (`GET /v1/point`)
+
+Inclut désormais en plus des conditions marines (`marine`), le risque d'inondation/crue fluviale Copernicus GloFAS (`flood_risk`) et la qualité de l'air / poussières / cendres volcaniques (`air_quality`) :
 
 ```json
 {
   "version": "1.1",
   "server_utc": 1792334800,
+  "device_type": "tab5",
+  "compact": true,
   "coordinates": {
     "lat": 47.75,
     "lon": -3.36,
     "sog_knots": 7.5,
     "cog_deg": 245.0
   },
-  "weather_provider": "Open-Meteo (AROME/IFS HD)",
+  "weather_provider": "Open-Meteo (AROME/HRRR/IFS HD)",
   "fallback_used": false,
   "local_alert_level": "GREEN",
   "current": {
@@ -69,121 +99,28 @@ Idéal pour un terminal embarqué sur un bateau ou un véhicule disposant d'une 
     "sea_state_label": "MODERATE",
     "navigation_warning": false
   },
+  "flood_risk": {
+    "river_discharge_m3s": 42.0,
+    "river_discharge_mean_m3s": 40.0,
+    "river_discharge_max_m3s": 46.0,
+    "anomaly_ratio": 1.15,
+    "flood_alert_level": "GREEN"
+  },
+  "air_quality": {
+    "european_aqi": 20,
+    "us_aqi": 25,
+    "pm2_5_ugm3": 5.0,
+    "pm10_ugm3": 12.0,
+    "uv_index": 3.0,
+    "dust_ugm3": 2.0,
+    "ash_or_dust_warning": false
+  },
   "space_weather": {
     "solar_kp": 3.3,
     "solar_storm_level": "G0",
     "gps_degraded": false,
     "hf_radio_blackout_risk": false
   },
-  "nearby_hazards": [
-    {
-      "id": "eq_usgs_7000abcd",
-      "category": "EARTHQUAKE",
-      "severity": "ORANGE",
-      "title": "M 6.4 - Dorsale Atlantique Nord",
-      "source": "USGS+EMSC",
-      "sources": ["USGS", "EMSC"],
-      "timestamp_utc": 1792334510,
-      "lat": 45.20,
-      "lon": -28.10,
-      "value_primary": 6.4,
-      "value_unit": "Mw",
-      "depth_km": 10.0,
-      "tsunami_warning": true,
-      "tsunami_eta_minutes": 162,
-      "distance_to_zone_km": 1924.5,
-      "bearing_deg": 268.4,
-      "bearing_cardinal": "W"
-    }
-  ]
+  "nearby_hazards": []
 }
 ```
-
----
-
-## 3. Schéma JSON du Snapshot (`GET /v1/snapshot`)
-
-Conçu pour tenir systématiquement sous la barre des **12 Ko** pour le terminal Waveshare 7B :
-
-```json
-{
-  "version": "1.1",
-  "server_utc": 1792334800,
-  "simulation_active": false,
-  "global_status": {
-    "max_severity": "RED",
-    "active_red_count": 1,
-    "active_orange_count": 2,
-    "active_yellow_count": 4,
-    "solar_kp": 5.3,
-    "solar_storm_level": "G1",
-    "gps_degraded": false,
-    "hf_radio_blackout_risk": true,
-    "weather_fallback_active": false
-  },
-  "zones": [
-    {
-      "id": "z0",
-      "name": "Paris, FR",
-      "lat": 48.8566,
-      "lon": 2.3522,
-      "utc_offset_s": 7200,
-      "alert_radius_km": 500,
-      "local_alert_level": "GREEN",
-      "weather_source": "Open-Meteo",
-      "current": {
-        "temp_c": 16.4,
-        "feels_like_c": 15.8,
-        "humidity_pct": 72,
-        "pressure_hpa": 1015.0,
-        "wind_kmh": 18.0,
-        "gust_kmh": 32.0,
-        "wind_deg": 240,
-        "rain_1h_mm": 0.0,
-        "weather_code": 2,
-        "uv_index": 3.1,
-        "aqi_eu": 24
-      },
-      "rain_next_60m": [0.0, 0.0, 0.2, 0.8],
-      "daily_10d": [
-        {"d": "Lun", "code": 61, "tmin": 11.0, "tmax": 17.0, "rain_mm": 4.2, "wind_max": 35.0}
-      ]
-    }
-  ],
-  "hazards": [
-    {
-      "id": "usgs_us7000abcd",
-      "category": "EARTHQUAKE",
-      "severity": "RED",
-      "title": "M 7.8 - Au large de Sendai, Japon",
-      "source": "USGS+EMSC+GDACS",
-      "sources": ["USGS", "EMSC", "GDACS"],
-      "timestamp_utc": 1792334510,
-      "lat": 38.10,
-      "lon": 142.85,
-      "value_primary": 7.8,
-      "value_unit": "Mw",
-      "depth_km": 28.0,
-      "tsunami_warning": true,
-      "tsunami_eta_minutes": 29,
-      "nearest_zone_id": "z1",
-      "nearest_zone_name": "Tokyo, JP",
-      "distance_to_zone_km": 348.2,
-      "bearing_deg": 38.5,
-      "bearing_cardinal": "NE"
-    }
-  ]
-}
-```
-
----
-
-## 4. Interopérabilité Standards : GeoJSON (RFC 7946) & OASIS CAP 1.2
-
-### A. `GET /v1/geojson/hazards` (RFC 7946)
-Retourne une `FeatureCollection` dont chaque `Feature` possède une géométrie `Point` (`coordinates: [lon, lat, depth_km]`), une `bbox` globale `[min_lon, min_lat, max_lon, max_lat]` et toutes les métadonnées enrichies dans `properties`.
-
-### B. `GET /v1/cap/alerts` (OASIS CAP 1.2)
-Retourne une enveloppe d'alertes respectant le *Common Alerting Protocol v1.2* :
-- `identifier`, `sender`, `sent` (ISO 8601 UTC), `status` (`Actual` ou `Exercise` en mode simulation), `msgType` (`Alert`), `scope` (`Public`).
-- Bloc `info` : `category` (`Geo`, `Met`, `Safety`, `Fire`), `event`, `urgency` (`Immediate`, `Expected`, `Future`), `severity` (`Extreme`, `Severe`, `Moderate`, `Minor`), `certainty` (`Observed`, `Likely`), `headline`, `description`, `instruction`, et `area` (`circle` au format `"lat,lon radius_km"`).
