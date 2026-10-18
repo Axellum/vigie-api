@@ -413,6 +413,7 @@ def isolated_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setattr(aggregator.emsc, "fetch", AsyncMock(return_value=[eq_dup_emsc]))
     monkeypatch.setattr(aggregator.gdacs, "fetch", AsyncMock(return_value=[]))
     monkeypatch.setattr(aggregator.noaa_nws, "fetch", AsyncMock(return_value=[]))
+    monkeypatch.setattr(aggregator.volcano, "fetch", AsyncMock(return_value=[]))
     monkeypatch.setattr(aggregator.open_meteo, "fetch_point", AsyncMock(return_value=parsed_weather))
     monkeypatch.setattr(
         aggregator.rainviewer,
@@ -436,16 +437,27 @@ def test_endpoints_health_and_providers(isolated_client: TestClient) -> None:
     assert r_health.status_code == 200
     data = r_health.json()
     assert data["status"] == "ok"
+    assert data["storage_journal_mode"] == "wal"
     assert "waveshare-7b" in data["supported_devices"]
     assert "tab5" in data["supported_devices"]
-    assert data["providers_summary"]["total"] == 9
+    assert data["providers_summary"]["total"] == 12
 
     r_prov = isolated_client.get("/v1/providers")
     assert r_prov.status_code == 200
     prov_list = r_prov.json()
-    assert len(prov_list) == 9
+    assert len(prov_list) == 12
     ids = {p["provider_id"] for p in prov_list}
-    assert {"usgs_eq", "emsc_seismic", "gdacs_global", "open_meteo_hd", "met_norway_fallback", "open_meteo_marine"} <= ids
+    assert {
+        "usgs_eq",
+        "emsc_seismic",
+        "gdacs_global",
+        "usgs_volcano_gvp",
+        "open_meteo_hd",
+        "met_norway_fallback",
+        "open_meteo_marine",
+        "open_meteo_flood",
+        "open_meteo_aqi",
+    } <= ids
 
 
 def test_endpoint_point_gps_marine_and_tab5(isolated_client: TestClient) -> None:

@@ -1,34 +1,40 @@
-"""Orchestrateur Multi-Providers, Geofencing, Fallback Météo et Simulateur de Crises.
+"""Orchestrateur Multi-Providers, Geofencing, Persistance SQLite WAL, Fallback Météo et Simulateur.
 
 Responsabilités principales :
-1. Compiler en parallèle les flux sismiques et catastrophes (`USGS`, `EMSC`, `GDACS`, `NOAA NWS`)
-   et fusionner les doublons inter-agences via `deduplicate_hazards`.
+1. Compiler en parallèle les flux sismiques, volcaniques et catastrophes (`USGS`, `EMSC`, `GDACS`,
+   `NOAA NWS`, `USGS Volcano / Smithsonian GVP`) et fusionner les doublons via `deduplicate_hazards`.
 2. Assurer la continuité météo par coordonnées GPS (`lat, lon`) avec bascule automatique
    transparente : `Open-Meteo HD (minutely_15)` -> `MET Norway Locationforecast 2.0 (Fallback)`
-   -> profil synthétique de continuité, complété par le radar `RainViewer`.
-3. Enrichir chaque catastrophe avec les calculs géodésiques (`distance_to_zone_km`,
+   -> profil synthétique de continuité, complété par le radar `RainViewer`, l'hydrologie
+   `Open-Meteo Flood (GloFAS)` et la qualité de l'air / poussières `Open-Meteo Air Quality`.
+3. Persister en SQLite WAL (`SQLiteWALStorage`) la Watchlist dynamique (`/v1/zones`),
+   l'historique des catastrophes (`/v1/history`) et le dernier snapshot valide (`snapshot_cache`).
+4. Enrichir chaque catastrophe avec les calculs géodésiques (`distance_to_zone_km`,
    `bearing_deg`, `bearing_cardinal`, `tsunami_eta_minutes`).
-4. Adapter la charge utile aux différents écrans de la gamme (`waveshare-7b`, `tab5`, `marine`, `web`)
-   en garantissant une taille `< 12 Ko` en mode `compact=True`.
-5. Générer les représentations standards internationales :
-   - **IETF RFC 7946 GeoJSON** (`/v1/geojson/hazards`)
-   - **OASIS CAP 1.2** (`/v1/cap/alerts`)
-6. Injecter des scénarios de crise réalistes à la demande (`/v1/simulate`).
+5. Générer les représentations standards internationales (**IETF RFC 7946 GeoJSON**, **OASIS CAP 1.2**)
+   ainsi que la **Trame Compacte Embarquée (`GET /v1/embedded/frame`)** protégée par `CRC32`.
 """
 
 from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
+from pathlib import Path
 import time
 from typing import Any, Optional
 
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector
+from app.collectors.flood_air import (
+    OpenMeteoAirQualityCollector,
+    OpenMeteoFloodCollector,
+    USGSVolcanoCollector,
+)
 from app.collectors.marine import OpenMeteoMarineCollector
 from app.collectors.seismic import EMSCCollector, USGSCollector
 from app.collectors.space_weather import NOAASWPCCollector
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector, RainViewerCollector
 from app.models.schemas import (
+    AirQualityStatus,
     CAPAlert,
     CAPArea,
     CAPFeedResponse,
@@ -36,6 +42,7 @@ from app.models.schemas import (
     CurrentWeather,
     DailyForecast,
     DeviceType,
+    FloodRiskStatus,
     GPSCoordinates,
     GeoJSONFeature,
     GeoJSONFeatureCollection,
@@ -43,7 +50,10 @@ from app.models.schemas import (
     GlobalStatus,
     HazardAlert,
     HazardCategory,
+    HistoryResponse,
     MarineConditions,
+    MonitoredZoneConfig,
+    MonitoredZoneUpsertRequest,
     PointResponse,
     ProviderHealth,
     RainNowcast,
@@ -56,25 +66,17 @@ from app.models.schemas import (
     SpaceWeatherStatus,
     ZoneWeather,
 )
+from app.services.embedded_frame import serialize_embedded_frame
 from app.services.geodesy import (
-    bearing_to_cardinal,
     deduplicate_hazards,
     enrich_hazard_for_point,
-    estimate_tsunami_eta_minutes,
     haversine_km,
-    initial_bearing_deg,
 )
+from app.services.storage_wal import DEFAULT_WATCHLIST_SEED, SQLiteWALStorage
 
 
-DEFAULT_MONITORED_ZONES: list[dict[str, Any]] = [
-    {"id": "z0", "name": "Paris, FR", "lat": 48.8566, "lon": 2.3522, "utc_offset_s": 3600, "alert_radius_km": 500.0},
-    {"id": "z1", "name": "Tokyo, JP", "lat": 35.6762, "lon": 139.6503, "utc_offset_s": 32400, "alert_radius_km": 600.0},
-    {"id": "z2", "name": "Pointe-à-Pitre, GP", "lat": 16.2410, "lon": -61.5330, "utc_offset_s": -14400, "alert_radius_km": 500.0},
-    {"id": "z3", "name": "San Francisco, US", "lat": 37.7749, "lon": -122.4194, "utc_offset_s": -28800, "alert_radius_km": 500.0},
-    {"id": "z4", "name": "Reykjavik, IS", "lat": 64.1466, "lon": -21.9426, "utc_offset_s": 0, "alert_radius_km": 450.0},
-]
+DEFAULT_MONITORED_ZONES: list[dict[str, Any]] = list(DEFAULT_WATCHLIST_SEED)
 
-# Plafond par défaut du nombre d'alertes selon le profil matériel pour respecter < 12 Ko
 DEVICE_DEFAULT_MAX_HAZARDS: dict[DeviceType, int] = {
     DeviceType.WAVESHARE_7B: 15,
     DeviceType.TAB5: 15,
@@ -85,7 +87,7 @@ DEVICE_DEFAULT_MAX_HAZARDS: dict[DeviceType, int] = {
 
 
 class AggregatorService:
-    """Orchestrateur central multi-providers de Vigie Mondiale API."""
+    """Orchestrateur central multi-providers et persistance SQLite WAL de Vigie Mondiale API."""
 
     def __init__(
         self,
@@ -93,28 +95,71 @@ class AggregatorService:
         emsc: Optional[EMSCCollector] = None,
         gdacs: Optional[GDACSCollector] = None,
         noaa_nws: Optional[NOAANWSCollector] = None,
+        volcano: Optional[USGSVolcanoCollector] = None,
         open_meteo: Optional[OpenMeteoCollector] = None,
         met_norway: Optional[MetNorwayCollector] = None,
         rainviewer: Optional[RainViewerCollector] = None,
         marine: Optional[OpenMeteoMarineCollector] = None,
+        flood: Optional[OpenMeteoFloodCollector] = None,
+        air_quality: Optional[OpenMeteoAirQualityCollector] = None,
         swpc: Optional[NOAASWPCCollector] = None,
+        storage: Optional[SQLiteWALStorage] = None,
+        db_path: Optional[str | Path] = None,
     ) -> None:
         self.started_at_utc = int(time.time())
         self.usgs = usgs or USGSCollector()
         self.emsc = emsc or EMSCCollector()
         self.gdacs = gdacs or GDACSCollector()
         self.noaa_nws = noaa_nws or NOAANWSCollector()
+        self.volcano = volcano or USGSVolcanoCollector()
         self.open_meteo = open_meteo or OpenMeteoCollector()
         self.met_norway = met_norway or MetNorwayCollector()
         self.rainviewer = rainviewer or RainViewerCollector()
         self.marine = marine or OpenMeteoMarineCollector()
+        self.flood = flood or OpenMeteoFloodCollector()
+        self.air_quality = air_quality or OpenMeteoAirQualityCollector()
         self.swpc = swpc or NOAASWPCCollector()
 
-        self.monitored_zones = list(DEFAULT_MONITORED_ZONES)
+        self.storage = storage or SQLiteWALStorage(db_path=db_path)
+        self.monitored_zones: list[dict[str, Any]] = [
+            z.model_dump() for z in self.storage.list_zones()
+        ]
         self.simulation_active: bool = False
         self.active_scenario: SimulationScenario = SimulationScenario.CLEAR
         self.simulated_hazards: list[HazardAlert] = []
         self.last_weather_fallback_used: bool = False
+
+    def refresh_zones_from_storage(self) -> list[MonitoredZoneConfig]:
+        """Recharge la liste des zones surveillées depuis SQLite WAL."""
+        zones = self.storage.list_zones()
+        self.monitored_zones = [z.model_dump() for z in zones]
+        return zones
+
+    def list_zones(self) -> list[MonitoredZoneConfig]:
+        """Retourne les zones surveillées actives."""
+        return self.refresh_zones_from_storage()
+
+    def upsert_zone(self, req: MonitoredZoneUpsertRequest) -> MonitoredZoneConfig:
+        """Crée ou met à jour une zone surveillée et rafraîchit le cache mémoire."""
+        created = self.storage.upsert_zone(req)
+        self.refresh_zones_from_storage()
+        return created
+
+    def delete_zone(self, zone_id: str) -> bool:
+        """Supprime une zone surveillée et rafraîchit le cache mémoire."""
+        deleted = self.storage.delete_zone(zone_id)
+        self.refresh_zones_from_storage()
+        return deleted
+
+    def get_history(
+        self,
+        category: Optional[HazardCategory] = None,
+        min_severity: Optional[SeverityLevel] = None,
+        limit: int = 50,
+    ) -> HistoryResponse:
+        """Retourne l'historique SQLite WAL des catastrophes filtrées."""
+        items = self.storage.query_history(category=category, min_severity=min_severity, limit=limit)
+        return HistoryResponse(count=len(items), items=items)
 
     def get_all_collectors(self) -> list[Any]:
         """Retourne la liste ordonnée de tous les collecteurs gérés."""
@@ -123,10 +168,13 @@ class AggregatorService:
             self.emsc,
             self.gdacs,
             self.noaa_nws,
+            self.volcano,
             self.open_meteo,
             self.met_norway,
             self.rainviewer,
             self.marine,
+            self.flood,
+            self.air_quality,
             self.swpc,
         ]
 
@@ -137,12 +185,7 @@ class AggregatorService:
     async def fetch_weather_with_fallback(
         self, lat: float, lon: float, days: int = 5
     ) -> tuple[dict[str, Any], bool]:
-        """Récupère la météo d'un point GPS via Open-Meteo avec bascule automatique sur MET Norway.
-
-        Retourne `(weather_bundle, fallback_used)`.
-        Ne lève jamais d'exception : en cas d'indisponibilité totale réseau, retourne un profil
-        climatologique de sécurité afin de préserver le fonctionnement de l'écran embarqué.
-        """
+        """Récupère la météo d'un point GPS via Open-Meteo avec bascule automatique sur MET Norway."""
         try:
             bundle = await self.open_meteo.fetch_point(lat, lon, days=days, allow_stale_on_error=False)
             self.last_weather_fallback_used = False
@@ -150,7 +193,6 @@ class AggregatorService:
         except Exception:
             pass
 
-        # Filet de sécurité : bascule immédiate sur MET Norway (100 % gratuit mondial)
         try:
             bundle = await self.met_norway.fetch_point(lat, lon, days=days, allow_stale_on_error=True)
             self.last_weather_fallback_used = True
@@ -158,7 +200,6 @@ class AggregatorService:
         except Exception:
             pass
 
-        # Continuité ultime en cache ou profil standard si hors-ligne complet
         stale_om = self.open_meteo._get_stale_cache(f"om:{round(lat, 2):.2f},{round(lon, 2):.2f}:{days}")
         if stale_om is not None:
             self.last_weather_fallback_used = True
@@ -205,12 +246,13 @@ class AggregatorService:
         }
 
     async def collect_and_fuse_hazards(self) -> list[HazardAlert]:
-        """Collecte en parallèle USGS, EMSC, GDACS et NOAA NWS, puis déduplique et fusionne."""
+        """Collecte en parallèle USGS, EMSC, GDACS, NOAA NWS et USGS Volcano, déduplique et historise en SQLite WAL."""
         results = await asyncio.gather(
             self.usgs.fetch(),
             self.emsc.fetch(),
             self.gdacs.fetch(),
             self.noaa_nws.fetch(),
+            self.volcano.fetch(),
             return_exceptions=True,
         )
 
@@ -223,7 +265,12 @@ class AggregatorService:
             raw_hazards.extend(self.simulated_hazards)
 
         fused = deduplicate_hazards(raw_hazards)
-        return [self._attach_nearest_monitored_zone(h) for h in fused]
+        enriched = [self._attach_nearest_monitored_zone(h) for h in fused]
+        try:
+            self.storage.record_hazards(enriched)
+        except Exception:
+            pass
+        return enriched
 
     def _attach_nearest_monitored_zone(self, hazard: HazardAlert) -> HazardAlert:
         """Associe à une alerte la zone surveillée la plus proche, sa distance, son cap et son ETA tsunami."""
@@ -269,6 +316,31 @@ class AggregatorService:
                 hf_radio_blackout_risk=False,
             )
 
+    async def get_flood_risk_safe(self, lat: float, lon: float) -> FloodRiskStatus:
+        """Récupère le risque hydrologique GloFAS aux coordonnées (`lat, lon`) sans risque d'échec."""
+        try:
+            return await self.flood.fetch_flood_risk(lat, lon)
+        except Exception:
+            return FloodRiskStatus()
+
+    async def get_air_quality_safe(self, lat: float, lon: float) -> AirQualityStatus:
+        """Récupère la qualité de l'air, l'UV et les poussières/cendres aux coordonnées (`lat, lon`)."""
+        try:
+            status = await self.air_quality.fetch_air_quality(lat, lon)
+            if self.simulation_active and self.active_scenario == SimulationScenario.VOLCANO_ERUPTION_ICELAND:
+                return AirQualityStatus(
+                    european_aqi=max(status.european_aqi, 145),
+                    us_aqi=max(status.us_aqi, 180),
+                    pm2_5_ugm3=max(status.pm2_5_ugm3, 65.0),
+                    pm10_ugm3=max(status.pm10_ugm3, 190.0),
+                    uv_index=status.uv_index,
+                    dust_ugm3=max(status.dust_ugm3, 240.0),
+                    ash_or_dust_warning=True,
+                )
+            return status
+        except Exception:
+            return AirQualityStatus()
+
     async def build_point_response(
         self,
         lat: float,
@@ -289,14 +361,15 @@ class AggregatorService:
         weather_task = self.fetch_weather_with_fallback(lat, lon, days=days_count)
         hazards_task = self.collect_and_fuse_hazards()
         space_task = self.get_space_weather_safe()
+        flood_task = self.get_flood_risk_safe(lat, lon)
+        aqi_task = self.get_air_quality_safe(lat, lon)
         radar_task = self.rainviewer.fetch()
         marine_task = self.marine.fetch_marine(lat, lon) if include_marine else None
 
-        (weather_bundle, fallback_used), all_hazards, space_status = await asyncio.gather(
-            weather_task, hazards_task, space_task
+        (weather_bundle, fallback_used), all_hazards, space_status, flood_status, aqi_status = await asyncio.gather(
+            weather_task, hazards_task, space_task, flood_task, aqi_task
         )
 
-        # Radar de pluie RainViewer
         try:
             radar_meta = await radar_task
         except Exception:
@@ -305,7 +378,6 @@ class AggregatorService:
                 "radar_tile_url_template": "https://tilecache.rainviewer.com/v2/radar/nowcast/256/{z}/{x}/{y}/2/1_1.png",
             }
 
-        # Conditions marines si demandées
         marine_conditions: Optional[MarineConditions] = None
         if marine_task is not None:
             try:
@@ -338,7 +410,6 @@ class AggregatorService:
                     navigation_warning=True,
                 )
 
-        # Enrichissement géodésique par rapport à la coordonnée GPS exacte
         enriched_nearby: list[HazardAlert] = []
         local_level = SeverityLevel.GREEN
 
@@ -376,6 +447,19 @@ class AggregatorService:
             if SEVERITY_RANK[SeverityLevel.ORANGE] > SEVERITY_RANK[local_level]:
                 local_level = SeverityLevel.ORANGE
 
+        if SEVERITY_RANK[flood_status.flood_alert_level] > SEVERITY_RANK[local_level]:
+            local_level = flood_status.flood_alert_level
+
+        if aqi_status.ash_or_dust_warning and SEVERITY_RANK[SeverityLevel.ORANGE] > SEVERITY_RANK[local_level]:
+            local_level = SeverityLevel.ORANGE
+
+        current_weather: CurrentWeather = weather_bundle["current"].model_copy(
+            update={
+                "aqi_eu": aqi_status.european_aqi,
+                "uv_index": aqi_status.uv_index or weather_bundle["current"].uv_index,
+            }
+        )
+
         return PointResponse(
             version="1.1",
             server_utc=int(time.time()),
@@ -390,9 +474,11 @@ class AggregatorService:
             weather_provider=str(weather_bundle.get("provider_name") or "Open-Meteo"),
             fallback_used=fallback_used,
             local_alert_level=local_level,
-            current=weather_bundle["current"],
+            current=current_weather,
             rain_nowcast=rain_nowcast,
             marine=marine_conditions,
+            flood_risk=flood_status,
+            air_quality=aqi_status,
             space_weather=space_status,
             nearby_hazards=enriched_nearby,
         )
@@ -403,7 +489,7 @@ class AggregatorService:
         max_hazards: Optional[int] = None,
         compact: bool = True,
     ) -> SnapshotResponse:
-        """Construit le snapshot global (< 12 Ko en mode compact) pour les terminaux Waveshare 7B, Tab5 ou Web."""
+        """Construit le snapshot global (< 12 Ko en mode compact) et le sauvegarde dans SQLite WAL."""
         days_per_zone = 5 if compact else 10
         limit_hazards = max_hazards or DEVICE_DEFAULT_MAX_HAZARDS.get(device_type, 15)
 
@@ -477,7 +563,7 @@ class AggregatorService:
             weather_fallback_active=any_fallback,
         )
 
-        return SnapshotResponse(
+        snapshot = SnapshotResponse(
             version="1.1",
             server_utc=int(time.time()),
             device_type=device_type,
@@ -487,6 +573,37 @@ class AggregatorService:
             zones=zones_out,
             hazards=selected_hazards,
         )
+        try:
+            self.storage.save_snapshot(snapshot)
+        except Exception:
+            pass
+        return snapshot
+
+    async def build_embedded_frame(
+        self,
+        device_type: DeviceType = DeviceType.WAVESHARE_7B,
+        lat: Optional[float] = None,
+        lon: Optional[float] = None,
+        marine: bool = False,
+        max_hazards: int = 12,
+    ) -> str:
+        """Construit la trame texte compacte (`HEAD|...`, `GPS|...`, `ZONE|...`, `HAZ|...`, `END|CRC32`)."""
+        snapshot = await self.build_snapshot(
+            device_type=device_type,
+            max_hazards=max_hazards,
+            compact=True,
+        )
+        point_resp: Optional[PointResponse] = None
+        if lat is not None and lon is not None:
+            point_resp = await self.build_point_response(
+                lat=lat,
+                lon=lon,
+                marine=marine or device_type == DeviceType.MARINE,
+                device_type=device_type,
+                max_hazards=max_hazards,
+                compact=True,
+            )
+        return serialize_embedded_frame(snapshot=snapshot, point=point_resp)
 
     async def build_geojson_feature_collection(self) -> GeoJSONFeatureCollection:
         """Construit une `FeatureCollection` standard IETF RFC 7946 pour SIG / MapLibre / Leaflet."""
@@ -630,7 +747,7 @@ class AggregatorService:
         )
 
     def trigger_simulation(self, req: SimulationRequest) -> SimulationResponse:
-        """Active ou désactive un scénario de crise réaliste pour tester les écrans (7B / Tab5) et clients SIG."""
+        """Active ou désactive un scénario de crise réaliste et l'historise dans SQLite WAL."""
         now_utc = int(time.time())
 
         if req.scenario == SimulationScenario.CLEAR:
@@ -710,8 +827,8 @@ class AggregatorService:
                     category=HazardCategory.VOLCANO,
                     severity=SeverityLevel.RED,
                     title="Éruption Explosive & Panache de Cendres - Péninsule de Reykjanes (SIMULATION)",
-                    source="GDACS+IMO",
-                    sources=["GDACS", "IMO"],
+                    source="GDACS+USGS_VOLCANO",
+                    sources=["GDACS", "USGS_VOLCANO"],
                     timestamp_utc=now_utc,
                     lat=lat,
                     lon=lon,
@@ -741,6 +858,10 @@ class AggregatorService:
             ]
 
         self.simulated_hazards = [self._attach_nearest_monitored_zone(h) for h in hazards]
+        try:
+            self.storage.record_hazards(self.simulated_hazards)
+        except Exception:
+            pass
         return SimulationResponse(
             status="active",
             scenario=req.scenario,

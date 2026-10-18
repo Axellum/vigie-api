@@ -269,6 +269,65 @@ class SnapshotResponse(BaseModel):
     hazards: list[HazardAlert]
 
 
+class FloodRiskStatus(BaseModel):
+    """Risque hydrologique et crue fluviale (GloFAS Copernicus via Open-Meteo Flood API)."""
+
+    river_discharge_m3s: float = Field(default=0.0, ge=0.0, description="Débit fluvial actuel (m³/s)")
+    river_discharge_mean_m3s: float = Field(default=0.0, ge=0.0, description="Débit moyen historique (m³/s)")
+    river_discharge_max_m3s: float = Field(default=0.0, ge=0.0, description="Débit maximal prévu sur 10j (m³/s)")
+    anomaly_ratio: float = Field(default=1.0, ge=0.0, description="Ratio débit_max / débit_moyen")
+    flood_alert_level: SeverityLevel = Field(
+        default=SeverityLevel.GREEN, description="Niveau d'alerte crue/inondation"
+    )
+
+
+class AirQualityStatus(BaseModel):
+    """Qualité de l'air, indice UV et panaches de poussières/cendres (Open-Meteo Air Quality API)."""
+
+    european_aqi: int = Field(default=20, ge=0, description="Indice européen de qualité de l'air (EAQI)")
+    us_aqi: int = Field(default=25, ge=0, description="Indice américain de qualité de l'air (US AQI)")
+    pm2_5_ugm3: float = Field(default=5.0, ge=0.0, description="Particules fines PM2.5 (µg/m³)")
+    pm10_ugm3: float = Field(default=12.0, ge=0.0, description="Particules PM10 (µg/m³)")
+    uv_index: float = Field(default=3.0, ge=0.0, description="Indice UV")
+    dust_ugm3: float = Field(
+        default=0.0, ge=0.0, description="Concentration de poussières désertiques / cendres volcaniques (µg/m³)"
+    )
+    ash_or_dust_warning: bool = Field(
+        default=False, description="Alerte panache de poussières/cendres (dust >= 100 µg/m³ ou PM10 >= 120 µg/m³)"
+    )
+
+
+class MonitoredZoneConfig(BaseModel):
+    """Configuration persistante d'une zone géographique surveillée (Watchlist SQLite WAL)."""
+
+    id: str = Field(..., description="Identifiant unique de la zone (ex: z0, z5)")
+    name: str = Field(..., min_length=1, max_length=64, description="Nom lisible de la zone ou du port")
+    lat: float = Field(..., ge=-90.0, le=90.0, description="Latitude WGS84")
+    lon: float = Field(..., ge=-180.0, le=180.0, description="Longitude WGS84")
+    utc_offset_s: int = Field(default=0, description="Décalage horaire par rapport à UTC (secondes)")
+    alert_radius_km: float = Field(default=500.0, gt=0.0, le=5000.0, description="Rayon d'alerte géodésique (km)")
+    is_marine: bool = Field(default=False, description="Zone maritime / côtière avec surveillance houle")
+
+
+class MonitoredZoneUpsertRequest(BaseModel):
+    """Requête d'ajout ou de modification d'une zone surveillée (`POST /v1/zones`)."""
+
+    id: Optional[str] = Field(default=None, description="Identifiant optionnel (auto-généré si absent)")
+    name: str = Field(..., min_length=1, max_length=64, description="Nom de la ville, île ou zone maritime")
+    lat: float = Field(..., ge=-90.0, le=90.0, description="Latitude WGS84")
+    lon: float = Field(..., ge=-180.0, le=180.0, description="Longitude WGS84")
+    utc_offset_s: int = Field(default=0, description="Décalage horaire UTC (secondes)")
+    alert_radius_km: float = Field(default=500.0, gt=0.0, le=5000.0, description="Rayon de surveillance (km)")
+    is_marine: bool = Field(default=False, description="Indique s'il s'agit d'une zone maritime")
+
+
+class HistoryResponse(BaseModel):
+    """Réponse paginée de l'historique SQLite WAL des catastrophes mondiales (`GET /v1/history`)."""
+
+    count: int
+    items: list[HazardAlert]
+
+
 class PointResponse(BaseModel):
     """Payload complet pour une coordonnée GPS exacte / Bateau / Tab5 GPS Grove (/v1/point)."""
 
@@ -287,6 +346,12 @@ class PointResponse(BaseModel):
     rain_nowcast: RainNowcast
     marine: Optional[MarineConditions] = Field(
         default=None, description="Conditions marines (présent si marine=true ou device_type=marine)"
+    )
+    flood_risk: Optional[FloodRiskStatus] = Field(
+        default=None, description="Risque hydrologique et débit fluvial GloFAS Copernicus"
+    )
+    air_quality: Optional[AirQualityStatus] = Field(
+        default=None, description="Qualité de l'air, UV et poussières/cendres"
     )
     space_weather: SpaceWeatherStatus
     nearby_hazards: list[HazardAlert] = Field(
