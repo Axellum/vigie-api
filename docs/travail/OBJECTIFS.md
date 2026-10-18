@@ -2,26 +2,32 @@
 
 `maj: 2026-10-18` · Un objectif = une preuve mesurable.
 
-## OA-1 — Agrégation Mondiale Multi-Risques 100 % Automatisée
+## OA-1 — Agrégation Mondiale Multi-Providers & Filet de Sécurité (Circuit Breaker + Fallback)
 **actif** · depuis 2026-10-18
-Collecter en tâche de fond asynchrone (`asyncio`) les flux temps réel des agences de référence mondiale :
-1. **Séismes** : USGS GeoJSON Feed + EMSC WebSocket (temps réel à la seconde).
-2. **Catastrophes Majeures (Volcans, Tsunamis, Cyclones, Inondations)** : GDACS (ONU / Commission Européenne).
-3. **Alertes Marines, Ouragans, Tornades & Tsunamis** : NOAA / NWS / PTWC (CAP / JSON).
-4. **Météo Mondiale, Pluie à 1h, Vent & Prévisions 10j** : Open-Meteo (modèles GFS, ECMWF, ICON, ARPEGE).
-5. **Feux de Forêts & Tempêtes Solaires** : NASA FIRMS + NOAA SWPC (Indice Kp géomagnétique).
-* **Preuve attendue** : `/v1/health` retourne l'état de fraîcheur de chaque collecteur avec 0 blocage si une agence externe est en maintenance.
+Collecter en tâche de fond asynchrone (`asyncio`) et fusionner les flux temps réel des agences de référence mondiale avec continuité de service garantie :
+1. **Séismes (Tri-Providers avec Déduplication)** : `USGS` (GeoJSON) + `EMSC / SeismicPortal` (API REST Europe/Monde) + `GDACS EQ`. Déduplication spatiotemporelle (`|Δt| <= 120s`, distance Haversine `<= 100 km`) et fusion du meilleur score (`sources: ["USGS", "EMSC", "GDACS"]`).
+2. **Catastrophes Majeures (Volcans, Tsunamis, Cyclones/Ouragans, Tornades, Inondations, Feux)** : `GDACS` (`EQ`, `TS`, `VO`, `TC`, `FL`, `WF`) + `NOAA NWS Active Alerts` (CAP/JSON : Tornado, Hurricane, Tsunami, Flash Flood).
+3. **Météo Hyper-Locale par Coordonnées GPS (`lat`, `lon` au centième de degré) & Pluie 15 min** :
+   - Primaire : `Open-Meteo Forecast & Minutely-15` (AROME 1.5 km, HRRR 3 km, ECMWF IFS, ICON-D2, JMA).
+   - Fallback 100 % gratuit mondial : `MET Norway Locationforecast 2.0` (`api.met.no`) prenant automatiquement le relais si Open-Meteo est indisponible.
+   - Radar Pluie Mondial : `RainViewer API` (horodatages et tuiles radar mondiales + nowcast).
+4. **Météo Marine & Océanographie (Mode Bateau / GPS)** : `Open-Meteo Marine API` (`wave_height`, `wave_direction`, `wave_period`, `swell_wave_height`, `ocean_current_velocity`).
+5. **Météo Spatiale (GNSS/GPS & Radio HF en mer)** : `NOAA SWPC` (Indice Kp géomagnétique, tempêtes solaires `G1`–`G5`, risque de dégradation GPS/HF).
+* **Preuve attendue** : `/v1/health` et `/v1/providers` retournent l'état du Circuit Breaker de chaque collecteur ; en cas de panne simulée d'Open-Meteo, `/v1/point` et `/v1/snapshot` basculent automatiquement sur `MET Norway` avec 0 erreur.
 
-## OA-2 — Normalisation & Payload Ultra-Léger pour ESP32-P4
+## OA-2 — Standards Internationaux (OpenAPI 3.1, GeoJSON RFC 7946, OASIS CAP 1.2) & Profil Embarqué `< 12 Ko`
 **actif** · depuis 2026-10-18
-Transformer les Mo de données brutes en un snapshot complet `< 12 Ko` (compatible avec les tampons statiques C++ du socle Waveshare 7B sans fragmentation mémoire).
-* **Preuve attendue** : Temps de sérialisation `< 5 ms`, taille du payload vérifiée par test automatique `< 12 Ko` pour 10 zones mondiales + 25 alertes actives.
+Assurer une interopérabilité mondiale universelle tout en respectant l'enveloppe mémoire stricte de l'ESP32-P4 :
+- `/v1/snapshot` et `/v1/point` : JSON ultra-compact `< 12 Ko` (compatible avec les tampons statiques C++ du socle Waveshare 7B).
+- `/v1/geojson/hazards` : `FeatureCollection` conforme IETF RFC 7946 pour SIG / MapLibre / Leaflet.
+- `/v1/cap/alerts` : Format d'alerte standardisé OASIS CAP 1.2 (`urgency`, `severity`, `certainty`, `category`, `event`, `area`).
+* **Preuve attendue** : Validation par tests automatisés (`pytest`) des schémas et de la taille `< 12 Ko` pour 10 zones mondiales + 25 alertes actives.
 
-## OA-3 — Push Temps Réel (`< 2 s`) & Geofencing Pro
+## OA-3 — Géodésie Marine/Mobile, ETA Tsunami & Push Temps Réel (`< 2 s`)
 **actif** · depuis 2026-10-18
-Dès qu'un événement critique survient (ex. Séisme `M >= 6.0`, Alerte Tsunami, ou événement `ORANGE/ROUGE` à moins de `X km` d'une zone surveillée), calculer la distance orthodromique (formule de Haversine) et pousser l'alerte via WebSocket (`/v1/stream`) à tous les écrans concernés.
-* **Preuve attendue** : Latence entre l'injection d'une alerte test (ex. simulation Séisme M7.2 Tokyo) et la réception sur le client WebSocket `< 500 ms`.
+Pour chaque zone ou position GPS mobile (`lat, lon, sog_knots, cog_deg`), calculer la distance orthodromique (`haversine_km`), le relèvement exact (`initial_bearing_deg` + cardinal `N`, `NE`, `E`...) et l'estimation du temps d'arrivée d'un tsunami (`estimate_tsunami_eta_minutes` à $\approx 713\text{ km/h}$), puis diffuser les alertes via WebSocket (`/v1/stream`).
+* **Preuve attendue** : Vérification mathématique exacte de la géodésie et diffusion WebSocket instantanée lors d'une alerte.
 
-## OA-4 — Simulateur de Crises Mondiales (Mode Démo & Test)
+## OA-4 — Simulateur de Crises Mondiales (`/v1/simulate`)
 **actif** · depuis 2026-10-18
-Fournir un endpoint `/v1/simulate` permettant d'injecter à la demande des scénarios réalistes (Séisme majeur + Tsunami, Éruption volcanique, Ouragan Catégorie 5, Pluie diluvienne locale) afin de tester l'affichage et la sonnerie de l'écran Waveshare 7B et de faire des démonstrations commerciales.
+Fournir un endpoint `POST /v1/simulate` permettant d'injecter à la demande des scénarios réalistes (`mega_tsunami_japan`, `cat5_hurricane_caribbean`, `volcano_eruption_iceland`, `severe_squall_marine`, `clear`) afin de tester l'affichage et la sonnerie de l'écran Waveshare 7B ainsi que les clients SIG/CAP.
