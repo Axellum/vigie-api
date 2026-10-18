@@ -5,15 +5,15 @@
 
 ---
 
-## Lot A1 — Socle FastAPI & Simulateur
-- ✅ `#A01` — lotA1 — **P0** — Créer le dépôt `alerte_mondiale_api`, l'arborescence et les spécifications (`OBJECTIFS`, `PLAN`, `SOURCES_API_MONDIALES`, `CONTRAT_PAYLOAD`).
-- ⏳ `#A02` — lotA1 — **P0** — Implémenter les modèles Pydantic (`app/models/payload.py`) et le serveur FastAPI (`app/main.py`) avec `/v1/health`, `/v1/snapshot` et `/v1/simulate` — dépend `#A01`.
+## Lot A1 — Socle FastAPI, Modèles Standards & Simulateur
+- ✅ `#A01` — lotA1 — **P0** — Créer le dépôt `alerte_mondiale_api`, l'arborescence et les spécifications (`OBJECTIFS`, `PLAN`, `SOURCES_API_MONDIALES`, `CONTRAT_PAYLOAD`, `AUDIT_CONCEPTION_API_MONDIALE`).
+- ✅ `#A02` — lotA1 — **P0** — Implémenter les modèles Pydantic (`app/models/schemas.py`) et le serveur FastAPI (`app/main.py`) avec `/v1/health`, `/v1/providers`, `/v1/point`, `/v1/snapshot`, `/v1/geojson/hazards`, `/v1/cap/alerts` et `/v1/simulate` — dépend `#A01`.
 
-## Lot A2 & A3 — Collecteurs Mondiaux Temps Réel
-- ⏳ `#A03` — lotA2 — **P0** — Coder les collecteurs `usgs.py` (Séismes + flag Tsunami) et `gdacs.py` (Volcans, Ouragans, Tsunamis, Inondations, Feux) avec tests sur flux réels — dépend `#A02`.
-- ⏳ `#A04` — lotA3 — **P0** — Coder le collecteur `open_meteo.py` (météo actuelle, pluie 60 min et prévisions 10 jours multi-zones mondiales) + `swpc_solar.py` (indice Kp) — dépend `#A02`.
-- ⏳ `#A05` — lotA3 — **P1** — Coder le collecteur `noaa_nws.py` (alertes Tornades, Ouragans, Tsunami Warnings) — dépend `#A03`.
+## Lot A2 & A3 — Collecteurs Mondiaux Multi-Providers & Fallback
+- ✅ `#A03` — lotA2 — **P0** — Coder les collecteurs sismiques et catastrophes (`seismic.py` : USGS + EMSC ; `disasters.py` : GDACS + NOAA NWS) avec Circuit Breaker (`base.py`) — dépend `#A02`.
+- ✅ `#A04` — lotA3 — **P0** — Coder les collecteurs météo hyper-locale (`weather.py` : Open-Meteo `minutely_15` + Fallback `MET Norway` + radar `RainViewer`), marine (`marine.py` : Open-Meteo Marine) et météo spatiale (`space_weather.py` : NOAA SWPC Kp) — dépend `#A02`.
 
-## Lot A4 & A5 — Geofencing, Déduplication & Push WebSocket
-- ⏳ `#A06` — lotA4 — **P1** — Implémenter le moteur de calcul géodésique (distance Haversine aux zones surveillées) et la déduplication inter-agences — dépend `#A03`, `#A04`.
-- ⏳ `#A07` — lotA5 — **P1** — Implémenter le hub WebSocket `/v1/stream` pour pousser les alertes `ORANGE`/`ROUGE` en `< 500 ms` vers l'écran Waveshare 7B — dépend `#A06`.
+## Lot A4 & A5 — Géodésie Marine, Déduplication & Push WebSocket
+- ✅ `#A05` — lotA4 — **P0** — Implémenter le moteur géodésique (`app/services/geodesy.py` : Haversine, cap initial/cardinal, ETA tsunami, déduplication tri-providers `USGS+EMSC+GDACS`) et l'orchestrateur (`app/services/aggregator.py`) — dépend `#A03`, `#A04`.
+- ✅ `#A06` — lotA5 — **P0** — Implémenter le hub WebSocket `/v1/stream` et la suite de tests automatisés (`tests/test_api_and_fusion.py`) vérifiant la fusion, le fallback météo et la contrainte `< 12 Ko` — dépend `#A05`.
+- ⏳ `#A07` — lotA5 — **P1** — Ajouter la persistance SQLite WAL d'historisation des catastrophes sur 30 jours et le Dockerfile de déploiement Cloud — dépend `#A06`.

@@ -1,38 +1,36 @@
-# Plan & Historique — Vigie Mondiale API (`alerte_mondiale_api`)
+# Plan & Architecture — Vigie Mondiale API (`alerte_mondiale_api`)
 
-`maj: 2026-10-18` · Plan de développement par lots et historique chronologique.
+`maj: 2026-10-18` · Plan de développement par lots et architecture modulaire.
 
 ---
 
 ## 1. Découpage en Lots (Feuille de Route Backend)
 
-### Lot A1 — Socle FastAPI, Modèles Pydantic & Simulateur de Crises *(Priorité P0)*
-- Mise en place du serveur `app/main.py` (FastAPI + CORS + WebSocket Manager).
-- Implémentation des schémas Pydantic conformes à [`CONTRAT_PAYLOAD.md`](CONTRAT_PAYLOAD.md).
-- Endpoint `/v1/simulate` permettant de générer immédiatement un snapshot complet et des alertes temps réel simulées pour développer l'écran Waveshare 7B en parallèle sans attendre les vraies catastrophes.
+### Lot A1 — Socle FastAPI, Modèles Standards (Compact, GeoJSON, CAP 1.2) & Géodésie *(Priorité P0 — Livré)*
+- Mise en place du serveur `app/main.py` (FastAPI OpenAPI 3.1 + CORS + WebSocket Hub).
+- Implémentation des schémas Pydantic dans `app/models/schemas.py` conformes à [`CONTRAT_PAYLOAD.md`](CONTRAT_PAYLOAD.md) :
+  - Profil Embarqué Waveshare 7B (`SnapshotResponse`, `PointResponse`, `< 12 Ko`).
+  - Standard IETF RFC 7946 (`GeoJSONFeatureCollection`).
+  - Standard OASIS CAP 1.2 (`CAPFeedResponse`, `CAPAlert`, `CAPInfo`, `CAPArea`).
+- Implémentation du moteur géodésique `app/services/geodesy.py` (`haversine_km`, `initial_bearing_deg`, `bearing_to_cardinal`, `estimate_tsunami_eta_minutes`, `deduplicate_hazards`).
 
-### Lot A2 — Collecteurs Temps Réel Sismologie & Multi-Catastrophes (`USGS` + `GDACS`)
-- `app/collectors/usgs.py` : récupération asynchrone des séismes mondiaux (M4.5+ et significatifs) + détection du flag `tsunami`.
-- `app/collectors/gdacs.py` : récupération des alertes ONU/UE (Volcans, Cyclones/Ouragans, Tsunamis, Inondations, Feux).
+### Lot A2 — Collecteurs Sismologie & Catastrophes avec Circuit Breaker *(Priorité P0 — Livré)*
+- `app/collectors/base.py` : Classe de base `BaseCollector` avec Circuit Breaker (`CLOSED`, `OPEN`, `HALF_OPEN`), cache mémoire TTL et métriques de santé (`ProviderHealth`).
+- `app/collectors/seismic.py` : `USGSCollector` (GeoJSON M4.5+ / Significant + PAGER + flag Tsunami) et `EMSCCollector` (SeismicPortal REST API Europe/Monde).
+- `app/collectors/disasters.py` : `GDACSCollector` (`EQ`, `TS`, `VO`, `TC`, `FL`, `WF`) et `NOAANWSCollector` (Alertes actives CAP/GeoJSON : Tornades, Ouragans, Tsunamis, Crues éclair).
 
-### Lot A3 — Collecteur Météo Mondiale Multi-Zones (`Open-Meteo` + `NOAA`)
-- `app/collectors/open_meteo.py` : requête groupée multi-coordonnées pour les 10 zones mondiales configurées (météo actuelle, pluie dans l'heure, prévisions 10 jours, UV, qualité de l'air).
-- `app/collectors/noaa_nws.py` & `swpc_solar.py` : alertes tornades/ouragans/tsunamis NOAA et indice géomagnétique solaire Kp.
+### Lot A3 — Collecteurs Météo GPS Hyper-Locale, Fallback, Radar Pluie, Marine & Solaire *(Priorité P0 — Livré)*
+- `app/collectors/weather.py` :
+  - `OpenMeteoCollector` : prévisions multi-modèles HD (AROME, HRRR, IFS, ICON-D2) + pluie aux 15 minutes (`minutely_15`).
+  - `MetNorwayCollector` : filet de sécurité (fallback automatique 100 % gratuit mondial `api.met.no`).
+  - `RainViewerCollector` : métadonnées et tuiles radar de pluie mondiales + nowcast.
+- `app/collectors/marine.py` : `OpenMeteoMarineCollector` (hauteur/direction/période des vagues, houle primaire, vitesse des courants marins aux coordonnées GPS exactes).
+- `app/collectors/space_weather.py` : `NOAASWPCCollector` (indice Kp planétaire, tempêtes géomagnétiques G1–G5, dégradation GPS/HF).
 
-### Lot A4 — Moteur de Geofencing, Déduplication & Cache SQLite WAL
-- Calcul de distance orthodromique (Haversine) entre chaque alerte mondiale et les zones surveillées par l'écran.
-- Déduplication inter-sources (ex. un même séisme remonté par USGS et GDACS est fusionné en une seule alerte enrichie).
-- Historisation locale SQLite WAL pour l'analyse de tendances et le rejeu.
+### Lot A4 — Orchestrateur Multi-Providers, Geofencing & Simulateur de Crises *(Priorité P0 — Livré)*
+- `app/services/aggregator.py` : Orchestration asynchrone, déduplication inter-agences (`USGS+EMSC+GDACS`), bascule météo automatique `Open-Meteo -> MET Norway`, enrichissement géodésique (distance, cap, ETA tsunami) et injecteur de scénarios `/v1/simulate`.
+- Suite complète de tests unitaires et d'intégration dans `tests/test_api_and_fusion.py`.
 
-### Lot A5 — Diffusion Temps Réel (`WSS /v1/stream`) & Conteneurisation Pro
-- Push WebSocket instantané vers les écrans Waveshare 7B connectés dès qu'une nouvelle alerte `JAUNE`, `ORANGE` ou `ROUGE` apparaît.
-- Packaging Docker / Service autonome prêt pour un déploiement serveur ou Cloud mondial.
-
----
-
-## 2. Historique de Développement
-
-### 📅 2026-10-18 — Initialisation du dépôt `alerte_mondiale_api`
-- Création du dépôt autonome dédié au backend d'agrégation des alertes et de la météo mondiale.
-- Spécification des sources officielles gratuites (`USGS`, `EMSC`, `GDACS`, `NOAA/NWS/PTWC`, `Open-Meteo`, `NASA FIRMS`, `NOAA SWPC`).
-- Définition du contrat de payload unifié (`CONTRAT_PAYLOAD.md`) pensé pour le décodage haute performance sur l'ESP32-P4 de la Waveshare 7B.
+### Lot A5 — Diffusion Temps Réel (`WS /v1/stream`) & Industrialisation *(Priorité P1)*
+- Push WebSocket instantané vers les écrans Waveshare 7B et clients Web connectés lors de l'apparition d'une alerte ou d'une simulation.
+- Persistance historique SQLite WAL et conteneurisation Docker de production.
