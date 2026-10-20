@@ -35,7 +35,7 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | `app/collectors/seismic.py` | USGS and EMSC earthquakes. |
 | `app/collectors/disasters.py` | GDACS and NOAA NWS alerts (the NWS answer is also read as official warnings). |
 | `app/collectors/meteoalarm.py` | MeteoAlarm: the Atom feed of a country and the CAP documents it links to; the level, phenomenon and status tables. |
-| `app/collectors/dwd.py`, `eccc.py`, `metservice.py`, `vigicrues.py` | The national warning services: the DWD (a ZIP of CAP documents, read conditionally), ECCC (MSC GeoMet), MetService (an RSS feed and its CAP documents) and Vigicrues (the GeoJSON flow of river sections); each with its level, phenomenon and status tables. |
+| `app/collectors/dwd.py`, `eccc.py`, `metservice.py`, `vigicrues.py` | The national warning services: the DWD (a ZIP of CAP documents, read conditionally), ECCC (MSC GeoMet), MetService (an RSS feed and its CAP documents) and Vigicrues (the GeoJSON flow of river sections, 2.2 MB, read only when a publication changed it); each with its level, phenomenon and status tables. |
 | `app/collectors/flood_air.py` | River discharge (GloFAS), air quality and dust, USGS volcanoes. |
 | `app/collectors/weather.py` | Open-Meteo (primary), MET Norway (fallback), RainViewer (radar). |
 | `app/collectors/marine.py`, `space_weather.py` | Open-Meteo Marine, NOAA SWPC Kp index. |

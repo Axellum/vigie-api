@@ -37,7 +37,7 @@ from app.collectors.flood_air import (
 )
 from app.collectors.marine import OpenMeteoMarineCollector
 from app.collectors.meteoalarm import MeteoAlarmCapCollector, MeteoAlarmCollector
-from app.collectors.metservice import MetServiceCollector
+from app.collectors.metservice import MetServiceCollector, metservice_enabled_from_env
 from app.collectors.seismic import EMSCCollector, USGSCollector
 from app.collectors.space_weather import NOAASWPCCollector
 from app.collectors.vigicrues import VigicruesCollector
@@ -136,6 +136,7 @@ class AggregatorService:
         storage: Optional[SQLiteWALStorage] = None,
         db_path: Optional[str | Path] = None,
         rainviewer_enabled: Optional[bool] = None,
+        metservice_enabled: Optional[bool] = None,
         meteoalarm: Optional[MeteoAlarmCollector] = None,
         meteoalarm_cap: Optional[MeteoAlarmCapCollector] = None,
         dwd: Optional[DWDCollector] = None,
@@ -148,6 +149,8 @@ class AggregatorService:
         self.started_at_utc = int(time.time())
         # RainViewer is on unless VIGIE_ENABLE_RAINVIEWER turns it off (see ``rainviewer_enabled_from_env``).
         self.rainviewer_enabled = rainviewer_enabled_from_env() if rainviewer_enabled is None else rainviewer_enabled
+        # MetService is on unless VIGIE_ENABLE_METSERVICE turns it off (see ``metservice_enabled_from_env``).
+        self.metservice_enabled = metservice_enabled_from_env() if metservice_enabled is None else metservice_enabled
         self.usgs = usgs or USGSCollector()
         self.emsc = emsc or EMSCCollector()
         self.gdacs = gdacs or GDACSCollector()
@@ -187,7 +190,7 @@ class AggregatorService:
             watched_zones=lambda: self.monitored_zones,
             dwd=self.dwd,
             eccc=self.eccc,
-            metservice=self.metservice,
+            metservice=self.metservice if self.metservice_enabled else None,
             vigicrues=self.vigicrues,
         )
 
@@ -245,7 +248,8 @@ class AggregatorService:
             self.metservice,
             self.vigicrues,
         ]
-        return collectors if self.rainviewer_enabled else [c for c in collectors if c is not self.rainviewer]
+        off = [c for c, enabled in ((self.rainviewer, self.rainviewer_enabled), (self.metservice, self.metservice_enabled)) if not enabled]
+        return [c for c in collectors if c not in off]
 
     def get_providers_health(self) -> list[ProviderHealth]:
         """Return the detailed health of each collector."""

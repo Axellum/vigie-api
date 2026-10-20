@@ -46,7 +46,8 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
   fait).
 - MetService (Nouvelle-Zélande) publie ses vigilances sous licence CC BY 4.0 et avec un code de bonne pratique, mais les
   conditions du site auxquelles il renvoie n'autorisent qu'un usage personnel et interdisent la rediffusion. Aucun
-  souci pour une maison ; demandez à MetService avant de relayer ses vigilances à d'autres personnes
+  souci pour une maison ; demandez à MetService avant de relayer ses vigilances à d'autres personnes, ou désactivez-la
+  sur une instance qui en sert (`VIGIE_ENABLE_METSERVICE=0` ; activée par défaut, l'image Docker la garde activée)
   ([`SOURCES.md`](SOURCES.md)).
 
 ## Points d'accès
@@ -168,7 +169,8 @@ finement.
   point est suivi pour la première fois.
 - **Peu de requêtes.** Seules les sources des pays nécessaires sont interrogées (le pays d'un point se trouve hors
   ligne), chacune gardée aussi longtemps que son rythme le permet (MeteoAlarm 180 s, DWD 120 s avec une requête
-  conditionnelle, ECCC et MetService 300 s, Vigicrues 30 minutes) ; un document CAP, qui contient les mots de
+  conditionnelle, ECCC et MetService 300 s, Vigicrues un coup d'œil à une image de 330 octets toutes les 15 minutes et
+  le flux de 2,2 Mo seulement quand il a changé) ; un document CAP, qui contient les mots de
   l'émetteur, n'est demandé qu'une fois et seulement pour une vigilance qu'une réponse renvoie ; le NWS n'a besoin
   d'aucune requête propre. Voir « Appels aux sources » plus bas.
 - La trame embarquée des écrans **ne change pas**.
@@ -209,6 +211,7 @@ Tous les réglages sont des variables d'environnement facultatives.
 | `VIGIE_SCHEDULER` | `0` | `1` démarre le planificateur en arrière-plan (rafraîchissement toutes les 90 s, envoi par WebSocket). |
 | `VIGIE_ENABLE_SIMULATION` | `0` | `1` active `POST /v1/simulate` (et les boutons du tableau de bord). La route n'a pas d'authentification et écrit les alertes simulées dans l'historique des dangers : ne l'activez que sur une instance que seuls des clients de confiance peuvent atteindre. |
 | `VIGIE_ENABLE_RAINVIEWER` | `1` ; `0` dans l'image Docker | `0` cesse d'interroger RainViewer (les champs radar de `/v1/point` restent inconnus). Son API gratuite est réservée à un usage personnel et pédagogique : mettez `0` sur une instance qui sert d'autres personnes. |
+| `VIGIE_ENABLE_METSERVICE` | `1` (aussi dans l'image Docker) | `0` cesse d'interroger MetService (Nouvelle-Zélande) : une position là-bas n'a alors aucune source, et la réponse dit que la source est désactivée. Son flux indique CC BY 4.0 mais les conditions du site auxquelles il renvoie n'autorisent qu'un usage personnel et interdisent la rediffusion, et on n'a pas vérifié laquelle prévaut : mettez `0` sur une instance qui sert d'autres personnes, sauf accord de MetService. |
 | `VIGIE_CONTACT` | aucune | Adresse e-mail ou URL ajoutée au `User-Agent` envoyé aux sources. MET Norway et NOAA exigent un contact identifiable : renseignez-la. |
 | `VIGIE_CAP_SENDER` | `vigie-api` | `sender` des alertes CAP. |
 | `VIGIE_GRID_FORECAST_DEG` | `0.05` | Grille (en degrés, environ 5 km) sur laquelle la position est arrondie avant d'interroger la prévision Open-Meteo et MET Norway. |
@@ -249,7 +252,8 @@ que reçoit chaque source :
 | Volcans USGS | 212 | 144 |
 | Flux MeteoAlarm (France et Islande : les pays de deux des cinq zones) | sans objet | 640 |
 | Documents CAP de MeteoAlarm | sans objet | 0 |
-| Flux Vigicrues (Paris est en France ; 2,2 Mo chacun ; 138 tant qu'un tronçon est en orange, 46 un jour calme) | sans objet | 138 |
+| Vigicrues (Paris est en France) : lectures du flux, 2,2 Mo chacune, seulement quand une publication l'a changé (c'était 138, 310 Mo, tant qu'un tronçon est en orange ; 46, 103 Mo, un jour calme) | sans objet | 4 (9,1 Mo) |
+| Vigicrues : coups d'œil à l'image de la publication, environ 330 octets chacun (un tronçon en orange : toutes les 5 minutes ; calme : 15) | sans objet | 240 (88 un jour calme) |
 | DWD, ECCC, MetService (aucune zone en Allemagne, au Canada ni en Nouvelle-Zélande) | sans objet | 0 |
 
 « Avant » est `main` au commit 1864e25 (même simulation, mesurée une fois) ; « après » est ce code. L'heure
@@ -268,8 +272,18 @@ réponses coûtent 320 requêtes de flux (80 par pays) et 4 documents CAP.
 Une zone, un point suivi ou un client en **Allemagne** coûte 480 requêtes par jour au DWD (479 d'entre elles en
 `304`, quelques centaines d'octets) et plus le flux MeteoAlarm allemand (320 par jour) ; au **Canada**, 240 à ECCC
 (31 Ko chacune avec gzip) ; en **Nouvelle-Zélande**, 240 à MetService (239 en `304`). Quel que soit le nombre de
-lecteurs des vigilances, une source n'est interrogée qu'une fois par durée de cache au plus (720, 288, 288 et 144
-par jour pour le DWD, ECCC, MetService et Vigicrues). `tests/test_national_sobriety.py` joue ces journées.
+lecteurs des vigilances, une source n'est interrogée qu'une fois par durée de cache au plus (720, 288, 288 et 288
+par jour pour le DWD, ECCC, MetService et Vigicrues, dont les requêtes sont des coups d'œil de 330 octets à une
+image). `tests/test_national_sobriety.py` joue ces journées.
+
+**Vigicrues** est la source lourde : son flux pèse 2,2 Mo, n'est pas compressé, n'a pas de validateur, ignore
+`Range` et n'accepte aucun filtre, et aucun point d'accès plus léger ne porte le niveau. Le collecteur demande donc
+(`HEAD`) l'image de la carte nationale que la même publication régénère, toutes les 15 minutes (5 tant qu'un tronçon
+est orange ou rouge), et ne lit le flux que si l'image a changé, et au plus tard après 12 heures. Sur la journée
+simulée des cinq zones par défaut, cela fait 4 lectures et 9,1 Mo (9,0 Mo un jour calme ; 6,8 Mo par jour une fois
+lancé : les deux publications, à 10 h et à 16 h, et une lecture de sécurité) contre 138 lectures et 310 Mo (46 et
+103 Mo en jour calme) avant. Une crue publiée à 16 h est servie au coup d'œil suivant : 16,5 minutes plus tard au
+plus quand c'est calme, 6 en crue. [`docs/data-sources.md`](docs/data-sources.md) donne les mesures.
 
 ### Lancer sous Windows (un PC qui alimente l'écran)
 

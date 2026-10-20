@@ -40,7 +40,8 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
   its data to others (`VIGIE_ENABLE_RAINVIEWER=0`; the Docker image does).
 - MetService (New Zealand) publishes its warnings as CC BY 4.0 under a Code of Practice, but the website terms it points
   to allow personal use only and forbid resupply. Fine for one home; ask MetService before relaying its warnings to
-  other people ([`SOURCES.md`](SOURCES.md)).
+  other people, or turn it off on an instance that serves them (`VIGIE_ENABLE_METSERVICE=0`; on by default, the Docker
+  image keeps it on) ([`SOURCES.md`](SOURCES.md)).
 
 ## Endpoints
 
@@ -157,7 +158,8 @@ section says it, finer.
   every client. Nothing is pushed for what was already there when a point is first followed.
 - **Few requests.** Only the sources of the countries that are needed are asked (the country of a point is found
   offline), each cached as long as its rhythm allows (MeteoAlarm 180 s, DWD 120 s and asked conditionally, ECCC and
-  MetService 300 s, Vigicrues 30 minutes); a CAP document, which holds the issuer's words, is asked once and only for a
+  MetService 300 s, Vigicrues a look at a 330-byte image every 15 minutes and the 2.2 MB flow only when it changed);
+  a CAP document, which holds the issuer's words, is asked once and only for a
   warning that an answer returns; the NWS needs no request of its own. See "Calls to the providers" below.
 - The embedded frame of the displays does **not** change.
 
@@ -197,6 +199,7 @@ All settings are optional environment variables.
 | `VIGIE_SCHEDULER` | `0` | `1` starts the background scheduler (refresh every 90 s, WebSocket push). |
 | `VIGIE_ENABLE_SIMULATION` | `0` | `1` enables `POST /v1/simulate` (and the dashboard buttons). The route has no authentication and writes the simulated alerts into the hazard history: enable it only on an instance that trusted clients alone can reach. |
 | `VIGIE_ENABLE_RAINVIEWER` | `1`; `0` in the Docker image | `0` stops asking RainViewer (the radar fields of `/v1/point` stay unknown). Its free API is for personal and educational use: set `0` on an instance that serves other people. |
+| `VIGIE_ENABLE_METSERVICE` | `1` (also in the Docker image) | `0` stops asking MetService (New Zealand): a position there then gets no source, and the answer says it is turned off. Its feed says CC BY 4.0 but the website terms it points to allow personal use only and forbid resupply, and which one governs is not verified: set `0` on an instance that serves other people unless MetService agrees. |
 | `VIGIE_CONTACT` | none | E-mail address or URL added to the `User-Agent` sent to the providers. MET Norway and NOAA require an identifying contact: set it. |
 | `VIGIE_CAP_SENDER` | `vigie-api` | `sender` of the CAP alerts. |
 | `VIGIE_GRID_FORECAST_DEG` | `0.05` | Grid (degrees, about 5 km) the position is snapped to before the Open-Meteo forecast and MET Norway are asked. |
@@ -236,7 +239,8 @@ upstream, and counts the requests each source receives:
 | USGS volcanoes | 212 | 144 |
 | MeteoAlarm feeds (France and Iceland: the countries of two of the five zones) | n/a | 640 |
 | MeteoAlarm CAP documents | n/a | 0 |
-| Vigicrues flow (Paris is in France; 2.2 MB each; 138 while a section is orange, 46 on a calm day) | n/a | 138 |
+| Vigicrues (Paris is in France): reads of the flow, 2.2 MB each, only when a publication changed it (was 138, 310 MB, while a section is orange; 46, 103 MB, on a calm day) | n/a | 4 (9.1 MB) |
+| Vigicrues: looks at the publication image, about 330 bytes each (a section orange: every 5 minutes; calm: 15) | n/a | 240 (88 on a calm day) |
 | DWD, ECCC, MetService (no zone in Germany, Canada or New Zealand) | n/a | 0 |
 
 "Before" is `main` at commit 1864e25 (same simulation, measured once); "after" is this code. The
@@ -255,8 +259,17 @@ which the same simulated day confirms (705 calls with or without the warnings).
 A zone, a followed point or a client in **Germany** costs the DWD 480 requests a day (479 of them `304`, a few
 hundred bytes) and no longer the German MeteoAlarm feed (320 a day); in **Canada** ECCC 240 (31 KB each with
 gzip); in **New Zealand** MetService 240 (239 `304`). However many people read the warnings, a source is asked at
-most once per cache lifetime (720, 288, 288 and 144 a day for DWD, ECCC, MetService and Vigicrues).
-`tests/test_national_sobriety.py` plays these days.
+most once per cache lifetime (720, 288, 288 and 288 a day for DWD, ECCC, MetService and Vigicrues, whose requests are
+330-byte looks at an image). `tests/test_national_sobriety.py` plays these days.
+
+**Vigicrues** is the heavy one: its flow weighs 2.2 MB, is not compressed, has no validator, ignores `Range` and takes
+no filter, and no lighter endpoint carries the level. So the collector asks (`HEAD`) the national map image that the
+same publication regenerates, every 15 minutes (5 while a section is orange or red), and reads the flow only when the
+image changed, and at the latest after 12 hours. On the simulated day of the five default zones that is 4 reads and
+9.1 MB (9.0 MB on a calm day; 6.8 MB a day once started: the two publications, at 10 a.m. and 4 p.m., and one safety
+read) against 138 reads and 310 MB (46 and 103 MB calm) before. A flood published at 4 p.m. is served at the next
+look: 16.5 minutes later at most when calm, 6 in a flood (`test_a_flood_published_in_the_afternoon_is_served_within_one_look_and_nothing_is_lost`).
+[`docs/data-sources.md`](docs/data-sources.md) has the measures.
 
 ### Run on Windows (a PC that serves the display)
 

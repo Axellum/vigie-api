@@ -7,6 +7,19 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **Vigicrues is read at its publications, not on a timer: 310 MB a day become 9 MB.** The flow is 2.2 MB, not
+  compressed, without `ETag` or `Last-Modified`, ignores `Range` and takes no filter, and no lighter endpoint carries the
+  level (measured on 2026-10-20). The collector now asks, with a `HEAD` of about 330 bytes, the national map image that
+  the same publication regenerates (`Last-Modified` 21 seconds after the flow), every 15 minutes (5 while a section is
+  orange or red), and reads the flow only when the image changed, or after 12 hours. On the simulated day of the five
+  default zones: 4 reads and 9.1 MB while a section is orange (before: 138 reads, 310 MB), 4 reads and 9.0 MB on a calm
+  day (before: 46 reads, 103 MB); 3 reads and 6.8 MB once started. A flood published at 4 p.m. is served at the next look
+  (16.5 minutes at most when calm, 6 in a flood). The image is an inference from the site, not a contract: the weekly check fails if it has no
+  validator or no longer follows the flow, and without a usable image the flow is read every hour (20 minutes in a flood).
+- **`VIGIE_ENABLE_METSERVICE`** (default on, also in the Docker image): `0` stops asking MetService. Its feed says CC BY
+  4.0 under a Code of Practice, but the website terms it points to allow personal use only and forbid resupply, and
+  which one governs is not verified: a public instance can switch it off. A position in New Zealand then gets no source
+  and the answer says why; the source is no longer in `GET /v1/providers`.
 - **Push of the official warnings, source by source.** A source of a followed position that does not answer no longer
   silences the others (before, the whole position was left as it was): what it had said stands and ends nothing; a
   source that answers for the first time after the baseline sets its own baseline. The credit of an answer names only
@@ -145,8 +158,9 @@ All notable changes to this project are documented here. The format follows
   ECCC's usage-policy line of 86,400 requests a day is in the quotas. Canada and New Zealand are added to the bundled
   borders (196 to 335 KiB). `tests/test_national_sobriety.py` counts the requests of a simulated day.
 - **Vigicrues, the river flood vigilance of France** (`vigicrues_flow`). One request reads the colour (yellow,
-  orange, red) of the 337 sections of river (Licence Ouverte 2.0, credit and date of the last update in the warning),
-  cached 30 minutes, 10 while a section is orange or red; the flow offers no validator and weighs 2.2 MB. A section
+  orange, red) of the 337 sections of river (Licence Ouverte 2.0, credit and date of the last update in the warning);
+  the flow offers no validator, is not compressed and weighs 2.2 MB, so it is read on its publications only (see
+  "Vigicrues is read at its publications" below). A section
   is a **line**: `GET /v1/vigilances` has a `river_radius_km` (5 km by default, 50 at most) and returns the
   `distance_km` of each section it matches. A MeteoAlarm "Flooding" warning of a département is left out of an answer
   when a Vigicrues section of the same answer crosses it at the same level or higher ("Rain-flood" always stays),

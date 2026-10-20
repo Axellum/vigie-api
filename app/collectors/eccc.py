@@ -10,7 +10,7 @@ day, office and hour), and through MSC GeoMet, the OGC API - Features collection
 forbids requesting directory listings to see whether new data has arrived ("the AMQPS notification service must be
 used") and reserves ``curl`` / ``wget`` for ad hoc retrieval ("for systematic data retrieval, the AMQPS service must be
 used"). Finding the new CAP files of the Datamart without listing its directories is not possible, and an AMQPS client
-is a new dependency and a connection that stays open: that is a decision for the owner (see ``docs/data-sources.md``).
+is a new dependency and a connection that stays open: the owner decided on 2026-10-20 to stay on GeoMet (see ``docs/decisions/0003``).
 GeoMet has no such rule: one request lists every alert in force in Canada, and the usage limit is 86,400 requests a day.
 
 What GeoMet gives is a flattened form of the same alerts: the words of the issuer in English and French

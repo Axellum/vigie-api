@@ -97,6 +97,10 @@ NO_SOURCE_NOTE = (
     "No official warning source covers this point (MeteoAlarm: 39 European countries; DWD: Germany; ECCC: Canada; "
     "MetService: New Zealand; NWS: the United States)."
 )
+METSERVICE_OFF_NOTE = (
+    "MetService (New Zealand) is turned off on this instance (VIGIE_ENABLE_METSERVICE=0): its terms of use are not settled "
+    "for an instance that relays the warnings to others (SOURCES.md), so no source answers for this point."
+)
 ECCC_NOTE = (
     "Read from MSC GeoMet (the Datamart CAP files cannot be polled, see docs/data-sources.md): the CAP instruction and "
     "sender are not in that form, so `instruction` and `issuer` are empty."
@@ -522,7 +526,7 @@ class VigilanceService:
                     break
         note = None
         if not sources:
-            note = NO_SOURCE_NOTE
+            note = METSERVICE_OFF_NOTE if "NZ" in countries and self.metservice is None else NO_SOURCE_NOTE
         return VigilancesResponse(
             server_utc=int(clock.wall()),
             query=query,

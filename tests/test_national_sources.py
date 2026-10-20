@@ -193,6 +193,20 @@ async def test_new_zealand_on_a_day_without_warning(service: VigilanceService) -
 
 
 @pytest.mark.asyncio
+async def test_with_metservice_turned_off_new_zealand_has_no_source_and_the_answer_says_why(upstream: Upstream, sim_clock: SimClock) -> None:
+    sim_clock.advance(samples.NATIONAL_RECORDED_AT - SimClock.EPOCH)
+    service = make_service(upstream, national=True, metservice=False)
+    response = await service.for_point(*samples.WELLINGTON)
+    assert response.countries == ["NZ"] and response.vigilances == [] and response.coverage == []
+    assert response.note is not None and "VIGIE_ENABLE_METSERVICE=0" in response.note
+    assert response.attribution is None  # nothing answered: nothing credited
+    assert (await service.for_country("NZ")).note == response.note
+    assert upstream.metservice_provider.count == 0  # MetService was never asked
+    # The other national sources are not touched by the switch.
+    assert [c.source for c in (await service.for_point(*samples.BERLIN)).coverage] == ["dwd"]
+
+
+@pytest.mark.asyncio
 async def test_a_synthetic_orange_warning_in_new_zealand_reaches_a_point_inside_its_polygon(upstream: Upstream, sim_clock: SimClock) -> None:
     """SYNTHETIC feed and document (see tests/test_metservice.py): the reading of what MetService will publish."""
     sim_clock.advance(1_792_537_000 - SimClock.EPOCH)  # inside the synthetic warning (2026-10-20 22:56 UTC)
@@ -372,7 +386,8 @@ async def test_the_scheduler_refreshes_the_national_service_of_a_followed_point_
 async def test_the_scheduler_refreshes_both_french_sources(service: VigilanceService, upstream: Upstream) -> None:
     point = FollowedPoint(key="p", lat=samples.PARIS[0], lon=samples.PARIS[1], label={}, audience="followers")
     await service.refresh([point])
-    assert upstream.feed_requests == ["france"] and upstream.vigicrues_provider.count == 1
+    assert upstream.feed_requests == ["france"]
+    assert [r.method for r in upstream.vigicrues_provider.requests] == ["HEAD", "GET"]  # a look at the image, then the flow once
 
 
 # ---------------------------------------------------------------- the pushes

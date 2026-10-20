@@ -1,16 +1,17 @@
-"""The Vigicrues collector: the recorded flow of 2026-10-20, the level table, the lines, and the cadence.
+"""The Vigicrues collector: the recorded flow of 2026-10-20, the level table, the lines, and the requests.
 
 The recorded answer is real (``tests/fixtures/vigicrues/InfoVigiCru_subset.geojson``): the 19 sections that were above
 green that day (17 yellow, 2 orange: the Vistre and the Vidourle) and 12 green ones, re-serialized from the 337 of the
-full flow (the weight of the real answer, 2.2 MB, is not kept in the repository). The flows built here are **synthetic**:
-the recorded one with a level changed, to reach the days when no section is above green or one is red.
+full flow (the weight of the real answer, 2.2 MB, is not kept in the repository). So is the head of the national map image
+(``img_france.headers.txt``), which the collector asks instead of the flow to know whether a publication happened. The flows
+built here are **synthetic**: the recorded one with a level changed, to reach the days when no section is above green or one
+is red; and the publications that follow the recorded one (a new image stamp, a new flow) are simulated too.
 """
 
 from __future__ import annotations
 
-import copy
 import json
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 import pytest
@@ -182,79 +183,244 @@ def test_a_flow_beyond_any_size_it_ever_had_is_refused(monkeypatch: pytest.Monke
 
 # ---------------------------------------------------------------- the requests
 
+FLOW = vigicrues.FLOW_URL
+IMAGE = vigicrues.SIGNAL_URL
+HOUR = 3600
 
-def flow_server(payload: dict[str, Any]) -> Provider:
-    """Vigicrues as recorded: the whole flow, no ETag, no Last-Modified, ``Cache-Control: max-age=120``."""
-    body = json.dumps(payload).encode()
-    return Provider(answer=lambda request: httpx.Response(200, content=body, headers={"Cache-Control": "max-age=120"}), latency_ticks=0)
+
+def recorded_image_headers() -> dict[str, str]:
+    """The ``Last-Modified`` and ``ETag`` the image sent on 2026-10-20 (13:35 UTC), as recorded."""
+    lines = samples.national_fixture("vigicrues", "img_france.headers.txt").decode().splitlines()
+    headers = dict(line.split(": ", 1) for line in lines[1:] if ": " in line)
+    return {"Last-Modified": headers["Last-Modified"], "ETag": headers["ETag"]}
+
+
+class FakeVigicrues:
+    """Vigicrues as recorded: the whole flow without validator (a ``GET``), and the map image with its validators (a ``HEAD``).
+
+    ``publish`` is a new publication: a new flow, and the image regenerated (a new ``Last-Modified``). Setting ``image`` to
+    ``None`` makes the image disappear (404), to ``{}`` makes it answer without validator.
+    """
+
+    def __init__(self, payload: dict[str, Any]) -> None:
+        self.payload = payload
+        self.image: Optional[dict[str, str]] = recorded_image_headers()
+        self.flow_late = False  # the image moves with a publication, the flow follows later
+        self.down = False
+        self.provider = Provider(answer=self.answer, latency_ticks=0)
+        self.publications = 0
+
+    def answer(self, request: httpx.Request) -> httpx.Response:
+        if self.down:
+            return httpx.Response(503)
+        url = str(request.url)
+        if url == IMAGE:
+            assert request.method == "HEAD"
+            return httpx.Response(404) if self.image is None else httpx.Response(200, headers=self.image)
+        assert url == FLOW and request.method == "GET"
+        body = json.dumps(self.payload).encode()
+        return httpx.Response(200, content=body, headers={"Cache-Control": "max-age=120"})
+
+    def publish(self, payload: Optional[dict[str, Any]] = None, *, reference: str = "", updated: str = "") -> None:
+        """A new publication: the image gets a new stamp; the flow gets new levels and a new reference unless it is late."""
+        self.publications += 1
+        self.image = {"Last-Modified": f"Tue, 20 Oct 2026 13:55:{self.publications:02d} GMT", "ETag": f'"2f637-{self.publications}"'}
+        if not self.flow_late:
+            self.payload = payload or self.payload
+            self.payload["RefInfoVigiCru"] = reference or f"20102026_{16 + self.publications}"
+            self.payload["DtHrInfoVigiCru"] = updated or f"2026-10-20T13:55:{self.publications:02d}+00:00"
+
+    def methods(self) -> list[str]:
+        return [f"{r.method} {'image' if str(r.url) == IMAGE else 'flow'}" for r in self.provider.requests]
 
 
 @pytest.mark.asyncio
-async def test_with_a_section_orange_the_flow_is_kept_ten_minutes(sim_clock: SimClock) -> None:
-    provider = flow_server(recorded_payload())
-    collector = VigicruesCollector(http_client=provider.client())
+async def test_the_first_look_asks_the_image_then_reads_the_flow_once(sim_clock: SimClock) -> None:
+    server = FakeVigicrues(recorded_payload())
+    collector = VigicruesCollector(http_client=server.provider.client())
 
     flow = (await collector.fetch_flow()).value
-    assert len(flow.vigilances) == 19 and provider.count == 1
-    assert str(provider.requests[0].url) == "https://www.vigicrues.gouv.fr/services/InfoVigiCru.geojson"
-    assert "If-None-Match" not in provider.requests[0].headers and "If-Modified-Since" not in provider.requests[0].headers
-
-    sim_clock.advance(599)
-    await collector.fetch_flow()
-    assert provider.count == 1
-    sim_clock.advance(2)
-    await collector.fetch_flow()
-    assert provider.count == 2
+    assert len(flow.vigilances) == 19
+    assert server.methods() == ["HEAD image", "GET flow"]
+    assert str(server.provider.requests[1].url) == "https://www.vigicrues.gouv.fr/services/InfoVigiCru.geojson"
+    assert "If-None-Match" not in server.provider.requests[1].headers  # the flow has no validator: none is sent
 
 
 @pytest.mark.asyncio
-async def test_with_only_yellow_sections_the_flow_is_kept_half_an_hour(sim_clock: SimClock) -> None:
-    payload = recorded_payload()
-    for feature in payload["features"]:
-        feature["properties"]["NivInfViCr"] = min(feature["properties"]["NivInfViCr"], 2)  # no orange left
-    provider = flow_server(payload)
-    collector = VigicruesCollector(http_client=provider.client())
+async def test_while_nothing_is_published_only_the_image_is_asked_and_the_flow_is_kept(sim_clock: SimClock) -> None:
+    server = FakeVigicrues(recorded_payload())  # two orange sections: a look every five minutes
+    collector = VigicruesCollector(http_client=server.provider.client())
+    first = (await collector.fetch_flow()).value
+
+    sim_clock.advance(299)
     await collector.fetch_flow()
-    sim_clock.advance(1799)
-    await collector.fetch_flow()
-    assert provider.count == 1
+    assert server.provider.count == 2  # still fresh
     sim_clock.advance(2)
-    await collector.fetch_flow()
-    assert provider.count == 2
+    again = (await collector.fetch_flow()).value
+    assert server.methods() == ["HEAD image", "GET flow", "HEAD image"]
+    assert again is first  # the very same flow: nothing was read again
 
 
 @pytest.mark.asyncio
-async def test_a_calm_day_is_kept_half_an_hour_and_a_flood_that_arrives_shortens_it(sim_clock: SimClock) -> None:
-    served = {"payload": with_levels(1)}
-    provider = Provider(answer=lambda request: httpx.Response(200, content=json.dumps(served["payload"]).encode()), latency_ticks=0)
-    collector = VigicruesCollector(http_client=provider.client())
+async def test_on_a_calm_day_the_image_is_asked_every_quarter_of_an_hour(sim_clock: SimClock) -> None:
+    server = FakeVigicrues(with_levels(1))
+    collector = VigicruesCollector(http_client=server.provider.client())
+    await collector.fetch_flow()
+    sim_clock.advance(899)
+    await collector.fetch_flow()
+    assert server.provider.count == 2
+    sim_clock.advance(2)
+    await collector.fetch_flow()
+    assert server.methods() == ["HEAD image", "GET flow", "HEAD image"]
+
+
+@pytest.mark.asyncio
+async def test_a_publication_is_noticed_at_the_next_look_and_the_flow_is_read_again(sim_clock: SimClock) -> None:
+    server = FakeVigicrues(with_levels(1))
+    collector = VigicruesCollector(http_client=server.provider.client())
     assert (await collector.fetch_flow()).value.vigilances == ()
-    served["payload"] = calm_but("GA32", 3)
-    sim_clock.advance(1801)
-    assert len((await collector.fetch_flow()).value.vigilances) == 1 and provider.count == 2
-    sim_clock.advance(601)  # now an orange section: the next look is ten minutes later
+
+    server.publish(calm_but("GA32", 3))  # a flood: the Vistre turns orange
+    sim_clock.advance(901)
+    flow = (await collector.fetch_flow()).value
+    assert [v.id for v in flow.vigilances] == ["vigicrues:GA32"]  # nothing lost: the new level is served at the next look
+    assert server.methods() == ["HEAD image", "GET flow", "HEAD image", "GET flow"]
+
+    sim_clock.advance(301)  # a section is orange now: the next look is five minutes later, and nothing moved
     await collector.fetch_flow()
-    assert provider.count == 3
+    assert server.methods()[-1] == "HEAD image" and server.provider.count == 5
+
+
+@pytest.mark.asyncio
+async def test_the_flow_is_read_again_at_the_safety_age_whatever_the_image_says(sim_clock: SimClock) -> None:
+    calm = FakeVigicrues(with_levels(1))
+    collector = VigicruesCollector(http_client=calm.provider.client())
+    await collector.fetch_flow()
+    for _ in range(47):  # 11 h 45 min of quarter-hours: the image never moved
+        sim_clock.advance(901)
+        await collector.fetch_flow()
+    assert calm.methods().count("GET flow") == 1
+    sim_clock.advance(901 * 2)  # past 12 hours
+    await collector.fetch_flow()
+    assert calm.methods().count("GET flow") == 2
+
+    flood = FakeVigicrues(recorded_payload())  # two orange sections: a look every five minutes, the same safety
+    collector = VigicruesCollector(http_client=flood.provider.client())
+    await collector.fetch_flow()
+    for _ in range(143):  # 11 h 55 min of five-minute looks
+        sim_clock.advance(301)
+        await collector.fetch_flow()
+    assert flood.methods().count("GET flow") == 1
+    sim_clock.advance(301 * 2)  # past 12 hours
+    await collector.fetch_flow()
+    assert flood.methods().count("GET flow") == 2
+
+
+@pytest.mark.asyncio
+async def test_a_flow_that_comes_after_its_image_is_asked_again_up_to_three_times(sim_clock: SimClock) -> None:
+    server = FakeVigicrues(recorded_payload())
+    collector = VigicruesCollector(http_client=server.provider.client())
+    await collector.fetch_flow()
+    server.flow_late = True
+    server.publish()  # the image moved, the flow is still the old one
+    reads = []
+    for _ in range(5):
+        sim_clock.advance(301)
+        await collector.fetch_flow()
+        reads.append(server.methods().count("GET flow"))
+    assert reads == [2, 3, 4, 5, 5]  # the change and three tries read the flow, then the image is believed: back to looking at it only
+    # ...and had the flow come after the second try, it would have been read.
+    server2 = FakeVigicrues(with_levels(1))
+    collector2 = VigicruesCollector(http_client=server2.provider.client())
+    await collector2.fetch_flow()
+    server2.flow_late = True
+    server2.publish()
+    sim_clock.advance(901)
+    await collector2.fetch_flow()  # too early: the same flow
+    server2.flow_late = False
+    server2.payload = calm_but("GA32", 3)
+    server2.publish(server2.payload)
+    sim_clock.advance(901)
+    assert [v.id for v in (await collector2.fetch_flow()).value.vigilances] == ["vigicrues:GA32"]
+
+
+@pytest.mark.asyncio
+async def test_a_flow_that_is_late_is_read_even_if_the_image_goes_back_to_a_value_seen_before(sim_clock: SimClock) -> None:
+    server = FakeVigicrues(with_levels(1))
+    collector = VigicruesCollector(http_client=server.provider.client())
+    await collector.fetch_flow()
+    first_image = dict(server.image or {})
+    server.flow_late = True
+    server.publish()  # the image moved, the flow did not
+    sim_clock.advance(901)
+    await collector.fetch_flow()
+    server.image = first_image  # and the image is the very one of the first read again, with a flow that did change
+    server.flow_late = False
+    server.payload = calm_but("GA32", 3)
+    server.payload["RefInfoVigiCru"], server.payload["DtHrInfoVigiCru"] = "20102026_18", "2026-10-20T15:55:00+00:00"
+    sim_clock.advance(901)
+    assert [v.id for v in (await collector.fetch_flow()).value.vigilances] == ["vigicrues:GA32"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("image", [None, {}], ids=["image gone", "image without validator"])
+async def test_without_a_usable_image_the_flow_itself_is_read_every_hour_or_twenty_minutes(sim_clock: SimClock, image: Optional[dict[str, str]]) -> None:
+    calm = FakeVigicrues(with_levels(1))
+    calm.image = image
+    collector = VigicruesCollector(http_client=calm.provider.client())
+    await collector.fetch_flow()
+    sim_clock.advance(3599)
+    await collector.fetch_flow()
+    assert calm.methods() == ["HEAD image", "GET flow"]
+    sim_clock.advance(2)
+    await collector.fetch_flow()
+    assert calm.methods() == ["HEAD image", "GET flow", "HEAD image", "GET flow"]
+
+    flood = FakeVigicrues(recorded_payload())
+    flood.image = image
+    collector = VigicruesCollector(http_client=flood.provider.client())
+    await collector.fetch_flow()
+    sim_clock.advance(1201)
+    await collector.fetch_flow()
+    assert flood.methods().count("GET flow") == 2
+
+
+@pytest.mark.asyncio
+async def test_an_image_that_comes_back_after_a_gap_is_followed_again(sim_clock: SimClock) -> None:
+    server = FakeVigicrues(with_levels(1))
+    server.image = None
+    collector = VigicruesCollector(http_client=server.provider.client())
+    await collector.fetch_flow()
+    server.image = recorded_image_headers()
+    sim_clock.advance(3601)
+    await collector.fetch_flow()  # reads the flow and learns the image
+    sim_clock.advance(901)
+    await collector.fetch_flow()
+    assert server.methods()[-1] == "HEAD image" and server.methods().count("GET flow") == 2
 
 
 @pytest.mark.asyncio
 async def test_a_failing_server_falls_back_on_the_last_flow_and_says_so(sim_clock: SimClock) -> None:
-    ok = flow_server(recorded_payload())
-    state = {"down": False}
-
-    def answer(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(503) if state["down"] else ok.answer(request)  # type: ignore[misc]
-
-    collector = VigicruesCollector(http_client=Provider(answer=answer, latency_ticks=0).client())
+    server = FakeVigicrues(recorded_payload())
+    collector = VigicruesCollector(http_client=server.provider.client())
     await collector.fetch_flow()
-    state["down"] = True
-    sim_clock.advance(601)
+    server.down = True
+    sim_clock.advance(301)
     fetched: Fetched[Any] = await collector.fetch_flow()
     assert fetched.stale is True and len(fetched.value.vigilances) == 19
+    assert server.methods() == ["HEAD image", "GET flow", "HEAD image"]  # the flow was not asked of a server that is down
 
 
-def test_the_collector_is_a_warnings_provider_with_the_published_cadence() -> None:
-    original = copy.copy(vigicrues.TTL_CALM_S), copy.copy(vigicrues.TTL_FLOOD_S)
-    assert original == (1800.0, 600.0)
+def test_the_image_the_collector_looks_at_is_the_recorded_one() -> None:
+    headers = recorded_image_headers()
+    assert headers == {"Last-Modified": "Tue, 20 Oct 2026 07:55:36 GMT", "ETag": '"2f637-65e40f4aa8e00"'}
+    # The recorded flow was published at 07:55:15 UTC: the image was regenerated 21 seconds later.
+    assert samples.vigicrues_flow().updated_utc == 1_792_482_915
+
+
+def test_the_collector_is_a_warnings_provider_with_its_cadence() -> None:
+    assert (vigicrues.CHECK_CALM_S, vigicrues.CHECK_FLOOD_S) == (900.0, 300.0)
+    assert vigicrues.SAFETY_S == 12 * HOUR
+    assert (vigicrues.DEGRADED_CALM_S, vigicrues.DEGRADED_FLOOD_S) == (3600.0, 1200.0)
     collector = VigicruesCollector()
-    assert collector.provider_id == "vigicrues_flow" and collector.domain == "warnings" and collector.ttl_seconds == 1800
+    assert collector.provider_id == "vigicrues_flow" and collector.domain == "warnings" and collector.ttl_seconds == 900

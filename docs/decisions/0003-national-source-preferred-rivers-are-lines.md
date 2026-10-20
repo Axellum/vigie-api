@@ -29,8 +29,11 @@ river, a line.
 4. **A source is read the way its own rules allow, and no more often than they ask.** ECCC is read through MSC GeoMet, not
    through the Datamart CAP files: the usage policy forbids requesting directory listings to find new data and asks for
    the AMQPS notification service for systematic retrieval. The DWD and MetService are asked conditionally (`ETag` /
-   `Last-Modified`, a `304` costs a few hundred bytes). Vigicrues offers no validator: one request for all of France,
-   cached 30 minutes (10 while a section is orange or red).
+   `Last-Modified`, a `304` costs a few hundred bytes). Vigicrues offers no validator, no compression and no lighter
+   endpoint, and its flow weighs 2.2 MB: the collector asks (`HEAD`) the national map image that the same publication
+   regenerates, every 15 minutes (5 while a section is orange or red), and reads the flow only when the image changed (at
+   the latest after 12 hours). The image is an inference from the site, not a contract: a weekly check watches it, and
+   without a usable image the flow is read every hour (20 minutes in a flood).
 5. **Nothing is guessed from a format not yet seen.** MetService had no warning on the day it was read, so no real item
    has been read; but its user guide (v1.2, April 2026) documents the feed, and the reading follows the guide (the
    `ColourCode` parameter for the level, the `<event>` word for the phenomenon). An item that cannot be read is counted
@@ -43,15 +46,22 @@ river, a line.
 
 - Germany's warnings can now be matched to a position (before: listed by country only).
 - Canada and New Zealand are added to the bundled country borders: the file goes from 196 to 335 KiB (Canada's coast).
-- A French position costs one more source (Vigicrues, 2.2 MB a request, 46 to 138 a day).
+- A French position costs one more source (Vigicrues: 3 to 4 reads of the 2.2 MB flow a day, and 88 to 240 looks of 330 bytes: 7 to 9 MB a day).
 - The same flood can still be said by MeteoAlarm's département and a section of a lower colour: both are kept on purpose.
 
-## Open points (for the owner)
+## Points settled by the owner (2026-10-20)
 
-- **ECCC through the Datamart.** An AMQPS client (a dependency and an open connection) would give the full CAP messages
-  (sender, instruction, message type) and follow the usage policy to the letter; GeoMet is used meanwhile.
-- **Canada's border.** 131 KiB of the 335; a tolerance of 0.03 degree would make it 64 KiB, at the price of the border
-  with the United States being drawn within about 3 km instead of 1 km.
-- **Vigicrues' weight.** 100 MB a day on a calm day, 300 MB in a flood, for 337 sections of which a handful matter. No
-  lighter endpoint carries the level; bundling the lines (Licence Ouverte 2.0) and asking for the levels only would need
-  a source for them.
+- **ECCC stays on GeoMet.** No AMQPS client: it would add a dependency and an open connection for the CAP `instruction`,
+  `senderName` and `msgType`, which GeoMet does not carry. Reconsider only if the usage policy changes or those fields are
+  needed.
+- **Canada's border is kept as it is** (131 KiB of the 335): a coastal point must find its country; a tolerance of 0.03
+  degree would make it 64 KiB but draw the border with the United States within about 3 km instead of 1 km.
+- **MetService can be switched off** (`VIGIE_ENABLE_METSERVICE=0`, on by default, also in the Docker image): its feed says
+  CC BY 4.0 under a Code of Practice, the website terms it points to allow personal use only and forbid resupply. No
+  e-mail, no registration.
+- **The flooding rule stays,** with its caveat: that MeteoAlarm derives its flooding colour from Vigicrues is deduced from
+  the data of 2026-10-20, not read in a current document (`docs/data-sources.md`).
+- **Vigicrues' weight** (settled): it was 100 MB a day calm and 300 MB in a flood for 337 sections of which a handful
+  matter. No lighter endpoint carries the level, so bundling the lines would save nothing; the flow is now read on its
+  publications only, which is 7 to 9 MB a day. What is left is the image signal (an inference), which the weekly check
+  watches.

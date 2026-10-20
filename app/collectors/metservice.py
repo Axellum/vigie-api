@@ -42,6 +42,7 @@ modification, say MetService is its source).
 
 from __future__ import annotations
 
+import os
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
@@ -115,6 +116,17 @@ def _level_from_words(event: Optional[str], headline: Optional[str]) -> Optional
     if "watch" in words and "warning" not in words:
         return SeverityLevel.YELLOW  # every Watch: Yellow (guide 3.2.14.2)
     return None
+
+
+def metservice_enabled_from_env() -> bool:
+    """Whether MetService is asked: on unless ``VIGIE_ENABLE_METSERVICE`` is ``0`` / ``false`` / ``no`` / ``off``.
+
+    MetService's feed says CC BY 4.0 and its use is subject to a Code of Practice, but the website terms it points to allow
+    personal use only and forbid resupply (``SOURCES.md``): which one governs is not verified. An instance that relays the
+    warnings to other people (a public instance) can turn it off; a position in New Zealand then gets no source and the
+    answer says why.
+    """
+    return os.environ.get("VIGIE_ENABLE_METSERVICE", "1").strip().lower() not in {"0", "false", "no", "off"}
 
 
 def derive_level(event: Optional[str], headline: Optional[str], colour: Optional[str] = None) -> Optional[SeverityLevel]:
