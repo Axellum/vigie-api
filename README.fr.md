@@ -2,6 +2,9 @@
 
 *[Read this document in English](README.md)*
 
+**Démo en ligne : [vigie.auxfilsdesidees.fr](https://vigie.auxfilsdesidees.fr)**, le site Vigie, tourne sur cette
+API ([vigie-web](https://github.com/Axellum/vigie-web)).
+
 Un projet personnel, fait avec l'aide de l'IA et partagé au cas où il servirait à quelqu'un. Il est fourni
 tel quel, sans aucune promesse de support, de disponibilité ni d'exactitude.
 
@@ -12,9 +15,17 @@ prévisions, mer, débit des rivières, qualité de l'air) et les vigilances off
 MetService en Nouvelle-Zélande, le National Weather Service aux États-Unis, et Vigicrues pour les cours d'eau de
 France) à partir de sources publiques, puis les sert :
 
-- aux écrans ESP32-P4 du projet Vigie (Waveshare 7B, M5Stack Tab5), par une trame texte compacte :
-  [`docs/embedded-frame.md`](docs/embedded-frame.md) ;
-- à tout autre client, en JSON, en GeoJSON (IETF RFC 7946) et en OASIS CAP 1.2.
+- **à un écran météo et d'alerte autonome**, sans Home Assistant : un écran ESP32-P4 lit une trame texte compacte
+  ([`docs/embedded-frame.md`](docs/embedded-frame.md)), voir
+  [vigie-display](https://github.com/Axellum/vigie-display) (Waveshare 7B) ;
+- **à un écran domotique relié à Home Assistant**, comme
+  [M5-Tab5-ESPHome-LVGL](https://github.com/Axellum/M5-Tab5-ESPHome-LVGL) (M5Stack Tab5, Waveshare 7B) ;
+- **à Home Assistant lui-même**, par son intégration (`custom_components/vigie`) : capteurs et événements pour
+  lancer des automatisations ;
+- à tout autre client, site ou script.
+
+Elle suit les normes internationales : GeoJSON (IETF RFC 7946), OASIS CAP 1.2 pour les vigilances, niveaux et textes
+des services émetteurs laissés tels quels, services nationaux du registre de l'OMM, horodatage en UTC.
 
 > **Ce n'est pas un service d'alerte officiel.** Les alertes sont relayées depuis des flux publics. Elles
 > peuvent arriver en retard, être incomplètes ou fausses, et ne doivent pas être la seule base d'une

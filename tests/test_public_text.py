@@ -46,7 +46,7 @@ PRIVATE_DETAILS = [
     r"\b192\.168\.\d{1,3}\.\d{1,3}\b",
     r"\b10\.\d{1,3}\.\d{1,3}\.\d{1,3}\b",
     r"\b172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}\b",
-    r"auxfilsdesidees",
+    r"auxfilsdesidees(?!\.fr)",  # the folder name; the public site (vigie.auxfilsdesidees.fr) is fine
     r"\b[A-Z]:\\(?:Users|AuxFils)",
     r"@hotmail\.|@gmail\.|@outlook\.",
 ]

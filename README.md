@@ -2,6 +2,9 @@
 
 *[Lire ce document en français](README.fr.md)*
 
+**Live demo: [vigie.auxfilsdesidees.fr](https://vigie.auxfilsdesidees.fr)**, the Vigie website, runs on this API
+([vigie-web](https://github.com/Axellum/vigie-web)).
+
 A personal project, made with the help of AI and shared in case it helps someone. It comes as is, with
 no promise of support, availability or accuracy.
 
@@ -11,9 +14,17 @@ air quality) and the official weather warnings of the national services (MeteoAl
 Wetterdienst in Germany, Environment and Climate Change Canada, MetService in New Zealand, the National Weather
 Service in the United States, and Vigicrues for the rivers of France) from public sources, and serves them to:
 
-- the ESP32-P4 displays of the Vigie project (Waveshare 7B, M5Stack Tab5), through a compact text
-  frame: [`docs/embedded-frame.md`](docs/embedded-frame.md);
-- any other client, through JSON, GeoJSON (IETF RFC 7946) and OASIS CAP 1.2.
+- **a standalone weather and alert screen**, no Home Assistant needed: an ESP32-P4 display fetches a compact text
+  frame ([`docs/embedded-frame.md`](docs/embedded-frame.md)), see
+  [vigie-display](https://github.com/Axellum/vigie-display) (Waveshare 7B);
+- **a home automation screen tied to Home Assistant**, such as
+  [M5-Tab5-ESPHome-LVGL](https://github.com/Axellum/M5-Tab5-ESPHome-LVGL) (M5Stack Tab5, Waveshare 7B);
+- **Home Assistant itself**, through its integration (`custom_components/vigie`, see [Home Assistant](#home-assistant)):
+  sensors and events to start automations;
+- any other client, website or script.
+
+It sticks to the international standards: GeoJSON (IETF RFC 7946), OASIS CAP 1.2 for the warnings, the levels and
+words of the issuing services left as they are, the national services listed in the WMO registry, UTC timestamps.
 
 > **This is not an official warning service.** The alerts are relayed from public feeds. They can be
 > late, incomplete or wrong, and must not be the only thing a decision rests on. **GDACS alerts are
