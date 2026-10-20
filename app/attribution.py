@@ -105,8 +105,23 @@ CREDITS: dict[str, Credit] = {
             "Source: NOAA Space Weather Prediction Center (https://www.swpc.noaa.gov). Not endorsed by NOAA",
             "ours",
         ),
+        Credit(
+            "meteoalarm",
+            "MeteoAlarm (EUMETNET)",
+            "Source: EUMETNET – MeteoAlarm (https://meteoalarm.org/en/live/), warnings of the national meteorological "
+            "and hydrological services. Terms equivalent to CC BY 4.0 with additional requirements for redistributors",
+            "ours",
+        ),
     )
 }
+
+# The sentence the terms of MeteoAlarm oblige every redistributor to publish, word for word (terms of 2024-03-15,
+# section 5, read on 2026-10-20: https://meteoalarm.org/en/live/page/terms-and-conditions).
+METEOALARM_DISCLAIMER = (
+    "Time delays between this website and the www.meteoalarm.org website are possible. For the most up-to-date "
+    "awareness information as published by the participating National Meteorological and Hydrological Services, "
+    "please refer to www.meteoalarm.org."
+)
 
 # The ``source`` / ``sources`` names a hazard alert carries -> the credit of that source.
 HAZARD_SOURCE_CREDITS: dict[str, str] = {
