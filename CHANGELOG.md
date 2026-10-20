@@ -113,6 +113,12 @@ All notable changes to this project are documented here. The format follows
 - **Secret scan of the whole history.** `.github/workflows/secret-scan.yml` runs gitleaks 8.30.1 (the
   release binary, SHA-256 verified, no third-party action) over every commit of every branch on each pull
   request and push to `main`.
+- **Weekly live-feeds check.** `tools/check_live_feeds.py` asks each of the 12 real providers once, with the
+  real collectors, and checks that the parsers still read the answer (at least one item parsed, or a valid
+  empty answer such as GDACS's HTTP 204); `.github/workflows/live-feeds.yml` runs it every Monday and on
+  demand, never in a pull request. A format change or a removed endpoint fails the run; a provider that
+  does not answer (timeout, HTTP 403 / 429 / 5xx) is only reported. The tests stay offline
+  (`tests/test_live_feeds_tool.py` plays the tool against simulated providers).
 - `LICENSE` (MIT, code only: the data belongs to each provider under its own terms).
 - `VIGIE_ENABLE_RAINVIEWER` (default on, unchanged): `0` stops asking RainViewer, whose free API is for
   personal and educational use only. `/v1/point` then leaves the radar fields unknown and `/v1/providers`

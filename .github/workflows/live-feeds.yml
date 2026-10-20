@@ -1,0 +1,37 @@
+name: Live feeds
+
+# Once a week, ask each real provider once with the real collectors and check that the parsers still read
+# the answer (at least one item parsed, or a valid empty answer such as GDACS's HTTP 204).
+# It runs only on a schedule or by hand, never in a pull request: the tests of the repository stay offline,
+# and a provider that changes its format or is down for a day never blocks a merge. A red run is the signal.
+
+on:
+  schedule:
+    - cron: "23 5 * * 1" # Mondays, 05:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-feeds:
+    name: Providers still answer in the expected format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Ask each provider once
+        env:
+          # MET Norway and NOAA ask for an identifying contact: the address of this repository.
+          VIGIE_CONTACT: ${{ github.server_url }}/${{ github.repository }}
+        run: python tools/check_live_feeds.py
