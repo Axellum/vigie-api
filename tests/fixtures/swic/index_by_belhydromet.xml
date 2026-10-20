@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <title>MeteoAlert</title>
+  <link rel="self" href="https://meteoalert.meteoinfo.ru/belarus/cap-feed/en/atom.xml" />
+  <generator>Hydrometcenter of Russia</generator>
+  <author>
+    <name>Belgidromet</name>
+    <uri>https://belgidromet.by</uri>
+    <email>sin@hmc.by</email>
+  </author>
+  <subtitle>Official Warnings</subtitle>
+  <id>https://meteoalert.meteoinfo.ru/belarus/cap-feed/en/atom.xml</id>
+  <rights>public domain</rights>
+  <updated>2026-10-20T07:17:01Z</updated>
+  <dc:date>2026-10-20T07:17:01Z</dc:date>
+  <dc:rights>public domain</dc:rights>
+  <entry>
+    <title>Cancel</title>
+    <link rel="alternate" href="https://meteoalert.meteoinfo.ru/belarus/cap-feed/en/2.49.0.0.112.0-20261020-071701-0024440-00-EN.xml" />
+    <link rel="related" type="application/cap+xml" href="https://meteoalert.meteoinfo.ru/belarus/cap-feed/en/2.49.0.0.112.0-20261020-071701-0024440-00-EN.xml" />
+    <author>
+      <name>Belgidromet</name>
+      <uri>https://belgidromet.by</uri>
+      <email>sin@hmc.by</email>
+    </author>
+    <id>https://meteoalert.meteoinfo.ru/belarus/cap-feed/en/2.49.0.0.112.0-20261020-071701-0024440-00-EN.xml</id>
+    <updated>2026-10-20T07:17:01Z</updated>
+    <published>2026-10-20T07:17:01Z</published>
+    <summary type="text">Cancel reference 2.49.0.0.112.0-20261019-094701-0024440-00-EN</summary>
+    <dc:date>2026-10-20T07:17:01Z</dc:date>
+  </entry>
+<entry>
+    <title>Cancel</title>
+    <link rel="alternate" href="https://meteoalert.meteoinfo.ru/belarus/cap-feed/en/2.49.0.0.112.0-20261020-071701-0024447-00-EN.xml" />
+    <link rel="related" type="application/cap+xml" href="https://meteoalert.meteoinfo.ru/belarus/cap-feed/en/2.49.0.0.112.0-20261020-071701-0024447-00-EN.xml" />
+    <author>
+      <name>Belgidromet</name>
+      <uri>https://belgidromet.by</uri>
+      <email>sin@hmc.by</email>
+    </author>
+    <id>https://meteoalert.meteoinfo.ru/belarus/cap-feed/en/2.49.0.0.112.0-20261020-071701-0024447-00-EN.xml</id>
+    <updated>2026-10-20T07:17:01Z</updated>
+    <published>2026-10-20T07:17:01Z</published>
+    <summary type="text">Cancel reference 2.49.0.0.112.0-20261019-094701-0024447-00-EN</summary>
+    <dc:date>2026-10-20T07:17:01Z</dc:date>
+  </entry>
+</feed>

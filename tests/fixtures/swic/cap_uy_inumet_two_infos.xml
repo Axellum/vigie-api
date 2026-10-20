@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+                  <?xml-stylesheet type="text/xsl" href="cap-style.xsl" ?>
+                    <cap:alert xmlns:cap="urn:oasis:names:tc:emergency:cap:1.2"><cap:identifier>urn:oid:2.49.0.1.858.0.2026.10.08.02.16.21</cap:identifier>
+                <cap:sender>contacto@inumet.gub.uy</cap:sender>
+                <cap:sent>2026-10-08T02:15:00-03:00</cap:sent>
+                <cap:status>Actual</cap:status>
+                <cap:msgType>Alert</cap:msgType>
+                <cap:scope>Public</cap:scope><cap:info>
+                <cap:language>es</cap:language>
+                <cap:category>Met</cap:category>
+                <cap:event>Tormentas fuertes y puntualmente severas</cap:event>
+                <cap:responseType>None</cap:responseType>
+                <cap:urgency>Future</cap:urgency>
+                <cap:severity>Severe</cap:severity>
+                <cap:certainty>Likely</cap:certainty>
+                <cap:onset>2026-10-08T02:15:00-03:00</cap:onset> 
+                <cap:expires>2026-10-08T04:30:00-03:00</cap:expires>
+                <cap:senderName>Instituto Uruguayo de Meteorología</cap:senderName>
+                <cap:headline>Tormentas fuertes y puntualmente severas</cap:headline>
+                <cap:description>El área será afectada por tormentas (puntualmente) fuertes y/o severas.
+
+Podrán estar acompañadas por precipitaciones copiosas en cortos períodos, granizo, rachas de vientos muy fuertes e intensa actividad eléctrica.</cap:description>
+                <cap:web>https://www.inumet.gub.uy</cap:web>
+                <cap:area>
+                  <cap:areaDesc>Cerro Largo : Arachania, Arbolito, Barrio Hipodromo, Barrio La Vinchuca, Barrio López Benítez, Bañado de medina, Cerro de las Cuentas, Fraile Muerto, Getulio Vargas, Isidoro Noblía, La Pedrera, Lago Merín, Las Cañas, Melo, Plácido Rosas, Poblado Uruguay, Quebracho, Ramón Trigo, Río Branco, Toledo, Tres Islas y Tupambaé.Lavalleja : 19 de Junio.Rivera : Amarillo, Arroyo Blanco, Cerrillada, La Puente , Las Flores, Moirones, Paso Hospital y Vichadero.Rocha : 18 de Julio, Aguas Dulces, Barra de Valizas, Barra del Chuy, Barrio Pereira, Barrio Torres, Capacho, Cebollati, Chuy, La Coronilla, La Esmeralda, Lascano, Palmares de la Coronilla, Puimayen, Punta del Diablo y San Luis Al Medio.Tacuarembó : Caraguata, Las Toscas, Pueblo de Barro y Punta de Carretera.Treinta y Tres : Arrocera Zapata, Arrozal Treinta y Tres, Ejido de Treinta y Tres, General Enrique Martínez, Isla Patrulla, Mendizábal, Rincón, Treinta y Tres, Vergara y Villa Sara.</cap:areaDesc>
+                  <cap:polygon>-31.360528710143,-54.981197677491 -31.498047551587,-54.580128604418 -31.944276814759,-54.104969913012 -31.941946137124,-53.964894229418 -32.104950686184,-53.745167666918 -32.453267112501,-53.624318057543 -32.55981574807,-53.278248721606 -32.721712435138,-53.091481143481 -33.145868299272,-53.519947940356 -33.632038727866,-53.536427432543 -33.760006295211,-53.371632510668 -33.901462146657,-53.352406436449 -34.095012661397,-53.351033145434 -34.469466730627,-53.344166690356 -34.464937889979,-53.355153018481 -34.472922817606,-53.354904105326 -34.425276023073,-53.767283734974 -32.073511988455,-55.492137250599 -31.360528710143,-54.981197677491 -31.360528710143,-54.981197677491</cap:polygon>
+                </cap:area>
+              </cap:info><cap:info>
+                <cap:language>es</cap:language>
+                <cap:category>Met</cap:category>
+                <cap:event>Tormentas puntualmente fuertes</cap:event>
+                <cap:responseType>None</cap:responseType>
+                <cap:urgency>Future</cap:urgency>
+                <cap:severity>Moderate</cap:severity>
+                <cap:certainty>Likely</cap:certainty>
+                <cap:onset>2026-10-08T02:15:00-03:00</cap:onset> 
+                <cap:expires>2026-10-08T04:30:00-03:00</cap:expires>
+                <cap:senderName>Instituto Uruguayo de Meteorología</cap:senderName>
+                <cap:headline>Tormentas puntualmente fuertes</cap:headline>
+                <cap:description>El área será afectada por tormentas (puntualmente) fuertes.
+
+Podrán estar acompañadas por precipitaciones abundantes en cortos períodos, granizo, rachas de vientos muy fuertes e intensa actividad eléctrica.</cap:description>
+                <cap:web>https://www.inumet.gub.uy</cap:web>
+                <cap:area>
+                  <cap:areaDesc>Artigas(Todo el departamento), Cerro Largo : Esperanza.Durazno : Blanquillo, La Paloma y Las Palmas.Florida : Cerro Chato y Nico Pérez.Lavalleja : Aramendía, Colón, Illescas, José Batlle y Ordoñez, José Pedro Varela, Mariscala, Pirarajá, Polanco Norte, Polanco Sur, Villa Serrana y Zapicán.Maldonado : Aiguá y Los Talas.Paysandú : Chapicuy y Tambores.Rivera : Cerro Pelado , Cerros de la Calera, Lagos del Norte, Masoller, Minas de Corrales, Paso Ataques y Tranqueras.Rocha : 19 de Abril, Arachania, Cabo Polonio, Castillos, La Paloma, La Pedrera, Palmares de Castillos, Puente Valizas, Puerto de los Botes, Rocha y Velazquez.Salto : Albisu, Arapey, Belén, Biassini, Campo de Todos, Cayetano, Cerro de Vera, Colonia 18 de Julio, Colonia Itapebí, Constitución, Fernández, Garibaldi, Itapebí, Lluveras, Migliaro, Puntas de Valentín, Quintana, Rincón de Valentín, Salto, San Antonio, Sarandí de Arapey, Saucedo, Termas del Arapey y Termas del Daymán.Tacuarembó : Ansina, Arerungua, Balneario Iporá, Clara, La Hilera, La Pedrera, Paso Bonilla, Paso del Cerro, Pueblo de Arriba, San Gregorio de Polanco, Sauce de Batoví, Tacuarembó y Tambores.Treinta y Tres : Cerro Chato, Maria Albina, Santa Clara de Olimar y Valentines.</cap:areaDesc>
+                  <cap:polygon>-30.172713935285,-57.634327823168 -30.210697959918,-57.562916690356 -30.265274314938,-57.562916690356 -30.296108410584,-57.518971377856 -30.294033342914,-57.281048709399 -30.299813779358,-57.205002719409 -30.253412467934,-57.167408877856 -30.093137463382,-57.07814496184 -30.093137463383,-56.829579288012 -30.167816491247,-56.769926959521 -30.21870834361,-56.655342990405 -30.363079849751,-56.541531497485 -30.627552491072,-56.206791812426 -30.825876384016,-56.018994266039 -31.075558640108,-56.006977969653 -31.094964064347,-55.942604953295 -31.064972193349,-55.867245608812 -31.014964721137,-55.812485629565 -31.007314204131,-55.749485904223 -30.864784874435,-55.64820569182 -30.863606061129,-55.601857120043 -31.041442537266,-55.351918155199 -31.26826056418,-55.250294620043 -31.345357356482,-55.025444419873 -31.923932151346,-55.397247664578 -32.067687038381,-55.500265593398 -32.069501204368,-55.501297687871 -32.071490096843,-55.501930715477 -32.073567071353,-55.502137098892 -32.075641646222,-55.501907847193 -32.077623444313,-55.501252947541 -32.079426130233,-55.500200930096 -34.431190164851,-53.775347414471 -34.432712767789,-53.773969154036 -34.433921694671,-53.77230890787 -34.434765953908,-53.770436703854 -34.435209935308,-53.768431510085 -34.483025733193,-53.354589168397 -34.923759791196,-53.340850220493 -34.951162638836,-53.342777317775 -34.98549876271,-53.783697055231 -34.805279640667,-54.805425570856 -32.129617677381,-56.068853305231 -31.733353765221,-56.414922641169 -31.739829049613,-58.021422978822 -31.685211255237,-57.991383487231 -31.585242428303,-57.965290957934 -31.55423613493,-57.985890323168 -31.460569724636,-58.075154239184 -31.386741411017,-57.972157413012 -31.345114150924,-57.978337222583 -31.303468461666,-57.955677920825 -31.230690987448,-57.903492862231 -31.085996898637,-57.867787295825 -31.041221919213,-57.855427676684 -30.999957358715,-57.862294131762 -30.945499065762,-57.902119571215 -30.925768671626,-57.808392459399 -30.907065211829,-57.799981051928 -30.884822482677,-57.791569644457 -30.69311532913,-57.796719485766 -30.508717519055,-57.87534039641 -30.334044761232,-57.628834659106 -30.262308987503,-57.604802066332 -30.195862194088,-57.643597537524 -30.172713935285,-57.634327823168 -30.172713935285,-57.634327823168</cap:polygon>
+                </cap:area>
+              </cap:info></cap:alert>

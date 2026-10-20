@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<rss version="2.0">
+  <channel>
+    <title>MET Norway Weather alerts</title>
+    <link>https://alert.met.no</link>
+    <description>Weather alerts from the Norwegian Meteorological Institute</description>
+    <language>en</language>
+    <copyright>Copyright The Norwegian Meteorological Institute, licensed under Norwegian license for public data (NLOD) and Creative Commons 4.0 BY</copyright>
+    <pubDate>Tue, 20 Oct 2026 16:41:30 +0000</pubDate>
+    <lastBuildDate>Tue, 20 Oct 2026 16:41:30 +0000</lastBuildDate>
+    <category>Met</category>
+    <generator>XML::LibXML::Generator 0.1</generator>
+    <docs>http://blogs.law.harvard.edu/tech/rss</docs>
+    <image>
+      <title>MET Norway Weather alerts</title>
+      <link>https://alert.met.no</link>
+      <url>https://alert.met.no/images/logo_2013_no.png</url>
+    </image>
+    <item>
+      <title>Gale, yellow level, Lyngoer - Oksoey, 2026-10-20T12:00:00+00:00, 2026-10-21T03:00:00+00:00</title>
+      <description>Update: Tuesday afternoon increasing northeasterly occasionally near gale force 7.</description>
+      <link>https://alert.met.no/weatherapi/metalerts/2.0/current?cap=2.49.0.1.578.0.20261020123600.051</link>
+      <author>post@met.no (The Norwegian Meteorological Institute)</author>
+      <category>Met</category>
+      <guid>2.49.0.1.578.0.20261020123600.051</guid>
+      <pubDate>Tue, 20 Oct 2026 12:36:54 +0000</pubDate>
+      <georss:polygon xmlns:georss="http://www.georss.org/georss">58.6808 9.0262 58.4702 8.68 58.387 8.8337 58.4172 8.8837 58.5517 9.1107 58.6068 9.205 58.6808 9.0262 58.6808 9.0262</georss:polygon>
+      <georss:polygon xmlns:georss="http://www.georss.org/georss">58.4702 8.68 58.1732 8.1467 58.1543 7.9947 58.0428 8.0677 58.0777 8.2053 58.0777 8.2055 58.0928 8.2647 58.0933 8.267 58.0943 8.2698 58.0955 8.2725 58.2053 8.4982 58.2055 8.4985 58.2953 8.6798 58.2965 8.682 58.387 8.8337 58.4702 8.68 58.4702 8.68</georss:polygon>
+    </item>
+  </channel>
+</rss>

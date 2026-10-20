@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<?xml-stylesheet type="text/xsl" href="https://www.tmd.go.th/rss/en/rss-style.xsl"?>
+<rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
+  <channel>
+    <atom:link rel="hub" href="//alert-hub.appspot.com" />
+    <atom:link rel="self" href="https://www.tmd.go.th/en/api/xml/CAP" type="application/rss+xml" />
+    <title>Latest alerts from Thai Meteorological Department (TMD)</title>
+    <link>https://www.tmd.go.th/en/api/xml/CAP</link>
+    <description>Latest alerts from Thai Meteorological Department (TMD)</description>
+    <language>en</language>
+    <copyright>public domain</copyright>
+    <pubDate>Tue, 20 Oct 2026 23:46:12 +0700</pubDate>
+    <lastBuildDate>Tue, 20 Oct 2026 23:46:12 +0700</lastBuildDate>
+    <docs>https://cyber.harvard.edu/rss/rss.html</docs>
+    <image>
+      <title>Latest alerts from Thai Meteorological Department (TMD)</title>
+      <url>https://www.tmd.go.th/CustomTheme3/logoes/logo_colorcmyk.png</url>
+      <link>https://www.tmd.go.th/en/api/xml/CAP</link>
+    </image>
+    <item>
+      <title>Very Heavy Rain</title>
+      <link>https://www.tmd.go.th/uploads/CAP/en/CAPTMD20261020055643_2.xml</link>
+      <description>The monsoon trough lies across the Gulf and the middle South while the high-pressure system from China covers the upper North, the upper Northeast of Thailand and the South China Sea leading to the easterly wind prevails over Thailand and the Gulf. Continuous rain with isolated heavy to very heavy rain are forecat in the East and the South.
+ 
+In the Andaman Sea and the Gulf, the waves will be higher than 2 meters high in thundershower areas. 
+In addition, during 21–25 October 2026, rainfall will increase, bringing isolated heavy to very heavy rains along with gusty winds to the lower Northeast, the Central region including Bangkok and vicinity, the East, and the upper South. 
+</description>
+      <author>info_service@tmd.mail.go.th (Thai Meteorological Department)</author>
+      <guid isPermaLink="false">TMD20261020055643_2-en</guid>
+      <pubDate>Mon, 19 Oct 2026 22:49:00 +0700</pubDate>
+    </item>
+  </channel>
+</rss>

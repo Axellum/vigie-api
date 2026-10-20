@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <title>МетеоПредупреждения</title>
+  <link rel="alternate" href="https://meteoinfo.ru/hmc-output/cap/cap-feed/ru/atom.xml" />
+  <author>
+    <name>Гидрометцентр России</name>
+    <email>web@mecom.ru</email>
+  </author>
+  <subtitle>Гидрометеорологические предупреждения</subtitle>
+  <id>https://meteoinfo.ru/hmc-output/cap/cap-feed/ru/atom.xml</id>
+  <rights>public domain</rights>
+  <updated>2026-10-20T16:31:01Z</updated>
+  <dc:date>2026-10-20T16:31:01Z</dc:date>
+  <dc:rights>public domain</dc:rights>
+  <entry>
+    <title>Маловодье</title>
+    <link rel="alternate" href="https://meteoinfo.ru/hmc-output/cap/cap-feed/ru/20261016051609-0265790.xml" />
+    <link rel="related" type="application/cap+xml" href="https://meteoinfo.ru/hmc-output/cap/cap-feed/ru/20261016051609-0265790.xml" />
+    <author>
+      <name>Гидрометцентр России</name>
+      <email>web@mecom.ru</email>
+    </author>
+    <id>https://meteoinfo.ru/hmc-output/cap/cap-feed/ru/20261016051609-0265790.xml</id>
+    <updated>2026-10-20T16:31:01Z</updated>
+    <published>2026-10-20T16:31:01Z</published>
+    <summary type="text">Кировская обл.: Маловодье (уровень опасности 1 из 3)</summary>
+    <dc:date>2026-10-20T16:31:01Z</dc:date>
+  </entry>
+<entry>
+    <title>Пожарная опасность</title>
+    <link rel="alternate" href="https://meteoinfo.ru/hmc-output/cap/cap-feed/ru/20261017043958-0266022.xml" />
+    <link rel="related" type="application/cap+xml" href="https://meteoinfo.ru/hmc-output/cap/cap-feed/ru/20261017043958-0266022.xml" />
+    <author>
+      <name>Гидрометцентр России</name>
+      <email>web@mecom.ru</email>
+    </author>
+    <id>https://meteoinfo.ru/hmc-output/cap/cap-feed/ru/20261017043958-0266022.xml</id>
+    <updated>2026-10-20T16:31:01Z</updated>
+    <published>2026-10-20T16:31:01Z</published>
+    <summary type="text">Оренбургская обл.: Пожарная опасность (уровень опасности 2 из 3)</summary>
+    <dc:date>2026-10-20T16:31:01Z</dc:date>
+  </entry>
+</feed>

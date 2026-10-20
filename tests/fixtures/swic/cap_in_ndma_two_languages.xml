@@ -1,0 +1,111 @@
+<cap:alert xmlns:cap="urn:oasis:names:tc:emergency:cap:1.2">
+<cap:identifier>IN-1792514414323006_6</cap:identifier>
+<cap:sender>Kerala-SDMA</cap:sender>
+<cap:sent>2026-10-20T22:13:20+05:30</cap:sent>
+<cap:status>Actual</cap:status>
+<cap:msgType>Update</cap:msgType>
+<cap:scope>Public</cap:scope>
+<cap:restriction/>
+<cap:addresses/>
+<cap:note/>
+<cap:references>IMD-Thiruvananthapuram,IN-1792514414323006_64,2026-10-20T22:09:38+05:30</cap:references>
+<cap:incidents/>
+<cap:info>
+<cap:language>en-IN</cap:language>
+<cap:category>Met</cap:category>
+<cap:event>Moderate Thunderstorms</cap:event>
+<cap:urgency>Expected</cap:urgency>
+<cap:severity>Severe</cap:severity>
+<cap:certainty>Likely</cap:certainty>
+<cap:audience>1</cap:audience>
+<cap:effective>2026-10-20T22:08:00+05:30</cap:effective>
+<cap:onset>2026-10-20T22:13:20+05:30</cap:onset>
+<cap:expires>2026-10-21T01:08:00+05:30</cap:expires>
+<cap:headline>Moderate Thunderstorms with Moderate rainfall (5-15mm/ hour) and wind speed likely to be 40-50 Kmph (in Gusts)  is very likely to occur at a few places over Alappuzha, Ernakulam, Kollam, Kottayam, Pathanamthitta, Thiruvananthapuram in next 3 hours.</cap:headline>
+<cap:description/>
+<cap:instruction>Please follow SDMA guidelines.</cap:instruction>
+<cap:contact/>
+<cap:parameter>
+<cap:valueName>Polygon URL</cap:valueName>
+<cap:value>https://sachet.ndma.gov.in/cap_public_website/FetchPolygonXMLFile?identifier=1792514414323006</cap:value>
+</cap:parameter>
+<cap:area>
+<cap:areaDesc>6 districts of Kerala</cap:areaDesc>
+<cap:geocode>
+<cap:valueName>LGD District Code</cap:valueName>
+<cap:value>554</cap:value>
+</cap:geocode>
+<cap:geocode>
+<cap:valueName>LGD District Code</cap:valueName>
+<cap:value>555</cap:value>
+</cap:geocode>
+<cap:geocode>
+<cap:valueName>LGD District Code</cap:valueName>
+<cap:value>559</cap:value>
+</cap:geocode>
+<cap:geocode>
+<cap:valueName>LGD District Code</cap:valueName>
+<cap:value>564</cap:value>
+</cap:geocode>
+<cap:geocode>
+<cap:valueName>LGD District Code</cap:valueName>
+<cap:value>565</cap:value>
+</cap:geocode>
+<cap:geocode>
+<cap:valueName>LGD District Code</cap:valueName>
+<cap:value>560</cap:value>
+</cap:geocode>
+<cap:altitude>0</cap:altitude>
+<cap:ceiling>0</cap:ceiling>
+</cap:area>
+</cap:info>
+<cap:info>
+<cap:language>ML</cap:language>
+<cap:category>Met</cap:category>
+<cap:event>Moderate Thunderstorms</cap:event>
+<cap:urgency>Expected</cap:urgency>
+<cap:severity>Severe</cap:severity>
+<cap:certainty>Likely</cap:certainty>
+<cap:audience>1</cap:audience>
+<cap:effective>2026-10-20T22:08:00+05:30</cap:effective>
+<cap:onset>2026-10-20T22:13:20+05:30</cap:onset>
+<cap:expires>2026-10-21T01:08:00+05:30</cap:expires>
+<cap:headline>അടുത്ത 3 മണിക്കൂറിൽ TVM, KLM, PTA, ALP,KTM, EKM ജില്ലകളിൽ ഇടിമിന്നലോടു കൂടിയ ഇടത്തരം മഴയ്ക്കും 40-50 kmph വരെ വേഗതയിൽ ശക്തമായ കാറ്റിനും സാധ്യത. 10.20 PM 20.10.2026 IMD-KSDMA</cap:headline>
+<cap:description/>
+<cap:instruction>Please follow SDMA guidelines.</cap:instruction>
+<cap:contact/>
+<cap:parameter>
+<cap:valueName>Polygon URL</cap:valueName>
+<cap:value>https://sachet.ndma.gov.in/cap_public_website/FetchPolygonXMLFile?identifier=1792514414323006</cap:value>
+</cap:parameter>
+<cap:area>
+<cap:areaDesc>6 districts of Kerala</cap:areaDesc>
+<cap:geocode>
+<cap:valueName>LGD District Code</cap:valueName>
+<cap:value>554</cap:value>
+</cap:geocode>
+<cap:geocode>
+<cap:valueName>LGD District Code</cap:valueName>
+<cap:value>555</cap:value>
+</cap:geocode>
+<cap:geocode>
+<cap:valueName>LGD District Code</cap:valueName>
+<cap:value>559</cap:value>
+</cap:geocode>
+<cap:geocode>
+<cap:valueName>LGD District Code</cap:valueName>
+<cap:value>564</cap:value>
+</cap:geocode>
+<cap:geocode>
+<cap:valueName>LGD District Code</cap:valueName>
+<cap:value>565</cap:value>
+</cap:geocode>
+<cap:geocode>
+<cap:valueName>LGD District Code</cap:valueName>
+<cap:value>560</cap:value>
+</cap:geocode>
+<cap:altitude>0</cap:altitude>
+<cap:ceiling>0</cap:ceiling>
+</cap:area>
+</cap:info>
+</cap:alert>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<?xml-stylesheet type="text/xsl" href="https://www.gestiondelriesgo.gov.co/rss/AtomFeed.xslt"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <updated>2026-10-09T00:00:00-05:00</updated>
+  <title>Alertas Sistema Nacional de Gestión del Riesgo de Desastres - Colombia</title>
+  <subtitle>Alertas IDEAM</subtitle>
+  <link rel="hub" href="http://alert-hub.appspot.com" />
+  <link rel="self" href="https://www.gestiondelriesgo.gov.co/rss/AtomAlert.aspx" />
+  <rights>Dominio Público</rights>
+  <author>
+    <name>IDEAM</name>
+  </author>
+  <id>https://www.ideam.gov.co/</id>
+  <entry>
+    <id>https://www.gestiondelriesgo.gov.co/rss/caps/IDEAM20261009T000000INC05380AR.xml</id>
+    <link href="https://www.gestiondelriesgo.gov.co/sigpad/alertas_detalle.aspx?ide=834249" />
+    <title>Pronóstico de amenaza alta por incendios de la cobertura vegetal en La Estrella - Antioquia</title>
+    <updated>2026-10-09T00:10:00-05:00</updated>
+    <link rel="related" type="application/cap+xml" href="https://www.gestiondelriesgo.gov.co/rss/caps/IDEAM20261009T000000INC05380AR.xml" />
+    <summary>Esta alerta se basa en el monitoreo de condiciones meteorológicas como bajas precipitaciones, temperaturas máximas previas, temperatura máxima pronosticada y persistencia de estas condiciones. Su objetivo es advertir sobre pronóstico de la amenaza por incendios de la cobertura vegetal.. Reportado por el IDEAM.</summary>
+    <georss:polygon xmlns:georss="http://www.georss.org/georss">6.17490 -75.64860 6.16711 -75.68207 6.11880 -75.67312 6.11659 -75.60596 6.15349 -75.62471 6.17490 -75.64860</georss:polygon>
+    <category label="age" term="Past day" />
+  </entry>
+<entry>
+    <id>https://www.gestiondelriesgo.gov.co/rss/caps/IDEAM20261009T000000INC17380AR.xml</id>
+    <link href="https://www.gestiondelriesgo.gov.co/sigpad/alertas_detalle.aspx?ide=834257" />
+    <title>Pronóstico de amenaza alta por incendios de la cobertura vegetal en La Dorada - Caldas</title>
+    <updated>2026-10-09T00:09:59-05:00</updated>
+    <link rel="related" type="application/cap+xml" href="https://www.gestiondelriesgo.gov.co/rss/caps/IDEAM20261009T000000INC17380AR.xml" />
+    <summary>Esta alerta se basa en el monitoreo de condiciones meteorológicas como bajas precipitaciones, temperaturas máximas previas, temperatura máxima pronosticada y persistencia de estas condiciones. Su objetivo es advertir sobre pronóstico de la amenaza por incendios de la cobertura vegetal.. Reportado por el IDEAM.</summary>
+    <georss:polygon xmlns:georss="http://www.georss.org/georss">5.28747 -74.73372 5.44351 -74.65074 5.51240 -74.67160 5.70427 -74.63013 5.75388 -74.65798 5.76734 -74.66017 5.74678 -74.72718 5.69868 -74.73803 5.60530 -74.81232 5.57289 -74.77291 5.57800 -74.71182 5.51755 -74.70891 5.45999 -74.74146 5.38435 -74.74726 5.29907 -74.78964 5.28747 -74.73372</georss:polygon>
+    <category label="age" term="Past day" />
+  </entry>
+</feed>

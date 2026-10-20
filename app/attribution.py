@@ -140,6 +140,13 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "wmo_swic",
+            "WMO Severe Weather Information Centre (national services)",
+            "Warnings of a national meteorological service, from the registry of the WMO Severe Weather Information "
+            "Centre (https://severeweather.wmo.int). The issuer's own terms apply to each warning",
+            "ours",
+        ),
+        Credit(
             "vigicrues",
             "Vigicrues (SCHAPI)",
             "Source: Vigicrues, Service central d'hydrométéorologie et d'appui à la prévision des inondations (SCHAPI), "

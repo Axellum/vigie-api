@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<alert xmlns = "urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>2.49.0.0.724.0.ES.20261020122807.659501PRP220171792499287</identifier>
+  <sender>http://www.aemet.es</sender>
+  <sent>2026-10-20T12:28:07-00:00</sent>
+  <status>Actual</status>
+  <msgType>Update</msgType>
+  <scope>Public</scope>
+  <references>http://www.aemet.es,2.49.0.0.724.0.ES.20261019164917.659501PRP220171792428557,2026-10-19T16:49:17-00:00</references>
+  <info>
+    <language>es-ES</language>
+    <category>Met</category>
+    <event>Aviso de lluvias de nivel naranja</event>
+    <responseType>Monitor</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Severe</severity>
+    <certainty>Observed</certainty>
+    <eventCode>
+      <valueName>AEMET-Meteoalerta fenomeno</valueName>
+      <value>PR;Lluvias</value>
+    </eventCode>
+    <effective>2026-10-20T13:28:07+01:00</effective>
+    <onset>2026-10-20T13:00:00+01:00</onset>
+    <expires>2026-10-20T17:59:59+01:00</expires>
+    <senderName>AEMET. Agencia Estatal de Meteorología</senderName>
+    <headline>Aviso de lluvias de nivel naranja. El Hierro</headline>
+    <description>Precipitación acumulada en 12 horas: 100 mm. Chubascos fuertes que pueden ir acompañados de tormenta.</description>
+    <instruction>Esté preparado. Tome precauciones y manténgase informado de la predicción meteorológica más actualizada. Se pueden producir daños graves a personas y bienes, especialmente a aquellos vulnerables o en zonas expuestas al fenómeno.</instruction>
+    <web>https://www.aemet.es/es/eltiempo/prediccion/avisos</web>
+    <contact>AEMET</contact>
+    <parameter>
+      <valueName>AEMET-Meteoalerta nivel</valueName>
+      <value>naranja</value>
+    </parameter>
+    <parameter>
+      <valueName>AEMET-Meteoalerta parametro</valueName>
+      <value>P2;Precipitación acumulada en 12 horas;100 mm</value>
+    </parameter>
+    <parameter>
+      <valueName>AEMET-Meteoalerta probabilidad</valueName>
+      <value>40%-70%</value>
+    </parameter>
+    <area>
+      <areaDesc>El Hierro</areaDesc>
+      <polygon>27.69,-18.05 27.71,-18.16 27.75,-18.15 27.77,-18.13 27.75,-18.07 27.76,-18.03 27.8,-17.99 27.84,-17.96 27.85,-17.92 27.8,-17.88 27.78,-17.9 27.73,-17.93 27.72,-17.96 27.65,-17.97 27.65,-18.01 27.69,-18.05</polygon>
+      <geocode>
+        <valueName>AEMET-Meteoalerta zona</valueName>
+        <value>659501</value>
+      </geocode>
+    </area>
+  </info>
+  <info>
+    <language>en-GB</language>
+    <category>Met</category>
+    <event>Severe rain warning</event>
+    <responseType>Monitor</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Severe</severity>
+    <certainty>Observed</certainty>
+    <eventCode>
+      <valueName>AEMET-Meteoalerta fenomeno</valueName>
+      <value>PR;Lluvias</value>
+    </eventCode>
+    <effective>2026-10-20T13:28:07+01:00</effective>
+    <onset>2026-10-20T13:00:00+01:00</onset>
+    <expires>2026-10-20T17:59:59+01:00</expires>
+    <senderName>AEMET. State Meteorological Agency</senderName>
+    <headline>Severe rain warning. El Hierro</headline>
+    <description>Twelve-hours accumulated precipitation: 100 mm. Chubascos fuertes que pueden ir acompañados de tormenta.</description>
+    <instruction>Be prepared. Take precautions and keep up to date with the latest weather forecast. Severe damages to people and properties may occur, especially to those vulnerable or in exposed areas.</instruction>
+    <web>https://www.aemet.es/en/eltiempo/prediccion/avisos</web>
+    <contact>AEMET</contact>
+    <parameter>
+      <valueName>AEMET-Meteoalerta nivel</valueName>
+      <value>naranja</value>
+    </parameter>
+    <parameter>
+      <valueName>AEMET-Meteoalerta parametro</valueName>
+      <value>P2;Twelve-hours accumulated precipitation;100 mm</value>
+    </parameter>
+    <parameter>
+      <valueName>AEMET-Meteoalerta probabilidad</valueName>
+      <value>40%-70%</value>
+    </parameter>
+    <area>
+      <areaDesc>El Hierro</areaDesc>
+      <polygon>27.69,-18.05 27.71,-18.16 27.75,-18.15 27.77,-18.13 27.75,-18.07 27.76,-18.03 27.8,-17.99 27.84,-17.96 27.85,-17.92 27.8,-17.88 27.78,-17.9 27.73,-17.93 27.72,-17.96 27.65,-17.97 27.65,-18.01 27.69,-18.05</polygon>
+      <geocode>
+        <valueName>AEMET-Meteoalerta zona</valueName>
+        <value>659501</value>
+      </geocode>
+    </area>
+  </info>
+</alert>

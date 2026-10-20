@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:media="http://search.yahoo.com/mrss/">
+    <channel>
+        <title>Public Warning Messags for Trinidad and Tobago Issued by the Trinidad and Tobago Meteorological Service</title>
+        <link>https://metproducts.gov.tt/ttms/public/api/feed?type=rss</link>
+        <description></description>
+        <copyright>public domain</copyright>
+        <atom:link href="https://metproducts.gov.tt/ttms/public/api/feed?type=rss" rel="self"></atom:link>
+        <image>
+            <url>http://www.metoffice.gov.tt/sites/default/files/Met_Logo-85_0.png</url>
+            <title>Public Warning Messags for Trinidad and Tobago Issued by the Trinidad and Tobago Meteorological Service</title>
+            <link>https://metproducts.gov.tt/ttms/public/api/feed?type=rss</link>
+        </image>
+        <language>en</language>
+        <pubDate>Mon, 05 Oct 2026 20:30:50 +0000</pubDate>
+        <lastBuildDate>Mon, 05 Oct 2026 20:30:50 +0000</lastBuildDate>
+        <item>
+            <title>Adverse Weather Alert Discontinuation - Green Level</title>
+            <link>https://metproducts.gov.tt/ttms/public/api/feed/870.xml</link>
+            <guid isPermaLink="true">https://metproducts.gov.tt/ttms/public/api/feed/870.xml</guid>
+            <description>The atmosphere has now stabilized, and the threat of impactful weather has significantly reduced. Keep in mind that a few periods of showers and isolated thunderstorms are still possible overnight, as the Tropical wave moves through the region.</description>
+            <dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Trinidad and Tobago Meteorological Service Synoptic Branch</dc:creator>
+            <pubDate>Mon, 05 Oct 2026 20:30:50 +0000</pubDate>
+        </item>
+<item>
+            <title>Adverse Weather Alert #1 - Yellow Level</title>
+            <link>https://metproducts.gov.tt/ttms/public/api/feed/869.xml</link>
+            <guid isPermaLink="true">https://metproducts.gov.tt/ttms/public/api/feed/869.xml</guid>
+            <description>There is a potential for the combination of local dynamics and a tropical wave to produce impactful weather during the afternoon. The most impactful weather will likely favour western areas of Trinidad, however showers and isolated thunderstorms are </description>
+            <dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Trinidad and Tobago Meteorological Service Synoptic Branch</dc:creator>
+            <pubDate>Mon, 05 Oct 2026 14:38:12 +0000</pubDate>
+        </item>
+    </channel>
+</rss>

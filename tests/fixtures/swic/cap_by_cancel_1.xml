@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>2.49.0.0.112.0-20261020-071701-0024440-00-EN</identifier>
+  <sender>sin@hmc.by</sender>
+  <sent>2026-10-20T07:17:01-00:00</sent>
+  <status>Actual</status>
+  <msgType>Cancel</msgType>
+  <scope>Public</scope>
+  <references>sin@hmc.by,2.49.0.0.112.0-20261019-094701-0024440-00-EN,2026-10-19T09:47:01-00:00</references>
+</alert>

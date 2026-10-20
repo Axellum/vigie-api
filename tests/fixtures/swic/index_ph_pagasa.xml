@@ -1,0 +1,23 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes'?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+<id>https://publicalert.pagasa.dost.gov.ph/feeds/</id>
+<title type="text">Latest Alerts from Philippine Atmospheric Geophysical and Astronomical Services Administration</title>
+<link rel="hub" href="//alert-hub.appspot.com" />
+<link rel="self" href="https://publicalert.pagasa.dost.gov.ph/feeds/" />
+<rights>Copyright, Philippine Atmospheric Geophysical and Astronomical Services Administration. Licensed under CC BY 4.0.</rights>
+<updated>2026-10-20T23:11:43+08:00</updated>
+<entry>
+  <id>urn:uuid:92954aca-ba22-4bd8-bf42-4550cf26eed0</id>
+  <title>Tropical Cyclone Warning : Super Typhoon Rosal (CHAMPI) Signal #1</title>
+  <updated>2026-10-20T23:11:43+08:00</updated>
+  <author><name>PAGASA DOST</name></author>
+  <link type="application/cap+xml" href="https://publicalert.pagasa.dost.gov.ph/output/wcp/92954aca-ba22-4bd8-bf42-4550cf26eed0.cap"/>
+</entry>
+<entry>
+  <id>urn:uuid:f80ed31f-fd01-4058-846d-713e9f0f88ec</id>
+  <title>Tropical Cyclone Warning : Super Typhoon Rosal (CHAMPI) Signal #1</title>
+  <updated>2026-10-20T16:53:52+08:00</updated>
+  <author><name>PAGASA DOST</name></author>
+  <link type="application/cap+xml" href="https://publicalert.pagasa.dost.gov.ph/output/wcp/f80ed31f-fd01-4058-846d-713e9f0f88ec.cap"/>
+</entry>
+</feed>

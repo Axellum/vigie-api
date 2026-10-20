@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <title>МетеоПредупреждения</title>
+  <link rel="self" href="https://meteoalert.meteoinfo.ru/kazakhstan/cap-feed/ru/atom.xml" />
+  <generator>Гидрометцентр России</generator>
+  <author>
+    <name>Казгидромет</name>
+    <uri>https://www.kazhydromet.kz</uri>
+    <email>kalmenova_a@meteo.kz</email>
+  </author>
+  <subtitle>Прогностические гидрометеорологические предупреждения</subtitle>
+  <id>https://meteoalert.meteoinfo.ru/kazakhstan/cap-feed/ru/atom.xml</id>
+  <rights>public domain</rights>
+  <updated>2026-10-20T12:57:01Z</updated>
+  <dc:date>2026-10-20T12:57:01Z</dc:date>
+  <dc:rights>public domain</dc:rights>
+  <entry>
+    <title>Ветер</title>
+    <link rel="alternate" href="https://meteoalert.meteoinfo.ru/kazakhstan/cap-feed/ru/2.49.0.0.398.0-20261020-125701-0486752-00-RU.xml" />
+    <link rel="related" type="application/cap+xml" href="https://meteoalert.meteoinfo.ru/kazakhstan/cap-feed/ru/2.49.0.0.398.0-20261020-125701-0486752-00-RU.xml" />
+    <author>
+      <name>Казгидромет</name>
+      <uri>https://www.kazhydromet.kz</uri>
+      <email>kalmenova_a@meteo.kz</email>
+    </author>
+    <id>https://meteoalert.meteoinfo.ru/kazakhstan/cap-feed/ru/2.49.0.0.398.0-20261020-125701-0486752-00-RU.xml</id>
+    <updated>2026-10-20T12:57:01Z</updated>
+    <published>2026-10-20T12:57:01Z</published>
+    <summary type="text">Фёдоровский район (Костанайская область)
+Ветер (уровень опасности 1 из 3)</summary>
+    <dc:date>2026-10-20T12:57:01Z</dc:date>
+  </entry>
+</feed>

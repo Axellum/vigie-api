@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <title>MeteoAlert</title>
+  <link rel="alternate" href="https://meteoinfo.ru/hmc-output/cap/cap-feed/en/atom.xml" />
+  <author>
+    <name>Hydrometcenter of Russia</name>
+    <email>web@mecom.ru</email>
+  </author>
+  <subtitle>Official Warnings</subtitle>
+  <id>https://meteoinfo.ru/hmc-output/cap/cap-feed/en/atom.xml</id>
+  <rights>public domain</rights>
+  <updated>2026-10-20T16:31:01Z</updated>
+  <dc:date>2026-10-20T16:31:01Z</dc:date>
+  <dc:rights>public domain</dc:rights>
+  <entry>
+    <title>Low water</title>
+    <link rel="alternate" href="https://meteoinfo.ru/hmc-output/cap/cap-feed/en/20261016051609-0265790.xml" />
+    <link rel="related" type="application/cap+xml" href="https://meteoinfo.ru/hmc-output/cap/cap-feed/en/20261016051609-0265790.xml" />
+    <author>
+      <name>Hydrometcenter of Russia</name>
+      <email>web@mecom.ru</email>
+    </author>
+    <id>https://meteoinfo.ru/hmc-output/cap/cap-feed/en/20261016051609-0265790.xml</id>
+    <updated>2026-10-20T16:31:01Z</updated>
+    <published>2026-10-20T16:31:01Z</published>
+    <summary type="text">Kirov Region: Low water (level 1 of 3)</summary>
+    <dc:date>2026-10-20T16:31:01Z</dc:date>
+  </entry>
+<entry>
+    <title>Forestfire</title>
+    <link rel="alternate" href="https://meteoinfo.ru/hmc-output/cap/cap-feed/en/20261017043958-0266022.xml" />
+    <link rel="related" type="application/cap+xml" href="https://meteoinfo.ru/hmc-output/cap/cap-feed/en/20261017043958-0266022.xml" />
+    <author>
+      <name>Hydrometcenter of Russia</name>
+      <email>web@mecom.ru</email>
+    </author>
+    <id>https://meteoinfo.ru/hmc-output/cap/cap-feed/en/20261017043958-0266022.xml</id>
+    <updated>2026-10-20T16:31:01Z</updated>
+    <published>2026-10-20T16:31:01Z</published>
+    <summary type="text">Orenburg Region: Forestfire (level 2 of 3)</summary>
+    <dc:date>2026-10-20T16:31:01Z</dc:date>
+  </entry>
+</feed>
