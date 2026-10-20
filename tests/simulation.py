@@ -15,10 +15,12 @@ The simulation counts the HTTP requests the application would really send to eac
 from __future__ import annotations
 
 import asyncio
+import json
 import math
 import random
 from collections import Counter
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Optional
 
@@ -44,7 +46,7 @@ from app.services.aggregator import AggregatorService
 from app.services.scheduler import BackgroundAlertScheduler
 from app.services.storage_wal import DEFAULT_WATCHLIST_SEED
 from tests import samples
-from tests.helpers import SimClock
+from tests.helpers import SimClock, http_date
 
 DAY_S = 86_400
 SCHEDULER_PERIOD_S = 90
@@ -74,8 +76,17 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 METEOALARM_FIXTURES = FIXTURES / "meteoalarm"
 
 # The answers of the national services, recorded on 2026-10-20 (see the README of each folder). The simulated DWD and
-# MetService send the validators they sent then, and answer 304 to the request that repeats them; ECCC and Vigicrues
-# send none, as the real ones.
+# MetService send the validators they sent then, and answer 304 to the request that repeats them; ECCC and the Vigicrues
+# flow send none, as the real ones.
+#
+# Vigicrues: the whole flow weighs 2,245,691 bytes on the wire (measured 2026-10-20; no compression), the recorded copy
+# keeps 31 of the 337 sections, so the bytes of a flow are counted at the real weight. The national map image, whose
+# head the collector asks, carries the validators of the publication; the flow is published at 07:55:15 and 13:55:15 UTC
+# (10 a.m. and 4 p.m. in Paris in summer), the image regenerated 21 seconds later.
+VIGICRUES_FLOW_BYTES = 2_245_691
+VIGICRUES_HEAD_BYTES = len((FIXTURES / "vigicrues" / "img_france.headers.txt").read_bytes())
+VIGICRUES_IMAGE_PATH = "/ftp/img_france.png"
+VIGICRUES_PUBLICATION_HOURS_UTC = (7 * 3600 + 55 * 60 + 15, 13 * 3600 + 55 * 60 + 15)
 DWD_ETAG = '"6ad75578-4005"'
 DWD_LAST_MODIFIED = "Tue, 20 Oct 2026 11:50:16 GMT"
 METSERVICE_LAST_MODIFIED = "Tue, 20 Oct 2026 11:55:21 GMT"
@@ -125,9 +136,46 @@ class Upstream:
         # What the national services answer, when a test wants something other than the recordings of 2026-10-20.
         self.bodies: dict[str, bytes] = {}
         self.not_modified: Counter[str] = Counter()  # requests answered 304 (they are in ``calls`` too)
+        # Bytes the providers send back (the body; plus the head for a HEAD). The Vigicrues flow is counted at its real weight.
+        self.bytes: Counter[str] = Counter()
+        self.methods: Counter[tuple[str, str]] = Counter()  # (source, HTTP method)
+        # The times (seconds on the simulated clock) at which Vigicrues publishes: by default 07:55:15 and 13:55:15 UTC every day.
+        self.vigicrues_publications: list[float] = self._daily_publications()
 
     def client(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(transport=httpx.MockTransport(self._handler))
+
+    def _daily_publications(self) -> list[float]:
+        """The publications of Vigicrues from two days before the start of the simulation to two days after."""
+        first_day = int(self.clock.time() // DAY_S) - 2
+        return [
+            day * DAY_S + hour - self.clock.time() + self.clock.now
+            for day in range(first_day, first_day + 6)
+            for hour in VIGICRUES_PUBLICATION_HOURS_UTC
+        ]
+
+    def _last_publication(self) -> tuple[int, float]:
+        """Index and time (simulated clock) of the latest publication of Vigicrues."""
+        done = [(i, t) for i, t in enumerate(self.vigicrues_publications) if t <= self.clock.now]
+        return done[-1] if done else (-1, self.vigicrues_publications[0] - DAY_S)
+
+    def _vigicrues_flow(self) -> bytes:
+        """The recorded flow (or the one a test set) stamped with the latest publication, as the real one is at each."""
+        index, at = self._last_publication()
+        payload = json.loads(self.bodies.get("vigicrues_flow") or (FIXTURES / "vigicrues" / "InfoVigiCru_subset.geojson").read_bytes())
+        published = datetime.fromtimestamp(self.clock.EPOCH + at, tz=timezone.utc)
+        payload["RefInfoVigiCru"] = f"{published:%d%m%Y_%H}"
+        payload["DtHrInfoVigiCru"] = published.isoformat(timespec="seconds")
+        return json.dumps(payload).encode()
+
+    def _vigicrues(self, request: httpx.Request) -> httpx.Response:
+        if request.url.path == VIGICRUES_IMAGE_PATH:
+            index, at = self._last_publication()
+            self.bytes["vigicrues_flow"] += VIGICRUES_HEAD_BYTES
+            stamp = self.clock.EPOCH + at + 21  # the image is regenerated 21 seconds after the flow
+            return httpx.Response(200, headers={"Last-Modified": http_date(stamp), "ETag": f'"{index}-{int(stamp)}"'})
+        self.bytes["vigicrues_flow"] += VIGICRUES_FLOW_BYTES
+        return httpx.Response(200, content=self._vigicrues_flow())
 
     async def _handler(self, request: httpx.Request) -> httpx.Response:
         source = source_of(request)
@@ -135,6 +183,7 @@ class Upstream:
             return httpx.Response(404, json={"error": f"unknown simulated host {request.url.host}"})
         params = dict(request.url.params)
         self.calls[source] += 1
+        self.methods[(source, request.method)] += 1
         if source in OPEN_METEO_SOURCES:
             weight = open_meteo_weight(source, params)
             self.per_hour[int(self.clock.now // 3600)] += weight
@@ -174,9 +223,7 @@ class Upstream:
                 headers={"Last-Modified": METSERVICE_LAST_MODIFIED},
             )
         if source == "vigicrues_flow":
-            return httpx.Response(
-                200, content=self.bodies.get(source) or (FIXTURES / "vigicrues" / "InfoVigiCru_subset.geojson").read_bytes()
-            )
+            return self._vigicrues(request)
         return httpx.Response(200, json=self._payload(source, params))
 
     def _payload(self, source: str, params: dict[str, str]) -> Any:

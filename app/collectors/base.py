@@ -364,12 +364,27 @@ class BaseCollector(ABC, Generic[T]):
         The request is counted (calls and weight over 24 hours) when it is sent, whatever its outcome.
         When the call budget is used up it is not sent and ``BudgetExhaustedError`` is raised.
         """
-        weight = self.call_weight(params or {})
+        self._spend({} if params is None else params)
+        return await client.get(url, params=params, headers=headers)
+
+    async def _head(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+    ) -> httpx.Response:
+        """Send a HEAD request to the provider: only its headers come back, but it is counted like a GET."""
+        self._spend({})
+        return await client.head(url, headers=headers)
+
+    def _spend(self, params: Mapping[str, str]) -> None:
+        """Count one request in the usage and the budget of the provider, or raise ``BudgetExhaustedError``."""
+        weight = self.call_weight(params)
         now = clock.monotonic()
         if not self.budget.try_spend(weight, now):
             raise BudgetExhaustedError(f"{self.provider_id}: a request of weight {weight:g} does not fit in the budget")
         self.usage.add(now, weight)
-        return await client.get(url, params=params, headers=headers)
 
     def call_weight(self, params: Mapping[str, str]) -> float:
         """Weight of one upstream request in the quota of the provider: 1.0 unless the provider weights its calls."""

@@ -1,0 +1,14 @@
+HTTP/1.1 200 OK
+Server: nginx
+Date: Tue, 20 Oct 2026 13:35:34 GMT
+Content-Type: image/png
+Content-Length: 194103
+Connection: keep-alive
+Last-Modified: Tue, 20 Oct 2026 07:55:36 GMT
+ETag: "2f637-65e40f4aa8e00"
+Accept-Ranges: bytes
+X-Url: 
+Cache-Control: max-age=120
+Age: 0
+X-Cache: MISS
+

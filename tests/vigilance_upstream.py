@@ -86,7 +86,7 @@ class Upstream:
         self.dwd_provider = Provider(answer=self._dwd_answer, latency_ticks=0)
         self.eccc_provider = Provider(answer=lambda request: self._plain(self.eccc), latency_ticks=0)
         self.metservice_provider = Provider(answer=self._metservice_answer, latency_ticks=0)
-        self.vigicrues_provider = Provider(answer=lambda request: self._plain(self.vigicrues), latency_ticks=0)
+        self.vigicrues_provider = Provider(answer=self._vigicrues_answer, latency_ticks=0)
         self.meteoalarm = Provider(answer=self._meteoalarm_answer, latency_ticks=0)
         self.nws_provider = Provider(answer=self._nws_answer, latency_ticks=0)
 
@@ -119,6 +119,14 @@ class Upstream:
         if url.endswith("/cap/rss"):
             return self._plain(self.metservice)
         return self._plain(self.metservice_documents.get(url, 404))
+
+    def _vigicrues_answer(self, request: httpx.Request) -> httpx.Response:
+        """The flow (no validator, as recorded) and the head of the publication image, which changes when the flow does."""
+        if request.url.path == "/ftp/img_france.png":
+            if isinstance(self.vigicrues, int):
+                return httpx.Response(self.vigicrues)
+            return httpx.Response(200, headers={"Last-Modified": "Tue, 20 Oct 2026 07:55:36 GMT", "ETag": '"' + hashlib.md5(self.vigicrues).hexdigest()[:12] + '"'})
+        return self._plain(self.vigicrues)
 
     def _nws_answer(self, request: httpx.Request) -> httpx.Response:
         return httpx.Response(self.nws) if isinstance(self.nws, int) else httpx.Response(200, content=self.nws)

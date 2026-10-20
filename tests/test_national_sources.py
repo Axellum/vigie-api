@@ -386,7 +386,8 @@ async def test_the_scheduler_refreshes_the_national_service_of_a_followed_point_
 async def test_the_scheduler_refreshes_both_french_sources(service: VigilanceService, upstream: Upstream) -> None:
     point = FollowedPoint(key="p", lat=samples.PARIS[0], lon=samples.PARIS[1], label={}, audience="followers")
     await service.refresh([point])
-    assert upstream.feed_requests == ["france"] and upstream.vigicrues_provider.count == 1
+    assert upstream.feed_requests == ["france"]
+    assert [r.method for r in upstream.vigicrues_provider.requests] == ["HEAD", "GET"]  # a look at the image, then the flow once
 
 
 # ---------------------------------------------------------------- the pushes
