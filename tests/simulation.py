@@ -407,6 +407,15 @@ class FakeStorage:
     def get_journal_mode(self) -> str:
         return "memory"
 
+    def list_watched_points(self) -> list[Any]:
+        return []
+
+    def load_source_runs(self) -> dict[str, tuple[int, int]]:
+        return {}
+
+    def save_source_runs(self, runs: Any) -> None:
+        return None
+
 
 class NullHub:
     """WebSocket hub without clients."""

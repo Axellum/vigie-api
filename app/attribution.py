@@ -155,6 +155,13 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "gem_faults",
+            "GEM Global Active Faults Database",
+            "Active faults: GEM Global Active Faults Database (Styron and Pagani, 2020, Earthquake Spectra, "
+            "doi:10.1177/8755293020944182), CC BY-SA 4.0, simplified by Vigie",
+            "suggested",
+        ),
+        Credit(
             "vigicrues",
             "Vigicrues (SCHAPI)",
             "Source: Vigicrues, Service central d'hydrométéorologie et d'appui à la prévision des inondations (SCHAPI), "
@@ -194,6 +201,10 @@ HAZARD_SOURCE_CREDITS: dict[str, str] = {
     "NTWC": "noaa_tsunami",
 }
 
+# The ``sources`` of a place named in ``near_places`` -> the credit of that source. A volcano carries the names of the hazard
+# sources that report it (``HAZARD_SOURCE_CREDITS``); a fault carries ``GEM``; a point the user watches carries none.
+PLACE_SOURCE_CREDITS: dict[str, str] = {"GEM": "gem_faults"}
+
 # Blocks of data and the credits they carry (the order is the order of the text).
 OPEN_METEO_WEATHER = ("open_meteo",)
 MET_NORWAY_WEATHER = ("met_norway",)
@@ -232,6 +243,17 @@ def hazard_credit(hazard_id: str, sources: Iterable[str]) -> Optional[str]:
     for source in sources:
         for name in str(source).split("+"):
             key = HAZARD_SOURCE_CREDITS.get(name.strip())
+            if key is not None:
+                texts.append(CREDITS[key].text)
+    return merge_credits(*texts)
+
+
+def place_credit(sources: Iterable[str]) -> Optional[str]:
+    """The credit of the places named in ``near_places``, from their ``sources`` (a name this table does not know adds nothing)."""
+    texts: list[Optional[str]] = []
+    for source in sources:
+        for name in str(source).split("+"):
+            key = PLACE_SOURCE_CREDITS.get(name.strip()) or HAZARD_SOURCE_CREDITS.get(name.strip())
             if key is not None:
                 texts.append(CREDITS[key].text)
     return merge_credits(*texts)

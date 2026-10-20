@@ -10,6 +10,12 @@ Endpoints:
 - ``GET    /v1/zones``             : Watched zones (SQLite watchlist).
 - ``POST   /v1/zones``             : Add or update a watched zone.
 - ``DELETE /v1/zones/{zone_id}``   : Delete a watched zone.
+- ``GET    /v1/watched-points``    : The points the user watches (a place, a fault, a volcano...): events near them are named
+                                     in ``near_places`` of the hazards.
+- ``POST   /v1/watched-points``    : Add or update a watched point.
+- ``DELETE /v1/watched-points/{point_id}`` : Delete a watched point.
+- ``GET    /v1/watched-points/status`` : For each point, the events of the last days within its radius, and "quiet" only when
+                                     every hazard source answered and has been read without a gap.
 - ``GET    /v1/history``           : Hazard history from SQLite, with filters.
 - ``GET    /v1/point``             : Weather at a GPS position (``lat, lon``): 15-minute rain, radar,
                                      marine (``marine=true``), river discharge, air quality / ash,
@@ -39,18 +45,22 @@ Endpoints:
 from __future__ import annotations
 
 import json
+import math
 import os
 import time
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Literal, Optional
 
-from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app import __version__
 from app.models.fires import FiresCollection, FiresGrid
 from app.models.forecast import HazardForecast
+from app.models.places import WatchedPoint, WatchedPointUpsertRequest
 from app.models.schemas import (
     CAPFeedResponse,
     DeviceType,
@@ -67,6 +77,7 @@ from app.models.schemas import (
     SnapshotResponse,
 )
 from app.models.vigilance import VigilanceCountry, VigilanceGeoJSONCollection, VigilancesResponse
+from app.models.watch import WatchedPointsStatus
 from app.routers.dashboard import router as dashboard_router
 from app.services.aggregator import AggregatorService
 from app.services.fires import (
@@ -85,6 +96,7 @@ from app.services.fires import (
 )
 from app.services.geoindex import DEFAULT_RIVER_RADIUS_KM, MAX_RIVER_RADIUS_KM
 from app.services.scheduler import BackgroundAlertScheduler
+from app.services.storage_wal import WatchedPointsLimitError
 from app.services.vigilance import FOLLOW_DECIMALS, TSUNAMI_SOURCE, parse_languages
 
 # The most positions one WebSocket connection can follow for official warnings.
@@ -177,7 +189,8 @@ def simulation_enabled() -> bool:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    """Start the background scheduler when enabled and stop it cleanly on shutdown."""
+    """Load the bundled fault traces, start the background scheduler when enabled and stop it cleanly on shutdown."""
+    aggregator.places.faults()  # read once at the start, not by the first request that needs them
     if scheduler_enabled():
         scheduler.start()
     aggregator.fires.warm_up()  # the first read of the fires (only when the instance has a FIRMS key) starts now, not at the first visitor
@@ -216,6 +229,14 @@ app.add_middleware(
 app.include_router(dashboard_router)
 
 
+@app.exception_handler(RequestValidationError)
+async def refuse_invalid_request(_: Request, exc: RequestValidationError) -> JSONResponse:
+    """The 422 FastAPI answers, with one change: a number JSON cannot carry (``NaN``, ``Infinity``, which Python's parser accepts)
+    is written as text in the error. Without it the error itself could not be encoded and the client got a 500."""
+    errors = jsonable_encoder(exc.errors(), custom_encoder={float: lambda value: value if math.isfinite(value) else str(value)})
+    return JSONResponse(status_code=422, content={"detail": errors})
+
+
 @app.get("/v1/health", tags=["Monitoring"])
 async def get_health() -> dict[str, Any]:
     """Return the global health, the SQLite mode, the scheduler and the collector summary."""
@@ -228,6 +249,8 @@ async def get_health() -> dict[str, Any]:
         "uptime_seconds": max(0, int(time.time()) - aggregator.started_at_utc),
         "storage_journal_mode": aggregator.storage.get_journal_mode(),
         "monitored_zones_count": len(aggregator.monitored_zones),
+        "watched_points_count": len(aggregator.watched_points),
+        "active_faults_loaded": len(faults) if (faults := aggregator.places.faults()) is not None else None,
         "simulation_enabled": simulation_enabled(),
         "simulation_active": aggregator.simulation_active,
         "active_scenario": aggregator.active_scenario.value,
@@ -280,6 +303,58 @@ async def delete_zone(zone_id: str) -> dict[str, Any]:
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Zone '{zone_id}' not found")
     return {"status": "deleted", "zone_id": zone_id}
+
+
+@app.get("/v1/watched-points", response_model=list[WatchedPoint], tags=["Watchlist"])
+async def get_watched_points() -> list[WatchedPoint]:
+    """List the points the instance watches (like `/v1/zones`, the list is not protected: it is public on a public instance)."""
+    return aggregator.watched_points
+
+
+@app.post(
+    "/v1/watched-points",
+    response_model=WatchedPoint,
+    tags=["Watchlist"],
+    responses={409: {"description": "The instance already keeps the largest number of watched points (`VIGIE_WATCHED_POINTS_MAX`)."}},
+)
+async def upsert_watched_point(request: WatchedPointUpsertRequest) -> WatchedPoint:
+    """Add or update a watched point: a name, a kind (`place`, `fault`, `volcano`, `custom`), a position and a radius.
+
+    The hazards within the radius of a point name it in their `near_places`, and `/v1/watched-points/status` lists what
+    happened near it. Like `/v1/zones`, the route has no authentication: do not leave it open on an instance that others can reach.
+    """
+    try:
+        return aggregator.upsert_watched_point(request)
+    except WatchedPointsLimitError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.delete("/v1/watched-points/{point_id}", tags=["Watchlist"])
+async def delete_watched_point(point_id: str) -> dict[str, Any]:
+    """Delete a watched point."""
+    if not aggregator.delete_watched_point(point_id):
+        raise HTTPException(status_code=404, detail=f"Watched point '{point_id}' not found")
+    return {"status": "deleted", "point_id": point_id}
+
+
+@app.get(
+    "/v1/watched-points/status",
+    response_model=WatchedPointsStatus,
+    tags=["Watchlist"],
+    description=(
+        "For each watched point, the events within its radius in the last `days` days (7 by default), taken from the hazards the "
+        "API saw (an earthquake by the time it happened, any other hazard while it was active). A point with no event is "
+        "`quiet` only when **every hazard source answered at the last reading and has been read without a gap** since "
+        "`quiet_since_utc`; otherwise it is `unknown` and `unreachable_sources` says which source did not answer. The API only "
+        "knows what it saw: an instance started an hour ago cannot say nothing happened in the last week. The state is "
+        "computed by Vigie, not reported by a source, and is not an official warning."
+    ),
+)
+async def get_watched_points_status(
+    days: int = Query(default=7, ge=1, le=30, description="Length of the window the events are looked for in, in days"),
+) -> WatchedPointsStatus:
+    """Events near each watched point, and whether the API may say nothing happened."""
+    return await aggregator.watched_points_status(days)
 
 
 @app.get("/v1/history", response_model=HistoryResponse, tags=["Watchlist"])

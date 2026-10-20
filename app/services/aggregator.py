@@ -20,12 +20,14 @@ Main responsibilities:
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Awaitable, Optional, TypeVar
 
-from app.attribution import RADAR, SIMULATION_CREDIT, credit_text, merge_credits
+from app import clock
+from app.attribution import RADAR, SIMULATED_ID_PREFIX, SIMULATION_CREDIT, credit_text, merge_credits
 from app.collectors.budget import share_budgets
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector
 from app.collectors.dwd import DWDCollector
@@ -55,6 +57,7 @@ from app.collectors.weather import (
     rainviewer_enabled_from_env,
 )
 from app.models.forecast import HazardForecast
+from app.models.places import WatchedPoint, WatchedPointUpsertRequest
 from app.models.schemas import (
     SEVERITY_RANK,
     AirQualityStatus,
@@ -62,6 +65,7 @@ from app.models.schemas import (
     CAPArea,
     CAPFeedResponse,
     CAPInfo,
+    CircuitState,
     CurrentWeather,
     DeviceType,
     FloodRiskStatus,
@@ -87,6 +91,7 @@ from app.models.schemas import (
     SpaceWeatherStatus,
     ZoneWeather,
 )
+from app.models.watch import WatchedPointsStatus, WatchedSource
 from app.services.embedded_frame import serialize_embedded_frame
 from app.services.fires import NEARBY_RADIUS_DEFAULT_KM, FireService
 from app.services.forecasts import empty as empty_forecast
@@ -97,10 +102,14 @@ from app.services.geodesy import (
     haversine_km,
 )
 from app.services.geoindex import CountryIndex, GeometryIndex, default_countries, default_geometries
+from app.services.places import FaultIndex, NearPlacesService, PlaceSettings
 from app.services.storage_wal import DEFAULT_WATCHLIST_SEED, SQLiteWALStorage
 from app.services.vigilance import VigilanceService
+from app.services.watch import SourceReads, build_status, candidate_ids, parse_window_days
 
 T = TypeVar("T")
+
+log = logging.getLogger(__name__)
 
 DEFAULT_MONITORED_ZONES: list[dict[str, Any]] = list(DEFAULT_WATCHLIST_SEED)
 
@@ -161,8 +170,13 @@ class AggregatorService:
         firms: Optional[FIRMSCollector] = None,
         countries: Optional[CountryIndex] = None,
         geometries: Optional[GeometryIndex] = None,
+        place_settings: Optional[PlaceSettings] = None,
+        faults: Optional[FaultIndex] = None,
     ) -> None:
         self.started_at_utc = int(time.time())
+        # How far the hazards look for the places near them (faults, volcanoes in alert, the watched points): settings, not
+        # sourced facts (``PlaceSettings``). ``faults`` replaces the bundled fault file (a test).
+        self.places = NearPlacesService(place_settings or PlaceSettings.from_env(), (lambda: faults) if faults is not None else None)
         # RainViewer is on unless VIGIE_ENABLE_RAINVIEWER turns it off (see ``rainviewer_enabled_from_env``).
         self.rainviewer_enabled = rainviewer_enabled_from_env() if rainviewer_enabled is None else rainviewer_enabled
         # MetService is on unless VIGIE_ENABLE_METSERVICE turns it off (see ``metservice_enabled_from_env``).
@@ -204,6 +218,11 @@ class AggregatorService:
         self.monitored_zones: list[dict[str, Any]] = [
             z.model_dump() for z in self.storage.list_zones()
         ]
+        # The watched points and the runs of readings are read from the database once per storage (see the properties below).
+        self._watched: list[WatchedPoint] = []
+        self._watched_storage: Optional[SQLiteWALStorage] = None
+        self._reads: Optional[SourceReads] = None
+        self._reads_storage: Optional[SQLiteWALStorage] = None
         self.simulation_active: bool = False
         self.active_scenario: SimulationScenario = SimulationScenario.CLEAR
         self.simulated_hazards: list[HazardAlert] = []
@@ -227,6 +246,11 @@ class AggregatorService:
             swic_mode=self.wmo_sources,
         )
 
+    @property
+    def place_settings(self) -> PlaceSettings:
+        """How far this instance looks for the places near a hazard (one object: the one ``self.places`` uses)."""
+        return self.places.settings
+
     def refresh_zones_from_storage(self) -> list[MonitoredZoneConfig]:
         """Reload the watched zones from SQLite."""
         zones = self.storage.list_zones()
@@ -248,6 +272,62 @@ class AggregatorService:
         deleted = self.storage.delete_zone(zone_id)
         self.refresh_zones_from_storage()
         return deleted
+
+    @property
+    def watched_points(self) -> list[WatchedPoint]:
+        """The points the user watches (``/v1/watched-points``), read from SQLite again whenever the storage is another one."""
+        if self._watched_storage is not self.storage:
+            self.refresh_watched_points_from_storage()
+        return self._watched
+
+    def refresh_watched_points_from_storage(self) -> list[WatchedPoint]:
+        """Reload the watched points from SQLite."""
+        self._watched = self.storage.list_watched_points()
+        self._watched_storage = self.storage
+        return self._watched
+
+    def upsert_watched_point(self, req: WatchedPointUpsertRequest) -> WatchedPoint:
+        """Add or update a watched point (``WatchedPointsLimitError`` when a new one would go over the limit)."""
+        created = self.storage.upsert_watched_point(req, self.place_settings.watched_points_max)
+        self.refresh_watched_points_from_storage()
+        return created
+
+    def delete_watched_point(self, point_id: str) -> bool:
+        """Delete a watched point and refresh the in-memory copy."""
+        deleted = self.storage.delete_watched_point(point_id)
+        self.refresh_watched_points_from_storage()
+        return deleted
+
+    def hazard_collectors(self) -> list[Any]:
+        """The collectors of the hazards, in the order ``collect_hazards_with_status`` reads them."""
+        return [self.usgs, self.emsc, self.gdacs, self.noaa_nws, self.volcano, self.nhc, self.tsunami]
+
+    def source_reads(self) -> SourceReads:
+        """What the API knows of the readings of the hazard sources (the runs are loaded from SQLite once per storage)."""
+        if self._reads is None or self._reads_storage is not self.storage:
+            try:
+                runs = self.storage.load_source_runs()
+            except Exception:
+                runs = {}
+            self._reads = SourceReads(runs, self.place_settings.quiet_max_gap_s)
+            self._reads_storage = self.storage
+        return self._reads
+
+    def _note_source_reads(self, collectors: list[Any], results: list[Any]) -> None:
+        """Note which hazard sources answered this time. An answer counts only if it is not a stale one served after a failure."""
+        answered = {
+            c.provider_id: isinstance(res, list) and c.consecutive_failures == 0 and c.circuit_state == CircuitState.CLOSED
+            for c, res in zip(collectors, results, strict=True)
+        }
+        reads = self.source_reads()
+        now_utc = int(clock.wall())
+        reads.record(answered, now_utc)
+        if reads.dirty(now_utc):
+            try:
+                self.storage.save_source_runs(reads.runs)
+            except Exception:
+                pass  # the runs stay in memory; the next reading writes them
+            reads.persisted(now_utc)
 
     def get_history(
         self,
@@ -359,16 +439,8 @@ class AggregatorService:
         cached value) counts as not answering, so an empty list from a working source can be
         told apart from "no source answered".
         """
-        results = await asyncio.gather(
-            self.usgs.fetch(),
-            self.emsc.fetch(),
-            self.gdacs.fetch(),
-            self.noaa_nws.fetch(),
-            self.volcano.fetch(),
-            self.nhc.fetch(),
-            self.tsunami.fetch(),
-            return_exceptions=True,
-        )
+        collectors = self.hazard_collectors()
+        results = await asyncio.gather(*(c.fetch() for c in collectors), return_exceptions=True)
 
         raw_hazards: list[HazardAlert] = []
         sources_ok = 0
@@ -376,12 +448,17 @@ class AggregatorService:
             if isinstance(res, list):
                 sources_ok += 1
                 raw_hazards.extend(res)
+        self._note_source_reads(collectors, list(results))
 
         if self.simulation_active and self.simulated_hazards:
             raw_hazards.extend(self.simulated_hazards)
 
         fused = deduplicate_hazards(raw_hazards)
         enriched = [self._attach_nearest_monitored_zone(h) for h in fused]
+        try:  # the places near each hazard; they never change a severity, and a failure of theirs never stops the hazards
+            enriched = self.places.annotate(enriched, self.watched_points)
+        except Exception:
+            log.warning("near_places could not be worked out", exc_info=True)
         try:
             self.storage.record_hazards(enriched)
         except Exception:
@@ -538,6 +615,8 @@ class AggregatorService:
             )
         )
         enriched_nearby = enriched_nearby[:limit_hazards]
+        if compact:  # the 16 KiB profile carries no `near_places` (docs/decisions/0007-sensitive-points.md): ask `compact=false`
+            enriched_nearby = [h.model_copy(update={"near_places": None}) for h in enriched_nearby]
 
         rain_steps: Optional[list[float]] = weather_bundle.get("rain_next_60m") if weather_bundle else None
         rain_nowcast = RainNowcast(
@@ -682,6 +761,8 @@ class AggregatorService:
             zones_out.append(zone_weather)
 
         selected_hazards = all_hazards[:limit_hazards]
+        if compact:  # the 16 KiB profile carries no `near_places` (docs/decisions/0007-sensitive-points.md): ask `compact=false`
+            selected_hazards = [h.model_copy(update={"near_places": None}) for h in selected_hazards]
 
         hazards_known = sources_ok > 0 or (self.simulation_active and bool(self.simulated_hazards))
         red_count = sum(1 for h in all_hazards if h.severity == SeverityLevel.RED)
@@ -794,6 +875,9 @@ class AggregatorService:
                         "bearing_deg": h.bearing_deg,
                         "bearing_cardinal": h.bearing_cardinal,
                         "has_forecast": h.id in with_forecast,
+                        # computed by Vigie from its reference data and settings, named in `derived` (null: not worked out)
+                        "near_places": None if h.near_places is None else [p.model_dump() for p in h.near_places],
+                        "derived": h.derived,
                         "attribution": h.attribution,
                     },
                 )
@@ -811,6 +895,29 @@ class AggregatorService:
             },
             features=features,
         )
+
+    async def watched_points_status(self, days: Optional[int] = None) -> WatchedPointsStatus:
+        """What happened near each watched point in the last ``days`` days (7 by default), and whether "nothing" can be said."""
+        window_days = parse_window_days(days)
+        hazards, _, _ = await self.collect_hazards_with_status()  # reads the sources now, and notes which ones answered
+        now_utc = int(clock.wall())
+        points = list(self.watched_points)
+        reads = self.source_reads()
+        sources = [
+            WatchedSource(
+                provider_id=c.provider_id,
+                name=c.name,
+                answered=reads.answered.get(c.provider_id, False),
+                observed_since_utc=reads.run_since(c.provider_id),
+            )
+            for c in self.hazard_collectors()
+        ]
+        history: list[HazardAlert] = []
+        if points:
+            positions = self.storage.hazard_positions_since(now_utc - window_days * 86400)
+            history = self.storage.hazards_by_ids(candidate_ids(points, positions))
+        active = [h for h in hazards if not h.id.startswith(SIMULATED_ID_PREFIX)]
+        return build_status(points, history, active, sources, now_utc, window_days)
 
     def hazards_with_forecast(self) -> set[str]:
         """The ids of the hazards that have a forecast to draw (``/v1/geojson/hazards/{id}/forecast``), from the last answers read."""

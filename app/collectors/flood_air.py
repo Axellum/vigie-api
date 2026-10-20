@@ -308,7 +308,8 @@ class USGSVolcanoCollector(BaseCollector[list[HazardAlert]]):
                     continue
 
                 vei = optional_float(props.get("vei"))
-                name = str(_first_present(props, "vName", "v_name", "volcano_name", "name") or "Unnamed volcano")
+                given_name = _first_present(props, "vName", "v_name", "volcano_name", "name")
+                name = str(given_name or "Unnamed volcano")
                 v_id = str(_first_present(props, "vnum", "id") or name.lower().replace(" ", "_"))
                 title = f"{name} volcano (aviation color code {color_code})"
 
@@ -326,7 +327,7 @@ class USGSVolcanoCollector(BaseCollector[list[HazardAlert]]):
                         value_primary=None if vei is None else round(vei, 1),
                         value_unit=None if vei is None else "VEI",
                         tsunami_warning=False,
-                    )
+                    ).with_place_name(str(given_name) if given_name else None)  # the volcano's own name, for the earthquakes near it
                 )
             except (ValueError, TypeError, KeyError):
                 continue

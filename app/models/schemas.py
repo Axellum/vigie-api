@@ -27,7 +27,8 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, PrivateAttr, computed_field
 
-from app.attribution import hazard_credit
+from app.attribution import hazard_credit, merge_credits, place_credit
+from app.models.places import NearPlace
 
 
 def cap_sender() -> str:
@@ -264,6 +265,13 @@ class HazardAlert(BaseModel):
     bearing_cardinal: Optional[str] = Field(
         default=None, description="Cardinal direction from the target to the hazard (N, NE, E...)"
     )
+    near_places: Optional[list[NearPlace]] = Field(
+        default=None,
+        description="Named places close to the event, nearest first, computed by Vigie (active faults, volcanoes in alert, the points "
+        "the instance watches; the radii are settings). Empty: nothing is near. Null: not worked out (the faults are unknown, the "
+        "alert is simulated, or the compact profile of `/v1/snapshot` and `/v1/point`, which keeps to 16 KiB: ask `compact=false`). "
+        "Named in `derived`; it never changes `severity`",
+    )
 
     # What names the same event in two sources when they do not agree on its time and place (a storm: its name and its
     # season; a tsunami warning of the US centres: its VTEC code). Private: not in any response, only read by the de-duplication.
@@ -279,13 +287,38 @@ class HazardAlert(BaseModel):
         self._event_key = key
         return self
 
+    # The name of the place the event is at, when the source gives it (a volcano's name): what an earthquake near it is told.
+    # Private for the same reason: it is not in any response, only read by ``app/services/places.py``.
+    _place_name: Optional[str] = PrivateAttr(default=None)
+
+    @property
+    def place_name(self) -> Optional[str]:
+        """The name of the place the event is at (a volcano), or ``None`` when the source gives none."""
+        return self._place_name
+
+    def with_place_name(self, name: Optional[str]) -> "HazardAlert":
+        """Set the place name (``None`` for a blank one) and return the alert."""
+        self._place_name = (name or "").strip() or None
+        return self
+
     @computed_field(  # type: ignore[prop-decorator]
-        description="Credit each reporting source asks for, to show with this alert. GDACS alerts are automatic "
+        description="Credit each reporting source asks for, to show with this alert, and the source of the places named in "
+        "`near_places` (the GEM active faults database asks for its citation). GDACS alerts are automatic "
         "and do not replace official warnings. A simulated alert is credited to no provider."
     )
     @property
     def attribution(self) -> Optional[str]:
-        return hazard_credit(self.id, self.sources or [self.source])
+        place_sources = [source for place in (self.near_places or []) for source in place.sources]
+        return merge_credits(hazard_credit(self.id, self.sources or [self.source]), place_credit(place_sources))
+
+    @computed_field(  # type: ignore[prop-decorator]
+        description="The fields of this alert that Vigie computed from its own reference data or settings, not reported by a source: "
+        "`near_places` when it was worked out. (The fields relative to a watched zone or a position, `distance_to_zone_km`, "
+        "`bearing_deg`, `tsunami_eta_minutes`..., are computed too and described one by one.)"
+    )
+    @property
+    def derived(self) -> list[str]:
+        return ["near_places"] if self.near_places is not None else []
 
 
 class ZoneWeather(BaseModel):

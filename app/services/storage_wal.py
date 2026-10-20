@@ -8,6 +8,8 @@ Provides:
    ``/v1/history``.
 3. The last valid snapshot (``snapshot_cache``), so a cold start can serve something even
    when the Internet is down.
+4. The **watched points** behind ``/v1/watched-points`` (``watched_points``), and for each hazard source the run of reads
+   without a gap that "nothing happened" rests on (``source_runs``, see ``docs/decisions/0007-sensitive-points.md``).
 
 The database file is ``VIGIE_DB_PATH`` when set, otherwise ``vigie.db`` at the repository
 root (git-ignored). A ``vigie_mondiale.db`` left by an earlier layout is reused when present.
@@ -22,6 +24,7 @@ import time
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
+from app.models.places import WatchedPoint, WatchedPointUpsertRequest
 from app.models.schemas import (
     SEVERITY_RANK,
     DeviceType,
@@ -42,6 +45,10 @@ DEFAULT_WATCHLIST_SEED: list[dict[str, Any]] = [
     {"id": "z3", "name": "San Francisco, US", "lat": 37.7749, "lon": -122.4194, "utc_offset_s": -28800, "alert_radius_km": 500.0, "is_marine": True},
     {"id": "z4", "name": "Reykjavik, IS", "lat": 64.1466, "lon": -21.9426, "utc_offset_s": 0, "alert_radius_km": 450.0, "is_marine": True},
 ]
+
+
+class WatchedPointsLimitError(Exception):
+    """Raised when a new watched point would go over the limit of points an instance keeps."""
 
 
 def default_db_path() -> Path:
@@ -139,6 +146,22 @@ class SQLiteWALStorage:
                     device_type TEXT PRIMARY KEY,
                     server_utc INTEGER NOT NULL,
                     payload_json TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS watched_points (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    lat REAL NOT NULL,
+                    lon REAL NOT NULL,
+                    radius_km REAL NOT NULL,
+                    created_utc INTEGER NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS source_runs (
+                    source TEXT PRIMARY KEY,
+                    since_utc INTEGER NOT NULL,
+                    last_ok_utc INTEGER NOT NULL
                 );
                 """
             )
@@ -387,3 +410,125 @@ class SQLiteWALStorage:
             return SnapshotResponse.model_validate_json(str(row["payload_json"]))
         except Exception:
             return None
+
+    # ========================================================================
+    # 4. Watched points and the runs of reads
+    # ========================================================================
+
+    def list_watched_points(self) -> list[WatchedPoint]:
+        """Return the watched points sorted by creation, then identifier."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT id, name, kind, lat, lon, radius_km FROM watched_points ORDER BY created_utc ASC, id ASC"
+            ).fetchall()
+        return [
+            WatchedPoint(
+                id=str(r["id"]),
+                name=str(r["name"]),
+                kind=str(r["kind"]),  # type: ignore[arg-type]
+                lat=float(r["lat"]),
+                lon=float(r["lon"]),
+                radius_km=float(r["radius_km"]),
+            )
+            for r in rows
+        ]
+
+    def upsert_watched_point(self, req: WatchedPointUpsertRequest, max_points: int) -> WatchedPoint:
+        """Add or update a watched point. A new point over ``max_points`` raises ``WatchedPointsLimitError``."""
+        now_utc = int(time.time())
+        with self._connect() as conn:
+            existing_ids = {str(r["id"]) for r in conn.execute("SELECT id FROM watched_points").fetchall()}
+            point_id = (req.id or "").strip()
+            if not point_id:
+                idx = len(existing_ids) + 1
+                while f"p{idx}" in existing_ids:
+                    idx += 1
+                point_id = f"p{idx}"
+            if point_id not in existing_ids and len(existing_ids) >= max_points:
+                raise WatchedPointsLimitError(f"An instance keeps {max_points} watched points at most")
+            point = WatchedPoint(
+                id=point_id,
+                name=req.name.strip(),
+                kind=req.kind,
+                lat=round(float(req.lat), 4),
+                lon=round(float(req.lon), 4),
+                radius_km=round(float(req.radius_km), 1),
+            )
+            conn.execute(
+                """
+                INSERT INTO watched_points (id, name, kind, lat, lon, radius_km, created_utc)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    name = excluded.name,
+                    kind = excluded.kind,
+                    lat = excluded.lat,
+                    lon = excluded.lon,
+                    radius_km = excluded.radius_km
+                """,
+                (point.id, point.name, point.kind, point.lat, point.lon, point.radius_km, now_utc),
+            )
+            conn.commit()
+        return point
+
+    def delete_watched_point(self, point_id: str) -> bool:
+        """Delete a watched point by identifier. Return True when a point was deleted."""
+        with self._connect() as conn:
+            cur = conn.execute("DELETE FROM watched_points WHERE id = ?", (point_id,))
+            conn.commit()
+            return cur.rowcount > 0
+
+    def load_source_runs(self) -> dict[str, tuple[int, int]]:
+        """For each hazard source the start of its current run of reads without a gap, and its last good read (UTC seconds)."""
+        with self._connect() as conn:
+            rows = conn.execute("SELECT source, since_utc, last_ok_utc FROM source_runs").fetchall()
+        return {str(r["source"]): (int(r["since_utc"]), int(r["last_ok_utc"])) for r in rows}
+
+    def save_source_runs(self, runs: dict[str, tuple[int, int]]) -> None:
+        """Persist the runs of reads of the hazard sources."""
+        if not runs:
+            return
+        with self._connect() as conn:
+            conn.executemany(
+                """
+                INSERT INTO source_runs (source, since_utc, last_ok_utc) VALUES (?, ?, ?)
+                ON CONFLICT(source) DO UPDATE SET since_utc = excluded.since_utc, last_ok_utc = excluded.last_ok_utc
+                """,
+                [(source, since, last) for source, (since, last) in runs.items()],
+            )
+            conn.commit()
+
+    def hazard_positions_since(self, window_start_utc: int, limit: int = 50000) -> list[tuple[str, float, float]]:
+        """``(id, lat, lon)`` of the hazards of the history that count in a window starting at ``window_start_utc``.
+
+        An earthquake counts by the time it happened; any other hazard (a storm, a flood, a volcano in alert) by the last time the
+        API saw it active, because it lasts. Simulated alerts are never counted.
+        """
+        with self._connect() as conn:
+            rows = conn.execute(
+                r"""
+                SELECT id, lat, lon FROM hazards_history
+                WHERE ((category = 'EARTHQUAKE' AND timestamp_utc >= ?) OR (category != 'EARTHQUAKE' AND updated_utc >= ?))
+                  AND id NOT LIKE 'sim\_%' ESCAPE '\'
+                ORDER BY timestamp_utc DESC
+                LIMIT ?
+                """,
+                (window_start_utc, window_start_utc, int(limit)),
+            ).fetchall()
+        return [(str(r["id"]), float(r["lat"]), float(r["lon"])) for r in rows]
+
+    def hazards_by_ids(self, ids: Iterable[str]) -> list[HazardAlert]:
+        """The history entries with these identifiers, most recent event first."""
+        wanted = list(dict.fromkeys(ids))
+        alerts: list[HazardAlert] = []
+        with self._connect() as conn:
+            for start in range(0, len(wanted), 500):  # SQLite accepts a limited number of parameters at once
+                chunk = wanted[start : start + 500]
+                marks = ",".join("?" for _ in chunk)
+                rows = conn.execute(f"SELECT payload_json FROM hazards_history WHERE id IN ({marks})", tuple(chunk)).fetchall()
+                for r in rows:
+                    try:
+                        alerts.append(HazardAlert.model_validate_json(str(r["payload_json"])))
+                    except Exception:
+                        continue
+        alerts.sort(key=lambda h: h.timestamp_utc, reverse=True)
+        return alerts
