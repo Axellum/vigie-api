@@ -91,13 +91,13 @@ def test_health_and_providers(world: World) -> None:
     assert data["status"] == "ok"
     assert data["storage_journal_mode"] == "wal"
     assert {"waveshare-7b", "tab5"} <= set(data["supported_devices"])
-    assert data["providers_summary"]["total"] == 18
+    assert data["providers_summary"]["total"] == 20
     assert data["scheduler"]["running"] is False  # the scheduler is opt-in (VIGIE_SCHEDULER)
 
     providers = world.client.get("/v1/providers")
     assert providers.status_code == 200
     ids = {p["provider_id"] for p in providers.json()}
-    assert len(providers.json()) == 18
+    assert len(providers.json()) == 20
     assert {
         "usgs_eq",
         "emsc_seismic",
@@ -205,20 +205,20 @@ def test_snapshot_zone_without_weather_is_empty_not_invented(world: World, monke
 
 def test_hazards_unknown_when_no_source_answers(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
     """If every hazard feed is down the status is "unknown", not an all-clear GREEN."""
-    for collector in (aggregator.usgs, aggregator.emsc, aggregator.gdacs, aggregator.noaa_nws, aggregator.volcano):
+    for collector in (aggregator.usgs, aggregator.emsc, aggregator.gdacs, aggregator.noaa_nws, aggregator.volcano, aggregator.nhc, aggregator.tsunami):
         monkeypatch.setattr(collector, "fetch", AsyncMock(side_effect=CollectorUnavailableError("down")))
 
     status = world.client.get("/v1/snapshot").json()["global_status"]
     assert status["max_severity"] is None
     assert status["active_red_count"] is None
-    assert status["hazard_sources_ok"] == 0 and status["hazard_sources_total"] == 5
+    assert status["hazard_sources_ok"] == 0 and status["hazard_sources_total"] == 7
 
 
 def test_hazards_green_when_sources_answer_with_nothing(world: World) -> None:
     status = world.client.get("/v1/snapshot").json()["global_status"]
     assert status["max_severity"] == "GREEN"
     assert status["active_red_count"] == 0
-    assert status["hazard_sources_ok"] == 5
+    assert status["hazard_sources_ok"] == 7
 
 
 def test_simulation_snapshot_size_and_standards(world: World, simulation_on: None, monkeypatch: pytest.MonkeyPatch) -> None:
