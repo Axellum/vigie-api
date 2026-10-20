@@ -39,6 +39,7 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | `app/models/forecast.py`, `app/services/forecasts.py` | The forecast of a hazard as a GeoJSON FeatureCollection (`GET /v1/geojson/hazards/{id}/forecast`). |
 | `app/collectors/meteoalarm.py` | MeteoAlarm: the Atom feed of a country and the CAP documents it links to; the level, phenomenon and status tables. |
 | `app/collectors/dwd.py`, `eccc.py`, `metservice.py`, `vigicrues.py` | The national warning services: the DWD (a ZIP of CAP documents, read conditionally), ECCC (MSC GeoMet), MetService (an RSS feed and its CAP documents) and Vigicrues (the GeoJSON flow of river sections, 2.2 MB, read only when a publication changed it); each with its level, phenomenon and status tables. |
+| `app/collectors/swic_registry.py`, `swic.py`, `swic_cap.py`, `swic_terms.py` | The services of the WMO registry: the registry (a day, with a bundled snapshot), each service's feeds and CAP documents (merged by `sender` and `identifier`, `references` followed, one request per document, a circuit per service), the CAP reader and the level and phenomenon tables, and the terms record of each service (verified or not, the credit, the services never read). See [ADR 0006](decisions/0006-wmo-registry-services.md). |
 | `app/collectors/flood_air.py` | River discharge (GloFAS), air quality and dust, USGS volcanoes. |
 | `app/collectors/weather.py` | Open-Meteo (primary), MET Norway (fallback), RainViewer (radar). |
 | `app/collectors/marine.py`, `space_weather.py` | Open-Meteo Marine, NOAA SWPC Kp index. |
@@ -63,7 +64,8 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 
 `GET /v1/vigilances` gives the warnings that the national weather services publish (MeteoAlarm for 39 European
 countries, the DWD for Germany, Environment and Climate Change Canada, MetService for New Zealand, the NWS for the
-United States, and Vigicrues for the river floods of France), for a position (`lat`, `lon`) or a country (`country`), as
+United States, and Vigicrues for the river floods of France, and, for more countries, the national services of the WMO
+registry), for a position (`lat`, `lon`) or a country (`country`), as
 JSON or GeoJSON. The embedded frame is **not changed**: the warnings have their own routes and the frame contract stays
 [`embedded-frame.md`](embedded-frame.md).
 
@@ -79,7 +81,8 @@ JSON or GeoJSON. The embedded frame is **not changed**: the warnings have their 
 ```
 
 The decisions and their reasons: [ADR 0002](decisions/0002-official-warnings-kept-intact-and-localized-offline.md),
-[ADR 0003](decisions/0003-national-source-preferred-rivers-are-lines.md) (one source per country, a river is a line).
+[ADR 0003](decisions/0003-national-source-preferred-rivers-are-lines.md) (one source per country, a river is a line),
+[ADR 0006](decisions/0006-wmo-registry-services.md) (the WMO registry: more countries, only the terms that were read).
 Rules that hold the whole model:
 
 - **The official words stay intact.** The identifier, the times, the original level and phenomenon, the
@@ -101,7 +104,10 @@ Rules that hold the whole model:
 - **One source per country.** The national source answers for its country and MeteoAlarm's copy of it is not asked
   for (Germany); MeteoAlarm stands in only if the national service gives no answer. France has two sources, which
   say two things (the départements, the rivers); a MeteoAlarm "flooding" warning that a river section of the answer
-  says at the same level or higher is left out ([`data-sources.md`](data-sources.md)).
+  says at the same level or higher is left out ([`data-sources.md`](data-sources.md)). A service of the WMO registry
+  answers only for a country that has no collector, except Spain (AEMET gives polygons where MeteoAlarm gives codes);
+  each such service is its own line of `coverage`, and one that never answered is silent for the push, it ends nothing.
+  `GET /v1/vigilances/countries` lists what an instance serves with its settings (`VIGIE_WMO_SOURCES`).
 - **Sober on the providers.** One request per needed source, conditional where the source supports it (DWD,
   MetService), a CAP document once and only for a warning that is returned, no request of its own for the NWS
   ([`data-sources.md`](data-sources.md) has the measured figures).

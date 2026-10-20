@@ -2,8 +2,9 @@
 
 The WMO keeps one record per service at ``https://severeweather.wmo.int/v2/json/sources.json`` (the same list the SWIC
 website is built from). Read on 2026-10-20, it listed 140 records, all ``capAlertFeedStatus: operating`` and all
-``sourceIsOfficial: true``: the status says nothing about whether the feed answers (88 of the 107 services that are not
-already covered answered with at least one feed that day, see ``docs/data-sources.md``), so it is not used as a filter.
+``sourceIsOfficial: true``: the status says nothing about whether the feed answers (88 of the 101 services asked, which
+leave out the records of MeteoAlarm and of the countries with a collector, answered with at least one feed that day, see
+``docs/data-sources.md``), so it is not used as a filter.
 
 A record names, in ``capAlertFeed``, the feed of the service itself: one address, or several separated by commas (one per
 language: 51 of the 140). The registry changes rarely (its ``Last-Modified`` was 2024-03-18): it is read once a day, with
