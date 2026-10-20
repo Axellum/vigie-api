@@ -1,0 +1,90 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Watch a place",
+        "description": "The address of a Vigie API instance and the place whose official weather warnings you want. The place is your home zone by default. This is not an official warning service: follow the warnings of your national authorities.",
+        "data": {
+          "name": "Name",
+          "url": "Address of the instance",
+          "location": "Place"
+        },
+        "data_description": {
+          "name": "Names the device and its entities.",
+          "url": "For example http://vigie.local:8080 (the address of the machine that runs the Vigie API, and its port).",
+          "location": "The point whose warnings are read: a warning counts when its area contains it."
+        }
+      },
+      "reconfigure": {
+        "title": "Change the instance or the place",
+        "description": "The entities keep their identity; the entry is reloaded.",
+        "data": {
+          "name": "Name",
+          "url": "Address of the instance",
+          "location": "Place"
+        },
+        "data_description": {
+          "name": "Names the device and its entities.",
+          "url": "For example http://vigie.local:8080",
+          "location": "The point whose warnings are read."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "The instance did not answer. Check the address, the port and that the Vigie API is running.",
+      "invalid_response": "The address answers, but not like a Vigie API (/v1/health).",
+      "invalid_url": "This is not an http or https address."
+    },
+    "abort": {
+      "already_configured": "This place is already watched on this instance.",
+      "reconfigure_successful": "The entry was updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Vigie options",
+        "data": {
+          "scan_interval": "Poll interval",
+          "river_radius_km": "River radius"
+        },
+        "data_description": {
+          "scan_interval": "Minutes between two reads of the instance (1 to 60). A push from the instance, when it offers one, reads sooner.",
+          "river_radius_km": "How far from the place a river section still counts, in kilometres (France, Vigicrues; 1 to 50)."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "max_level": {
+        "name": "Maximum level",
+        "state": {
+          "none": "None",
+          "yellow": "Yellow",
+          "orange": "Orange",
+          "red": "Red"
+        }
+      }
+    },
+    "binary_sensor": {
+      "warning_active": {
+        "name": "Warning active"
+      }
+    },
+    "event": {
+      "vigilance": {
+        "name": "Vigilance",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "new": "New",
+              "upgraded": "Upgraded",
+              "ended": "Ended"
+            }
+          }
+        }
+      }
+    }
+  }
+}

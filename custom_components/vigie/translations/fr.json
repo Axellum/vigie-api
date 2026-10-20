@@ -1,0 +1,90 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Surveiller un lieu",
+        "description": "L'adresse d'une instance de l'API Vigie et le lieu dont vous voulez les vigilances météo officielles. Le lieu est votre zone Maison par défaut. Ce n'est pas un service d'alerte officiel : suivez les vigilances de vos autorités nationales.",
+        "data": {
+          "name": "Nom",
+          "url": "Adresse de l'instance",
+          "location": "Lieu"
+        },
+        "data_description": {
+          "name": "Nomme l'appareil et ses entités.",
+          "url": "Par exemple http://vigie.local:8080 (l'adresse de la machine qui fait tourner l'API Vigie, et son port).",
+          "location": "Le point dont les vigilances sont lues : une vigilance compte quand sa zone le contient."
+        }
+      },
+      "reconfigure": {
+        "title": "Changer l'instance ou le lieu",
+        "description": "Les entités gardent leur identité ; l'entrée est rechargée.",
+        "data": {
+          "name": "Nom",
+          "url": "Adresse de l'instance",
+          "location": "Lieu"
+        },
+        "data_description": {
+          "name": "Nomme l'appareil et ses entités.",
+          "url": "Par exemple http://vigie.local:8080",
+          "location": "Le point dont les vigilances sont lues."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "L'instance ne répond pas. Vérifiez l'adresse, le port et que l'API Vigie tourne.",
+      "invalid_response": "L'adresse répond, mais pas comme une API Vigie (/v1/health).",
+      "invalid_url": "Ce n'est pas une adresse http ou https."
+    },
+    "abort": {
+      "already_configured": "Ce lieu est déjà surveillé sur cette instance.",
+      "reconfigure_successful": "L'entrée a été mise à jour."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options de Vigie",
+        "data": {
+          "scan_interval": "Intervalle de relève",
+          "river_radius_km": "Rayon des rivières"
+        },
+        "data_description": {
+          "scan_interval": "Minutes entre deux lectures de l'instance (1 à 60). Un envoi de l'instance, quand elle en propose un, fait lire plus tôt.",
+          "river_radius_km": "À quelle distance du lieu un tronçon de rivière compte encore, en kilomètres (France, Vigicrues ; 1 à 50)."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "max_level": {
+        "name": "Niveau maximal",
+        "state": {
+          "none": "Aucune",
+          "yellow": "Jaune",
+          "orange": "Orange",
+          "red": "Rouge"
+        }
+      }
+    },
+    "binary_sensor": {
+      "warning_active": {
+        "name": "Vigilance active"
+      }
+    },
+    "event": {
+      "vigilance": {
+        "name": "Vigilance",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "new": "Nouvelle",
+              "upgraded": "Aggravée",
+              "ended": "Terminée"
+            }
+          }
+        }
+      }
+    }
+  }
+}
