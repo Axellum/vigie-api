@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <id>https://alerts.metservice.com/cap/atom</id>
+  <link href="https://metservice.com"/>
+  <updated>2026-10-21T00:00:00+13:00</updated>
+  <title>Current Watches, Warnings and Advisories for New Zealand issued by MetService</title>
+  <rights>Copyright Meteorological Service of New Zealand Limited, 2026. Licensed under Creative Commons BY 4.0.</rights>
+</feed>

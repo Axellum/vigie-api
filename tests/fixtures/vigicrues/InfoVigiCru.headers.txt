@@ -1,0 +1,14 @@
+HTTP/1.1 200 OK
+Server: nginx
+Date: Tue, 20 Oct 2026 11:56:16 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+Link: <http://www.vigicrues.gouv.fr/api/docs.jsonld>; rel="http://www.w3.org/ns/hydra/core#apiDocumentation"
+Expires: Tue, 20 Oct 2026 11:56:16 GMT
+X-Url: 
+Cache-Control: max-age=120
+Age: 0
+X-Cache: MISS
+Accept-Ranges: bytes
+

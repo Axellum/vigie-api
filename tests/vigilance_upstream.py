@@ -1,14 +1,20 @@
-"""A simulated MeteoAlarm and NWS behind ``httpx.MockTransport`` for the tests of the warnings: it serves the recorded
-feeds of 2026-10-20 by default, whatever a test puts in ``feeds`` / ``caps`` / ``nws``, and counts every request it gets."""
+"""A simulated MeteoAlarm, NWS and national services behind ``httpx.MockTransport`` for the tests of the warnings: it serves
+the recorded answers of 2026-10-20 by default, whatever a test puts in ``feeds`` / ``caps`` / ``nws`` / ``dwd`` / ``eccc`` /
+``metservice`` / ``vigicrues``, and counts every request it gets."""
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any, Optional
 
 import httpx
 
 from app.collectors.disasters import NOAANWSCollector
+from app.collectors.dwd import DWDCollector
+from app.collectors.eccc import ECCCCollector
 from app.collectors.meteoalarm import COUNTRY_FEEDS, MeteoAlarmCapCollector, MeteoAlarmCollector
+from app.collectors.metservice import MetServiceCollector
+from app.collectors.vigicrues import VigicruesCollector
 from app.services.geoindex import default_countries, default_geometries
 from app.services.vigilance import VigilanceService
 from tests import vigilance_samples as samples
@@ -71,6 +77,16 @@ class Upstream:
         self.caps: dict[str, Any] = {}  # document uuid -> bytes, or an int HTTP status
         self.nws: Any = samples.fixture("nws_active_severe_extreme.json")
         self.default_cap: Optional[bytes] = None  # served for a document nobody recorded (else HTTP 404, as Italy's)
+        # The national services: the recorded answer, or an int HTTP status (or other bytes) a test puts in its place.
+        self.dwd: Any = samples.national_fixture("dwd", "status_district_mul.zip")
+        self.eccc: Any = samples.national_fixture("eccc", "weather_alerts_items.json")
+        self.metservice: Any = samples.national_fixture("metservice", "rss_empty.xml")
+        self.metservice_documents: dict[str, bytes] = {}
+        self.vigicrues: Any = samples.national_fixture("vigicrues", "InfoVigiCru_subset.geojson")
+        self.dwd_provider = Provider(answer=self._dwd_answer, latency_ticks=0)
+        self.eccc_provider = Provider(answer=lambda request: self._plain(self.eccc), latency_ticks=0)
+        self.metservice_provider = Provider(answer=self._metservice_answer, latency_ticks=0)
+        self.vigicrues_provider = Provider(answer=lambda request: self._plain(self.vigicrues), latency_ticks=0)
         self.meteoalarm = Provider(answer=self._meteoalarm_answer, latency_ticks=0)
         self.nws_provider = Provider(answer=self._nws_answer, latency_ticks=0)
 
@@ -85,6 +101,25 @@ class Upstream:
             content = self.feeds.get(slug, samples.fixture(SLUG_FILES[slug]) if slug in SLUG_FILES else 404)
         return httpx.Response(content) if isinstance(content, int) else httpx.Response(200, content=content)
 
+    @staticmethod
+    def _plain(content: Any) -> httpx.Response:
+        return httpx.Response(content) if isinstance(content, int) else httpx.Response(200, content=content)
+
+    def _dwd_answer(self, request: httpx.Request) -> httpx.Response:
+        """The DWD server: an ETag, and a 304 to the request that repeats it."""
+        if isinstance(self.dwd, int):
+            return httpx.Response(self.dwd)
+        etag = '"' + hashlib.md5(self.dwd).hexdigest()[:12] + '"'
+        if request.headers.get("If-None-Match") == etag:
+            return httpx.Response(304)
+        return httpx.Response(200, content=self.dwd, headers={"ETag": etag, "Last-Modified": "Tue, 20 Oct 2026 11:50:16 GMT"})
+
+    def _metservice_answer(self, request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if url.endswith("/cap/rss"):
+            return self._plain(self.metservice)
+        return self._plain(self.metservice_documents.get(url, 404))
+
     def _nws_answer(self, request: httpx.Request) -> httpx.Response:
         return httpx.Response(self.nws) if isinstance(self.nws, int) else httpx.Response(200, content=self.nws)
 
@@ -97,7 +132,16 @@ class Upstream:
         return [r.url.path.rsplit("/", 1)[-1] for r in self.meteoalarm.requests if r.url.path.startswith("/api/v1/warnings/")]
 
 
-def make_service(upstream: Upstream, zones: Optional[list[dict[str, Any]]] = None) -> VigilanceService:
+def make_service(upstream: Upstream, zones: Optional[list[dict[str, Any]]] = None, national: bool = False) -> VigilanceService:
+    """The service on the simulated upstream. ``national=True`` wires DWD, ECCC, MetService and Vigicrues as well."""
+    extra: dict[str, Any] = {}
+    if national:
+        extra = {
+            "dwd": DWDCollector(http_client=upstream.dwd_provider.client()),
+            "eccc": ECCCCollector(http_client=upstream.eccc_provider.client()),
+            "metservice": MetServiceCollector(http_client=upstream.metservice_provider.client()),
+            "vigicrues": VigicruesCollector(http_client=upstream.vigicrues_provider.client()),
+        }
     return VigilanceService(
         meteoalarm=MeteoAlarmCollector(http_client=upstream.meteoalarm.client()),
         meteoalarm_cap=MeteoAlarmCapCollector(http_client=upstream.meteoalarm.client()),
@@ -105,4 +149,5 @@ def make_service(upstream: Upstream, zones: Optional[list[dict[str, Any]]] = Non
         countries=default_countries(),
         geometries=default_geometries(),
         watched_zones=lambda: zones or [],
+        **extra,
     )

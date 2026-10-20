@@ -1,0 +1,16 @@
+HTTP/1.1 200 200
+Date: Tue, 20 Oct 2026 11:56:02 GMT
+Content-Type: application/rss+xml;charset=UTF-8
+Content-Length: 478
+Connection: keep-alive
+Last-Modified: Tue, 20 Oct 2026 11:55:21 GMT
+Access-Control-Allow-Headers: X-Requested-With, Content-Type
+Access-Control-Allow-Methods: GET
+Access-Control-Allow-Origin: http://about.metservice.com
+Cache-Control: max-age=300, must-revalidate
+X-Robots-Tag: noindex
+CacheHit: D=12273 t=1792497353004159
+Vary: Accept-Encoding
+Accept-Ranges: bytes
+Age: 9
+
