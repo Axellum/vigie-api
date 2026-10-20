@@ -316,8 +316,11 @@ All settings are optional environment variables.
 | `VIGIE_GRID_MARINE_DEG` | `0.1` | Same, for Open-Meteo Marine. |
 | `VIGIE_EMMA_GEOMETRIES` | none | Path of a gzipped GeoJSON of MeteoAlarm `EMMA_ID` shapes that you built yourself (`python tools/build_geometries.py --emma`; by default `app/data/local/emma_id.geojson.gz` is read when it exists). It lets warnings that name only `EMMA_ID` codes be matched to a point. Not bundled: see [`SOURCES.md`](SOURCES.md). |
 | `VIGIE_BUDGET_FRACTION` | `0.9` | Part of each published provider quota (Open-Meteo 10,000 calls a day, MET Norway, RainViewer) the API lets through. Beyond it the cache is served, flagged stale. |
+| `VIGIE_FIRMS_MAP_KEY` | none | The free `MAP_KEY` of [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/api/map_key/). Without it the active fires are off: `GET /v1/fires` and `GET /v1/fires/grid` answer 404, `fires_nearby` of `/v1/point` is null and `GET /v1/health` lists the source in `disabled_sources`. The key is in the URL of every FIRMS request: the API never prints it (errors, `last_error`, logs), but keep it out of the repository, of your shell history and of the commands you share. A value that is not letters and digits turns the source off. |
+| `VIGIE_FIRMS_SOURCES` | `VIIRS_NOAA20_NRT,VIIRS_NOAA21_NRT` | The FIRMS products read: one of them, or both (one halves the volume). Anything else is ignored (Suomi NPP stops on 2026-11-02, MODIS has another layout). |
+| `VIGIE_FIRMS_REFRESH_MINUTES` | `60` | How long a reading of the fires is kept before the next one, 10 to 360. A reading is two files of about 5 MB each, so 60 minutes cost about 170 MB a day when someone asks, 30 minutes twice that (`docs/data-sources.md`). Nobody asking costs nothing. |
 
-No API key is needed by any provider. A grid value outside 0.0001 to 10 degrees is ignored (the
+No API key is needed by any provider except the optional NASA FIRMS (the active fires: `VIGIE_FIRMS_MAP_KEY`). A grid value outside 0.0001 to 10 degrees is ignored (the
 default is used). Only the request sent to the provider and the cache key use the snapped point: the
 response still reports the exact position of the client, and the distances to the hazards use it.
 

@@ -146,7 +146,7 @@ class BaseCollector(ABC, Generic[T]):
         ttl_seconds: int = 120,
         failure_threshold: int = 3,
         recovery_timeout_seconds: int = 60,
-        timeout_seconds: float = 6.0,
+        timeout_seconds: float | httpx.Timeout = 6.0,
         is_fallback: bool = False,
         http_client: Optional[httpx.AsyncClient] = None,
     ) -> None:
@@ -173,11 +173,22 @@ class BaseCollector(ABC, Generic[T]):
         # The upstream request being sent for each cache key (see ``_coalesced_upstream``)
         self._inflight: dict[str, asyncio.Task[T]] = {}
 
+        # Secrets that must never appear in a message, a log line or ``last_error`` (a provider that wants its key in
+        # the URL puts it here: the exceptions of ``httpx`` carry the URL). See ``redact``.
+        self.secrets: tuple[str, ...] = ()
+
         # Requests really sent over the last 24 hours, and the budget (shared with the providers that
         # share the same published quota, see ``share_budgets``)
         self.usage = UsageWindow()
         self.budget = CallBudget(QUOTAS.get(provider_id), budget_fraction_from_env())
         self.budget_refusals: int = 0
+
+    def redact(self, text: str) -> str:
+        """``text`` with every secret of this collector replaced by ``REDACTED`` (it is applied to everything that is recorded)."""
+        for secret in self.secrets:
+            if secret:
+                text = text.replace(secret, "REDACTED")
+        return text
 
     def _get_cached_if_fresh(self, cache_key: str) -> Optional[T]:
         """Return the cached entry if its TTL has not expired."""
@@ -220,7 +231,7 @@ class BaseCollector(ABC, Generic[T]):
     def _record_failure(self, error_msg: str, cache_key: str = "global") -> None:
         """Count a failure and open the circuit once the threshold is reached (``cache_key``: for a collector with a circuit per key)."""
         self.consecutive_failures += 1
-        self.last_error = error_msg[:240]
+        self.last_error = self.redact(error_msg)[:240]
         if self.consecutive_failures >= self.failure_threshold:
             self.circuit_state = CircuitState.OPEN
             self.opened_at_monotonic = clock.monotonic()
@@ -284,13 +295,13 @@ class BaseCollector(ABC, Generic[T]):
             stale = self._get_stale_cache(cache_key)
             if stale is not None:
                 return Fetched(stale, stale=True)
-            raise CollectorUnavailableError(f"Call budget of {self.name} exhausted: {exc}") from exc
+            raise CollectorUnavailableError(f"Call budget of {self.name} exhausted: {self.redact(str(exc))}") from exc
         except Exception as exc:
             stale = self._get_stale_cache(cache_key) if allow_stale else None
             if stale is not None:
                 return Fetched(stale, stale=True)
             raise CollectorUnavailableError(
-                f"Collector {self.name} failed: {type(exc).__name__}: {exc}"
+                self.redact(f"Collector {self.name} failed: {type(exc).__name__}: {exc}")
             ) from exc
 
     async def _coalesced_upstream(self, cache_key: str, ttl_seconds: float, kwargs: dict[str, Any]) -> T:
@@ -358,13 +369,16 @@ class BaseCollector(ABC, Generic[T]):
         *,
         params: Optional[Mapping[str, str]] = None,
         headers: Optional[Mapping[str, str]] = None,
+        weight: Optional[float] = None,
     ) -> httpx.Response:
         """Send a GET request to the provider: the only way a collector reaches it.
 
         The request is counted (calls and weight over 24 hours) when it is sent, whatever its outcome.
-        When the call budget is used up it is not sent and ``BudgetExhaustedError`` is raised.
+        When the call budget is used up it is not sent and ``BudgetExhaustedError`` is raised. ``weight`` is the
+        weight of this request in the provider's quota when the provider says it (NASA FIRMS counts a world read as
+        several transactions); otherwise ``call_weight`` of the collector gives it from the query parameters.
         """
-        self._spend({} if params is None else params)
+        self._spend({} if params is None else params, weight)
         return await client.get(url, params=params, headers=headers)
 
     async def _get_capped(
@@ -422,9 +436,10 @@ class BaseCollector(ABC, Generic[T]):
         self._spend({})
         return await client.head(url, headers=headers)
 
-    def _spend(self, params: Mapping[str, str]) -> None:
+    def _spend(self, params: Mapping[str, str], weight: Optional[float] = None) -> None:
         """Count one request in the usage and the budget of the provider, or raise ``BudgetExhaustedError``."""
-        weight = self.call_weight(params)
+        if weight is None:
+            weight = self.call_weight(params)
         now = clock.monotonic()
         if not self.budget.try_spend(weight, now):
             raise BudgetExhaustedError(f"{self.provider_id}: a request of weight {weight:g} does not fit in the budget")

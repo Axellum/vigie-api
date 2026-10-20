@@ -43,7 +43,8 @@ owner (no `&&`).
    the collectors; use real provider payloads as samples.
 5. **Everything is in English**: code, comments, messages, documents, commits. The product name
    is "Vigie". No version number in a name (versions are git tags).
-6. **No secret in the repository.** No provider needs a key. Contact data (`VIGIE_CONTACT`) and
+6. **No secret in the repository.** No provider needs a key but NASA FIRMS (optional: `VIGIE_FIRMS_MAP_KEY`, read from the environment; it is in the URL of
+   every FIRMS request, so it is redacted in every error, `last_error` and log line: `tests/test_firms_secret.py`, never print it). Contact data (`VIGIE_CONTACT`) and
    the CAP sender are environment variables. Do not write a private repository URL or an invented
    address into code or into data sent to third parties.
 7. **Respect the providers' terms** ([`SOURCES.md`](SOURCES.md) lists them; how each source is used is in

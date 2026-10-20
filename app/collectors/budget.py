@@ -79,6 +79,10 @@ QUOTAS: dict[str, Quota] = {
     # (every country of the registry followed all day, tests/test_swic_sobriety.py) is about 37,000 requests: the ceiling is 50,000.
     # The page it points to is the one of this project that states it (SOURCES.md).
     "wmo_swic": Quota("wmo-swic", (Limit(DAY_S, 50_000),), "https://github.com/Axellum/vigie-api/blob/main/SOURCES.md"),
+    # NASA FIRMS: "MAP_KEY limit is 5000 transactions / 10-minute interval. Larger transactions may count as multiple requests
+    # (ex. requesting 7 days)" (https://firms.modaps.eosdis.nasa.gov/api/area/, read 2026-10-20). A world read of one day is weighed
+    # 36 transactions (measured with /mapserver/mapkey_status/), see ``WORLD_DAY_TRANSACTIONS`` in ``firms.py``.
+    "nasa_firms": Quota("nasa-firms", (Limit(600, 5_000),), "https://firms.modaps.eosdis.nasa.gov/api/area/"),
     # Not listed, no published quota: usgs_eq, emsc_seismic, gdacs_global, noaa_nws (a limit exists but "is
     # not public information"), usgs_volcano_gvp, noaa_swpc, and the other warning services: dwd_cap, metservice_cap and
     # vigicrues_flow publish none (nothing about a request rate on their terms or documentation pages, 2026-10-20: not
