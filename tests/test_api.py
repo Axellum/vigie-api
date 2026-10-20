@@ -33,7 +33,7 @@ async def test_weather_falls_back_to_met_norway_when_open_meteo_fails() -> None:
     service = AggregatorService(open_meteo=om_collector, met_norway=metno_collector)
 
     for _ in range(3):
-        bundle, fallback_used = await service.fetch_weather_with_fallback(48.8566, 2.3522, days=5)
+        bundle, fallback_used = await service.fetch_weather_with_fallback(48.8566, 2.3522)
         assert fallback_used is True
         assert bundle is not None
         assert "MET Norway" in bundle["provider_name"]
@@ -51,12 +51,12 @@ async def test_weather_uses_the_stale_cache_and_says_so() -> None:
     metno_collector = MetNorwayCollector()
     cached = samples.parsed_open_meteo()
     # cached long ago (monotonic clock), so the entry is stale whatever the machine uptime
-    om_collector._cache[om_collector.cache_key_for(48.8566, 2.3522, 5)] = (time.monotonic() - 10_000.0, cached)
+    om_collector._cache[om_collector.cache_key_for(48.8566, 2.3522)] = (time.monotonic() - 10_000.0, cached)
     om_collector._collect = AsyncMock(side_effect=RuntimeError("down"))  # type: ignore[method-assign]
     metno_collector._collect = AsyncMock(side_effect=RuntimeError("down"))  # type: ignore[method-assign]
     service = AggregatorService(open_meteo=om_collector, met_norway=metno_collector)
 
-    bundle, fallback_used = await service.fetch_weather_with_fallback(48.8566, 2.3522, days=5)
+    bundle, fallback_used = await service.fetch_weather_with_fallback(48.8566, 2.3522)
     assert fallback_used is True
     assert bundle is not None
     assert bundle["stale"] is True
@@ -73,7 +73,7 @@ async def test_no_weather_at_all_means_no_bundle() -> None:
     metno_collector._collect = AsyncMock(side_effect=RuntimeError("down"))  # type: ignore[method-assign]
     service = AggregatorService(open_meteo=om_collector, met_norway=metno_collector)
 
-    bundle, _ = await service.fetch_weather_with_fallback(48.8566, 2.3522, days=5)
+    bundle, _ = await service.fetch_weather_with_fallback(48.8566, 2.3522)
     assert bundle is None
     assert not hasattr(service, "_build_offline_weather_bundle")
 

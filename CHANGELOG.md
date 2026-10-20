@@ -13,6 +13,10 @@ All notable changes to this project are documented here. The format follows
   `VIGIE_GRID_AIR_QUALITY_DEG`, `VIGIE_GRID_FLOOD_DEG`, `VIGIE_GRID_MARINE_DEG`). It used to be
   0.01 degree, finer than the weather models. The response still reports the exact position and the
   distances to the hazards still use it.
+- **Call sobriety, cache key without `days`.** The forecast is always requested for 10 days and
+  cached once per position; the compact profiles slice it. A frame (5 days) and a full page
+  (10 days) used to cost one Open-Meteo call each per position. `fetch_weather_with_fallback` no
+  longer takes `days`.
 - **Embedded frame contract** ([`docs/embedded-frame.md`](docs/embedded-frame.md)), same column
   order and counts:
   - `DAY` field 2 is the ISO date (`2026-10-20`) instead of a French weekday abbreviation.

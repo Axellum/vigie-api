@@ -198,16 +198,17 @@ class AggregatorService:
         return [collector.get_health() for collector in self.get_all_collectors()]
 
     async def fetch_weather_with_fallback(
-        self, lat: float, lon: float, days: int = 5, utc_offset_s: Optional[int] = None
+        self, lat: float, lon: float, utc_offset_s: Optional[int] = None
     ) -> tuple[Optional[dict[str, Any]], bool]:
         """Fetch the weather of a GPS point: Open-Meteo, then MET Norway, then the stale cache.
 
         Returns ``(bundle, fallback_used)``. ``bundle`` is ``None`` when every source failed:
-        the caller must then report the weather as unknown. ``utc_offset_s`` (the zone
-        configuration) only helps MET Norway to group its hourly series into local days.
+        the caller must then report the weather as unknown. The bundle carries the longest
+        forecast (10 days): the caller keeps the days its profile needs. ``utc_offset_s`` (the
+        zone configuration) only helps MET Norway to group its hourly series into local days.
         """
         try:
-            bundle = await self.open_meteo.fetch_point(lat, lon, days=days, allow_stale_on_error=False)
+            bundle = await self.open_meteo.fetch_point(lat, lon, allow_stale_on_error=False)
             self.last_weather_fallback_used = False
             return bundle, False
         except Exception:
@@ -215,14 +216,14 @@ class AggregatorService:
 
         try:
             bundle = await self.met_norway.fetch_point(
-                lat, lon, days=days, allow_stale_on_error=True, utc_offset_s=utc_offset_s
+                lat, lon, allow_stale_on_error=True, utc_offset_s=utc_offset_s
             )
             self.last_weather_fallback_used = True
             return bundle, True
         except Exception:
             pass
 
-        stale = self.open_meteo.get_stale_point(lat, lon, days)
+        stale = self.open_meteo.get_stale_point(lat, lon)
         if stale is not None:
             self.last_weather_fallback_used = True
             return {**stale, "provider_name": f"{stale['provider_name']} (stale cache)", "stale": True}, True
@@ -363,7 +364,7 @@ class AggregatorService:
             radar_meta,
             marine_conditions,
         ) = await asyncio.gather(
-            self.fetch_weather_with_fallback(lat, lon, days=days_count),
+            self.fetch_weather_with_fallback(lat, lon),
             self.collect_and_fuse_hazards(),
             self.get_space_weather_safe(),
             self.get_flood_risk_safe(lat, lon),
@@ -476,7 +477,7 @@ class AggregatorService:
 
         weather_tasks = [
             self.fetch_weather_with_fallback(
-                float(z["lat"]), float(z["lon"]), days=days_per_zone, utc_offset_s=int(z["utc_offset_s"])
+                float(z["lat"]), float(z["lon"]), utc_offset_s=int(z["utc_offset_s"])
             )
             for z in zones_cfg
         ]

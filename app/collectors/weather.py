@@ -36,6 +36,11 @@ from app.collectors.grid import (
 )
 from app.models.schemas import CurrentWeather, DailyForecast
 
+# The longest forecast any route returns (non-compact ``/v1/snapshot`` and ``/v1/point``: 10 days).
+# Every forecast is asked for this length and cached once per position; the shorter profiles (the
+# compact ones, 5 days) slice the answer, so the number of days is not part of the cache key.
+MAX_FORECAST_DAYS = 10
+
 # MET Norway symbol_code (without the _day / _night / _polartwilight suffix) -> WMO code.
 # A symbol that is not listed gives ``None`` (unknown), never a default code.
 _METNO_SYMBOL_TO_WMO: dict[str, int] = {
@@ -128,32 +133,28 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
             else grid_step_from_env("VIGIE_GRID_FORECAST_DEG", DEFAULT_FORECAST_GRID_DEG)
         )
 
-    def cache_key_for(self, lat: float, lon: float, days: int) -> str:
-        """Cache key of a point forecast: the position snapped to the forecast grid."""
+    def cache_key_for(self, lat: float, lon: float) -> str:
+        """Cache key of a point forecast: the position snapped to the forecast grid (no number of days)."""
         s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
-        return f"om:{coord_str(s_lat)},{coord_str(s_lon)}:{days}"
+        return f"om:{coord_str(s_lat)},{coord_str(s_lon)}"
 
-    def get_stale_point(self, lat: float, lon: float, days: int) -> Optional[dict[str, Any]]:
+    def get_stale_point(self, lat: float, lon: float) -> Optional[dict[str, Any]]:
         """Return the last cached forecast of a point, even if its TTL has expired."""
-        return self._get_stale_cache(self.cache_key_for(lat, lon, days))
+        return self._get_stale_cache(self.cache_key_for(lat, lon))
 
-    async def fetch_point(
-        self, lat: float, lon: float, days: int = 7, allow_stale_on_error: bool = False
-    ) -> dict[str, Any]:
-        """Fetch the full forecast near the coordinates (snapped to the forecast grid)."""
+    async def fetch_point(self, lat: float, lon: float, allow_stale_on_error: bool = False) -> dict[str, Any]:
+        """Fetch the full forecast (``MAX_FORECAST_DAYS`` days) near the coordinates, snapped to the forecast grid."""
         s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
         return await self.fetch(
-            cache_key=self.cache_key_for(lat, lon, days),
+            cache_key=self.cache_key_for(lat, lon),
             lat=s_lat,
             lon=s_lon,
-            days=days,
             allow_stale_on_error=allow_stale_on_error,
         )
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> dict[str, Any]:
         lat = float(kwargs["lat"])
         lon = float(kwargs["lon"])
-        days = int(kwargs.get("days", 7))
 
         params = {
             "latitude": coord_str(lat),
@@ -170,7 +171,7 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
                 "precipitation_sum,precipitation_probability_max,"
                 "wind_speed_10m_max,uv_index_max"
             ),
-            "forecast_days": str(min(10, max(1, days))),
+            "forecast_days": str(MAX_FORECAST_DAYS),
             "timezone": "auto",
         }
         resp = await client.get(self.BASE_URL, params=params)
@@ -278,7 +279,6 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
         self,
         lat: float,
         lon: float,
-        days: int = 7,
         allow_stale_on_error: bool = True,
         utc_offset_s: Optional[int] = None,
     ) -> dict[str, Any]:
@@ -289,10 +289,9 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
         """
         lat_r, lon_r = snap_to_grid(lat, lon, self.grid_deg)
         return await self.fetch(
-            cache_key=f"metno:{coord_str(lat_r)},{coord_str(lon_r)}:{days}:{utc_offset_s}",
+            cache_key=f"metno:{coord_str(lat_r)},{coord_str(lon_r)}:{utc_offset_s}",
             lat=lat_r,
             lon=lon_r,
-            days=days,
             utc_offset_s=utc_offset_s,
             allow_stale_on_error=allow_stale_on_error,
         )
@@ -300,18 +299,17 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> dict[str, Any]:
         lat = float(kwargs["lat"])
         lon = float(kwargs["lon"])
-        days = int(kwargs.get("days", 7))
 
         resp = await client.get(
             self.BASE_URL,
             params={"lat": coord_str(lat), "lon": coord_str(lon)},
         )
         resp.raise_for_status()
-        return self.parse_response(resp.json(), days=days, utc_offset_s=kwargs.get("utc_offset_s"))
+        return self.parse_response(resp.json(), utc_offset_s=kwargs.get("utc_offset_s"))
 
     @staticmethod
     def parse_response(
-        payload: dict[str, Any], days: int = 7, utc_offset_s: Optional[int] = None
+        payload: dict[str, Any], days: int = MAX_FORECAST_DAYS, utc_offset_s: Optional[int] = None
     ) -> dict[str, Any]:
         """Convert the MET Norway timeseries to the unified schema. Missing variables are ``None``.
 

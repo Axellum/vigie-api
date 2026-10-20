@@ -82,6 +82,10 @@ The number of calls to the providers must not grow with the number of clients. W
   the response reports it and the distances to the hazards use it. Open-Meteo applies its own
   elevation correction to the requested point, so the temperature near a hill is the one of the cell
   centre, not of the exact spot: this is the price of the shared cell.
+- **One cache entry per position, whatever the number of days.** The forecast is always asked for
+  the longest length any route returns (10 days) and cached once per cell. The compact profiles
+  (5 days: the frame, `compact=true`) slice the answer; the number of days is not part of any cache
+  key. A watched zone read by a frame and by a web page used to cost two calls.
 
 ## Persistence
 

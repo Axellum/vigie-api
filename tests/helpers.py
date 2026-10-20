@@ -4,9 +4,23 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, Optional
 
 import httpx
+
+from app.collectors.disasters import GDACSCollector, NOAANWSCollector
+from app.collectors.flood_air import (
+    OpenMeteoAirQualityCollector,
+    OpenMeteoFloodCollector,
+    USGSVolcanoCollector,
+)
+from app.collectors.marine import OpenMeteoMarineCollector
+from app.collectors.seismic import EMSCCollector, USGSCollector
+from app.collectors.space_weather import NOAASWPCCollector
+from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector, RainViewerCollector
+from app.services.aggregator import AggregatorService
+from app.services.storage_wal import SQLiteWALStorage
 
 
 class Provider:
@@ -48,3 +62,33 @@ class Provider:
     def query(self, index: int = -1) -> dict[str, str]:
         """The query parameters of the ``index``-th request."""
         return dict(self.requests[index].url.params)
+
+
+def unavailable_client() -> httpx.AsyncClient:
+    """A client whose every request is answered with HTTP 503: the provider is down, and nothing is slow."""
+    return Provider(answer=lambda request: httpx.Response(503)).client()
+
+
+def make_service(db_path: Path, **collectors: Any) -> AggregatorService:
+    """An ``AggregatorService`` with the given collectors; every other provider answers HTTP 503.
+
+    A collector built without a client would create a real ``httpx`` client (and its SSL context) at each
+    call, which is slow on Windows; the guard of ``conftest.py`` would refuse its request anyway.
+    """
+    down = unavailable_client()
+    defaults: dict[str, Any] = {
+        "usgs": USGSCollector(http_client=down),
+        "emsc": EMSCCollector(http_client=down),
+        "gdacs": GDACSCollector(http_client=down),
+        "noaa_nws": NOAANWSCollector(http_client=down),
+        "volcano": USGSVolcanoCollector(http_client=down),
+        "open_meteo": OpenMeteoCollector(http_client=down),
+        "met_norway": MetNorwayCollector(http_client=down),
+        "rainviewer": RainViewerCollector(http_client=down),
+        "marine": OpenMeteoMarineCollector(http_client=down),
+        "flood": OpenMeteoFloodCollector(http_client=down),
+        "air_quality": OpenMeteoAirQualityCollector(http_client=down),
+        "swpc": NOAASWPCCollector(http_client=down),
+    }
+    defaults.update(collectors)
+    return AggregatorService(storage=SQLiteWALStorage(db_path=db_path), **defaults)

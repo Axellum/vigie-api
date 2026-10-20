@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from app.collectors.flood_air import OpenMeteoAirQualityCollector, OpenMeteoFloodCollector
@@ -9,10 +11,9 @@ from app.collectors.grid import coord_str, grid_step_from_env, snap_to_grid
 from app.collectors.marine import OpenMeteoMarineCollector
 from app.collectors.seismic import USGSCollector
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector
-from app.services.aggregator import AggregatorService
 from app.services.geodesy import haversine_km
 from tests import samples
-from tests.helpers import Provider
+from tests.helpers import Provider, make_service
 
 PARIS = (48.8566, 2.3522)
 
@@ -111,18 +112,18 @@ async def test_forecast_request_and_cache_use_the_snapped_point() -> None:
     provider = Provider(samples.open_meteo_payload())
     collector = OpenMeteoCollector(http_client=provider.client(), grid_deg=0.05)
 
-    await collector.fetch_point(48.8566, 2.3522, days=5)
+    await collector.fetch_point(48.8566, 2.3522)
     assert provider.count == 1
     assert provider.query()["latitude"] == "48.85"
     assert provider.query()["longitude"] == "2.35"
 
     # A client 2 km away, and one 400 m away, are served by the same cache entry.
-    await collector.fetch_point(48.8710, 2.3300, days=5)
-    await collector.fetch_point(48.8590, 2.3560, days=5)
+    await collector.fetch_point(48.8710, 2.3300)
+    await collector.fetch_point(48.8590, 2.3560)
     assert provider.count == 1
 
     # A client in the next cell (about 10 km) costs a call.
-    await collector.fetch_point(48.95, 2.35, days=5)
+    await collector.fetch_point(48.95, 2.35)
     assert provider.count == 2
 
 
@@ -159,7 +160,7 @@ async def test_each_data_type_uses_its_own_grid() -> None:
 
 
 @pytest.mark.asyncio
-async def test_the_response_keeps_the_exact_position_and_distances_use_it() -> None:
+async def test_the_response_keeps_the_exact_position_and_distances_use_it(tmp_path: Path) -> None:
     hazard_lat, hazard_lon = 48.2, 2.9
     usgs = Provider(
         {
@@ -173,7 +174,8 @@ async def test_the_response_keeps_the_exact_position_and_distances_use_it() -> N
         }
     )
     forecast = Provider(samples.open_meteo_payload())
-    service = AggregatorService(
+    service = make_service(
+        tmp_path / "grid.db",
         usgs=USGSCollector(http_client=usgs.client()),
         open_meteo=OpenMeteoCollector(http_client=forecast.client()),
     )
