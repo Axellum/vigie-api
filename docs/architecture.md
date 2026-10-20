@@ -205,8 +205,12 @@ Tables: `monitored_zones` (the watchlist, seeded with five cities), `hazards_his
   only when the weather provider gives no offset (MET Norway fallback, no weather). The seed
   values are the cities' standard-time offsets, so in summer Paris and San Francisco would be one
   hour off in that case. With Open-Meteo the real current offset is used.
-- **Flood level.** `flood_alert_level` is a heuristic (ratio of the maximum to the mean forecast
-  discharge with fixed thresholds), not an official flood warning.
+- **No flood level from river discharge.** `flood_risk` gives the GloFAS discharges as they are;
+  `flood_alert_level` is always null and does not raise `local_alert_level`. Until 2026-10-20 it was
+  drawn from `anomaly_ratio` (highest ensemble member over the ensemble mean), which measures how far
+  the forecast scenarios spread, not how high the river is: it said "yellow" for the Seine in Paris while
+  the day's discharge was below the mean forecast. Open-Meteo gives no flood threshold or return
+  period. Official flood warnings are in `/v1/vigilances` (Vigicrues, MeteoAlarm, NWS...).
 - **Simulation and history.** `/v1/simulate` is not authenticated, and simulated alerts are also
   written to the SQLite hazard history (labelled `(SIMULATION)`). That is why the route is **off by
   default**: it answers 403 unless the instance sets `VIGIE_ENABLE_SIMULATION=1`

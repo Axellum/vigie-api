@@ -360,12 +360,23 @@ class FloodRiskStatus(BaseModel):
     river_discharge_mean_m3s: Optional[float] = Field(
         default=None, ge=0.0, description="Mean of the forecast ensemble discharge over the period (m3/s)"
     )
-    river_discharge_max_m3s: float = Field(..., ge=0.0, description="Maximum forecast discharge (m3/s)")
+    river_discharge_max_m3s: float = Field(
+        ..., ge=0.0, description="Highest forecast discharge of the ensemble members over the period (m3/s)"
+    )
     anomaly_ratio: Optional[float] = Field(
-        default=None, ge=0.0, description="Ratio of the maximum to the mean forecast discharge"
+        default=None,
+        ge=0.0,
+        description=(
+            "Highest member discharge over the mean of the ensemble mean: how far the forecast scenarios spread, "
+            "not a flood measure"
+        ),
     )
     flood_alert_level: Optional[SeverityLevel] = Field(
-        default=None, description="Heuristic flood level from the ratio and the discharge; null when unknown"
+        default=None,
+        description=(
+            "Always null: the source gives no flood threshold, and a level drawn from the ensemble spread raised false "
+            "alerts. Official flood warnings: /v1/vigilances"
+        ),
     )
     stale: bool = Field(
         default=False,

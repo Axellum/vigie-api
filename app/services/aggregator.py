@@ -494,12 +494,7 @@ class AggregatorService:
             if SEVERITY_RANK[SeverityLevel.ORANGE] > SEVERITY_RANK[local_level]:
                 local_level = SeverityLevel.ORANGE
 
-        if (
-            flood_status is not None
-            and flood_status.flood_alert_level is not None
-            and SEVERITY_RANK[flood_status.flood_alert_level] > SEVERITY_RANK[local_level]
-        ):
-            local_level = flood_status.flood_alert_level
+        # River discharge never raises the level: the source gives no flood threshold (see flood_air.parse_response).
 
         if aqi_status is not None and aqi_status.ash_or_dust_warning:
             if SEVERITY_RANK[SeverityLevel.ORANGE] > SEVERITY_RANK[local_level]:

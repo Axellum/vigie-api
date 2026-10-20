@@ -346,8 +346,25 @@ def test_marine_parser_raises_without_any_value() -> None:
 # ============================================================================
 
 
-def test_flood_parser_levels() -> None:
-    red = OpenMeteoFloodCollector.parse_response(
+def test_flood_parser_draws_no_level_from_the_ensemble_spread() -> None:
+    # The Seine in Paris, read on the Deck instance on 2026-10-20 at 17:00: the day's discharge is below the mean
+    # forecast, only the ensemble members disagree. The old heuristic said YELLOW here.
+    paris = OpenMeteoFloodCollector.parse_response(
+        {
+            "daily": {
+                "river_discharge": [32.65, 34.0, 36.0],
+                "river_discharge_mean": [55.63, 55.63, 55.63],
+                "river_discharge_max": [60.0, 146.57, 120.0],
+            }
+        }
+    )
+    assert paris.river_discharge_m3s == 32.65
+    assert paris.river_discharge_max_m3s == 146.57
+    assert paris.anomaly_ratio == 2.63
+    assert paris.flood_alert_level is None
+
+    # Even a wide spread on a big river is not a flood level: the source gives no threshold.
+    wide = OpenMeteoFloodCollector.parse_response(
         {
             "daily": {
                 "river_discharge": [180.0, 310.0, 420.0],
@@ -356,21 +373,8 @@ def test_flood_parser_levels() -> None:
             }
         }
     )
-    assert red.river_discharge_m3s == 180.0
-    assert red.river_discharge_max_m3s == 420.0
-    assert red.anomaly_ratio is not None and red.anomaly_ratio >= 5.0
-    assert red.flood_alert_level == SeverityLevel.RED
-
-    green = OpenMeteoFloodCollector.parse_response(
-        {
-            "daily": {
-                "river_discharge": [42.0, 44.0],
-                "river_discharge_mean": [40.0, 40.0],
-                "river_discharge_max": [45.0, 46.0],
-            }
-        }
-    )
-    assert green.flood_alert_level == SeverityLevel.GREEN
+    assert wide.anomaly_ratio is not None and wide.anomaly_ratio >= 5.0
+    assert wide.flood_alert_level is None
 
 
 def test_flood_parser_without_mean_has_no_level() -> None:
