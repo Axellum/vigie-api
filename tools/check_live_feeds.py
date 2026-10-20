@@ -17,8 +17,9 @@ Outcomes, one line per source:
 - ``unreachable``: no answer (timeout, connection error, HTTP 403 / 429 / 5xx). Reported, but it says nothing
   about the format, so it does not fail the run (use ``--strict`` to make it fail).
 
-It sends one request per source and waits between them. Set ``VIGIE_CONTACT`` (an e-mail or a URL): MET
-Norway and NOAA require an identifying contact.
+It sends one request per source and waits between them (MeteoAlarm: the feed of France, then one CAP
+document it links to). Set ``VIGIE_CONTACT`` (an e-mail or a URL): MET Norway and NOAA require an identifying
+contact.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ import argparse
 import asyncio
 import os
 import sys
+import weakref
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -46,13 +48,28 @@ from app.collectors.flood_air import (  # noqa: E402
     USGSVolcanoCollector,
 )
 from app.collectors.marine import OpenMeteoMarineCollector  # noqa: E402
+from app.collectors.meteoalarm import (  # noqa: E402
+    ATOM_ACCEPT,
+    CAP_ACCEPT,
+    COUNTRY_FEEDS,
+    FEED_URL,
+    MeteoAlarmCapCollector,
+    MeteoAlarmCollector,
+    MeteoAlarmFeed,
+    parse_cap,
+    parse_feed,
+)
 from app.collectors.seismic import EMSCCollector, USGSCollector  # noqa: E402
 from app.collectors.space_weather import NOAASWPCCollector  # noqa: E402
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector, RainViewerCollector  # noqa: E402
+from app.services.geoindex import default_geometries, localization_of  # noqa: E402
 
 # Fixed points: Paris for the land sources, the Bay of Biscay for the sea.
 LAND = (48.8566, 2.3522)
 SEA = (46.0, -3.0)
+
+# MeteoAlarm: France, whose warnings all carry a code the bundled shapes know (and which has warnings most days).
+WARNING_COUNTRY = "FR"
 
 # An HTTP status that means "the endpoint or the query is wrong now", not "the provider is busy".
 FORMAT_STATUSES = {400, 404, 405, 410, 422}
@@ -142,7 +159,14 @@ async def check_noaa_nws(client: httpx.AsyncClient) -> Result:
         if missing:
             return Result("noaa_nws", "FAIL", f"an alert has no {', '.join(missing)}")
     parsed = len(collector.parse_alerts(payload))
-    return Result("noaa_nws", "ok", f"{len(features)} alerts, {parsed} of a kind the API reports; fields present")
+    vigilances = collector.parse_vigilances(payload)
+    if not vigilances:
+        return Result("noaa_nws", "FAIL", f"{len(features)} alerts, none read as an official warning")
+    return Result(
+        "noaa_nws",
+        "ok",
+        f"{len(features)} alerts, {parsed} of a kind the API reports, {len(vigilances)} read as official warnings",
+    )
 
 
 async def check_usgs_volcano(client: httpx.AsyncClient) -> Result:
@@ -218,6 +242,57 @@ async def check_rainviewer(client: httpx.AsyncClient) -> Result:
     return Result("rainviewer_radar", "ok", f"{meta['past_frames_count']} past frames")
 
 
+_FEEDS: "weakref.WeakKeyDictionary[httpx.AsyncClient, MeteoAlarmFeed]" = weakref.WeakKeyDictionary()
+
+
+async def _meteoalarm_feed(client: httpx.AsyncClient) -> MeteoAlarmFeed:
+    """The Atom feed of ``WARNING_COUNTRY``, asked once per client (the CAP check reuses the answer)."""
+    if client not in _FEEDS:
+        collector = MeteoAlarmCollector()
+        resp = await collector._get(
+            client,
+            FEED_URL.format(slug=COUNTRY_FEEDS[WARNING_COUNTRY]),
+            headers={"Accept": ATOM_ACCEPT},
+        )
+        resp.raise_for_status()
+        _FEEDS[client] = parse_feed(resp.content, WARNING_COUNTRY)
+    return _FEEDS[client]
+
+
+async def check_meteoalarm_atom(client: httpx.AsyncClient) -> Result:
+    """MeteoAlarm Atom feed: the warnings must be read, with a level and a phenomenon from the tables and a code with a shape."""
+    feed = await _meteoalarm_feed(client)
+    if not feed.vigilances:
+        return Result("meteoalarm_atom", "empty", f"the feed of {WARNING_COUNTRY} lists no warning ({feed.skipped} entries skipped)")
+    unknown_level = sorted({str(v.level_original) for v in feed.vigilances if v.level is None})
+    unknown_type = sorted({str(v.phenomenon_original) for v in feed.vigilances if v.phenomenon is None})
+    if unknown_level or unknown_type:
+        words = ", ".join(unknown_level + unknown_type)
+        return Result("meteoalarm_atom", "FAIL", f"words not in the tables of app/collectors/meteoalarm.py: {words}")
+    geometries = default_geometries()
+    unmatched = [v for v in feed.vigilances if localization_of(v, geometries) == "none"]
+    if unmatched:
+        codes = ", ".join(sorted({f"{g.scheme}:{g.value}" for v in unmatched for g in v.area.geocodes}))
+        return Result("meteoalarm_atom", "FAIL", f"{len(unmatched)} warnings of {WARNING_COUNTRY} without a known shape: {codes}")
+    return Result("meteoalarm_atom", "ok", f"{len(feed.vigilances)} warnings of {WARNING_COUNTRY} read, all with a shape")
+
+
+async def check_meteoalarm_cap(client: httpx.AsyncClient) -> Result:
+    """MeteoAlarm CAP document: the first warning of the feed links to one; its words must be read (a 404 fails: France has them)."""
+    feed = await _meteoalarm_feed(client)
+    link = next((v.link for v in feed.vigilances if v.link), None)
+    if link is None:
+        return Result("meteoalarm_cap", "empty", f"no warning of {WARNING_COUNTRY} links to a CAP document")
+    collector = MeteoAlarmCapCollector()
+    resp = await collector._get(client, link, headers={"Accept": CAP_ACCEPT})
+    resp.raise_for_status()
+    document = parse_cap(resp.content)
+    if not document.texts:
+        return Result("meteoalarm_cap", "FAIL", "the CAP document has no text any more")
+    languages = ", ".join(sorted(text.language or "?" for text in document.texts))
+    return Result("meteoalarm_cap", "ok", f"words in {len(document.texts)} language(s) ({languages}), issued by {document.issuer}")
+
+
 CHECKS: dict[str, Check] = {
     "usgs_eq": check_usgs,
     "emsc_seismic": check_emsc,
@@ -231,6 +306,8 @@ CHECKS: dict[str, Check] = {
     "open_meteo_aqi": check_air_quality,
     "met_norway_fallback": check_met_norway,
     "rainviewer_radar": check_rainviewer,
+    "meteoalarm_atom": check_meteoalarm_atom,
+    "meteoalarm_cap": check_meteoalarm_cap,
 }
 
 
