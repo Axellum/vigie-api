@@ -3,7 +3,7 @@
 ## Overview
 
 ```
- USGS  EMSC  GDACS  NOAA NWS  USGS Volcano     Open-Meteo (forecast, marine, flood, air)   MET Norway   RainViewer   NOAA SWPC   MeteoAlarm
+ USGS  EMSC  GDACS  NOAA NWS  USGS Volcano  NHC  tsunami.gov    Open-Meteo (forecast, marine, flood, air)   MET Norway   RainViewer   NOAA SWPC   MeteoAlarm
    \     |     |       |         /                       |                                     |             |          |          |
     +----+-----+-------+--------+--------------+---------+-------------------------------------+-------------+----------+----------+
                                        Collectors (app/collectors)
@@ -34,6 +34,9 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | `app/collectors/base.py` | `BaseCollector`: HTTP client, circuit breaker (`CLOSED`, `OPEN`, `HALF_OPEN`), TTL cache, request coalescing, health. |
 | `app/collectors/seismic.py` | USGS and EMSC earthquakes. |
 | `app/collectors/disasters.py` | GDACS and NOAA NWS alerts (the NWS answer is also read as official warnings). |
+| `app/collectors/nhc.py`, `app/shapefile.py`, `app/storm_geo.py` | The National Hurricane Center: the file of the active storms, then the ZIP of shapefiles of each storm's advisory (a strict reader of the ESRI format, and the GeoJSON made of its shapes: rounding, counter-clockwise rings, cut at the date line). |
+| `app/collectors/tsunami.py` | The U.S. Tsunami Warning Centers: the list of the latest bulletins, the CAP message of each one that can be an alert, the table of arrival times of a threat message; the events, hazards and vigilances made from them. |
+| `app/models/forecast.py`, `app/services/forecasts.py` | The forecast of a hazard as a GeoJSON FeatureCollection (`GET /v1/geojson/hazards/{id}/forecast`). |
 | `app/collectors/meteoalarm.py` | MeteoAlarm: the Atom feed of a country and the CAP documents it links to; the level, phenomenon and status tables. |
 | `app/collectors/dwd.py`, `eccc.py`, `metservice.py`, `vigicrues.py` | The national warning services: the DWD (a ZIP of CAP documents, read conditionally), ECCC (MSC GeoMet), MetService (an RSS feed and its CAP documents) and Vigicrues (the GeoJSON flow of river sections, 2.2 MB, read only when a publication changed it); each with its level, phenomenon and status tables. |
 | `app/collectors/flood_air.py` | River discharge (GloFAS), air quality and dust, USGS volcanoes. |
