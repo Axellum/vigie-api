@@ -46,8 +46,8 @@ class FireFeature(BaseModel):
 
 class FireSourceStatus(BaseModel):
     source: str = Field(..., description="FIRMS product, e.g. `VIIRS_NOAA20_NRT`")
-    read_utc: int = Field(..., description="When the API last read it (UTC epoch seconds)")
-    ok: bool = Field(..., description="False when the last attempt to read it failed (the previous reading is used)")
+    read_utc: Optional[int] = Field(default=None, description="When the API last read it (UTC epoch seconds); null when it has not been read yet")
+    ok: bool = Field(..., description="False when the last attempt to read it failed (the previous reading, if any, is used)")
 
 
 class FiresMetadata(BaseModel):

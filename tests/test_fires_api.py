@@ -123,6 +123,22 @@ def test_the_metadata_says_what_was_asked_and_what_was_read(fires: Fires) -> Non
     assert metadata["skipped_rows"] == 0
 
 
+def test_a_product_that_has_never_been_read_is_listed_with_no_time(world: World, sim_clock: SimClock, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The first reading of a real instance (2026-10-20): NOAA-20 timed out, NOAA-21 answered. The answer must not look like a complete one."""
+    sim_clock.EPOCH = EVENING
+    server = FirmsServer(latency_ticks=0)
+    server.failing = {N20}
+    collector = FIRMSCollector(KEY, http_client=server.client())
+    monkeypatch.setattr(aggregator, "firms", collector)
+    monkeypatch.setattr(aggregator, "fires", FireService(collector, None))
+    asyncio.run(collector.fetch())
+    for path in ("/v1/fires?bbox=-180,-90,180,90", "/v1/fires/grid"):
+        metadata = world.client.get(path).json()["metadata"]
+        assert metadata["stale"] is True
+        assert metadata["sources"] == [{"source": N20, "read_utc": None, "ok": False}, {"source": N21, "read_utc": int(EVENING), "ok": True}]
+    assert KEY not in world.client.get("/v1/providers").text
+
+
 def test_the_hotspots_beyond_the_limit_are_not_sent_and_the_answer_says_so(fires: Fires) -> None:
     body = fires.client.get("/v1/fires", params={"bbox": "-180,-90,180,90", "limit": 10}).json()
     assert len(body["features"]) == 10 and body["metadata"]["total_matching"] == 258 + 218 and body["metadata"]["truncated"] is True

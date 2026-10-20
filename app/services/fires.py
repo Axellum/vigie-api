@@ -344,9 +344,12 @@ class FireService:
         return value, collector.consecutive_failures > 0 or bool(value.failed)
 
     def _sources(self, fs: FireSet) -> list[dict[str, Any]]:
+        """The products the instance reads and how each stands: one that was never read (it failed every time so far) is listed too, with no time."""
+        read = fs.sources()
+        configured = self.collector.sources if self.collector is not None else ()
         return [
-            {"source": source, "read_utc": fs.newest_read_utc(source), "ok": source not in fs.failed}
-            for source in fs.sources()
+            {"source": source, "read_utc": fs.newest_read_utc(source), "ok": source in read and source not in fs.failed}
+            for source in dict.fromkeys((*configured, *read))
         ]
 
     # -- the routes ------------------------------------------------------------------------------
