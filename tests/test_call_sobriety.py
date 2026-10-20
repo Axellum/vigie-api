@@ -106,6 +106,15 @@ async def test_a_day_of_1000_clients_on_50_points_stays_under_the_open_meteo_quo
     for source, bound in refreshes.items():
         assert result.calls[source] <= bound, f"{source}: {result.calls[source]} calls, bound {bound}"
 
+    # The tsunami warning centres and the National Hurricane Center (tests/test_storm_sobriety.py has their quiet, storm and tsunami
+    # days): each is asked at most once per lifetime of its cache entry (60 s and 300 s), and every ask after the first is a 304.
+    tsunami_calls, nhc_calls = result.calls["tsunami_warning_centers"], result.calls["nhc_storms"]
+    assert 960 < tsunami_calls <= DAY_S // 60 + 1 and 240 < nhc_calls <= DAY_S // 300 + 1
+    assert simulation.upstream.not_modified["tsunami_warning_centers"] == tsunami_calls - 1
+    assert simulation.upstream.not_modified["nhc_storms"] == nhc_calls - 1
+    print(f"tsunami.gov: {tsunami_calls} requests, {simulation.upstream.bytes['tsunami_warning_centers'] / 1000:.0f} kB; NHC: {nhc_calls} requests, "
+          f"{simulation.upstream.bytes['nhc_storms'] / 1000:.0f} kB")
+
     # What the API counted is what the providers received (the figures of GET /v1/providers are real).
     sim_clock.now = DAY_S - 1.0  # inside the 24 h window of the first requests
     for collector in simulation.aggregator.get_all_collectors():

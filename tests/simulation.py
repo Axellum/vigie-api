@@ -15,6 +15,8 @@ The simulation counts the HTTP requests the application would really send to eac
 from __future__ import annotations
 
 import asyncio
+import gzip
+import hashlib
 import json
 import math
 import random
@@ -37,15 +39,17 @@ from app.collectors.flood_air import (
 from app.collectors.marine import OpenMeteoMarineCollector
 from app.collectors.meteoalarm import MeteoAlarmCapCollector, MeteoAlarmCollector
 from app.collectors.metservice import MetServiceCollector
+from app.collectors.nhc import NHCCollector
 from app.collectors.seismic import EMSCCollector, USGSCollector
 from app.collectors.space_weather import NOAASWPCCollector
+from app.collectors.tsunami import TsunamiCollector
 from app.collectors.vigicrues import VigicruesCollector
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector, RainViewerCollector
 from app.models.schemas import DeviceType, MonitoredZoneConfig
 from app.services.aggregator import AggregatorService
 from app.services.scheduler import BackgroundAlertScheduler
 from app.services.storage_wal import DEFAULT_WATCHLIST_SEED
-from tests import samples
+from tests import samples, storm_samples
 from tests.helpers import SimClock, http_date
 
 DAY_S = 86_400
@@ -69,6 +73,8 @@ HOST_TO_SOURCE: dict[str, str] = {
     "api.weather.gc.ca": "eccc_alerts",
     "alerts.metservice.com": "metservice_cap",
     "www.vigicrues.gouv.fr": "vigicrues_flow",
+    "www.tsunami.gov": "tsunami_warning_centers",
+    "www.nhc.noaa.gov": "nhc_storms",
     # feeds.meteoalarm.org serves the Atom feeds and the CAP documents: see ``source_of``.
 }
 
@@ -90,6 +96,15 @@ VIGICRUES_PUBLICATION_HOURS_UTC = (7 * 3600 + 55 * 60 + 15, 13 * 3600 + 55 * 60 
 DWD_ETAG = '"6ad75578-4005"'
 DWD_LAST_MODIFIED = "Tue, 20 Oct 2026 11:50:16 GMT"
 METSERVICE_LAST_MODIFIED = "Tue, 20 Oct 2026 11:55:21 GMT"
+
+# The tsunami warning centres and the hurricane center, recorded on 2026-10-20 (see the README of tests/fixtures/tsunami and of
+# tests/fixtures/nhc). tsunami.gov compresses everything it sends (the list: 16,140 bytes raw, 1,721 on the wire) and answers
+# ``304`` to the list when its ``Last-Modified`` has not changed (239 bytes of head); the list is replayed as it was at each
+# moment, from the recorded copy: an entry is there once its ``createdDB`` time has passed, and the list is modified 3 seconds
+# after (10:45:23 -> 10:45:26 on 2026-10-20). The NHC answers ``304`` to ``CurrentStorms.json`` when its ETag is sent back (484
+# bytes of head); that file is not compressed.
+TSUNAMI_304_HEAD_BYTES = 239
+NHC_304_HEAD_BYTES = 484
 
 OPEN_METEO_SOURCES = ("open_meteo_hd", "open_meteo_aqi", "open_meteo_flood", "open_meteo_marine")
 
@@ -177,6 +192,44 @@ class Upstream:
         self.bytes["vigicrues_flow"] += VIGICRUES_FLOW_BYTES
         return httpx.Response(200, content=self._vigicrues_flow())
 
+    def _tsunami(self, request: httpx.Request) -> httpx.Response:
+        source = "tsunami_warning_centers"
+        path = request.url.path
+        if path == storm_samples.TSUNAMI_LISTING_PATH:
+            body, modified = storm_samples.tsunami_listing_at(self.clock.time())
+            if modified and request.headers.get("If-Modified-Since") == http_date(modified):
+                self.not_modified[source] += 1
+                self.bytes[source] += TSUNAMI_304_HEAD_BYTES
+                return httpx.Response(304, headers={"Last-Modified": http_date(modified)})
+            wire = gzip.compress(body)
+            self.bytes[source] += len(wire)
+            headers = {"Last-Modified": http_date(modified)} if modified else {}
+            return httpx.Response(200, content=wire, headers={**headers, "Content-Encoding": "gzip", "Content-Type": "application/javascript"})
+        recorded = storm_samples.tsunami_document(path)
+        if recorded is not None:
+            wire = gzip.compress(recorded)
+            self.bytes[source] += len(wire)
+            return httpx.Response(200, content=wire, headers={"Content-Encoding": "gzip"})
+        return httpx.Response(404, text="Not found")
+
+    def _nhc(self, request: httpx.Request) -> httpx.Response:
+        source = "nhc_storms"
+        path = request.url.path
+        if path == "/CurrentStorms.json":
+            body = self.bodies.get(source) or (FIXTURES / "nhc" / "CurrentStorms_empty.json").read_bytes()
+            etag = '"' + hashlib.sha1(body).hexdigest()[:13] + '"'
+            if request.headers.get("If-None-Match") == etag:
+                self.not_modified[source] += 1
+                self.bytes[source] += NHC_304_HEAD_BYTES
+                return httpx.Response(304, headers={"ETag": etag})
+            self.bytes[source] += len(body)
+            return httpx.Response(200, content=body, headers={"ETag": etag, "Content-Type": "application/json"})
+        if path.startswith("/gis/forecast/archive/") and path.endswith(".zip"):
+            bundle = (FIXTURES / "nhc" / "al092026_5day_013A.zip").read_bytes()
+            self.bytes[source] += len(bundle)
+            return httpx.Response(200, content=bundle, headers={"Content-Type": "application/zip"})
+        return httpx.Response(404, text="Not found")
+
     async def _handler(self, request: httpx.Request) -> httpx.Response:
         source = source_of(request)
         if source is None:
@@ -224,6 +277,10 @@ class Upstream:
             )
         if source == "vigicrues_flow":
             return self._vigicrues(request)
+        if source == "tsunami_warning_centers":
+            return self._tsunami(request)
+        if source == "nhc_storms":
+            return self._nhc(request)
         return httpx.Response(200, json=self._payload(source, params))
 
     def _payload(self, source: str, params: dict[str, str]) -> Any:
@@ -402,6 +459,8 @@ class Simulation:
             eccc=ECCCCollector(http_client=http),
             metservice=MetServiceCollector(http_client=http),
             vigicrues=VigicruesCollector(http_client=http),
+            nhc=NHCCollector(http_client=http),
+            tsunami=TsunamiCollector(http_client=http),
             storage=FakeStorage(zones),  # type: ignore[arg-type]
         )
         self.scheduler = BackgroundAlertScheduler(
