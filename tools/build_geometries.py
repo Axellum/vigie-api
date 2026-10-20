@@ -5,14 +5,16 @@ codes, NWS UGC zones). To tell whether a point is inside a warning whose area is
 shape of that code. This script builds the files it reads; nothing is read at run time from these sources::
 
     python tools/build_geometries.py                  # the files bundled in the repository
+    python tools/build_geometries.py --countries-only # only the borders (after the WMO registry snapshot changed)
     python tools/build_geometries.py --emma           # an OPTIONAL local file, NOT bundled (see below)
     python tools/build_geometries.py --cache-dir DIR  # where the downloads are kept (default: a temp folder)
 
 What the default build writes, and the licence of every input (checked on 2026-10-20, see ``SOURCES.md``):
 
 - ``app/data/countries.geojson.gz``: the borders of the countries the API has a warning source for
-  (the MeteoAlarm countries, the United States, Canada and New Zealand), to find the country of a point without a
-  network call.
+  (the MeteoAlarm countries, the United States, Canada, New Zealand, and the countries of the national services of the WMO
+  registry that an instance can read, taken from the bundled snapshot ``app/data/swic_registry.json.gz``), to find the country of
+  a point without a network call.
   Input: Natural Earth ``ne_10m_admin_0_countries``, **public domain**
   (https://www.naturalearthdata.com/about/terms-of-use/). Simplified with a tolerance of 0.01 degree
   (about 1 km), coordinates rounded to 3 decimals.
@@ -54,6 +56,7 @@ from shapely.geometry import MultiPolygon, Polygon, mapping, shape
 from shapely.geometry.base import BaseGeometry
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
 DATA_DIR = REPO_ROOT / "app" / "data"
 LOCAL_DIR = DATA_DIR / "local"
 
@@ -68,13 +71,25 @@ NUTS_TOLERANCE_DEG = 0.005
 EMMA_TOLERANCE_DEG = 0.005
 DECIMALS = 3
 
-# The countries the API has a source of warnings for: the 39 MeteoAlarm feeds, the NWS (United States), Environment and
+# The countries the API has a collector for: the 39 MeteoAlarm feeds, the NWS (United States), Environment and
 # Climate Change Canada and MetService (New Zealand). Germany has the DWD as well as MeteoAlarm.
-COUNTRIES = (
+COLLECTOR_COUNTRIES = (
     "AD AT BA BE BG HR CY CZ DK EE FI FR DE GR HU IS IE IL IT LV LT LU MT MD ME NL MK NO PL PT RO RS SK SI ES SE CH UA GB"
     " US"
     " CA NZ"
 ).split()
+
+
+def registry_countries() -> list[str]:
+    """The countries of the services of the WMO registry that an instance can read (every one that is not excluded)."""
+    from app.collectors.swic_registry import bundled_registry
+    from app.collectors.swic_terms import is_eligible
+
+    return sorted({source.country for source in bundled_registry() if source.country and is_eligible(source, "all")})
+
+
+# Every country an instance can have a source for. A country with a source and no border here could not be found from a position.
+COUNTRIES = COLLECTOR_COUNTRIES + [code for code in registry_countries() if code not in COLLECTOR_COUNTRIES]
 
 # Where a country's warnings apply, when it is only part of the country Natural Earth draws: France is drawn with
 # its overseas departments, but the MeteoAlarm feed of France covers the metropole (and Corsica) only.
@@ -255,6 +270,7 @@ def run(argv: Optional[list[str]] = None, fetch: Callable[..., Path] = download)
     parser.add_argument("--cache-dir", type=Path, default=Path(tempfile.gettempdir()) / "vigie-geometries")
     parser.add_argument("--out-dir", type=Path, default=DATA_DIR)
     parser.add_argument("--emma", action="store_true", help="build the OPTIONAL local EMMA_ID file instead (not bundled)")
+    parser.add_argument("--countries-only", action="store_true", help="rebuild only the borders (countries.geojson.gz)")
     args = parser.parse_args(argv)
     cache: Path = args.cache_dir
 
@@ -274,6 +290,8 @@ def run(argv: Optional[list[str]] = None, fetch: Callable[..., Path] = download)
         countries,
         "Borders from Natural Earth (public domain), simplified; to find the country of a point",
     )
+    if args.countries_only:
+        return 0
     admin1 = fetch(NE_ADMIN1_URL, cache / "ne_10m_admin_1_states_provinces.geojson")
     nuts = build_nuts(admin1, fetch_nuts_codes(cache, fetch))
     write_collection(
