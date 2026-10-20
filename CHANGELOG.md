@@ -7,6 +7,35 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **Call sobriety, point grids.** The position sent to Open-Meteo (forecast, air quality, flood,
+  marine) and to MET Norway, and the cache key, are snapped to a grid: 0.05 degree for the forecast
+  and MET Norway, 0.1 degree for air quality, flood and marine (`VIGIE_GRID_FORECAST_DEG`,
+  `VIGIE_GRID_AIR_QUALITY_DEG`, `VIGIE_GRID_FLOOD_DEG`, `VIGIE_GRID_MARINE_DEG`). It used to be
+  0.01 degree, finer than the weather models. The response still reports the exact position and the
+  distances to the hazards still use it.
+- **Call sobriety, cache key without `days`.** The forecast is always requested for 10 days and
+  cached once per position; the compact profiles slice it. A frame (5 days) and a full page
+  (10 days) used to cost one Open-Meteo call each per position. `fetch_weather_with_fallback` no
+  longer takes `days`.
+- **Call sobriety, call budget.** Each collector counts the requests it really sends, and their
+  weight for Open-Meteo, over 24 hours; `GET /v1/providers` (and `/v1/health`) report `calls_24h`,
+  `weight_24h`, `quota` and `budget_refusals`. A provider with a published quota (Open-Meteo, MET
+  Norway, RainViewer; `app/collectors/budget.py`) is never sent a request that would exceed 90 % of
+  it (`VIGIE_BUDGET_FRACTION`): its expired cache is served instead and marked stale (`(stale cache)`
+  in the weather source, `stale` on `air_quality`, `flood_risk` and `marine`). The four Open-Meteo
+  APIs share one budget.
+- **Call sobriety, weight of the Open-Meteo calls.** Open-Meteo counts a request of more than 10
+  variables as several calls; the forecast (18 variables, weight 1.8) is now two requests: the
+  current conditions and the 15-minute rain (weight 1.1, every 15 minutes) and the daily forecast
+  (weight 1.0, every hour). No variable is dropped. The weight of each request is computed from the
+  published rule (`app/collectors/weights.py`).
+- **Call sobriety, TTLs from the sources' rhythm.** Open-Meteo forecast 5 to 15 minutes, air quality
+  10 to 60 minutes, marine 5 to 60 minutes, river discharge 10 minutes to 6 hours, RainViewer 3 to
+  10 minutes (the evidence and what is **not verified** are in `docs/data-sources.md`).
+  MET Norway is now asked as its terms require: `If-Modified-Since` with the previous
+  `Last-Modified`, `304 Not Modified` handled, the answer kept until its `Expires` header.
+- **Call sobriety, request coalescing.** Simultaneous requests for the same cache key now send one
+  upstream request (they used to send one each, and each failure counted in the circuit breaker).
 - **Embedded frame contract** ([`docs/embedded-frame.md`](docs/embedded-frame.md)), same column
   order and counts:
   - `DAY` field 2 is the ISO date (`2026-10-20`) instead of a French weekday abbreviation.
@@ -56,6 +85,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `tests/test_call_sobriety.py` and `tests/simulation.py`: a simulated day (1,000 clients on 50
+  points, the scheduler on, a simulated upstream and clock, no network) that counts the requests
+  each provider receives and checks the Open-Meteo quota; `python -m tests.simulation` prints the
+  table. Open-Meteo, per day: 32,732 calls (weight 46,502) before, 7,927 calls (weight 8,412) after.
 - `docs/` : architecture, frame contract, data sources and terms, decision records.
 - `tests/test_embedded_frame_contract.py` pins the frame contract; no test reaches the network.
 - Air quality (EAQI) for every watched zone.

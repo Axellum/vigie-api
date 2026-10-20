@@ -44,12 +44,15 @@ class NOAASWPCCollector(BaseCollector[SpaceWeatherStatus]):
             provider_id="noaa_swpc",
             name="NOAA Space Weather Prediction Center (Planetary Kp)",
             domain="space",
+            # The page says the chart is updated every minute and the file sends max-age=60
+            # (https://www.spaceweather.gov/products/planetary-k-index); the index itself has 3-hour
+            # intervals, so 5 minutes loses nothing.
             ttl_seconds=300,
             http_client=http_client,
         )
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> SpaceWeatherStatus:
-        resp = await client.get(self.KP_URL)
+        resp = await self._get(client, self.KP_URL)
         resp.raise_for_status()
         return self.parse_kp_json(resp.json())
 

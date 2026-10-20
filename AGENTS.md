@@ -5,7 +5,7 @@ Guide for AI coding agents (and humans in a hurry) working on the Vigie API.
 ## What this is
 
 A FastAPI backend that aggregates world hazards and weather and serves them to the Vigie ESP32-P4
-displays (separate repository, `alerte_mondiale_7b`) through a text frame. Read
+displays (separate repository, `vigie-display`) through a text frame. Read
 [`README.md`](README.md) and [`docs/architecture.md`](docs/architecture.md) first.
 
 ## Commands
@@ -46,4 +46,10 @@ owner (no `&&`).
    is non-commercial (Open-Meteo free API), cache aggressively, send an identifying `User-Agent`.
 8. **Git**: work on a branch, one commit per topic, stage files one by one, open a pull request
    against `main`; never push to `main`.
-9. Add a line to [`CHANGELOG.md`](CHANGELOG.md) (`[Unreleased]`) for any user-visible change.
+9. **Provider calls stay sober.** A request to a provider goes through `BaseCollector._get` (it is
+   counted and held to the published quota in `app/collectors/budget.py`); the position is snapped
+   to a grid; the number of days is not in a cache key; the TTL comes from the source's own update
+   rhythm, with the evidence in [`docs/data-sources.md`](docs/data-sources.md). Do not send a
+   request around these. `tests/test_call_sobriety.py` replays a day of 1,000 clients and fails if
+   the Open-Meteo quota would be exceeded.
+10. Add a line to [`CHANGELOG.md`](CHANGELOG.md) (`[Unreleased]`) for any user-visible change.

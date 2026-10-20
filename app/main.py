@@ -4,7 +4,7 @@ Endpoints:
 
 - ``GET    /dashboard``            : Web supervision dashboard.
 - ``GET    /v1/health``            : Global health, SQLite mode and collector summary.
-- ``GET    /v1/providers``         : Circuit breaker and cache state of every provider.
+- ``GET    /v1/providers``         : Circuit breaker, cache state, calls, weight and quota of every provider.
 - ``GET    /v1/scheduler/status``  : Scheduler state and cycle counter.
 - ``POST   /v1/scheduler/trigger`` : Run one collection cycle and differential push now.
 - ``GET    /v1/zones``             : Watched zones (SQLite watchlist).
@@ -153,7 +153,7 @@ async def get_health() -> dict[str, Any]:
 
 @app.get("/v1/providers", response_model=list[ProviderHealth], tags=["Monitoring"])
 async def get_providers() -> list[ProviderHealth]:
-    """Return the circuit breaker and TTL cache state of each provider."""
+    """Return the circuit breaker and TTL cache state of each provider, and its calls, weight and quota over 24 hours."""
     return aggregator.get_providers_health()
 
 

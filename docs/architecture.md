@@ -28,7 +28,9 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | --- | --- |
 | `app/main.py` | FastAPI application, routes, WebSocket hub, optional scheduler (lifespan). |
 | `app/models/schemas.py` | Pydantic models. A value a provider did not supply is `None`; no model has a default number standing for missing data. |
-| `app/collectors/base.py` | `BaseCollector`: HTTP client, circuit breaker (`CLOSED`, `OPEN`, `HALF_OPEN`), TTL cache, health. |
+| `app/collectors/grid.py`, `app/collectors/weights.py`, `app/collectors/budget.py` | Point grids (snapping, settings); weight of an Open-Meteo request; published quotas and the call budget. |
+| `app/clock.py` | Time source of the collectors, replaceable by a test (simulated clock). |
+| `app/collectors/base.py` | `BaseCollector`: HTTP client, circuit breaker (`CLOSED`, `OPEN`, `HALF_OPEN`), TTL cache, request coalescing, health. |
 | `app/collectors/seismic.py` | USGS and EMSC earthquakes. |
 | `app/collectors/disasters.py` | GDACS and NOAA NWS alerts. |
 | `app/collectors/flood_air.py` | River discharge (GloFAS), air quality and dust, USGS volcanoes. |
@@ -70,6 +72,42 @@ Nothing is padded, defaulted or copied from another field. At each layer:
 
 Every call goes through the collectors' caches, so a display polling every minute costs a few
 provider calls per TTL, not per request.
+
+## Provider calls
+
+The number of calls to the providers must not grow with the number of clients. What keeps it flat:
+
+- **Point grids.** The position sent upstream, and the cache key, are snapped to a grid coarser than
+  the weather models: 0.05 degree (about 5 km) for the forecast and MET Norway, 0.1 degree for air
+  quality, river discharge and marine conditions (`app/collectors/grid.py`, settings in the README).
+  Clients in the same cell share one call and one cache entry. The client keeps its exact position:
+  the response reports it and the distances to the hazards use it. Open-Meteo applies its own
+  elevation correction to the requested point, so the temperature near a hill is the one of the cell
+  centre, not of the exact spot: this is the price of the shared cell.
+- **One cache entry per position, whatever the number of days.** The forecast is always asked for
+  the longest length any route returns (10 days) and cached once per cell. The compact profiles
+  (5 days: the frame, `compact=true`) slice the answer; the number of days is not part of any cache
+  key. A watched zone read by a frame and by a web page used to cost two calls.
+- **The forecast in two requests.** Open-Meteo weighs a request by its variables: the single forecast
+  request (18 variables) weighed 1.8 calls. The current conditions and the 15-minute rain (11
+  variables, refreshed every 15 minutes) and the daily forecast (7 variables, every hour) are now
+  separate requests with their own cache entries; the weight of each request is computed from the
+  published rule in `app/collectors/weights.py` (see `data-sources.md`).
+- **A call budget per source.** Every request goes through `BaseCollector._get`, which counts it
+  (and its weight) over a sliding window of 24 hours. A provider with a published quota (Open-Meteo,
+  MET Norway, RainViewer; `app/collectors/budget.py`) never gets a request that would exceed it:
+  the collector serves its expired cache instead and the responses say `stale`. The four Open-Meteo
+  APIs share one budget. `GET /v1/providers` reports `calls_24h`, `weight_24h` and the quota.
+- **TTLs from the sources' own rhythm.** Each source is cached for the time it takes to change, not
+  for a round 5 minutes: the table with the evidence, the source URL and what could not be verified
+  is [`data-sources.md`](data-sources.md). MET Norway is asked as its terms require: a conditional
+  request (`If-Modified-Since` with the previous `Last-Modified`), and its answer is kept until the
+  `Expires` header; a `304 Not Modified` keeps the cached value.
+- **One upstream request for simultaneous callers.** `BaseCollector.fetch` runs the request of a
+  cache key in one shared task: N clients asking for the same key at the same time send one request
+  and all receive its answer or its error (each caller then applies its own stale policy). The
+  circuit breaker counts that single failure once. A client that hangs up does not cancel the
+  request for the others, and the answer is cached even when nobody waits for it any more.
 
 ## Persistence
 

@@ -14,12 +14,21 @@ value at all raises ``ValueError``, so the caller reports "unknown" instead of a
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any, Optional
 
 import httpx
 
 from app.collectors.base import BaseCollector, optional_float
+from app.collectors.grid import (
+    DEFAULT_AIR_QUALITY_GRID_DEG,
+    DEFAULT_FLOOD_GRID_DEG,
+    coord_str,
+    grid_step_from_env,
+    snap_to_grid,
+)
+from app.collectors.weights import open_meteo_weight
 from app.models.schemas import (
     AirQualityStatus,
     FloodRiskStatus,
@@ -39,32 +48,42 @@ class OpenMeteoFloodCollector(BaseCollector[FloodRiskStatus]):
 
     BASE_URL = "https://flood-api.open-meteo.com/v1/flood"
 
-    def __init__(self, http_client: Optional[httpx.AsyncClient] = None) -> None:
+    def __init__(
+        self, http_client: Optional[httpx.AsyncClient] = None, grid_deg: Optional[float] = None
+    ) -> None:
         super().__init__(
             provider_id="open_meteo_flood",
             name="Open-Meteo Flood API (Copernicus GloFAS)",
             domain="disasters",
-            ttl_seconds=600,
+            # 6 hours: the GloFAS forecast is updated once a day. https://open-meteo.com/en/docs/flood-api
+            ttl_seconds=21600,
             http_client=http_client,
         )
+        self.grid_deg = (
+            grid_deg if grid_deg is not None else grid_step_from_env("VIGIE_GRID_FLOOD_DEG", DEFAULT_FLOOD_GRID_DEG)
+        )
+
+    def call_weight(self, params: Mapping[str, str]) -> float:
+        """Weight of one request under the Open-Meteo rule (3 variables, 7 days: 1.0)."""
+        return open_meteo_weight(params, default_forecast_days=92)
 
     async def fetch_flood_risk(self, lat: float, lon: float) -> FloodRiskStatus:
-        """Fetch river discharge and flood risk at ``lat, lon``."""
-        lat_r = round(float(lat), 2)
-        lon_r = round(float(lon), 2)
-        cache_key = f"flood:{lat_r:.2f},{lon_r:.2f}"
-        return await self.fetch(cache_key=cache_key, lat=lat_r, lon=lon_r)
+        """Fetch river discharge and flood risk near ``lat, lon`` (snapped to the flood grid)."""
+        lat_r, lon_r = snap_to_grid(lat, lon, self.grid_deg)
+        cache_key = f"flood:{coord_str(lat_r)},{coord_str(lon_r)}"
+        fetched = await self.fetch_ex(cache_key=cache_key, lat=lat_r, lon=lon_r)
+        return fetched.value.model_copy(update={"stale": True}) if fetched.stale else fetched.value
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> FloodRiskStatus:
         lat = float(kwargs["lat"])
         lon = float(kwargs["lon"])
         params = {
-            "latitude": f"{lat:.2f}",
-            "longitude": f"{lon:.2f}",
+            "latitude": coord_str(lat),
+            "longitude": coord_str(lon),
             "daily": "river_discharge,river_discharge_mean,river_discharge_max",
             "forecast_days": "7",
         }
-        resp = await client.get(self.BASE_URL, params=params)
+        resp = await self._get(client, self.BASE_URL, params=params)
         resp.raise_for_status()
         return self.parse_response(resp.json())
 
@@ -113,31 +132,44 @@ class OpenMeteoAirQualityCollector(BaseCollector[AirQualityStatus]):
 
     BASE_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
 
-    def __init__(self, http_client: Optional[httpx.AsyncClient] = None) -> None:
+    def __init__(
+        self, http_client: Optional[httpx.AsyncClient] = None, grid_deg: Optional[float] = None
+    ) -> None:
         super().__init__(
             provider_id="open_meteo_aqi",
             name="Open-Meteo Air Quality, Dust & UV API",
             domain="weather",
-            ttl_seconds=600,
+            # 1 hour: the CAMS forecast has hourly values (Europe) or 3-hourly ones (global) and is updated
+            # every 12 to 24 hours. https://open-meteo.com/en/docs/air-quality-api
+            ttl_seconds=3600,
             http_client=http_client,
         )
+        self.grid_deg = (
+            grid_deg
+            if grid_deg is not None
+            else grid_step_from_env("VIGIE_GRID_AIR_QUALITY_DEG", DEFAULT_AIR_QUALITY_GRID_DEG)
+        )
+
+    def call_weight(self, params: Mapping[str, str]) -> float:
+        """Weight of one request under the Open-Meteo rule (6 current variables: 1.0)."""
+        return open_meteo_weight(params, default_forecast_days=5)
 
     async def fetch_air_quality(self, lat: float, lon: float) -> AirQualityStatus:
-        """Fetch the AQI, fine particles, UV and dust / ash at ``lat, lon``."""
-        lat_r = round(float(lat), 2)
-        lon_r = round(float(lon), 2)
-        cache_key = f"aqi:{lat_r:.2f},{lon_r:.2f}"
-        return await self.fetch(cache_key=cache_key, lat=lat_r, lon=lon_r)
+        """Fetch the AQI, fine particles, UV and dust / ash near ``lat, lon`` (snapped to the air quality grid)."""
+        lat_r, lon_r = snap_to_grid(lat, lon, self.grid_deg)
+        cache_key = f"aqi:{coord_str(lat_r)},{coord_str(lon_r)}"
+        fetched = await self.fetch_ex(cache_key=cache_key, lat=lat_r, lon=lon_r)
+        return fetched.value.model_copy(update={"stale": True}) if fetched.stale else fetched.value
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> AirQualityStatus:
         lat = float(kwargs["lat"])
         lon = float(kwargs["lon"])
         params = {
-            "latitude": f"{lat:.2f}",
-            "longitude": f"{lon:.2f}",
+            "latitude": coord_str(lat),
+            "longitude": coord_str(lon),
             "current": "european_aqi,us_aqi,pm10,pm2_5,uv_index,dust",
         }
-        resp = await client.get(self.BASE_URL, params=params)
+        resp = await self._get(client, self.BASE_URL, params=params)
         resp.raise_for_status()
         return self.parse_response(resp.json())
 
@@ -224,12 +256,12 @@ class USGSVolcanoCollector(BaseCollector[list[HazardAlert]]):
             provider_id="usgs_volcano_gvp",
             name="USGS Volcano Hazards Program (elevated alerts)",
             domain="disasters",
-            ttl_seconds=600,
+            ttl_seconds=600,  # update rhythm not verified (the endpoint documents none and sends no cache header)
             http_client=http_client,
         )
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> list[HazardAlert]:
-        resp = await client.get(self.FEED_URL)
+        resp = await self._get(client, self.FEED_URL)
         resp.raise_for_status()
         return self.parse_volcanoes(resp.json())
 

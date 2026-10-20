@@ -22,13 +22,34 @@ no 15-minute nowcast in its compact product, so those stay unknown).
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import Mapping
 from datetime import date, datetime, timedelta
 from typing import Any, Optional
 
 import httpx
 
-from app.collectors.base import BaseCollector, optional_float
+from app.collectors.base import (
+    BaseCollector,
+    CacheEntry,
+    Collected,
+    Fetched,
+    optional_float,
+    response_lifetime_s,
+)
+from app.collectors.grid import (
+    DEFAULT_FORECAST_GRID_DEG,
+    coord_str,
+    grid_step_from_env,
+    snap_to_grid,
+)
+from app.collectors.weights import open_meteo_weight
 from app.models.schemas import CurrentWeather, DailyForecast
+
+# The longest forecast any route returns (non-compact ``/v1/snapshot`` and ``/v1/point``: 10 days).
+# Every forecast is asked for this length and cached once per position; the shorter profiles (the
+# compact ones, 5 days) slice the answer, so the number of days is not part of the cache key.
+MAX_FORECAST_DAYS = 10
 
 # MET Norway symbol_code (without the _day / _night / _polartwilight suffix) -> WMO code.
 # A symbol that is not listed gives ``None`` (unknown), never a default code.
@@ -100,80 +121,168 @@ def _rounded(value: Any, digits: int = 1) -> Optional[float]:
     return None if number is None else round(number, digits)
 
 
+def as_stale_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
+    """The weather bundle labelled as coming from an expired cache entry (``stale``, and the provider name says so)."""
+    return {**bundle, "provider_name": f"{bundle['provider_name']} (stale cache)", "stale": True}
+
+
 class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
-    """Primary collector: Open-Meteo forecast with the 15-minute rain of the next hour and the daily forecast."""
+    """Primary collector: Open-Meteo forecast with the 15-minute rain of the next hour and the daily forecast.
+
+    A position costs two requests, refreshed at the pace of what they carry:
+
+    - ``now``: the current conditions and the 15-minute rain of the next hour (11 variables, weight 1.1),
+      every 15 minutes, the resolution of that data;
+    - ``daily``: the daily forecast (7 variables, 10 days, weight 1.0), every hour, because the weather
+      models are updated every hour at best.
+
+    Asked as one request they would weigh 1.8 calls (18 variables) at every refresh of the shortest
+    lifetime; two requests with their own lifetimes weigh 1.1 + 1.0 / 4 per quarter of an hour.
+    Splitting never costs a field: the two sets of variables are the ones the single request had.
+    """
 
     BASE_URL = "https://api.open-meteo.com/v1/forecast"
 
-    def __init__(self, http_client: Optional[httpx.AsyncClient] = None) -> None:
+    # Variables of the "now" request, then of the "daily" request.
+    CURRENT_VARIABLES = (
+        "temperature_2m,apparent_temperature,relative_humidity_2m,"
+        "pressure_msl,wind_speed_10m,wind_gusts_10m,wind_direction_10m,"
+        "precipitation,weather_code,uv_index"
+    )
+    NOWCAST_VARIABLES = "precipitation"
+    DAILY_VARIABLES = (
+        "weather_code,temperature_2m_max,temperature_2m_min,"
+        "precipitation_sum,precipitation_probability_max,"
+        "wind_speed_10m_max,uv_index_max"
+    )
+    # The daily forecast is refreshed every hour: the models are updated hourly at best
+    # (https://open-meteo.com/en/docs, table "Update frequency"). The "now" part uses ``ttl_seconds``.
+    DAILY_TTL_SECONDS = 3600
+
+    def __init__(
+        self, http_client: Optional[httpx.AsyncClient] = None, grid_deg: Optional[float] = None
+    ) -> None:
         super().__init__(
             provider_id="open_meteo_hd",
             name="Open-Meteo High-Def (AROME / HRRR / IFS / ICON)",
             domain="weather",
-            ttl_seconds=300,
+            # 15 minutes: the temporal resolution of the ``current`` and ``minutely_15`` data (the models
+            # themselves are updated every hour at best). https://open-meteo.com/en/docs
+            ttl_seconds=900,
             is_fallback=False,
             http_client=http_client,
         )
-
-    @staticmethod
-    def cache_key_for(lat: float, lon: float, days: int) -> str:
-        """Cache key of a point forecast (coordinates rounded to 0.01 degree)."""
-        return f"om:{round(float(lat), 2):.2f},{round(float(lon), 2):.2f}:{days}"
-
-    def get_stale_point(self, lat: float, lon: float, days: int) -> Optional[dict[str, Any]]:
-        """Return the last cached forecast of a point, even if its TTL has expired."""
-        return self._get_stale_cache(self.cache_key_for(lat, lon, days))
-
-    async def fetch_point(
-        self, lat: float, lon: float, days: int = 7, allow_stale_on_error: bool = False
-    ) -> dict[str, Any]:
-        """Fetch the full forecast at the coordinates (rounded to 0.01 degree)."""
-        return await self.fetch(
-            cache_key=self.cache_key_for(lat, lon, days),
-            lat=round(float(lat), 2),
-            lon=round(float(lon), 2),
-            days=days,
-            allow_stale_on_error=allow_stale_on_error,
+        self.grid_deg = (
+            grid_deg
+            if grid_deg is not None
+            else grid_step_from_env("VIGIE_GRID_FORECAST_DEG", DEFAULT_FORECAST_GRID_DEG)
         )
 
-    async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> dict[str, Any]:
-        lat = float(kwargs["lat"])
-        lon = float(kwargs["lon"])
-        days = int(kwargs.get("days", 7))
+    def cache_keys_for(self, lat: float, lon: float) -> tuple[str, str]:
+        """Cache keys of the "now" and the "daily" parts of a point: its cell on the forecast grid (no number of days)."""
+        s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
+        cell = f"{coord_str(s_lat)},{coord_str(s_lon)}"
+        return f"om-now:{cell}", f"om-daily:{cell}"
 
-        params = {
-            "latitude": f"{lat:.2f}",
-            "longitude": f"{lon:.2f}",
-            "current": (
-                "temperature_2m,apparent_temperature,relative_humidity_2m,"
-                "pressure_msl,wind_speed_10m,wind_gusts_10m,wind_direction_10m,"
-                "precipitation,weather_code,uv_index"
+    def get_stale_point(self, lat: float, lon: float) -> Optional[dict[str, Any]]:
+        """Return the last cached forecast of a point, even if its TTL has expired.
+
+        ``None`` when the current conditions were never cached; a missing daily forecast is unknown (empty).
+        """
+        now_key, daily_key = self.cache_keys_for(lat, lon)
+        now = self._get_stale_cache(now_key)
+        if now is None:
+            return None
+        daily = self._get_stale_cache(daily_key) or {"utc_offset_s": None, "daily_10d": []}
+        return self._merge_parts(now, daily)
+
+    async def fetch_point(self, lat: float, lon: float, allow_stale_on_error: bool = False) -> dict[str, Any]:
+        """Fetch the full forecast (``MAX_FORECAST_DAYS`` days) near the coordinates, snapped to the forecast grid.
+
+        Both parts are needed: when one of them cannot be had, the error is raised so that the caller
+        falls back to another provider. A part served from an expired entry because the call budget is
+        used up makes the whole bundle stale (``bundle["stale"]``, and the provider name says so).
+        """
+        s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
+        now_key, daily_key = self.cache_keys_for(lat, lon)
+        now, daily = await asyncio.gather(
+            self.fetch_ex(
+                now_key, lat=s_lat, lon=s_lon, part="now", allow_stale_on_error=allow_stale_on_error
             ),
-            "minutely_15": "precipitation",
-            "forecast_minutely_15": "4",
-            "daily": (
-                "weather_code,temperature_2m_max,temperature_2m_min,"
-                "precipitation_sum,precipitation_probability_max,"
-                "wind_speed_10m_max,uv_index_max"
+            self.fetch_ex(
+                daily_key,
+                lat=s_lat,
+                lon=s_lon,
+                part="daily",
+                ttl_seconds=self.DAILY_TTL_SECONDS,
+                allow_stale_on_error=allow_stale_on_error,
             ),
-            "forecast_days": str(min(10, max(1, days))),
-            "timezone": "auto",
-        }
-        resp = await client.get(self.BASE_URL, params=params)
+            return_exceptions=True,
+        )
+        for part in (now, daily):
+            if isinstance(part, BaseException):
+                raise part
+        assert isinstance(now, Fetched) and isinstance(daily, Fetched)
+        bundle = self._merge_parts(now.value, daily.value)
+        return as_stale_bundle(bundle) if (now.stale or daily.stale) else bundle
+
+    @staticmethod
+    def request_params(part: str, lat: float, lon: float) -> dict[str, str]:
+        """Query parameters of the "now" or the "daily" request at ``lat, lon``."""
+        params = {"latitude": coord_str(lat), "longitude": coord_str(lon), "timezone": "auto"}
+        if part == "daily":
+            params["daily"] = OpenMeteoCollector.DAILY_VARIABLES
+            params["forecast_days"] = str(MAX_FORECAST_DAYS)
+        else:
+            params["current"] = OpenMeteoCollector.CURRENT_VARIABLES
+            params["minutely_15"] = OpenMeteoCollector.NOWCAST_VARIABLES
+            params["forecast_minutely_15"] = "4"
+        return params
+
+    def call_weight(self, params: Mapping[str, str]) -> float:
+        """Weight of one request under the Open-Meteo rule (see ``app/collectors/weights.py``)."""
+        return open_meteo_weight(params, default_forecast_days=7)
+
+    async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> dict[str, Any]:
+        part = str(kwargs.get("part", "now"))
+        params = self.request_params(part, float(kwargs["lat"]), float(kwargs["lon"]))
+        resp = await self._get(client, self.BASE_URL, params=params)
         resp.raise_for_status()
-        return self.parse_response(resp.json())
+        payload = resp.json()
+        return self.parse_daily(payload) if part == "daily" else self.parse_now(payload)
+
+    @staticmethod
+    def _merge_parts(now: dict[str, Any], daily: dict[str, Any]) -> dict[str, Any]:
+        """Join the "now" and the "daily" parts into the weather bundle the aggregator uses."""
+        utc_offset = now.get("utc_offset_s")
+        return {
+            "provider_name": "Open-Meteo",
+            "utc_offset_s": utc_offset if utc_offset is not None else daily.get("utc_offset_s"),
+            "current": now["current"],
+            "rain_next_60m": now["rain_next_60m"],
+            "daily_10d": daily["daily_10d"],
+        }
 
     @staticmethod
     def parse_response(payload: dict[str, Any]) -> dict[str, Any]:
-        """Normalize an Open-Meteo response. Missing variables become ``None``.
+        """Normalize a response that carries both parts. Missing variables become ``None``.
 
         Raises ``ValueError`` when there is no current temperature at all: such a
         response is unusable and the caller must fall back to another provider.
         """
+        return OpenMeteoCollector._merge_parts(
+            OpenMeteoCollector.parse_now(payload), OpenMeteoCollector.parse_daily(payload)
+        )
+
+    @staticmethod
+    def parse_now(payload: dict[str, Any]) -> dict[str, Any]:
+        """Normalize the current conditions and the 15-minute rain of a response.
+
+        Raises ``ValueError`` when there is no current temperature at all.
+        """
         curr = payload.get("current")
         if not isinstance(curr, dict) or optional_float(curr.get("temperature_2m")) is None:
             raise ValueError("Open-Meteo response has no current temperature")
-        daily = payload.get("daily") or {}
         min15 = payload.get("minutely_15") or {}
 
         wind_deg = optional_float(curr.get("wind_direction_10m"))
@@ -197,6 +306,17 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
         if len(raw_steps) == 4 and all(step is not None for step in raw_steps):
             rain_next_60m = [round(max(0.0, step), 2) for step in raw_steps if step is not None]
 
+        utc_offset = optional_float(payload.get("utc_offset_seconds"))
+        return {
+            "utc_offset_s": None if utc_offset is None else int(utc_offset),
+            "current": current_weather,
+            "rain_next_60m": rain_next_60m,
+        }
+
+    @staticmethod
+    def parse_daily(payload: dict[str, Any]) -> dict[str, Any]:
+        """Normalize the daily forecast of a response. Missing variables become ``None``."""
+        daily = payload.get("daily") or {}
         times = daily.get("time") or []
         codes = daily.get("weather_code") or []
         tmins = daily.get("temperature_2m_min") or []
@@ -230,10 +350,7 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
 
         utc_offset = optional_float(payload.get("utc_offset_seconds"))
         return {
-            "provider_name": "Open-Meteo",
             "utc_offset_s": None if utc_offset is None else int(utc_offset),
-            "current": current_weather,
-            "rain_next_60m": rain_next_60m,
             "daily_10d": daily_forecasts,
         }
 
@@ -243,55 +360,85 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
 
     BASE_URL = "https://api.met.no/weatherapi/locationforecast/2.0/compact"
 
-    def __init__(self, http_client: Optional[httpx.AsyncClient] = None) -> None:
+    def __init__(
+        self, http_client: Optional[httpx.AsyncClient] = None, grid_deg: Optional[float] = None
+    ) -> None:
         super().__init__(
             provider_id="met_norway_fallback",
             name="MET Norway Locationforecast 2.0 (Global Fallback)",
             domain="weather",
+            # Only used when the answer carries no ``Expires`` header: the cache keeps the value until the
+            # ``Expires`` of each answer (terms: https://api.met.no/doc/TermsOfService). Not verified.
             ttl_seconds=300,
             is_fallback=True,
             http_client=http_client,
+        )
+        self.grid_deg = (
+            grid_deg
+            if grid_deg is not None
+            else grid_step_from_env("VIGIE_GRID_FORECAST_DEG", DEFAULT_FORECAST_GRID_DEG)
         )
 
     async def fetch_point(
         self,
         lat: float,
         lon: float,
-        days: int = 7,
         allow_stale_on_error: bool = True,
         utc_offset_s: Optional[int] = None,
     ) -> dict[str, Any]:
-        """Fetch the fallback forecast at the coordinates.
+        """Fetch the fallback forecast near the coordinates (snapped to the forecast grid).
 
         ``utc_offset_s`` (the zone configuration) is only used to group the hourly series
         into local calendar days; MET Norway does not report the local offset.
         """
-        lat_r = round(float(lat), 2)
-        lon_r = round(float(lon), 2)
-        return await self.fetch(
-            cache_key=f"metno:{lat_r:.2f},{lon_r:.2f}:{days}:{utc_offset_s}",
+        lat_r, lon_r = snap_to_grid(lat, lon, self.grid_deg)
+        fetched = await self.fetch_ex(
+            cache_key=f"metno:{coord_str(lat_r)},{coord_str(lon_r)}:{utc_offset_s}",
             lat=lat_r,
             lon=lon_r,
-            days=days,
             utc_offset_s=utc_offset_s,
             allow_stale_on_error=allow_stale_on_error,
         )
+        return as_stale_bundle(fetched.value) if fetched.stale else fetched.value
 
-    async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> dict[str, Any]:
+    async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> Collected[dict[str, Any]]:
+        """Ask MET Norway as its terms require: a conditional request, and the answer valid until ``Expires``.
+
+        When a previous answer is cached, the request carries ``If-Modified-Since`` with exactly its
+        ``Last-Modified``. ``304 Not Modified`` keeps the cached value (it is not parsed again); in both
+        cases the value stays valid until the ``Expires`` of the new answer.
+        """
         lat = float(kwargs["lat"])
         lon = float(kwargs["lon"])
-        days = int(kwargs.get("days", 7))
+        previous: Optional[CacheEntry[dict[str, Any]]] = kwargs.get("previous")
 
-        resp = await client.get(
+        headers: dict[str, str] = {}
+        if previous is not None and previous.validators and previous.validators.get("Last-Modified"):
+            headers["If-Modified-Since"] = previous.validators["Last-Modified"]
+
+        resp = await self._get(
+            client,
             self.BASE_URL,
-            params={"lat": f"{lat:.2f}", "lon": f"{lon:.2f}"},
+            params={"lat": coord_str(lat), "lon": coord_str(lon)},
+            headers=headers,
         )
+        lifetime = response_lifetime_s(resp)
+        if resp.status_code == 304:
+            if previous is None:
+                raise ValueError("MET Norway answered 304 Not Modified to a request that was not conditional")
+            return Collected(previous.value, fresh_for_s=lifetime, validators=previous.validators)
         resp.raise_for_status()
-        return self.parse_response(resp.json(), days=days, utc_offset_s=kwargs.get("utc_offset_s"))
+
+        last_modified = resp.headers.get("Last-Modified")
+        return Collected(
+            self.parse_response(resp.json(), utc_offset_s=kwargs.get("utc_offset_s")),
+            fresh_for_s=lifetime,
+            validators={"Last-Modified": last_modified} if last_modified else None,
+        )
 
     @staticmethod
     def parse_response(
-        payload: dict[str, Any], days: int = 7, utc_offset_s: Optional[int] = None
+        payload: dict[str, Any], days: int = MAX_FORECAST_DAYS, utc_offset_s: Optional[int] = None
     ) -> dict[str, Any]:
         """Convert the MET Norway timeseries to the unified schema. Missing variables are ``None``.
 
@@ -402,12 +549,13 @@ class RainViewerCollector(BaseCollector[dict[str, Any]]):
             provider_id="rainviewer_radar",
             name="RainViewer Global Weather Radar API",
             domain="weather",
-            ttl_seconds=180,
+            # 10 minutes: the radar frames are 10 minutes apart. https://www.rainviewer.com/api/weather-maps-api.html
+            ttl_seconds=600,
             http_client=http_client,
         )
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> dict[str, Any]:
-        resp = await client.get(self.MAPS_URL)
+        resp = await self._get(client, self.MAPS_URL)
         resp.raise_for_status()
         return self.parse_maps(resp.json())
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import time
 from unittest.mock import AsyncMock
 
 import pytest
@@ -17,6 +16,7 @@ from app.services.embedded_frame import verify_embedded_frame_crc
 from app.services.scheduler import detect_new_or_upgraded_hazards
 from tests import samples
 from tests.conftest import World
+from tests.helpers import expired_entry
 
 # ============================================================================
 # Weather fallback
@@ -33,7 +33,7 @@ async def test_weather_falls_back_to_met_norway_when_open_meteo_fails() -> None:
     service = AggregatorService(open_meteo=om_collector, met_norway=metno_collector)
 
     for _ in range(3):
-        bundle, fallback_used = await service.fetch_weather_with_fallback(48.8566, 2.3522, days=5)
+        bundle, fallback_used = await service.fetch_weather_with_fallback(48.8566, 2.3522)
         assert fallback_used is True
         assert bundle is not None
         assert "MET Norway" in bundle["provider_name"]
@@ -49,14 +49,15 @@ async def test_weather_falls_back_to_met_norway_when_open_meteo_fails() -> None:
 async def test_weather_uses_the_stale_cache_and_says_so() -> None:
     om_collector = OpenMeteoCollector()
     metno_collector = MetNorwayCollector()
-    cached = samples.parsed_open_meteo()
-    # cached long ago (monotonic clock), so the entry is stale whatever the machine uptime
-    om_collector._cache[OpenMeteoCollector.cache_key_for(48.8566, 2.3522, 5)] = (time.monotonic() - 10_000.0, cached)
+    # cached long ago (monotonic clock), so the entries are stale whatever the machine uptime
+    now_key, daily_key = om_collector.cache_keys_for(48.8566, 2.3522)
+    om_collector._cache[now_key] = expired_entry(OpenMeteoCollector.parse_now(samples.open_meteo_payload()))
+    om_collector._cache[daily_key] = expired_entry(OpenMeteoCollector.parse_daily(samples.open_meteo_payload()))
     om_collector._collect = AsyncMock(side_effect=RuntimeError("down"))  # type: ignore[method-assign]
     metno_collector._collect = AsyncMock(side_effect=RuntimeError("down"))  # type: ignore[method-assign]
     service = AggregatorService(open_meteo=om_collector, met_norway=metno_collector)
 
-    bundle, fallback_used = await service.fetch_weather_with_fallback(48.8566, 2.3522, days=5)
+    bundle, fallback_used = await service.fetch_weather_with_fallback(48.8566, 2.3522)
     assert fallback_used is True
     assert bundle is not None
     assert bundle["stale"] is True
@@ -73,7 +74,7 @@ async def test_no_weather_at_all_means_no_bundle() -> None:
     metno_collector._collect = AsyncMock(side_effect=RuntimeError("down"))  # type: ignore[method-assign]
     service = AggregatorService(open_meteo=om_collector, met_norway=metno_collector)
 
-    bundle, _ = await service.fetch_weather_with_fallback(48.8566, 2.3522, days=5)
+    bundle, _ = await service.fetch_weather_with_fallback(48.8566, 2.3522)
     assert bundle is None
     assert not hasattr(service, "_build_offline_weather_bundle")
 

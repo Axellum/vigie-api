@@ -5,7 +5,7 @@
 
 ## Context
 
-Vigie has two parts: an ESP32-P4 display firmware (C++, repository `alerte_mondiale_7b`) and this
+Vigie has two parts: an ESP32-P4 display firmware (C++, repository `vigie-display`) and this
 API (Python, running on a PC at home). The display is a warning device; a wrong number on it is
 worse than a missing one. The first versions of the API filled every gap with a plausible value
 (a temperature computed from the latitude, `22` as air quality, a rain probability derived from

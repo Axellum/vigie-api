@@ -13,11 +13,14 @@ inland points: the collector then raises, and the caller reports "no marine data
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any, Literal, Optional
 
 import httpx
 
 from app.collectors.base import BaseCollector, optional_float
+from app.collectors.grid import DEFAULT_MARINE_GRID_DEG, coord_str, grid_step_from_env, snap_to_grid
+from app.collectors.weights import open_meteo_weight
 from app.models.schemas import MarineConditions
 
 SeaStateLabel = Literal["CALM", "SMOOTH", "MODERATE", "ROUGH", "VERY_ROUGH", "HIGH", "PHENOMENAL"]
@@ -57,35 +60,46 @@ class OpenMeteoMarineCollector(BaseCollector[MarineConditions]):
 
     BASE_URL = "https://marine-api.open-meteo.com/v1/marine"
 
-    def __init__(self, http_client: Optional[httpx.AsyncClient] = None) -> None:
+    def __init__(
+        self, http_client: Optional[httpx.AsyncClient] = None, grid_deg: Optional[float] = None
+    ) -> None:
         super().__init__(
             provider_id="open_meteo_marine",
             name="Open-Meteo Marine & Oceanography API",
             domain="marine",
-            ttl_seconds=300,
+            # 1 hour: the wave and current models have hourly values (some 3-hourly) and are updated every
+            # 6 to 24 hours. https://open-meteo.com/en/docs/marine-weather-api
+            ttl_seconds=3600,
             http_client=http_client,
         )
+        self.grid_deg = (
+            grid_deg if grid_deg is not None else grid_step_from_env("VIGIE_GRID_MARINE_DEG", DEFAULT_MARINE_GRID_DEG)
+        )
+
+    def call_weight(self, params: Mapping[str, str]) -> float:
+        """Weight of one request under the Open-Meteo rule (8 current variables: 1.0)."""
+        return open_meteo_weight(params, default_forecast_days=7)
 
     async def fetch_marine(self, lat: float, lon: float) -> MarineConditions:
-        """Fetch the marine conditions at ``lat, lon``."""
-        lat_r = round(float(lat), 2)
-        lon_r = round(float(lon), 2)
-        cache_key = f"marine:{lat_r:.2f},{lon_r:.2f}"
-        return await self.fetch(cache_key=cache_key, lat=lat_r, lon=lon_r)
+        """Fetch the marine conditions near ``lat, lon`` (snapped to the marine grid)."""
+        lat_r, lon_r = snap_to_grid(lat, lon, self.grid_deg)
+        cache_key = f"marine:{coord_str(lat_r)},{coord_str(lon_r)}"
+        fetched = await self.fetch_ex(cache_key=cache_key, lat=lat_r, lon=lon_r)
+        return fetched.value.model_copy(update={"stale": True}) if fetched.stale else fetched.value
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> MarineConditions:
         lat = float(kwargs["lat"])
         lon = float(kwargs["lon"])
         params = {
-            "latitude": f"{lat:.2f}",
-            "longitude": f"{lon:.2f}",
+            "latitude": coord_str(lat),
+            "longitude": coord_str(lon),
             "current": (
                 "wave_height,wave_direction,wave_period,"
                 "swell_wave_height,swell_wave_direction,swell_wave_period,"
                 "ocean_current_velocity,ocean_current_direction"
             ),
         }
-        resp = await client.get(self.BASE_URL, params=params)
+        resp = await self._get(client, self.BASE_URL, params=params)
         resp.raise_for_status()
         return self.parse_response(resp.json())
 

@@ -67,6 +67,24 @@ class CircuitState(str, Enum):
     HALF_OPEN = "HALF_OPEN"
 
 
+class QuotaLimitStatus(BaseModel):
+    """One limit of a published quota."""
+
+    window_s: int = Field(..., description="Length of the sliding window (seconds)")
+    limit: float = Field(..., description="The limit the provider publishes for that window (calls)")
+    budget: float = Field(..., description="What the API lets through (the limit times VIGIE_BUDGET_FRACTION)")
+    used: float = Field(..., description="Weight sent in that window, by every provider that shares the quota")
+
+
+class QuotaStatus(BaseModel):
+    """The published quota of a provider and how much of it is used."""
+
+    group: str = Field(..., description="Providers that share this quota have the same group")
+    source_url: str = Field(..., description="Page that publishes the quota")
+    exhausted: bool = Field(..., description="True when the budget refuses a request: the cache is served, flagged stale")
+    limits: list[QuotaLimitStatus]
+
+
 class ProviderHealth(BaseModel):
     """Live health of one external data provider."""
 
@@ -81,6 +99,18 @@ class ProviderHealth(BaseModel):
     last_success_utc: Optional[int] = Field(default=None, description="UTC timestamp of the last success")
     cache_age_s: Optional[int] = Field(default=None, description="Age of the cached data (seconds)")
     last_error: Optional[str] = Field(default=None, description="Last error message, if any")
+    calls_24h: int = Field(default=0, ge=0, description="Requests really sent to the provider in the last 24 hours")
+    weight_24h: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Weight of those requests (Open-Meteo counts a large request as several calls; 1 per request elsewhere)",
+    )
+    quota: Optional[QuotaStatus] = Field(
+        default=None, description="Published quota and its use; null when the provider publishes none (not verified)"
+    )
+    budget_refusals: int = Field(
+        default=0, ge=0, description="Requests not sent since the start because the budget was exhausted"
+    )
 
 
 class GPSCoordinates(BaseModel):
@@ -165,6 +195,10 @@ class MarineConditions(BaseModel):
     ] = Field(default=None, description="Sea state (simplified Douglas scale), from the wave height")
     navigation_warning: bool = Field(
         default=False, description="True when a known value is dangerous (waves or swell >= 3.5 m, current >= 6 km/h)"
+    )
+    stale: bool = Field(
+        default=False,
+        description="True when the values come from an expired cache entry (the provider could not or must not be asked)",
     )
 
 
@@ -299,6 +333,10 @@ class FloodRiskStatus(BaseModel):
     flood_alert_level: Optional[SeverityLevel] = Field(
         default=None, description="Heuristic flood level from the ratio and the discharge; null when unknown"
     )
+    stale: bool = Field(
+        default=False,
+        description="True when the values come from an expired cache entry (the provider could not or must not be asked)",
+    )
 
 
 class AirQualityStatus(BaseModel):
@@ -314,6 +352,10 @@ class AirQualityStatus(BaseModel):
     )
     ash_or_dust_warning: bool = Field(
         default=False, description="True when a known value is high (dust >= 100, PM10 >= 120 or EAQI >= 100)"
+    )
+    stale: bool = Field(
+        default=False,
+        description="True when the values come from an expired cache entry (the provider could not or must not be asked)",
     )
 
 
