@@ -1,0 +1,8 @@
+# The tests of the Home Assistant integration (custom_components/vigie), in an environment of their own.
+#
+# pytest-homeassistant-custom-component 0.13.373 (PyPI, 2026-10-17) pins homeassistant==2026.10.2, which needs Python 3.14.2
+# or newer: that is why these tests have their own CI job (the API's jobs run Python 3.12 and 3.13) and their own venv.
+#   https://pypi.org/project/pytest-homeassistant-custom-component/0.13.373/
+#   https://pypi.org/project/homeassistant/2026.10.2/
+# Bump both together: the version of the plugin names the Home Assistant release it tracks.
+pytest-homeassistant-custom-component==0.13.373

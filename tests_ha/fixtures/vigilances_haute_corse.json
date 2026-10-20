@@ -1,0 +1,621 @@
+{
+ "version": "1.0",
+ "server_utc": 1792505748,
+ "query": {
+  "lat": 42.7,
+  "lon": 9.45,
+  "country": null,
+  "river_radius_km": 5.0
+ },
+ "countries": [
+  "FR"
+ ],
+ "vigilances": [
+  {
+   "id": "meteoalarm:c94824dc-25d2-4458-bc75-b08ab97efd21:0-0-1",
+   "source": "meteoalarm",
+   "country": "FR",
+   "attribution": "Source: EUMETNET – MeteoAlarm (https://meteoalarm.org/en/live/), warnings of the national meteorological and hydrological services. Terms equivalent to CC BY 4.0 with additional requirements for redistributors | Issued by METEO-FRANCE",
+   "identifier": "2.49.0.0.250.0.FR.20261020160159.516042",
+   "sent_utc": 1792504919,
+   "effective_utc": 1792504800,
+   "onset_utc": 1792504908,
+   "expires_utc": 1792533600,
+   "ends_utc": null,
+   "message_type": "Alert",
+   "status": "new",
+   "level": "RED",
+   "level_original": "Red",
+   "phenomenon": "flood",
+   "phenomenon_original": "Rain-flood",
+   "event": "Extreme rain-flood warning",
+   "issuer": "METEO-FRANCE",
+   "texts": [
+    {
+     "language": "fr-FR",
+     "sender_name": "METEO-FRANCE",
+     "event": "Vigilance rouge pluie-inondation",
+     "headline": "Vigilance rouge pluie-inondation",
+     "description": "De très fortes précipitations sont attendues, susceptibles d'affecter les activités humaines et la vie économique pendant plusieurs jours. En raison de ces précipitations, la visibilité peut être réduite. Des inondations très importantes sont possibles. Les conditions de circulation routières peuvent être rendues extrêmement difficiles et des perturbations importantes peuvent affecter les transports ferroviaires.",
+     "instruction": "Je reste chez moi et je me tiens informé auprès des autorités. Je n'utilise pas ma voiture. Je ne vais pas chercher mes enfants à l'école. Je m'éloigne des cours d'eau, des points bas et des ponts et je rejoins le point le plus haut possible. Je me réfugie en étage, en dernier recours sur le toit, je ne descends pas dans les sous-sols. J'évacue uniquement sur ordre des autorités en emportant mon kit d'urgence.",
+     "web": "https://vigilance.meteofrance.fr/",
+     "parameters": [
+      {
+       "name": "awareness_level",
+       "value": "4; red; Extreme"
+      },
+      {
+       "name": "awareness_type",
+       "value": "13; rain-flood"
+      }
+     ]
+    },
+    {
+     "language": "en-GB",
+     "sender_name": "METEO-FRANCE",
+     "event": "Extreme rain-flood warning",
+     "headline": "Extreme rain-flood warning",
+     "description": "Heavy rain likely to impact human and economic activities for many days is expected. Because of rainfall, visibility may be reduced. Heavy flooding is possible. Road traffic conditions may be difficult and severe disruptions may affect rail travel.",
+     "instruction": "I stay at home and keep myself informed of the authorities' instructions. I don't use my car. I don't pick up my children from school. I keep away from rivers, low points and bridges and reach the highest point possible. I take shelter upstairs, as a last resort on the roof, I don't go down to the basements. I evacuate only on the order of the authorities and take my emergency kit.",
+     "web": "https://vigilance.meteofrance.fr/",
+     "parameters": [
+      {
+       "name": "awareness_level",
+       "value": "4; red; Extreme"
+      },
+      {
+       "name": "awareness_type",
+       "value": "13; rain-flood"
+      }
+     ]
+    }
+   ],
+   "area": {
+    "description": "Haute-Corse",
+    "geocodes": [
+     {
+      "scheme": "EMMA_ID",
+      "value": "FR089"
+     },
+     {
+      "scheme": "NUTS3",
+      "value": "FR832"
+     }
+    ],
+    "has_polygon": false,
+    "localization": "geocode"
+   },
+   "distance_km": null,
+   "link": "https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/c94824dc-25d2-4458-bc75-b08ab97efd21",
+   "web": "https://meteoalarm.org?geocode=EMMA_ID:FR089",
+   "derived": [
+    "status",
+    "level",
+    "phenomenon"
+   ]
+  },
+  {
+   "id": "meteoalarm:252363e7-9292-4af2-8570-6f99f49a01f5:4-0-1",
+   "source": "meteoalarm",
+   "country": "FR",
+   "attribution": "Source: EUMETNET – MeteoAlarm (https://meteoalarm.org/en/live/), warnings of the national meteorological and hydrological services. Terms equivalent to CC BY 4.0 with additional requirements for redistributors | Issued by METEO-FRANCE",
+   "identifier": "2.49.0.0.250.0.FR.20261020160210.481023",
+   "sent_utc": 1792504930,
+   "effective_utc": 1792504800,
+   "onset_utc": 1792504908,
+   "expires_utc": 1792533600,
+   "ends_utc": null,
+   "message_type": "Alert",
+   "status": "new",
+   "level": "YELLOW",
+   "level_original": "Yellow",
+   "phenomenon": "thunderstorm",
+   "phenomenon_original": "Thunderstorm",
+   "event": "Moderate thunderstorm warning",
+   "issuer": "METEO-FRANCE",
+   "texts": [
+    {
+     "language": "fr-FR",
+     "sender_name": "METEO-FRANCE",
+     "event": "Vigilance jaune orages",
+     "headline": "Vigilance jaune orages",
+     "description": "Des phénomènes habituels dans la région mais occasionnellement et localement dangereux sont prévus (exemple : mistral, orage d'été, montée des eaux, fortes vagues submergeant le littoral).",
+     "instruction": "Soyez attentifs si vous pratiquez des activités sensibles au risque météorologique ou à proximité d'un rivage ou d'un cours d'eau. Tenez-vous au courant de l'évolution de la situation.",
+     "web": "https://vigilance.meteofrance.fr/",
+     "parameters": [
+      {
+       "name": "awareness_level",
+       "value": "2; yellow; Moderate"
+      },
+      {
+       "name": "awareness_type",
+       "value": "3; Thunderstorm"
+      }
+     ]
+    },
+    {
+     "language": "en-GB",
+     "sender_name": "METEO-FRANCE",
+     "event": "Moderate thunderstorm warning",
+     "headline": "Moderate thunderstorm warning",
+     "description": "Moderate damages may occur, especially in vulnerable or in exposed areas and to people who carry out weather-related activities.",
+     "instruction": "Be careful, keep informed of the latest weather forecast.",
+     "web": "https://vigilance.meteofrance.fr/",
+     "parameters": [
+      {
+       "name": "awareness_level",
+       "value": "2; yellow; Moderate"
+      },
+      {
+       "name": "awareness_type",
+       "value": "3; Thunderstorm"
+      }
+     ]
+    }
+   ],
+   "area": {
+    "description": "Haute-Corse",
+    "geocodes": [
+     {
+      "scheme": "EMMA_ID",
+      "value": "FR089"
+     },
+     {
+      "scheme": "NUTS3",
+      "value": "FR832"
+     }
+    ],
+    "has_polygon": false,
+    "localization": "geocode"
+   },
+   "distance_km": null,
+   "link": "https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/252363e7-9292-4af2-8570-6f99f49a01f5",
+   "web": "https://meteoalarm.org?geocode=EMMA_ID:FR089",
+   "derived": [
+    "status",
+    "level",
+    "phenomenon"
+   ]
+  },
+  {
+   "id": "meteoalarm:b832e737-dc3d-4048-8e33-5279325dbb29:4-0-1",
+   "source": "meteoalarm",
+   "country": "FR",
+   "attribution": "Source: EUMETNET – MeteoAlarm (https://meteoalarm.org/en/live/), warnings of the national meteorological and hydrological services. Terms equivalent to CC BY 4.0 with additional requirements for redistributors | Issued by METEO-FRANCE",
+   "identifier": "2.49.0.0.250.1.FR.20261020160219.233024",
+   "sent_utc": 1792504939,
+   "effective_utc": 1792504800,
+   "onset_utc": 1792504908,
+   "expires_utc": 1792533600,
+   "ends_utc": null,
+   "message_type": "Alert",
+   "status": "new",
+   "level": "YELLOW",
+   "level_original": "Yellow",
+   "phenomenon": "flood",
+   "phenomenon_original": "Flooding",
+   "event": "Moderate flooding warning",
+   "issuer": "METEO-FRANCE",
+   "texts": [
+    {
+     "language": "fr-FR",
+     "sender_name": "METEO-FRANCE",
+     "event": "Vigilance jaune inondations",
+     "headline": "Vigilance jaune inondations",
+     "description": "Des phénomènes habituels dans la région mais occasionnellement et localement dangereux sont prévus (exemple : mistral, orage d'été, montée des eaux, fortes vagues submergeant le littoral).",
+     "instruction": "Soyez attentifs si vous pratiquez des activités sensibles au risque météorologique ou à proximité d'un rivage ou d'un cours d'eau. Tenez-vous au courant de l'évolution de la situation.",
+     "web": "https://vigilance.meteofrance.fr/",
+     "parameters": [
+      {
+       "name": "awareness_level",
+       "value": "2; yellow; Moderate"
+      },
+      {
+       "name": "awareness_type",
+       "value": "12; flooding"
+      }
+     ]
+    },
+    {
+     "language": "en-GB",
+     "sender_name": "METEO-FRANCE",
+     "event": "Moderate flooding warning",
+     "headline": "Moderate flooding warning",
+     "description": "Moderate damages may occur, especially in vulnerable or in exposed areas and to people who carry out weather-related activities.",
+     "instruction": "Be careful, keep informed of the latest weather forecast.",
+     "web": "https://vigilance.meteofrance.fr/",
+     "parameters": [
+      {
+       "name": "awareness_level",
+       "value": "2; yellow; Moderate"
+      },
+      {
+       "name": "awareness_type",
+       "value": "12; flooding"
+      }
+     ]
+    }
+   ],
+   "area": {
+    "description": "Haute-Corse",
+    "geocodes": [
+     {
+      "scheme": "EMMA_ID",
+      "value": "FR089"
+     },
+     {
+      "scheme": "NUTS3",
+      "value": "FR832"
+     }
+    ],
+    "has_polygon": false,
+    "localization": "geocode"
+   },
+   "distance_km": null,
+   "link": "https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/b832e737-dc3d-4048-8e33-5279325dbb29",
+   "web": "https://meteoalarm.org?geocode=EMMA_ID:FR089",
+   "derived": [
+    "status",
+    "level",
+    "phenomenon"
+   ]
+  },
+  {
+   "id": "meteoalarm:07416daa-5789-4c55-99de-aa56e4f5bb12:7-0-1",
+   "source": "meteoalarm",
+   "country": "FR",
+   "attribution": "Source: EUMETNET – MeteoAlarm (https://meteoalarm.org/en/live/), warnings of the national meteorological and hydrological services. Terms equivalent to CC BY 4.0 with additional requirements for redistributors | Issued by METEO-FRANCE",
+   "identifier": "2.49.0.0.250.0.FR.20261020160230.683023",
+   "sent_utc": 1792504950,
+   "effective_utc": 1792533600,
+   "onset_utc": 1792533600,
+   "expires_utc": 1792620000,
+   "ends_utc": null,
+   "message_type": "Alert",
+   "status": "new",
+   "level": "YELLOW",
+   "level_original": "Yellow",
+   "phenomenon": "thunderstorm",
+   "phenomenon_original": "Thunderstorm",
+   "event": "Moderate thunderstorm warning",
+   "issuer": "METEO-FRANCE",
+   "texts": [
+    {
+     "language": "fr-FR",
+     "sender_name": "METEO-FRANCE",
+     "event": "Vigilance jaune orages",
+     "headline": "Vigilance jaune orages",
+     "description": "Des phénomènes habituels dans la région mais occasionnellement et localement dangereux sont prévus (exemple : mistral, orage d'été, montée des eaux, fortes vagues submergeant le littoral).",
+     "instruction": "Soyez attentifs si vous pratiquez des activités sensibles au risque météorologique ou à proximité d'un rivage ou d'un cours d'eau. Tenez-vous au courant de l'évolution de la situation.",
+     "web": "https://vigilance.meteofrance.fr/",
+     "parameters": [
+      {
+       "name": "awareness_level",
+       "value": "2; yellow; Moderate"
+      },
+      {
+       "name": "awareness_type",
+       "value": "3; Thunderstorm"
+      }
+     ]
+    },
+    {
+     "language": "en-GB",
+     "sender_name": "METEO-FRANCE",
+     "event": "Moderate thunderstorm warning",
+     "headline": "Moderate thunderstorm warning",
+     "description": "Moderate damages may occur, especially in vulnerable or in exposed areas and to people who carry out weather-related activities.",
+     "instruction": "Be careful, keep informed of the latest weather forecast.",
+     "web": "https://vigilance.meteofrance.fr/",
+     "parameters": [
+      {
+       "name": "awareness_level",
+       "value": "2; yellow; Moderate"
+      },
+      {
+       "name": "awareness_type",
+       "value": "3; Thunderstorm"
+      }
+     ]
+    }
+   ],
+   "area": {
+    "description": "Haute-Corse",
+    "geocodes": [
+     {
+      "scheme": "EMMA_ID",
+      "value": "FR089"
+     },
+     {
+      "scheme": "NUTS3",
+      "value": "FR832"
+     }
+    ],
+    "has_polygon": false,
+    "localization": "geocode"
+   },
+   "distance_km": null,
+   "link": "https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/07416daa-5789-4c55-99de-aa56e4f5bb12",
+   "web": "https://meteoalarm.org?geocode=EMMA_ID:FR089",
+   "derived": [
+    "status",
+    "level",
+    "phenomenon"
+   ]
+  },
+  {
+   "id": "meteoalarm:3c232074-7776-4aad-b07d-22c7bbf25d85:1-0-1",
+   "source": "meteoalarm",
+   "country": "FR",
+   "attribution": "Source: EUMETNET – MeteoAlarm (https://meteoalarm.org/en/live/), warnings of the national meteorological and hydrological services. Terms equivalent to CC BY 4.0 with additional requirements for redistributors | Issued by METEO-FRANCE",
+   "identifier": "2.49.0.0.250.0.FR.20261020160227.676022",
+   "sent_utc": 1792504947,
+   "effective_utc": 1792533600,
+   "onset_utc": 1792533600,
+   "expires_utc": 1792620000,
+   "ends_utc": null,
+   "message_type": "Alert",
+   "status": "new",
+   "level": "YELLOW",
+   "level_original": "Yellow",
+   "phenomenon": "flood",
+   "phenomenon_original": "Rain-flood",
+   "event": "Moderate rain-flood warning",
+   "issuer": "METEO-FRANCE",
+   "texts": [
+    {
+     "language": "fr-FR",
+     "sender_name": "METEO-FRANCE",
+     "event": "Vigilance jaune pluie-inondation",
+     "headline": "Vigilance jaune pluie-inondation",
+     "description": "Des phénomènes habituels dans la région mais occasionnellement et localement dangereux sont prévus (exemple : mistral, orage d'été, montée des eaux, fortes vagues submergeant le littoral).",
+     "instruction": "Soyez attentifs si vous pratiquez des activités sensibles au risque météorologique ou à proximité d'un rivage ou d'un cours d'eau. Tenez-vous au courant de l'évolution de la situation.",
+     "web": "https://vigilance.meteofrance.fr/",
+     "parameters": [
+      {
+       "name": "awareness_level",
+       "value": "2; yellow; Moderate"
+      },
+      {
+       "name": "awareness_type",
+       "value": "13; rain-flood"
+      }
+     ]
+    },
+    {
+     "language": "en-GB",
+     "sender_name": "METEO-FRANCE",
+     "event": "Moderate rain-flood warning",
+     "headline": "Moderate rain-flood warning",
+     "description": "Moderate damages may occur, especially in vulnerable or in exposed areas and to people who carry out weather-related activities.",
+     "instruction": "Be careful, keep informed of the latest weather forecast.",
+     "web": "https://vigilance.meteofrance.fr/",
+     "parameters": [
+      {
+       "name": "awareness_level",
+       "value": "2; yellow; Moderate"
+      },
+      {
+       "name": "awareness_type",
+       "value": "13; rain-flood"
+      }
+     ]
+    }
+   ],
+   "area": {
+    "description": "Haute-Corse",
+    "geocodes": [
+     {
+      "scheme": "EMMA_ID",
+      "value": "FR089"
+     },
+     {
+      "scheme": "NUTS3",
+      "value": "FR832"
+     }
+    ],
+    "has_polygon": false,
+    "localization": "geocode"
+   },
+   "distance_km": null,
+   "link": "https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/3c232074-7776-4aad-b07d-22c7bbf25d85",
+   "web": "https://meteoalarm.org?geocode=EMMA_ID:FR089",
+   "derived": [
+    "status",
+    "level",
+    "phenomenon"
+   ]
+  },
+  {
+   "id": "meteoalarm:b60cb7c1-4801-4872-b7b9-575536238169:4-0-1",
+   "source": "meteoalarm",
+   "country": "FR",
+   "attribution": "Source: EUMETNET – MeteoAlarm (https://meteoalarm.org/en/live/), warnings of the national meteorological and hydrological services. Terms equivalent to CC BY 4.0 with additional requirements for redistributors | Issued by METEO-FRANCE",
+   "identifier": "2.49.0.0.250.1.FR.20261020160239.467024",
+   "sent_utc": 1792504959,
+   "effective_utc": 1792533600,
+   "onset_utc": 1792533600,
+   "expires_utc": 1792620000,
+   "ends_utc": null,
+   "message_type": "Alert",
+   "status": "new",
+   "level": "YELLOW",
+   "level_original": "Yellow",
+   "phenomenon": "flood",
+   "phenomenon_original": "Flooding",
+   "event": "Moderate flooding warning",
+   "issuer": "METEO-FRANCE",
+   "texts": [
+    {
+     "language": "fr-FR",
+     "sender_name": "METEO-FRANCE",
+     "event": "Vigilance jaune inondations",
+     "headline": "Vigilance jaune inondations",
+     "description": "Des phénomènes habituels dans la région mais occasionnellement et localement dangereux sont prévus (exemple : mistral, orage d'été, montée des eaux, fortes vagues submergeant le littoral).",
+     "instruction": "Soyez attentifs si vous pratiquez des activités sensibles au risque météorologique ou à proximité d'un rivage ou d'un cours d'eau. Tenez-vous au courant de l'évolution de la situation.",
+     "web": "https://vigilance.meteofrance.fr/",
+     "parameters": [
+      {
+       "name": "awareness_level",
+       "value": "2; yellow; Moderate"
+      },
+      {
+       "name": "awareness_type",
+       "value": "12; flooding"
+      }
+     ]
+    },
+    {
+     "language": "en-GB",
+     "sender_name": "METEO-FRANCE",
+     "event": "Moderate flooding warning",
+     "headline": "Moderate flooding warning",
+     "description": "Moderate damages may occur, especially in vulnerable or in exposed areas and to people who carry out weather-related activities.",
+     "instruction": "Be careful, keep informed of the latest weather forecast.",
+     "web": "https://vigilance.meteofrance.fr/",
+     "parameters": [
+      {
+       "name": "awareness_level",
+       "value": "2; yellow; Moderate"
+      },
+      {
+       "name": "awareness_type",
+       "value": "12; flooding"
+      }
+     ]
+    }
+   ],
+   "area": {
+    "description": "Haute-Corse",
+    "geocodes": [
+     {
+      "scheme": "EMMA_ID",
+      "value": "FR089"
+     },
+     {
+      "scheme": "NUTS3",
+      "value": "FR832"
+     }
+    ],
+    "has_polygon": false,
+    "localization": "geocode"
+   },
+   "distance_km": null,
+   "link": "https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/b60cb7c1-4801-4872-b7b9-575536238169",
+   "web": "https://meteoalarm.org?geocode=EMMA_ID:FR089",
+   "derived": [
+    "status",
+    "level",
+    "phenomenon"
+   ]
+  },
+  {
+   "id": "meteoalarm:f99e876e-a195-4b51-bc6b-b1bef26c20f7:9-0-1",
+   "source": "meteoalarm",
+   "country": "FR",
+   "attribution": "Source: EUMETNET – MeteoAlarm (https://meteoalarm.org/en/live/), warnings of the national meteorological and hydrological services. Terms equivalent to CC BY 4.0 with additional requirements for redistributors | Issued by METEO-FRANCE",
+   "identifier": "2.49.0.0.250.0.FR.20261020160223.476021",
+   "sent_utc": 1792504943,
+   "effective_utc": 1792533600,
+   "onset_utc": 1792533600,
+   "expires_utc": 1792620000,
+   "ends_utc": null,
+   "message_type": "Alert",
+   "status": "new",
+   "level": "YELLOW",
+   "level_original": "Yellow",
+   "phenomenon": "wind",
+   "phenomenon_original": "Wind",
+   "event": "Moderate wind warning",
+   "issuer": "METEO-FRANCE",
+   "texts": [
+    {
+     "language": "fr-FR",
+     "sender_name": "METEO-FRANCE",
+     "event": "Vigilance jaune vent-violent",
+     "headline": "Vigilance jaune vent-violent",
+     "description": "Des phénomènes habituels dans la région mais occasionnellement et localement dangereux sont prévus (exemple : mistral, orage d'été, montée des eaux, fortes vagues submergeant le littoral).",
+     "instruction": "Soyez attentifs si vous pratiquez des activités sensibles au risque météorologique ou à proximité d'un rivage ou d'un cours d'eau. Tenez-vous au courant de l'évolution de la situation.",
+     "web": "https://vigilance.meteofrance.fr/",
+     "parameters": [
+      {
+       "name": "awareness_level",
+       "value": "2; yellow; Moderate"
+      },
+      {
+       "name": "awareness_type",
+       "value": "1; Wind"
+      }
+     ]
+    },
+    {
+     "language": "en-GB",
+     "sender_name": "METEO-FRANCE",
+     "event": "Moderate wind warning",
+     "headline": "Moderate wind warning",
+     "description": "Moderate damages may occur, especially in vulnerable or in exposed areas and to people who carry out weather-related activities.",
+     "instruction": "Be careful, keep informed of the latest weather forecast.",
+     "web": "https://vigilance.meteofrance.fr/",
+     "parameters": [
+      {
+       "name": "awareness_level",
+       "value": "2; yellow; Moderate"
+      },
+      {
+       "name": "awareness_type",
+       "value": "1; Wind"
+      }
+     ]
+    }
+   ],
+   "area": {
+    "description": "Haute-Corse",
+    "geocodes": [
+     {
+      "scheme": "EMMA_ID",
+      "value": "FR089"
+     },
+     {
+      "scheme": "NUTS3",
+      "value": "FR832"
+     }
+    ],
+    "has_polygon": false,
+    "localization": "geocode"
+   },
+   "distance_km": null,
+   "link": "https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/f99e876e-a195-4b51-bc6b-b1bef26c20f7",
+   "web": "https://meteoalarm.org?geocode=EMMA_ID:FR089",
+   "derived": [
+    "status",
+    "level",
+    "phenomenon"
+   ]
+  }
+ ],
+ "coverage": [
+  {
+   "source": "meteoalarm",
+   "country": "FR",
+   "status": "ok",
+   "warnings_in_feed": 66,
+   "warnings_not_matchable": 0,
+   "feed_updated_utc": 1792505268,
+   "fetched_age_s": 178,
+   "note": null
+  },
+  {
+   "source": "vigicrues",
+   "country": "FR",
+   "status": "ok",
+   "warnings_in_feed": 16,
+   "warnings_not_matchable": 0,
+   "feed_updated_utc": 1792504675,
+   "fetched_age_s": 0,
+   "note": "16 of the 337 river sections are above green; a position gets those within its river radius (`river_radius_km`), with their distance."
+  }
+ ],
+ "attribution": "Source: EUMETNET – MeteoAlarm (https://meteoalarm.org/en/live/), warnings of the national meteorological and hydrological services. Terms equivalent to CC BY 4.0 with additional requirements for redistributors | Source: Vigicrues, Service central d'hydrométéorologie et d'appui à la prévision des inondations (SCHAPI), https://www.vigicrues.gouv.fr. Licence Ouverte 2.0",
+ "disclaimer": "Time delays between this website and the www.meteoalarm.org website are possible. For the most up-to-date awareness information as published by the participating National Meteorological and Hydrological Services, please refer to www.meteoalarm.org.",
+ "note": null
+}
