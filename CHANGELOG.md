@@ -17,6 +17,30 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Tropical cyclones of the National Hurricane Center** (`nhc_storms`). Each active storm is a hazard that is a point (category
+  `HURRICANE`, at its current position, the wind in km/h, a level from the Saffir-Simpson thresholds: 34 kt yellow, 64 orange,
+  96 red), and `GET /v1/geojson/hazards/{id}/forecast` serves its **cone, track, forecast positions and coastal watches and
+  warnings** from the ZIP of shapefiles of its latest advisory, as an RFC 7946 FeatureCollection (`properties.kind` `cone`,
+  `track`, `position`, `watch_warning`). A strict shapefile reader (`app/shapefile.py`), coordinates rounded to 3 decimals,
+  counter-clockwise rings, a cone across the date line cut in two; a pressure the NHC writes as 9999 is `null`. Hurricane
+  Isaias's advisory 13A: 22.7 kB of GeoJSON. A bundle that cannot be read leaves the hazard without forecast and is asked for
+  again after ten minutes, also when the status file has not changed.
+- **Tsunami messages of the U.S. Tsunami Warning Centers** (`tsunami_warning_centers`: the NTWC and the PTWC). A message in
+  force is a hazard that is a point (category `TSUNAMI`, at the epicentre) with a level from the centre's own words (warning
+  red, advisory orange, watch yellow; *Tsunami >3.0 meters* red, *1-3 meters* or *potential threat* orange, *0.3-1 meters*
+  yellow), a vigilance in `GET /v1/vigilances?source=tsunami` (and `country=US` or `CA` for the zones that name them) with the
+  centre's words untouched, and a forecast route with the epicentre and the estimated arrival time at each place (`eta`,
+  `eta_utc`). **An information statement is not an alert**: it is counted and never read, as are a cancellation, a test, a
+  threat class the tables do not know, and the "final" message of an event (a CAP with no `info`). The list of the latest
+  bulletins is read, not the per-centre file (it would hide a threat behind a later information statement). Tested on the
+  real messages of the Panama earthquake of 2026-10-09, replayed as the list grew, and on the 2012 Haida Gwaii messages.
+- **`has_forecast`** on each feature of `GET /v1/geojson/hazards`, and **`GET /v1/geojson/hazards/{id}/forecast`**: the
+  forecast of a hazard (empty with a `reason` when it has none, 404 for an unknown id). The hazards stay points.
+- **The storms and tsunamis in the weekly check** (`tools/check_live_feeds.py`): the list of bulletins and the CAP of the newest
+  one, the events in force; the file of the active storms and, when one is active, its bundle and its cone.
+- [ADR 0005](docs/decisions/0005-tsunamis-and-storms.md), `docs/data-sources.md` ("Storms and tsunamis"), `SOURCES.md` and both
+  READMEs. Requests a day (simulated, `tests/test_storm_sobriety.py`): tsunami.gov 960 and the NHC 240, all but the first a `304` of
+  239 and 484 bytes; 230 kB and 116 kB on a quiet day; the Panama day 253 kB, a day with a storm and an advisory every three hours 387 kB.
 - **A Home Assistant integration** (`custom_components/vigie`, `hacs.json`), configured in the interface: the address of
   an instance (checked by `/v1/health`), the place (the home zone by default), several places allowed, and options for
   the poll interval (5 minutes, 1 to 60) and the river radius (5 km, 1 to 50). It gives a **maximum level** sensor
@@ -44,6 +68,16 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **One storm or one tsunami is one hazard, whoever reports it.** A hazard can carry a private event key: a storm's name and season
+  (the NHC and GDACS, whose event name ends with the year) or the VTEC code of a tsunami message (the centre and the NWS alert
+  that relays it). Two hazards with a key are one event when the keys are equal and two when they are not, whatever their times
+  and positions (GDACS dates a storm by its first day, the NWS places a tsunami warning in a zone); without a key the rule is
+  unchanged (120 s and 100 km). The source that observes the event (the NHC, the tsunami centres, USGS) gives the title and the
+  position, and for a keyed event **its level and wind, not the highest of the two**: GDACS's level is the storm's peak. An NWS
+  alert that carries the VTEC code of a tsunami message is left out of the warnings of the same answer.
+- `GET /v1/vigilances` takes `source=tsunami` (asked alone) and `query` has a `source` field for it only; the `source` of a
+  vigilance can be `tsunami`; a position in the United States or Canada counts the tsunami source in `coverage` (its zones are not
+  matched to a point).
 - **Vigicrues is read at its publications, not on a timer: 310 MB a day become 9 MB.** The flow is 2.2 MB, not
   compressed, without `ETag` or `Last-Modified`, ignores `Range` and takes no filter, and no lighter endpoint carries the
   level (measured on 2026-10-20). The collector now asks, with a `HEAD` of about 330 bytes, the national map image that

@@ -14,6 +14,7 @@ An alert needs a position, a severity and an event time to be kept. The main val
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -22,6 +23,8 @@ import httpx
 from app import clock
 from app.attribution import credit_text
 from app.collectors.base import BaseCollector, Fetched, optional_float, parse_iso_utc
+from app.collectors.nhc import cyclone_key
+from app.collectors.tsunami import vtec_event_key
 from app.geo import geojson_to_shape
 from app.models.schemas import HazardAlert, HazardCategory, SeverityLevel
 from app.models.vigilance import (
@@ -52,6 +55,17 @@ _GDACS_SEVERITY_MAP: dict[str, SeverityLevel] = {
 
 
 _parse_iso_utc = parse_iso_utc
+
+
+def _gdacs_cyclone_key(props: dict[str, Any]) -> Optional[str]:
+    """The key of a GDACS cyclone: its name and the year of its season, from the event name (``ISAIAS-26``: Isaias, 2026).
+
+    The National Hurricane Center's storms carry the same key (``app/collectors/nhc.py``), so a storm that both report is one hazard.
+    GDACS writes the event name of a storm of any basin this way (``CHOI-WAN-26``, ``TWENTYEIGHT-26``); a name that does not end with
+    a two-digit year gives no key.
+    """
+    found = re.fullmatch(r"(.+)-(\d{2})", str(props.get("eventname") or "").strip())
+    return None if found is None else cyclone_key(found.group(1), 2000 + int(found.group(2)))
 
 
 def _clean(value: Any) -> Optional[str]:
@@ -164,22 +178,21 @@ class GDACSCollector(BaseCollector[list[HazardAlert]]):
                     and value_primary >= 7.0
                 )
 
-                alerts.append(
-                    HazardAlert(
-                        id=f"gdacs_{ev_type.lower()}_{event_id}",
-                        category=category,
-                        severity=severity,
-                        title=title[:96],
-                        source="GDACS",
-                        sources=["GDACS"],
-                        timestamp_utc=ts_utc,
-                        lat=round(lat, 4),
-                        lon=round(lon, 4),
-                        value_primary=value_primary,
-                        value_unit=value_unit,
-                        tsunami_warning=tsunami_flag,
-                    )
+                hazard = HazardAlert(
+                    id=f"gdacs_{ev_type.lower()}_{event_id}",
+                    category=category,
+                    severity=severity,
+                    title=title[:96],
+                    source="GDACS",
+                    sources=["GDACS"],
+                    timestamp_utc=ts_utc,
+                    lat=round(lat, 4),
+                    lon=round(lon, 4),
+                    value_primary=value_primary,
+                    value_unit=value_unit,
+                    tsunami_warning=tsunami_flag,
                 )
+                alerts.append(hazard.with_event_key(_gdacs_cyclone_key(props) if ev_type == "TC" else None))
             except (ValueError, TypeError, KeyError):
                 continue
 
@@ -453,22 +466,24 @@ class NOAANWSCollector(BaseCollector[list[HazardAlert]]):
                 headline = f"{event_name} - {short_area}"
                 alert_id = str(props.get("id") or feat.get("id") or f"noaa_{ts_utc}")
 
-                alerts.append(
-                    HazardAlert(
-                        id=f"noaa_{alert_id[-20:]}",
-                        category=category,
-                        severity=severity,
-                        title=headline[:96],
-                        source="NOAA_NWS",
-                        sources=["NOAA_NWS"],
-                        timestamp_utc=ts_utc,
-                        lat=round(lat, 4),
-                        lon=round(lon, 4),
-                        value_primary=None,
-                        value_unit=unit,
-                        tsunami_warning=tsunami_flag,
-                    )
+                hazard = HazardAlert(
+                    id=f"noaa_{alert_id[-20:]}",
+                    category=category,
+                    severity=severity,
+                    title=headline[:96],
+                    source="NOAA_NWS",
+                    sources=["NOAA_NWS"],
+                    timestamp_utc=ts_utc,
+                    lat=round(lat, 4),
+                    lon=round(lon, 4),
+                    value_primary=None,
+                    value_unit=unit,
+                    tsunami_warning=tsunami_flag,
                 )
+                # A tsunami warning of the NWS carries the VTEC code of the message of the warning centre it relays: the key of the same event.
+                vtec = (props.get("parameters") or {}).get("VTEC") if isinstance(props.get("parameters"), dict) else None
+                key = next((k for k in (vtec_event_key(v) for v in (vtec if isinstance(vtec, list) else [])) if k), None)
+                alerts.append(hazard.with_event_key(key if category == HazardCategory.TSUNAMI else None))
             except (ValueError, TypeError, KeyError):
                 continue
 

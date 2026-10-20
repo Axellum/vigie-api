@@ -24,8 +24,10 @@ from app.collectors.flood_air import (
 from app.collectors.marine import OpenMeteoMarineCollector
 from app.collectors.meteoalarm import MeteoAlarmCapCollector, MeteoAlarmCollector
 from app.collectors.metservice import MetServiceCollector
+from app.collectors.nhc import NHCCollector
 from app.collectors.seismic import EMSCCollector, USGSCollector
 from app.collectors.space_weather import NOAASWPCCollector
+from app.collectors.tsunami import TsunamiCollector
 from app.collectors.vigicrues import VigicruesCollector
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector, RainViewerCollector
 from app.services.aggregator import AggregatorService
@@ -157,6 +159,8 @@ def make_service(db_path: Path, **collectors: Any) -> AggregatorService:
         "eccc": ECCCCollector(http_client=down),
         "metservice": MetServiceCollector(http_client=down),
         "vigicrues": VigicruesCollector(http_client=down),
+        "nhc": NHCCollector(http_client=down),
+        "tsunami": TsunamiCollector(http_client=down),
     }
     defaults.update(collectors)
     return AggregatorService(storage=SQLiteWALStorage(db_path=db_path), **defaults)

@@ -25,6 +25,9 @@ GRAVITY_M_S2: float = 9.80665
 
 CARDINAL_8: tuple[str, ...] = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")
 
+# The sources that observe the event themselves, in the order their title and position are preferred when several report it.
+FIRST_HAND_SOURCES: tuple[str, ...] = ("USGS", "NHC", "PTWC", "NTWC")
+
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Return the great-circle distance in kilometres between two WGS84 points."""
@@ -122,6 +125,12 @@ def _are_duplicate_hazards(
     if a.category != b.category:
         return False
 
+    # Two reports that carry the key of an event (a storm's name and season, the VTEC code of a tsunami message) are the same event
+    # when the keys are equal and two events when they are not, whatever their times and positions: GDACS dates a storm by its first
+    # day, the NHC by its latest advisory, and the NWS places a tsunami warning in a zone, not at the epicentre.
+    if a.event_key is not None and b.event_key is not None:
+        return a.event_key == b.event_key
+
     time_diff = abs(a.timestamp_utc - b.timestamp_utc)
     dist_km = haversine_km(a.lat, a.lon, b.lat, b.lon)
 
@@ -159,22 +168,35 @@ def _merge_two_hazards(primary: HazardAlert, secondary: HazardAlert) -> HazardAl
     best_depth = primary.depth_km if primary.depth_km is not None else secondary.depth_km
     tsunami_flag = bool(primary.tsunami_warning or secondary.tsunami_warning)
 
-    # Prefer the title and the coordinates of USGS when present, else the first alert
-    preferred = primary if "USGS" in (primary.sources or [primary.source]) else (
-        secondary if "USGS" in (secondary.sources or [secondary.source]) else primary
-    )
+    # Prefer the title and the coordinates of the first-hand source when there is one (USGS for an earthquake, the National Hurricane
+    # Center for a storm it follows, the tsunami warning centres for their events), else the first alert
+    preferred = primary
+    for source in FIRST_HAND_SOURCES:
+        if source in (primary.sources or [primary.source]):
+            break
+        if source in (secondary.sources or [secondary.source]):
+            preferred = secondary
+            break
 
+    other = secondary if preferred is primary else primary
+    value_unit = preferred.value_unit or primary.value_unit or secondary.value_unit
+    # One storm, two reports: the National Hurricane Center says what the storm is now, GDACS what it has been at its strongest
+    # (its alert level and its wind are those of the whole event). The hazard is the storm of now: the first-hand level and wind,
+    # not the highest of the two. An earthquake keeps the highest (the sources estimate the same instant).
+    same_event = preferred.event_key is not None and preferred.event_key == other.event_key
+    if same_event and any(source in FIRST_HAND_SOURCES for source in (preferred.sources or [preferred.source])):
+        best_severity, best_value, value_unit = preferred.severity, preferred.value_primary, preferred.value_unit
     return preferred.model_copy(
         update={
             "severity": best_severity,
             "source": "+".join(merged_sources),
             "sources": merged_sources,
             "value_primary": best_value,
-            "value_unit": preferred.value_unit or primary.value_unit or secondary.value_unit,
+            "value_unit": value_unit,
             "depth_km": best_depth,
             "tsunami_warning": tsunami_flag,
         }
-    )
+    ).with_event_key(preferred.event_key or other.event_key)
 
 
 def deduplicate_hazards(

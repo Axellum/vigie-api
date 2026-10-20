@@ -68,8 +68,10 @@ from app.collectors.meteoalarm import (  # noqa: E402
 from app.collectors.metservice import COLOUR_PARAMETER as METSERVICE_COLOUR  # noqa: E402
 from app.collectors.metservice import EVENTS as METSERVICE_EVENTS  # noqa: E402
 from app.collectors.metservice import MetServiceCollector  # noqa: E402
+from app.collectors.nhc import NHCCollector  # noqa: E402
 from app.collectors.seismic import EMSCCollector, USGSCollector  # noqa: E402
 from app.collectors.space_weather import NOAASWPCCollector  # noqa: E402
+from app.collectors.tsunami import TsunamiCollector, parse_message  # noqa: E402
 from app.collectors.vigicrues import SIGNAL_URL as VIGICRUES_SIGNAL_URL  # noqa: E402
 from app.collectors.vigicrues import VigicruesCollector  # noqa: E402
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector, RainViewerCollector  # noqa: E402
@@ -447,6 +449,52 @@ async def check_vigicrues(client: httpx.AsyncClient) -> Result:
     return Result("vigicrues_flow", "ok", f"{len(flow.vigilances)} of {flow.sections} sections above green ({detail})")
 
 
+async def check_tsunami(client: httpx.AsyncClient) -> Result:
+    """Tsunami warning centres: the list of the latest bulletins and the CAP of the newest one must be read, and so must the events in force."""
+    collector = TsunamiCollector()
+    await collector._collect(client)
+    listing, state = collector._listing, collector.last_state
+    if listing is None or not listing.bulletins:
+        return Result("tsunami_warning_centers", "FAIL", "the list of the latest bulletins holds none that could be read (it lists about forty)")
+    if listing.unreadable:
+        return Result("tsunami_warning_centers", "FAIL", f"{listing.unreadable} of {listing.unreadable + len(listing.bulletins)} entries of the list could not be read")
+    if state.unreadable:
+        return Result("tsunami_warning_centers", "FAIL", f"{state.unreadable} messages of the events in force could not be read")
+    newest = max(listing.bulletins, key=lambda b: b.issued_utc)
+    message = collector._messages.get(newest.cap_url)
+    if message is None:  # a quiet week: the newest bulletin is an information statement, the CAP the collector does not read
+        response = await collector._get(client, newest.cap_url, headers={"Accept": "application/xml, text/xml;q=0.9, */*;q=0.5"})
+        response.raise_for_status()
+        message = parse_message(response.content, newest)
+    if not message.identifier or message.sent_utc is None:
+        return Result("tsunami_warning_centers", "FAIL", f"the CAP message {newest.cap_url} has no identifier or no time of issue")
+    where = f"{len(listing.bulletins)} bulletins listed, the CAP of the newest ({newest.twc} {newest.wmo_id}) read"
+    if state.events:
+        names = ", ".join(f"{event.twc} {event.hazard_id.rsplit('_', 1)[-1]} ({event.level.value})" for event in state.events)
+        return Result("tsunami_warning_centers", "ok", f"{where}; {len(state.events)} event(s) in force: {names}")
+    return Result("tsunami_warning_centers", "ok", f"{where}; no event in force")
+
+
+async def check_nhc(client: httpx.AsyncClient) -> Result:
+    """National Hurricane Center: the file of active storms must be the one the parser knows; a storm's bundle must give a cone."""
+    collector = NHCCollector()
+    await collector._collect(client)
+    state = collector.last_state
+    if state.unreadable:
+        return Result("nhc_storms", "FAIL", f"{state.unreadable} storms of the file could not be read")
+    if not state.storms:
+        return Result("nhc_storms", "empty", "no active storm (the file is read; the forecast bundles are checked when a storm is active)")
+    problems = [
+        f"{storm.name}: " + ("its forecast bundle could not be read" if storm.forecast is None else "its bundle has no cone")
+        for storm in state.storms
+        if storm.bundle_url and (storm.forecast is None or not storm.forecast.cones)
+    ]
+    if problems:
+        return Result("nhc_storms", "FAIL", "; ".join(problems))
+    names = ", ".join(f"{storm.name} ({storm.id})" for storm in state.storms)
+    return Result("nhc_storms", "ok", f"{len(state.storms)} active storm(s) with their cone: {names}")
+
+
 CHECKS: dict[str, Check] = {
     "usgs_eq": check_usgs,
     "emsc_seismic": check_emsc,
@@ -466,6 +514,8 @@ CHECKS: dict[str, Check] = {
     "eccc_alerts": check_eccc,
     "metservice_cap": check_metservice,
     "vigicrues_flow": check_vigicrues,
+    "tsunami_warning_centers": check_tsunami,
+    "nhc_storms": check_nhc,
 }
 
 

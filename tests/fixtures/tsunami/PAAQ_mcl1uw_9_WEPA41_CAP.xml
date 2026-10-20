@@ -1,0 +1,668 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>PAAQ-9-mcl1uw</identifier>
+  <sender>wcatwc@noaa.gov</sender>
+  <sent>2012-10-28T07:49:46-00:00</sent>
+  <status>Actual</status>
+  <msgType>Update</msgType>
+  <source>WCATWC</source>
+  <scope>Public</scope>
+  <code>profile:CAP-TSU:1.0</code>
+  <references>wcatwc@noaa.gov,PAAQ-1-mcl1uw,2012-10-28T03:07:27-00:00 wcatwc@noaa.gov,PAAQ-2-mcl1uw,2012-10-28T03:34:51-00:00 wcatwc@noaa.gov,PAAQ-3-mcl1uw,2012-10-28T04:10:28-00:00 wcatwc@noaa.gov,PAAQ-4-mcl1uw,2012-10-28T04:48:37-00:00 wcatwc@noaa.gov,PAAQ-5-mcl1uw,2012-10-28T05:02:58-00:00 wcatwc@noaa.gov,PAAQ-6-mcl1uw,2012-10-28T05:44:23-00:00 wcatwc@noaa.gov,PAAQ-7-mcl1uw,2012-10-28T06:17:44-00:00 wcatwc@noaa.gov,PAAQ-8-mcl1uw,2012-10-28T06:53:09-00:00</references>
+  <incidents>mcl1uw</incidents>
+  <info>
+    <category>Geo</category>
+    <event>Tsunami</event>
+    <responseType>None</responseType>
+    <urgency>Past</urgency>
+    <severity>Unknown</severity>
+    <certainty>Unlikely</certainty>
+    <eventCode>
+      <valueName>TsunamiSystemCategory</valueName>
+      <value>Cancellation</value>
+    </eventCode>
+    <onset>2012-10-28T07:49:46-00:00</onset>
+    <expires>2012-10-28T10:19:46-00:00</expires>
+    <senderName>NWS West Coast/Alaska Tsunami Warning Center Palmer AK</senderName>
+    <headline>The tsunami Advisory is canceled for the coastal areas of Alaska from the Alaska/British Columbia border to Cape Decision, Alaska (85 miles SE of Sitka).</headline>
+    <description>The tsunami Advisory is canceled for the coastal areas of Alaska from the Alaska/British Columbia border to Cape Decision, Alaska (85 miles SE of Sitka). - Event details: Preliminary magnitude 7.1 (Mw) earthquake / Lat: 52.900, Lon: -131.900 at 2012-10-28T03:04:10Z Tsunami cancellations indicate the end of the damaging tsunami threat.  A cancellation is issued after an evaluation of sea level data confirms that a destructive tsunami will not impact the alerted region, or after tsunami levels have subsided to non-damaging levels. </description>
+    <instruction>Recommended Actions: A tsunami has been generated which is expected to impact the advisory regions. People in low-lying coastal areas should be alert to instructions from their local emergency officials. If in a tsunami advisory coastal area, move out of the water, off the beach, and out of harbors and marinas.  Next update and additional information:   This message will be updated in 60 minutes or sooner if the situation warrants.   The tsunami message will remain in effect until further notice.   Refer to the internet site wcatwc.arh.noaa.gov for more information.</instruction>
+    <web>http://wcatwc.arh.noaa.gov/tsuPortal/events/PAAQ/2012/10/28/mcl1uw/9/WEPA41/WEPA41.txt</web>
+    <parameter>
+      <valueName>EventLocationName</valueName>
+      <value>25 miles S of Sandspit, British Columbia</value>
+    </parameter>
+    <parameter>
+      <valueName>EventPreliminaryMagnitude</valueName>
+      <value>7.1</value>
+    </parameter>
+    <parameter>
+      <valueName>EventPreliminaryMagnitudeType</valueName>
+      <value>Mw</value>
+    </parameter>
+    <parameter>
+      <valueName>EventOriginTime</valueName>
+      <value>2012-10-28T03:04:10-00:00</value>
+    </parameter>
+    <parameter>
+      <valueName>EventDepth</valueName>
+      <value>19 kilometers</value>
+    </parameter>
+    <parameter>
+      <valueName>EventLatLon</valueName>
+      <value>52.900,-131.900 0.000</value>
+    </parameter>
+    <parameter>
+      <valueName>VTEC</valueName>
+      <value>/O.CAN.PAAQ.TS.Y.0024.000000T0000Z-000000T0000Z/</value>
+    </parameter>
+    <parameter>
+      <valueName>NWSUGC</valueName>
+      <value>AKZ026&gt;029-280919-</value>
+    </parameter>
+    <parameter>
+      <valueName>ProductDefinition</valueName>
+      <value>Tsunami cancellations indicate the end of the damaging tsunami threat.  A cancellation is issued after an evaluation of sea level data confirms that a destructive tsunami will not impact the alerted region, or after tsunami levels have subsided to non-damaging levels. </value>
+    </parameter>
+    <parameter>
+      <valueName>WEPA41</valueName>
+      <value>Tsunami Warnings, Watches, and Advisories for AK, BC, and US West Coast</value>
+    </parameter>
+    <parameter>
+      <valueName>predictedArrivalTime: "Langara Island, British Columbia"</valueName>
+      <value>2012-10-27T21:16:00-07:00</value>
+    </parameter>
+    <parameter>
+      <valueName>predictedWaveHeight: "Langara Island, British Columbia"</valueName>
+      <value>0.100m 0.328ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Sitka, Alaska"</valueName>
+      <value>2012-10-27T20:25:00-08:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Sitka, Alaska"</valueName>
+      <value>0.091m 0.300ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Elfin Cove, Alaska"</valueName>
+      <value>2012-10-27T20:48:00-08:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Elfin Cove, Alaska"</valueName>
+      <value>0.061m 0.200ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Craig, Alaska"</valueName>
+      <value>2012-10-27T20:46:00-08:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Craig, Alaska"</valueName>
+      <value>0.091m 0.300ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Neah Bay, Washington"</valueName>
+      <value>2012-10-27T22:30:00-07:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Neah Bay, Washington"</valueName>
+      <value>0.091m 0.300ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Charleston, Oregon"</valueName>
+      <value>2012-10-27T22:24:00-07:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Charleston, Oregon"</valueName>
+      <value>0.091m 0.300ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Westport, Washington"</valueName>
+      <value>2012-10-27T22:50:00-07:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Westport, Washington"</valueName>
+      <value>0.091m 0.300ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Yakutat, Alaska"</valueName>
+      <value>2012-10-27T21:23:00-08:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Yakutat, Alaska"</valueName>
+      <value>0.122m 0.400ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Crescent City, California"</valueName>
+      <value>2012-10-27T23:49:00-07:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Crescent City, California"</valueName>
+      <value>0.396m 1.300ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Seward, Alaska"</valueName>
+      <value>2012-10-27T22:00:00-08:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Seward, Alaska"</valueName>
+      <value>0.152m 0.500ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Kodiak, Alaska"</valueName>
+      <value>2012-10-27T22:50:00-08:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Kodiak, Alaska"</valueName>
+      <value>0.122m 0.400ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Sand Point, Alaska"</valueName>
+      <value>2012-10-27T23:05:00-08:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Sand Point, Alaska"</valueName>
+      <value>0.091m 0.300ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Fort Point, New Hampshire"</valueName>
+      <value>2012-10-27T23:46:00-07:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Fort Point, New Hampshire"</valueName>
+      <value>0.091m 0.300ft</value>
+    </parameter>
+    <resource>
+      <resourceDesc>Energy Map</resourceDesc>
+      <mimeType>image/jpeg</mimeType>
+      <uri>http://wcatwc.arh.noaa.gov/tsuPortal/events/PAAQ/2012/10/28/mcl1uw/9/WEPA41/energymcl1uw.jpg</uri>
+    </resource>
+    <resource>
+      <resourceDesc>Tsunami Travel Time Map</resourceDesc>
+      <mimeType>image/jpeg</mimeType>
+      <uri>http://wcatwc.arh.noaa.gov/tsuPortal/events/PAAQ/2012/10/28/mcl1uw/9/WEPA41/ttvumcl1uw-09.jpg</uri>
+    </resource>
+    <resource>
+      <resourceDesc>Event Data as a JSON document</resourceDesc>
+      <mimeType>application/json</mimeType>
+      <uri>http://wcatwc.arh.noaa.gov/tsuPortal/events/PAAQ/2012/10/28/mcl1uw/9/WEPA41/PAAQ.json</uri>
+    </resource>
+    <area>
+      <areaDesc>Coastal areas between and including the Alaska/British Columbia border to Cape Decision, Alaska (85 miles SE of Sitka)</areaDesc>
+      <circle>52.9,-131.9 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>AKZ026</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>AKZ027</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>AKZ028</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>AKZ029</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Langara Island, British Columbia</areaDesc>
+      <circle>54.266701,-133.066696 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ110</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Langara Island, British Columbia</areaDesc>
+      <circle>54.266701,-133.066696 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ110</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Sitka, Alaska</areaDesc>
+      <circle>57.053299,-135.346695 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PKZ042</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Sitka, Alaska</areaDesc>
+      <circle>57.053299,-135.346695 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PKZ042</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Elfin Cove, Alaska</areaDesc>
+      <circle>58.200001,-136.350006 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>AKZ022</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Elfin Cove, Alaska</areaDesc>
+      <circle>58.200001,-136.350006 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>AKZ022</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Craig, Alaska</areaDesc>
+      <circle>55.477001,-133.147995 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PKZ041</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Craig, Alaska</areaDesc>
+      <circle>55.477001,-133.147995 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PKZ041</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Neah Bay, Washington</areaDesc>
+      <circle>48.366699,-124.616699 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PZZ130</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Neah Bay, Washington</areaDesc>
+      <circle>48.366699,-124.616699 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PZZ130</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Charleston, Oregon</areaDesc>
+      <circle>43.349998,-124.330002 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PZZ310</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Charleston, Oregon</areaDesc>
+      <circle>43.349998,-124.330002 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PZZ310</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Westport, Washington</areaDesc>
+      <circle>46.906601,-124.106705 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>WAZ517</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Westport, Washington</areaDesc>
+      <circle>46.906601,-124.106705 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>WAZ517</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Yakutat, Alaska</areaDesc>
+      <circle>59.5467,-139.729996 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PKZ053</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Yakutat, Alaska</areaDesc>
+      <circle>59.5467,-139.729996 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PKZ053</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Crescent City, California</areaDesc>
+      <circle>41.7467,-124.183304 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>CAZ001</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Crescent City, California</areaDesc>
+      <circle>41.7467,-124.183304 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>CAZ001</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Seward, Alaska</areaDesc>
+      <circle>60.099998,-149.433304 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>AKZ125</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Seward, Alaska</areaDesc>
+      <circle>60.099998,-149.433304 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>AKZ125</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Kodiak, Alaska</areaDesc>
+      <circle>57.736698,-152.513306 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>AKZ171</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Kodiak, Alaska</areaDesc>
+      <circle>57.736698,-152.513306 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>AKZ171</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Sand Point, Alaska</areaDesc>
+      <circle>55.333302,-160.503296 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>AKZ181</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Sand Point, Alaska</areaDesc>
+      <circle>55.333302,-160.503296 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>AKZ181</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Fort Point, New Hampshire</areaDesc>
+      <circle>37.810001,-122.479996 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>ANZ154</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Fort Point, New Hampshire</areaDesc>
+      <circle>37.810001,-122.479996 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>ANZ154</value>
+      </geocode>
+    </area>
+  </info>
+  <info>
+    <category>Geo</category>
+    <event>Tsunami</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Moderate</severity>
+    <certainty>Observed</certainty>
+    <eventCode>
+      <valueName>TsunamiSystemCategory</valueName>
+      <value>Advisory</value>
+    </eventCode>
+    <onset>2012-10-28T07:49:46-00:00</onset>
+    <expires>2012-10-28T10:19:46-00:00</expires>
+    <senderName>NWS West Coast/Alaska Tsunami Warning Center Palmer AK</senderName>
+    <headline>The tsunami Advisory continues in effect for the coastal areas of California and Oregon from Gualala Point, California (80 miles NW of San Francisco) to Douglas/Lane County Line, Oregon (10 miles SW of Florence).</headline>
+    <description>The tsunami Advisory continues in effect for the coastal areas of California and Oregon from Gualala Point, California (80 miles NW of San Francisco) to Douglas/Lane County Line, Oregon (10 miles SW of Florence). - Event details: Preliminary magnitude 7.1 (Mw) earthquake / Lat: 52.900, Lon: -131.900 at 2012-10-28T03:04:10Z Tsunami advisories mean that a tsunami capable of producing strong currents or waves dangerous to people in or very near the water is expected.  Significant widespread inundation is not expected for areas under an advisory.  Currents may be hazardous to swimmers, boats, and coastal structures and may continue for several hours after the initial wave arrival. </description>
+    <instruction>Recommended Actions: A tsunami has been generated which is expected to impact the advisory regions. People in low-lying coastal areas should be alert to instructions from their local emergency officials. If in a tsunami advisory coastal area, move out of the water, off the beach, and out of harbors and marinas.  Next update and additional information:   This message will be updated in 60 minutes or sooner if the situation warrants.   The tsunami message will remain in effect until further notice.   Refer to the internet site wcatwc.arh.noaa.gov for more information.</instruction>
+    <web>http://wcatwc.arh.noaa.gov/tsuPortal/events/PAAQ/2012/10/28/mcl1uw/9/WEPA41/WEPA41.txt</web>
+    <parameter>
+      <valueName>EventLocationName</valueName>
+      <value>25 miles S of Sandspit, British Columbia</value>
+    </parameter>
+    <parameter>
+      <valueName>EventPreliminaryMagnitude</valueName>
+      <value>7.1</value>
+    </parameter>
+    <parameter>
+      <valueName>EventPreliminaryMagnitudeType</valueName>
+      <value>Mw</value>
+    </parameter>
+    <parameter>
+      <valueName>EventOriginTime</valueName>
+      <value>2012-10-28T03:04:10-00:00</value>
+    </parameter>
+    <parameter>
+      <valueName>EventDepth</valueName>
+      <value>19 kilometers</value>
+    </parameter>
+    <parameter>
+      <valueName>EventLatLon</valueName>
+      <value>52.900,-131.900 0.000</value>
+    </parameter>
+    <parameter>
+      <valueName>VTEC</valueName>
+      <value>/O.CON.PAAQ.TS.Y.0024.000000T0000Z-000000T0000Z/</value>
+    </parameter>
+    <parameter>
+      <valueName>NWSUGC</valueName>
+      <value>CAZ002-001-ORZ021-022-280919-</value>
+    </parameter>
+    <parameter>
+      <valueName>ProductDefinition</valueName>
+      <value>Tsunami advisories mean that a tsunami capable of producing strong currents or waves dangerous to people in or very near the water is expected.  Significant widespread inundation is not expected for areas under an advisory.  Currents may be hazardous to swimmers, boats, and coastal structures and may continue for several hours after the initial wave arrival. </value>
+    </parameter>
+    <parameter>
+      <valueName>WEPA41</valueName>
+      <value>Tsunami Warnings, Watches, and Advisories for AK, BC, and US West Coast</value>
+    </parameter>
+    <resource>
+      <resourceDesc>Energy Map</resourceDesc>
+      <mimeType>image/jpeg</mimeType>
+      <uri>http://wcatwc.arh.noaa.gov/tsuPortal/events/PAAQ/2012/10/28/mcl1uw/9/WEPA41/energymcl1uw.jpg</uri>
+    </resource>
+    <resource>
+      <resourceDesc>Tsunami Travel Time Map</resourceDesc>
+      <mimeType>image/jpeg</mimeType>
+      <uri>http://wcatwc.arh.noaa.gov/tsuPortal/events/PAAQ/2012/10/28/mcl1uw/9/WEPA41/ttvumcl1uw-09.jpg</uri>
+    </resource>
+    <resource>
+      <resourceDesc>Event Data as a JSON document</resourceDesc>
+      <mimeType>application/json</mimeType>
+      <uri>http://wcatwc.arh.noaa.gov/tsuPortal/events/PAAQ/2012/10/28/mcl1uw/9/WEPA41/PAAQ.json</uri>
+    </resource>
+    <area>
+      <areaDesc>Coastal areas between and including Gualala Point, California (80 miles NW of San Francisco) to Douglas/Lane County Line, Oregon (10 miles SW of Florence)</areaDesc>
+      <circle>52.9,-131.9 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>CAZ002</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>CAZ001</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>ORZ021</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>ORZ022</value>
+      </geocode>
+    </area>
+  </info>
+  <info>
+    <category>Geo</category>
+    <event>Tsunami</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Moderate</severity>
+    <certainty>Observed</certainty>
+    <eventCode>
+      <valueName>TsunamiSystemCategory</valueName>
+      <value>Advisory</value>
+    </eventCode>
+    <onset>2012-10-28T07:49:46-00:00</onset>
+    <expires>2012-10-28T10:19:46-00:00</expires>
+    <senderName>NWS West Coast/Alaska Tsunami Warning Center Palmer AK</senderName>
+    <headline>The tsunami Advisory continues in effect for the coastal areas of British Columbia from the Washington-British Columbia border to the Alaska/British Columbia border.</headline>
+    <description>The tsunami Advisory continues in effect for the coastal areas of British Columbia from the Washington-British Columbia border to the Alaska/British Columbia border. - Event details: Preliminary magnitude 7.1 (Mw) earthquake / Lat: 52.900, Lon: -131.900 at 2012-10-28T03:04:10Z Tsunami advisories mean that a tsunami capable of producing strong currents or waves dangerous to people in or very near the water is expected.  Significant widespread inundation is not expected for areas under an advisory.  Currents may be hazardous to swimmers, boats, and coastal structures and may continue for several hours after the initial wave arrival. </description>
+    <instruction>Recommended Actions: A tsunami has been generated which is expected to impact the advisory regions. People in low-lying coastal areas should be alert to instructions from their local emergency officials. If in a tsunami advisory coastal area, move out of the water, off the beach, and out of harbors and marinas.  Next update and additional information:   This message will be updated in 60 minutes or sooner if the situation warrants.   The tsunami message will remain in effect until further notice.   Refer to the internet site wcatwc.arh.noaa.gov for more information.</instruction>
+    <web>http://wcatwc.arh.noaa.gov/tsuPortal/events/PAAQ/2012/10/28/mcl1uw/9/WEPA41/WEPA41.txt</web>
+    <parameter>
+      <valueName>EventLocationName</valueName>
+      <value>25 miles S of Sandspit, British Columbia</value>
+    </parameter>
+    <parameter>
+      <valueName>EventPreliminaryMagnitude</valueName>
+      <value>7.1</value>
+    </parameter>
+    <parameter>
+      <valueName>EventPreliminaryMagnitudeType</valueName>
+      <value>Mw</value>
+    </parameter>
+    <parameter>
+      <valueName>EventOriginTime</valueName>
+      <value>2012-10-28T03:04:10-00:00</value>
+    </parameter>
+    <parameter>
+      <valueName>EventDepth</valueName>
+      <value>19 kilometers</value>
+    </parameter>
+    <parameter>
+      <valueName>EventLatLon</valueName>
+      <value>52.900,-131.900 0.000</value>
+    </parameter>
+    <parameter>
+      <valueName>VTEC</valueName>
+      <value>/O.CON.PAAQ.TS.Y.0024.000000T0000Z-000000T0000Z/</value>
+    </parameter>
+    <parameter>
+      <valueName>NWSUGC</valueName>
+      <value>BCZ130-230-250-260-280-160-142-141-150-121-122-220-210-922-912-921-911-110-280919-</value>
+    </parameter>
+    <parameter>
+      <valueName>ProductDefinition</valueName>
+      <value>Tsunami advisories mean that a tsunami capable of producing strong currents or waves dangerous to people in or very near the water is expected.  Significant widespread inundation is not expected for areas under an advisory.  Currents may be hazardous to swimmers, boats, and coastal structures and may continue for several hours after the initial wave arrival. </value>
+    </parameter>
+    <parameter>
+      <valueName>WEPA41</valueName>
+      <value>Tsunami Warnings, Watches, and Advisories for AK, BC, and US West Coast</value>
+    </parameter>
+    <resource>
+      <resourceDesc>Energy Map</resourceDesc>
+      <mimeType>image/jpeg</mimeType>
+      <uri>http://wcatwc.arh.noaa.gov/tsuPortal/events/PAAQ/2012/10/28/mcl1uw/9/WEPA41/energymcl1uw.jpg</uri>
+    </resource>
+    <resource>
+      <resourceDesc>Tsunami Travel Time Map</resourceDesc>
+      <mimeType>image/jpeg</mimeType>
+      <uri>http://wcatwc.arh.noaa.gov/tsuPortal/events/PAAQ/2012/10/28/mcl1uw/9/WEPA41/ttvumcl1uw-09.jpg</uri>
+    </resource>
+    <resource>
+      <resourceDesc>Event Data as a JSON document</resourceDesc>
+      <mimeType>application/json</mimeType>
+      <uri>http://wcatwc.arh.noaa.gov/tsuPortal/events/PAAQ/2012/10/28/mcl1uw/9/WEPA41/PAAQ.json</uri>
+    </resource>
+    <area>
+      <areaDesc>Coastal areas between and including the Washington-British Columbia border to the Alaska/British Columbia border</areaDesc>
+      <circle>52.9,-131.9 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ130</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ230</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ250</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ260</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ280</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ160</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ142</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ141</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ150</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ121</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ122</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ220</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ210</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ922</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ912</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ921</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ911</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ110</value>
+      </geocode>
+    </area>
+  </info>
+<Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo><CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315#WithComments"/><SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#dsa-sha1"/><Reference URI=""><Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/></Transforms><DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><DigestValue>gcX+MZODdiTNBxbgI+Lh5NhB9Ag=</DigestValue></Reference></SignedInfo><SignatureValue>hnx4qaP6o7cKYWJgq2GEiGPmnkQZYUI60SswG62SGTuc44Sq+6+HXw==</SignatureValue><KeyInfo><KeyValue><DSAKeyValue><P>/X9TgR11EilS30qcLuzk5/YRt1I870QAwx4/gLZRJmlFXUAiUftZPY1Y+r/F9bow9subVWzXgTuA
+HTRv8mZgt2uZUKWkn5/oBHsQIsJPu6nX/rfGG/g7V+fGqKYVDwT7g/bTxR7DAjVUE1oWkTL2dfOu
+K2HXKu/yIgMZndFIAcc=</P><Q>l2BQjxUjC8yykrmCouuEC/BYHPU=</Q><G>9+GghdabPd7LvKtcNrhXuXmUr7v6OuqC+VdMCz0HgmdRWVeOutRZT+ZxBxCBgLRJFnEj6EwoFhO3
+zwkyjMim4TwWeotUfI0o4KOuHiuzpnWRbqN/C/ohNWLx+2J6ASQ7zKTxvqhRkImog9/hWuWfBpKL
+Zl6Ae1UlZAFMO/7PSSo=</G><Y>k0645gwlVis5kNrWyq/bdK8i4t8z958Bjmt9JYcjYZtCABmL77lyQxz1YJynDOwNEsn0QpW/+Nvg
+kE8ya+t7PheACOtfD2JDC0FXxHxevQWOAsxHNogY3VHWbWwNSoQMrsW8RLjnq8gGKK7dq6wZkYOy
+OyXWNIkN2f5Of02Sw3I=</Y></DSAKeyValue></KeyValue></KeyInfo></Signature></alert>

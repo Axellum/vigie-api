@@ -1,0 +1,18 @@
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 24
+Connection: keep-alive
+Server: Apache/2.4.37 (Red Hat Enterprise Linux)
+Last-Modified: Tue, 20 Oct 2026 10:42:00 GMT
+Accept-Ranges: bytes
+Strict-Transport-Security: max-age=31536000
+Date: Tue, 20 Oct 2026 16:38:04 GMT
+Expires: Tue, 20 Oct 2026 16:41:33 GMT
+Cache-Control: max-age=300
+ETag: "18-65e4347ce0632"
+X-Cache: Hit from cloudfront
+Via: 1.1 60c95e9287c477d4b1fa7b7be48914de.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: MRS53-P2
+X-Amz-Cf-Id: X4Jd8dANs_JQPoca4wtQkVNpChjDdnE0F0eDG7E1W8Xn1hStcon85w==
+Age: 91
+

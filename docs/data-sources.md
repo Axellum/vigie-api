@@ -28,7 +28,72 @@ polled for a position is also asked for a grid cell, not for the exact point (se
 | **GDACS** (UN / European Commission JRC), `geteventlist/SEARCH` ([API description](https://www.gdacs.org/gdacsapi/swagger/index.html), [terms of use](https://data.gdacs.org/About/termofuse.aspx)) | Earthquakes, tropical cyclones, floods, volcanoes, wildfires; alert level; severity. One request for every type: the events of the last 30 days at the orange or red level that GDACS still marks current (green = low humanitarian impact, not collected). | 180 s: update rhythm **not verified** (no page documents it). |
 | **NOAA National Weather Service**, `api.weather.gov/alerts/active` ([disclaimer](https://www.weather.gov/disclaimer), [API documentation](https://www.weather.gov/documentation/services-web-api)) | Severe and extreme alerts: tornado, hurricane, tsunami, flash flood, fire. | 120 s: update rhythm **not verified**. The API sends `Cache-Control: max-age=5` and documents only that its content "expires based upon the information life cycle". |
 | **USGS Volcano Hazards Program**, `volcanoApi/elevated` ([endpoint](https://volcanoes.usgs.gov/vsc/api/volcanoApi/elevated)) | Volcanoes under an elevated alert: aviation colour code, alert level, notice time, position. No VEI is given. | 600 s: update rhythm **not verified** (the endpoint documents none and sends no cache header). |
+| **NOAA National Hurricane Center (NHC)**, `www.nhc.noaa.gov/CurrentStorms.json` and the ZIP of each storm's advisory ([GIS data](https://www.nhc.noaa.gov/gis/), [status file reference](https://www.nhc.noaa.gov/productexamples/NHC_Tropical_Cyclone_Status_JSON_File_Reference.pdf)) | The tropical cyclones with an advisory now (Atlantic, eastern and central Pacific): name, classification, position, wind, pressure, movement, advisory number; and from the bundle of the advisory the cone, the track, the forecast positions and the coastal watches and warnings. See "Storms and tsunamis" below. | 300 s: the file is sent with `Cache-Control: max-age=300` and an `ETag`, and the NHC issues an advisory every three to six hours. Asked conditionally; a bundle once per advisory. |
+| **NOAA U.S. Tsunami Warning Centers** (NTWC, PTWC), `www.tsunami.gov/events/js/previous.js` and the CAP message of each bulletin ([tsunami.gov](https://www.tsunami.gov/), [CAP page](https://www.tsunami.gov/?page=cap)) | The list of the latest bulletins (about forty: of each event, each product, the newest), then the CAP message of the newest bulletin of each alert or threat product, and the text bulletin of a threat message (its table of arrival times). See "Storms and tsunamis" below. | 60 s: update rhythm **not verified** (nothing is published; on 2026-10-20 the list was modified 3 seconds after a bulletin was stored). Asked conditionally (`Last-Modified`); a document once. |
 | **NOAA Space Weather Prediction Center**, `noaa-planetary-k-index.json` ([data access](https://www.spaceweather.gov/content/data-access)) | Planetary Kp index (3-hourly): latest value, and the G-scale derived from it. | 300 s: the [product page](https://www.spaceweather.gov/products/planetary-k-index) says the chart "updates every minute" and the file is sent with `max-age=60`; the index has 3-hour intervals, so 5 minutes loses nothing. |
+
+## Storms and tsunamis
+
+A storm or a tsunami is a hazard that is a **point** in `GET /v1/geojson/hazards` (and in the frame, the snapshot and the CAP feed
+like any other), and has a forecast beside it in `GET /v1/geojson/hazards/{id}/forecast`. The decisions, and what is not
+verified: [ADR 0005](decisions/0005-tsunamis-and-storms.md). Licence and credit: [`SOURCES.md`](../SOURCES.md).
+
+| | Storm (NHC) | Tsunami (NTWC, PTWC) |
+| --- | --- | --- |
+| Hazard `id` | `nhc_<storm id>` (`nhc_al092026`) | `tsunami_<centre>_<event>` (`tsunami_pheb_26282000`) |
+| Category, position | `HURRICANE`, the current position | `TSUNAMI`, the epicentre of the earthquake |
+| Time | the advisory | the earthquake |
+| Value | the maximum wind in km/h (the NHC gives knots) | none |
+| Title | `Hurricane Isaias` (the NHC's classification and name) | `Tsunami 1-3 meters - PANAMA` (the centre's event and the place) |
+| `has_forecast` | the bundle of the advisory was read | a message gave an arrival time |
+| Forecast `kind` | `cone`, `track`, `position`, `watch_warning` | `epicentre`, `eta` |
+| Also | | a vigilance (`source` `tsunami`) in `GET /v1/vigilances` |
+
+The levels are ours; the words are the sources':
+
+| Message | Words of the source | Level |
+| --- | --- | --- |
+| Storm | maximum wind 96 kt or more (category 3 and above) | red |
+| | 64 to 95 kt (hurricane) | orange |
+| | 34 to 63 kt (tropical storm) | yellow |
+| | less | green |
+| Tsunami, domestic (NTWC) | Warning | red |
+| | Advisory | orange |
+| | Watch | yellow |
+| Tsunami, international threat (PTWC) | Tsunami >3.0 meters | red |
+| | Tsunami 1-3 meters, Tsunami potential threat | orange |
+| | Tsunami 0.3-1 meters | yellow |
+
+**An information statement is not an alert**, nor is a cancellation, a test or an exercise (only `Actual` messages count), a threat
+class that is in no table, or the "final" PTWC message (a CAP with no `info`), which ends the event. A threat message has no end of
+its own and counts for three hours (ours). The 36 information statements of the 40 bulletins of 2026-10-20 are counted and never
+downloaded. The list is read, not the per-centre "latest" file: it holds only the newest bulletin of any product, so an
+information statement could hide a threat.
+
+**The forecast.** `GET /v1/geojson/hazards/{id}/forecast` is a FeatureCollection (RFC 7946) with `source`, `issued_utc`,
+`advisory`, `advisory_url`, `attribution`, `bbox` and, when there is nothing to draw, `reason`. Every feature has
+`properties.kind`: `cone` (Polygon, MultiPolygon across the date line), `track` (LineString, MultiLineString across it),
+`position` (Point: `tau_h`, `valid_utc`, `wind_kt`, `wind_kmh`, `gust_kt`, `pressure_hpa`, `stage`, `category`) and `watch_warning`
+(LineString: `code`, `label`) for a storm; `epicentre` (Point: magnitude, depth, origin time, the messages in force) and `eta`
+(Point: `place`, `region`, `eta_utc`; a place with no coordinates has a null geometry) for a tsunami. The coordinates are rounded
+to 3 decimals; a pressure the NHC writes as 9999 is `null`. Hurricane Isaias's advisory 13A: a ZIP of 29.5 kB, an answer of 22.7 kB
+of which the cone is 21 kB (`tests/test_storm_api.py`).
+
+**One event, once.** GDACS reports the same storms, and the NWS relays the domestic tsunami messages. A storm is recognised by its
+name and season (`ISAIAS-26` is `cyclone:isaias:2026`), a tsunami message by its VTEC code; the hazard of the source that observes
+the event (the NHC, the tsunami centres) is kept, with **its** level and wind. An NWS alert that carries the VTEC code of a message
+of the centres is left out of the warnings of the same answer.
+
+| Day (simulated, `tests/test_storm_sobriety.py`) | Requests | Bytes |
+| --- | ---: | ---: |
+| tsunami.gov, a quiet day (the scheduler alone; 1,393 with 1,000 clients) | 960, all but the first a `304` | 230 kB |
+| tsunami.gov, the day of the Panama earthquake (2026-10-09, four threat messages) | 967: 960 looks at the list (15 read in full), 7 documents | 253 kB |
+| NHC, no storm (286 with 1,000 clients) | 240, all but the first a `304` | 116 kB |
+| NHC, Hurricane Isaias with a new advisory every three hours | 248: 240 looks and 8 bundles | 387 kB |
+
+Neither provider publishes a rate limit (**not verified** that none exists): the calls are counted, not limited. A request that
+finds nothing new is a `304` of 239 bytes (tsunami.gov) or 484 bytes (the NHC); the weekly check (`tools/check_live_feeds.py`)
+reads each once.
 
 ## Weather
 
@@ -52,6 +117,7 @@ and its rules: [`architecture.md`](architecture.md)). Licence, credit and what i
 | **MeteoAlarm Atom feeds** (EUMETNET), `feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-<country>` ([index of the 39 feeds](https://feeds.meteoalarm.org/)) | One feed per country, asked only for the countries that are needed (below). One entry is one warning for one area: level and type (in the title), times, identifier, message type, event, codes or polygon of the area, link to the CAP document. Entries that are tests or exercises, or have no identifier, are skipped. A feed is from about 1 KB (no warning) to 730 KB (France 146 KB with 34 departments warned, Switzerland 726 KB, on 2026-10-20), without compression. | 180 s. MeteoAlarm publishes **no update rhythm and no cache lifetime** for the feeds (they send `Cache-Control: max-age=0, private, must-revalidate`, no `ETag`, no `Last-Modified`, no `304`): **not verified**. The value comes from the terms of redistribution, which want the delay between the website and the redistributor to be under five minutes on average and ten at most: a 3-minute cache serves a warning at most 3 minutes old. |
 | **MeteoAlarm CAP documents**, `feeds.meteoalarm.org/api/v1/warnings/feeds-<country>/<id>` | The words of the issuer: headline, description and instruction in each language (up to 8 for Germany), the name of the issuing service, the web page. One document holds all the areas of one message. | 6 hours: a document is never modified (an update is a new document, with a new address), so this only bounds the memory. A document the server does not have (HTTP 404: every Italian one on 2026-10-20) is remembered 15 minutes, then asked again. |
 | **NOAA National Weather Service**, `api.weather.gov/alerts/active?status=actual&severity=Extreme,Severe` | **The answer of the hazards**, read a second way: the same alerts as warnings (CAP fields, UGC and SAME codes, polygon when there is one, the forecast office's headline, description and instruction). | 120 s, as the hazards. **No request of its own** (see below). |
+| **NOAA U.S. Tsunami Warning Centers**, the messages the hazards already read | The tsunami messages in force as warnings: the CAP fields as given, the UGC codes of the domestic messages, the countries of the threat messages, no polygon. Listed by `country=US` or `CA`, or all together by `source=tsunami`; an NWS alert with the VTEC code of one of them is left out. | 60 s, as the hazards. **No request of its own.** |
 | **DWD** (Deutscher Wetterdienst), `opendata.dwd.de/weather/alerts/cap/DISTRICT_DWD_STAT/Z_CAP_C_EDZW_LATEST_PVW_STATUS_PREMIUMDWD_DISTRICT_MUL.zip` ([open data help](https://www.dwd.de/DE/leistungen/opendata/hilfe.html): the CAP DWD profile 2.1.14, the product overview, the implementation notes) | One ZIP for all of Germany: the **status** (every warning in force at the last production) **by district** (the polygon of an area is the district, with its holes cut out), in the **multilingual** variant (one CAP document per warning, one `info` per language: German, English, French, Spanish, Arabic, Russian, Turkish, Polish). `LATEST` is a name that always points to the newest production. 8 to 16 KB on 2026-10-20 (4 documents, 7 areas), 80 KB at most over the three days of history read. A cancelled warning is no longer listed: cancellations and all-clears are only in the `DIFFERENCE` products, which are not read. Chosen over the `COMMUNEUNION` product (finer, smaller) because that one has no polygon for the sea areas. | 120 s. The DWD produces the status up to once a minute, and at least every ten minutes even if nothing changed (implementation notes); about every 10 minutes was observed on 2026-10-20. It sends no `Cache-Control` but `ETag` and `Last-Modified`, and answers `304` to `If-None-Match` and to `If-Modified-Since` (checked): a refresh that finds nothing new is a few hundred bytes. The delay for a redistributor is not published: **not verified**. |
 | **ECCC** (Environment and Climate Change Canada), MSC GeoMet OGC API, `api.weather.gc.ca/collections/weather-alerts/items` ([docs](https://eccc-msc.github.io/open-data/msc-geomet/readme_en/)) | One request lists every alert in force in Canada (`limit=1000`; the next pages are asked only if a stormy day needs them, at most ten): colour, name, texts in English and French, times, province, polygon of the forecast area. 156 KB (31 KB with gzip) for 36 alerts on 2026-10-20. The Datamart CAP files are **not** read: see [`SOURCES.md`](../SOURCES.md). | 300 s. GeoMet sends no `Cache-Control`, no `ETag` and no `Last-Modified`, and ECCC documents no update rhythm for the list (the CAP files are posted as the alerts are issued): **not verified**. One request per refresh, a rate far under the usage policy's 86,400 a day. **Reachability, seen once:** from the author's PC on 2026-10-20 (12:50 to 13:20 UTC) about two connections in three to `api.weather.gc.ca` timed out (21 seconds, the system's limit) while the others were answered in 0.6 second with the whole list, so the answer is fast and the path is what is unreliable. The collector's 6-second timeout is kept: a failed look serves the last list, marked stale, and the next scheduler cycle asks again. It may not happen from another network. |
 | **MetService** (New Zealand), `alerts.metservice.com/cap/rss` ([the system](https://about.metservice.com/about-severe-weather-warnings)) | The RSS feed, then the CAP document each item links to (each fetched once, forgotten when it leaves the feed; only addresses under `alerts.metservice.com` are fetched). The format is documented by the issuer ([user guide v1.2](https://www.metservice.com/files/documents/cap/MetService-CAP-Feed-User-Guide-v1.2.pdf)) but **the feed was empty on 2026-10-20: no real item has been seen** (see [`SOURCES.md`](../SOURCES.md), which also says where the licence stands). | 300 s: the feed sends `Cache-Control: max-age=300, must-revalidate` and a `Last-Modified` that answers `If-Modified-Since` with a `304` (checked). |
@@ -178,7 +244,7 @@ at most 96 "now" requests of the forecast (15 minutes) and 24 daily ones (1 hour
 calls (1 hour), 24 marine calls (1 hour) and 4 river discharge calls (6 hours). A GPS position adds
 those calls (marine and river discharge when requested); two positions in the same cell share them.
 The hazard feeds add one call per feed per TTL (at most 1,440 a day for USGS and EMSC, which have the
-shortest TTL; the scheduler alone refreshes them every 90 s, 960 a day). The official warnings add one call per MeteoAlarm feed per 180 s, only for the countries that are needed
+shortest TTL; the scheduler alone refreshes them every 90 s, 960 a day). The storm and tsunami sources add one conditional call per cache lifetime: tsunami.gov 960 a day from the scheduler (1,393 with 1,000 clients; all but the first a `304` of 239 bytes) and the NHC 240 (286), plus a document per new bulletin and a bundle per new advisory (see "Storms and tsunamis"). The official warnings add one call per MeteoAlarm feed per 180 s, only for the countries that are needed
 (320 a day per feed when the scheduler keeps it fresh; none for the NWS, whose answer is the hazards' own), and the national services one call per cache lifetime of their own for the countries that are needed (DWD 480 a day, mostly `304`; ECCC and MetService 240; Vigicrues 88 looks at an image and 4 reads of the flow on a calm day, 240 and 4 in a flood; see above). The README gives the calls
 a day measured by a simulation of 1,000 clients on 50 points, before and after the TTLs, grids and
 budget.
@@ -219,7 +285,7 @@ hours and reported by `GET /v1/providers` (`calls_24h`, `weight_24h`, `quota`). 
 `app/collectors/budget.py` (`QUOTAS`), and listed with their source page in [`SOURCES.md`](../SOURCES.md):
 Open-Meteo (one quota for its four APIs: forecast, air quality, river discharge, marine), MET Norway,
 RainViewer and ECCC (a usage-policy line of 86,400 requests a day: a threshold to tell ECCC about, kept as a limit all the same) have one. NOAA NWS has a limit that "is not public information", and USGS, EMSC, GDACS,
-USGS Volcano, NOAA SWPC, MeteoAlarm, the DWD, MetService and Vigicrues publish none: no budget for them (**not verified**), their calls are only counted.
+USGS Volcano, NOAA SWPC, the NHC, the tsunami centres, MeteoAlarm, the DWD, MetService and Vigicrues publish none: no budget for them (**not verified**), their calls are only counted.
 
 The budget lets through 90 % of each limit (`VIGIE_BUDGET_FRACTION`): a margin for another program on
 the same IP address and for the difference between this count and the provider's. A request that

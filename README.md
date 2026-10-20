@@ -50,9 +50,10 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
 | `GET /v1/embedded/frame` | Compact text frame for the displays ([contract](docs/embedded-frame.md)). |
 | `GET /v1/snapshot` | Watched zones (weather) and world hazards, compact JSON. |
 | `GET /v1/point?lat=&lon=` | Weather at one GPS position, marine (`marine=true`), river discharge, air quality, space weather, nearby hazards. |
-| `GET /v1/geojson/hazards` | Active hazards as GeoJSON (RFC 7946). |
+| `GET /v1/geojson/hazards` | Active hazards as GeoJSON (RFC 7946): one point each. `has_forecast` says whether a storm or a tsunami has a forecast. |
+| `GET /v1/geojson/hazards/{id}/forecast` | The forecast of a hazard as GeoJSON: the cone, track and positions of a tropical cyclone, the epicentre and arrival times of a tsunami. See "Storms and tsunamis" below. |
 | `GET /v1/cap/alerts` | Active hazards as OASIS CAP 1.2. |
-| `GET /v1/vigilances?lat=&lon=` or `?country=FR` | Official weather warnings that cover a point, or all those of a country (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues), the issuer's words untouched. See below. |
+| `GET /v1/vigilances?lat=&lon=` or `?country=FR` or `?source=tsunami` | Official weather warnings that cover a point, or all those of a country (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues), or the tsunami messages in force, the issuer's words untouched. See below. |
 | `GET /v1/vigilances.geojson` | The same warnings as GeoJSON, the shape of each area as geometry. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Watched zones (the watchlist). A zone needs its `utc_offset_s`. |
 | `GET /v1/history` | Hazard history stored in SQLite. |
@@ -163,6 +164,40 @@ section says it, finer.
   warning that an answer returns; the NWS needs no request of its own. See "Calls to the providers" below.
 - The embedded frame of the displays does **not** change.
 
+## Storms and tsunamis
+
+`GET /v1/geojson/hazards` also lists the **tropical cyclones** of the National Hurricane Center (NHC) and the **tsunami
+messages** of the U.S. Tsunami Warning Centers (the NTWC for the United States and Canada, the PTWC for the Pacific and
+the Caribbean). Each is one **point** like every other hazard (a storm at its current position, a tsunami at the
+epicentre), with the usual properties and `has_forecast`. The forecast is another route, so that a map fetches it only for
+the storm a visitor opens:
+
+```
+GET /v1/geojson/hazards/nhc_al092026/forecast             the cone, track and forecast positions of a storm
+GET /v1/geojson/hazards/tsunami_pheb_26282000/forecast    the epicentre and the arrival times of a tsunami
+GET /v1/vigilances?source=tsunami                         every tsunami message in force, the centre's words untouched
+```
+
+- **The forecast is a FeatureCollection** (RFC 7946) with `source`, `issued_utc`, `advisory`, `advisory_url` and `attribution`;
+  each feature has `properties.kind`: `cone` (Polygon), `track` (LineString), `position` (Point with `valid_utc`, `wind_kt`,
+  `pressure_hpa`...) and `watch_warning` for a storm; `epicentre` and `eta` (Point with `eta_utc`) for a tsunami. A cone across
+  the date line is cut in two as RFC 7946 asks. Coordinates have 3 decimals; a pressure the NHC does not give is `null`.
+  Hurricane Isaias's advisory 13A weighs 22.7 kB. A hazard with no forecast answers an empty collection and a `reason`; an
+  unknown id is a 404.
+- **An information statement is not an alert.** The tsunami centres issue many that say there is no threat: they are never shown.
+  A cancellation, a test, a threat class the tables do not know, and the "final" message of an event are none either.
+- **The levels are ours** (the words are the centres'): a storm by its wind (34 kt yellow, 64 orange, 96 red); a domestic
+  tsunami message by its category (watch yellow, advisory orange, warning red); a PTWC threat message by its wave-height
+  class (0.3-1 m yellow, 1-3 m or a potential threat orange, over 3 m red). The tables: [`docs/data-sources.md`](docs/data-sources.md).
+- **One event once.** GDACS reports the same storms and the NWS relays the domestic tsunami messages: they are told to be one
+  event by the storm's name and season or the message's VTEC code, and the source that observes it gives the level.
+- **Not an official warning.** The PTWC says its threat messages are for national authorities, who decide the alert level
+  for each country. A tsunami message names its coasts by zone code or country, with no shape: it is listed by `country=US`
+  or `CA`, or by `source=tsunami`, and never matched to a point.
+- **Few requests.** tsunami.gov and the NHC are asked conditionally: 960 and 240 requests a day (all but the first a `304` of a few
+  hundred bytes), 230 kB and 116 kB on a quiet day; a message once, a bundle once per advisory.
+  [ADR 0005](docs/decisions/0005-tsunamis-and-storms.md).
+
 ## Home Assistant
 
 `custom_components/vigie` is a Home Assistant integration that reads these warnings for a place and gives a
@@ -244,6 +279,8 @@ upstream, and counts the requests each source receives:
 | GDACS | 676 | 474 |
 | RainViewer | 662 | 144 |
 | NOAA SWPC | 403 | 286 |
+| tsunami.gov (list of bulletins, conditional) | n/a | 1,393 (330 kB) |
+| NOAA National Hurricane Center (active storms, conditional) | n/a | 286 (140 kB) |
 | USGS volcanoes | 212 | 144 |
 | MeteoAlarm feeds (France and Iceland: the countries of two of the five zones) | n/a | 640 |
 | MeteoAlarm CAP documents | n/a | 0 |
@@ -346,7 +383,7 @@ CI (`.github/workflows/`):
   job that builds the Docker image, runs it and asks `/v1/health` and `/v1/embedded/frame`.
 - `secret-scan.yml`: gitleaks over the whole git history, on every pull request and push to `main`.
 - `live-feeds.yml`: every Monday and on demand, never in a pull request, `tools/check_live_feeds.py` asks
-  each real provider once (MeteoAlarm, the NWS warnings and the DWD, ECCC, MetService and Vigicrues included). A red run means a provider changed its
+  each real provider once (MeteoAlarm, the NWS warnings, the DWD, ECCC, MetService, Vigicrues, the NHC and the tsunami centres included). A red run means a provider changed its
   format, removed an endpoint, or sent a level or phenomenon word the tables do not know.
 - `home-assistant.yml`: the Home Assistant integration (`custom_components/vigie`), only when it changes, and weekly:
   its tests (`tests_ha/`, in an environment of their own: Python 3.14 and the Home Assistant release they pin), hassfest
@@ -358,7 +395,7 @@ CI (`.github/workflows/`):
 | Domain | Source |
 | --- | --- |
 | Earthquakes | USGS, EMSC / SeismicPortal, GDACS |
-| Disasters | GDACS, NOAA NWS, USGS Volcano Hazards Program |
+| Disasters | GDACS, NOAA NWS, USGS Volcano Hazards Program, NOAA National Hurricane Center (tropical cyclones), NOAA U.S. Tsunami Warning Centers (tsunami messages) |
 | Official weather warnings | MeteoAlarm (EUMETNET, 39 European countries), Deutscher Wetterdienst (Germany), Environment and Climate Change Canada, MetService (New Zealand), NOAA NWS (United States), Vigicrues (river floods of France) |
 | Space weather | NOAA SWPC |
 | Weather | Open-Meteo (primary), MET Norway (fallback), RainViewer (radar) |

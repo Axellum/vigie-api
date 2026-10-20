@@ -101,8 +101,11 @@ def world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:
     monkeypatch.setattr(aggregator.gdacs, "fetch", AsyncMock(return_value=[]))
     monkeypatch.setattr(aggregator.noaa_nws, "fetch", AsyncMock(return_value=[]))
     monkeypatch.setattr(aggregator.volcano, "fetch", AsyncMock(return_value=[]))
+    monkeypatch.setattr(aggregator.nhc, "fetch", AsyncMock(return_value=[]))
+    monkeypatch.setattr(aggregator.tsunami, "fetch", AsyncMock(return_value=[]))
     # No official warnings unless a test puts some (the sources of the vigilances are the same providers).
     monkeypatch.setattr(aggregator.noaa_nws, "fetch_vigilances", AsyncMock(return_value=Fetched([])))
+    monkeypatch.setattr(aggregator.tsunami, "fetch_vigilances", AsyncMock(return_value=Fetched([])))
     monkeypatch.setattr(
         aggregator.meteoalarm,
         "fetch_country",

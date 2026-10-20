@@ -1,0 +1,18 @@
+HTTP/1.1 200 OK
+Content-Type: application/zip
+Content-Length: 29533
+Connection: keep-alive
+Date: Tue, 20 Oct 2026 16:42:24 GMT
+Server: Apache/2.4.37 (Red Hat Enterprise Linux)
+Last-Modified: Fri, 09 Oct 2026 23:55:42 GMT
+ETag: "735d-65d711609ea97"
+Accept-Ranges: bytes
+Cache-Control: max-age=300
+Expires: Tue, 20 Oct 2026 16:47:24 GMT
+Strict-Transport-Security: max-age=31536000
+X-Cache: Miss from cloudfront
+Via: 1.1 586e5b54f3bf3176d1a061456f991096.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: MRS53-P2
+X-Amz-Cf-Id: wuMFTWY819gsb7AYA66cFcquO-HkIZGno-mtBJVgHEVYRJlaSJvQjA==
+Vary: Origin
+

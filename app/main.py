@@ -18,11 +18,13 @@ Endpoints:
                                      display profile (``waveshare-7b``, ``tab5``, ``marine``, ``web``).
 - ``GET    /v1/embedded/frame``    : Compact text frame for the ESP32-P4 displays
                                      (contract: ``docs/embedded-frame.md``).
-- ``GET    /v1/geojson/hazards``   : IETF RFC 7946 GeoJSON (``FeatureCollection``).
+- ``GET    /v1/geojson/hazards``   : IETF RFC 7946 GeoJSON (``FeatureCollection``): one point per hazard.
+- ``GET    /v1/geojson/hazards/{id}/forecast`` : the forecast of a hazard that has one (``has_forecast``): the cone and track
+                                     of a tropical cyclone, the arrival times of a tsunami, as GeoJSON.
 - ``GET    /v1/cap/alerts``        : OASIS CAP 1.2 (Common Alerting Protocol).
 - ``GET    /v1/vigilances``        : Official national weather warnings (MeteoAlarm, DWD, ECCC, MetService, NWS, and the
                                      Vigicrues river floods of France) for a point (``lat, lon``) or a country
-                                     (``country``).
+                                     (``country``), and the tsunami messages of the U.S. warning centres (``source=tsunami``).
 - ``GET    /v1/vigilances.geojson``: The same, as GeoJSON.
 - ``POST   /v1/simulate``          : Inject a simulated scenario (always labelled as a simulation). Off unless
                                      ``VIGIE_ENABLE_SIMULATION=1``: it answers 403 otherwise.
@@ -42,6 +44,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 
 from app import __version__
+from app.models.forecast import HazardForecast
 from app.models.schemas import (
     CAPFeedResponse,
     DeviceType,
@@ -62,7 +65,7 @@ from app.routers.dashboard import router as dashboard_router
 from app.services.aggregator import AggregatorService
 from app.services.geoindex import DEFAULT_RIVER_RADIUS_KM, MAX_RIVER_RADIUS_KM
 from app.services.scheduler import BackgroundAlertScheduler
-from app.services.vigilance import FOLLOW_DECIMALS, SUPPORTED_COUNTRIES, parse_languages
+from app.services.vigilance import FOLLOW_DECIMALS, SUPPORTED_COUNTRIES, TSUNAMI_SOURCE, parse_languages
 
 # The most positions one WebSocket connection can follow for official warnings.
 MAX_FOLLOWED_POINTS_PER_CONNECTION = 10
@@ -343,6 +346,27 @@ async def get_geojson_hazards() -> GeoJSONFeatureCollection:
     return await aggregator.build_geojson_feature_collection()
 
 
+@app.get(
+    "/v1/geojson/hazards/{hazard_id}/forecast",
+    response_model=HazardForecast,
+    tags=["Standards"],
+    responses={404: {"description": "No active hazard has this id (it may have ended)."}},
+)
+async def get_hazard_forecast(hazard_id: str) -> HazardForecast:
+    """The forecast of a hazard of `/v1/geojson/hazards` whose `has_forecast` is true, as an RFC 7946 FeatureCollection.
+
+    A tropical cyclone of the National Hurricane Center: `kind` `cone` (Polygon or MultiPolygon), `track` (LineString), `position`
+    (Point: `valid_utc`, `wind_kt`, `pressure_hpa`...) and `watch_warning` (LineString). A tsunami of the U.S. warning centres:
+    `epicentre` and `eta` (Point with `eta_utc`, the estimated arrival time at a place). The collection says who issued it
+    (`source`, `issued_utc`, `advisory`, `advisory_url`) and the credit to show (`attribution`). A hazard with no forecast
+    answers an empty collection and says why in `reason`; nothing is drawn that the source did not give.
+    """
+    forecast = await aggregator.build_hazard_forecast(hazard_id)
+    if forecast is None:
+        raise HTTPException(status_code=404, detail=f"No active hazard '{hazard_id}'")
+    return forecast
+
+
 @app.get("/v1/cap/alerts", response_model=CAPFeedResponse, tags=["Standards"])
 async def get_cap_alerts() -> CAPFeedResponse:
     """Export every active alert as OASIS CAP 1.2 (Common Alerting Protocol)."""
@@ -354,7 +378,9 @@ VIGILANCE_DESCRIPTION = (
     "(`country`, ISO 3166-1 alpha-2: every warning of that country). Sources: the MeteoAlarm feeds of 39 European "
     "countries, the Deutscher Wetterdienst for Germany (preferred to MeteoAlarm's copies), Environment and Climate "
     "Change Canada, MetService for New Zealand, the Severe and Extreme alerts of the US National Weather Service, and "
-    "Vigicrues for the river floods of France. A river section is a line: for a position it counts when it lies within "
+    "Vigicrues for the river floods of France. `source=tsunami` (alone) lists the tsunami warnings, watches, advisories and "
+    "threat messages in force of the U.S. Tsunami Warning Centers; they name coasts by zone codes or countries, never by a "
+    "shape, and `country=US` or `CA` lists them with that country's warnings. A river section is a line: for a position it counts when it lies within "
     "`river_radius_km` of it, and `distance_km` says how far. The words of the issuer are "
     "kept untouched in `texts` (one entry per language; `lang=fr,en` keeps only those languages); `level` and "
     "`phenomenon` are the API's own normalization and are listed in `derived`. `coverage` says what the API could "
@@ -367,14 +393,18 @@ VIGILANCE_DESCRIPTION = (
 )
 
 
-def _vigilance_request(lat: Optional[float], lon: Optional[float], country: Optional[str]) -> None:
-    """Check that the query is a position or a country, not both and not half a position."""
+def _vigilance_request(lat: Optional[float], lon: Optional[float], country: Optional[str], source: Optional[str] = None) -> None:
+    """Check that the query is a position, a country or a source, not several and not half a position."""
+    if source is not None:
+        if lat is not None or lon is not None or country is not None:
+            raise HTTPException(status_code=422, detail="`source` is asked alone, without a position or a `country`")
+        return
     if (lat is None) != (lon is None):
         raise HTTPException(status_code=422, detail="`lat` and `lon` go together")
     if lat is not None and country is not None:
         raise HTTPException(status_code=422, detail="Ask for a position (`lat`, `lon`) or for a `country`, not both")
     if lat is None and country is None:
-        raise HTTPException(status_code=422, detail="Ask for a position (`lat` and `lon`) or for a `country`")
+        raise HTTPException(status_code=422, detail="Ask for a position (`lat` and `lon`), a `country` or `source=tsunami`")
     if country is not None and country.upper() not in SUPPORTED_COUNTRIES:
         raise HTTPException(
             status_code=404,
@@ -388,9 +418,12 @@ async def _vigilances(
     country: Optional[str],
     lang: Optional[str],
     river_radius_km: float = DEFAULT_RIVER_RADIUS_KM,
+    source: Optional[str] = None,
 ) -> VigilancesResponse:
-    _vigilance_request(lat, lon, country)
+    _vigilance_request(lat, lon, country, source)
     languages = parse_languages(lang)
+    if source is not None:
+        return await aggregator.vigilances.for_tsunami()
     if country is not None:
         return await aggregator.vigilances.for_country(country, languages)
     assert lat is not None and lon is not None
@@ -422,9 +455,14 @@ async def get_vigilances(
         le=MAX_RIVER_RADIUS_KM,
         description="For a position: how far from it a river section (Vigicrues, France) still counts, in kilometres",
     ),
+    source: Optional[str] = Query(
+        default=None,
+        pattern=f"^{TSUNAMI_SOURCE}$",
+        description="`tsunami`: every tsunami message in force of the U.S. Tsunami Warning Centers (asked alone)",
+    ),
 ) -> VigilancesResponse:
-    """Official weather warnings for a point or a country (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues)."""
-    return await _vigilances(lat, lon, country, lang, river_radius_km)
+    """Official weather warnings for a point or a country (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues), or the tsunami messages."""
+    return await _vigilances(lat, lon, country, lang, river_radius_km, source)
 
 
 @app.get(
@@ -446,9 +484,10 @@ async def get_vigilances_geojson(
     river_radius_km: float = Query(
         default=DEFAULT_RIVER_RADIUS_KM, gt=0.0, le=MAX_RIVER_RADIUS_KM, description="For a position: the radius for a river section (Vigicrues), in kilometres"
     ),
+    source: Optional[str] = Query(default=None, pattern=f"^{TSUNAMI_SOURCE}$", description="`tsunami`: the tsunami messages in force (asked alone)"),
 ) -> VigilanceGeoJSONCollection:
     """The same warnings as GeoJSON (RFC 7946)."""
-    return aggregator.vigilances.to_geojson(await _vigilances(lat, lon, country, lang, river_radius_km))
+    return aggregator.vigilances.to_geojson(await _vigilances(lat, lon, country, lang, river_radius_km, source))
 
 
 @app.post(

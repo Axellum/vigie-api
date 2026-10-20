@@ -3,7 +3,7 @@
 Main responsibilities:
 
 1. Collect the seismic, volcanic and disaster feeds in parallel (USGS, EMSC, GDACS, NOAA NWS,
-   USGS Volcano) and merge duplicates with ``deduplicate_hazards``.
+   USGS Volcano, the NHC storms, the tsunami warning centres) and merge duplicates with ``deduplicate_hazards``.
 2. Keep the weather available at any GPS position with an automatic switch:
    Open-Meteo (``minutely_15``) -> MET Norway Locationforecast 2.0 -> the last cached Open-Meteo
    value. When all three fail the position has **no weather** (``None``): nothing is invented.
@@ -38,8 +38,10 @@ from app.collectors.flood_air import (
 from app.collectors.marine import OpenMeteoMarineCollector
 from app.collectors.meteoalarm import MeteoAlarmCapCollector, MeteoAlarmCollector
 from app.collectors.metservice import MetServiceCollector, metservice_enabled_from_env
+from app.collectors.nhc import NHCCollector
 from app.collectors.seismic import EMSCCollector, USGSCollector
 from app.collectors.space_weather import NOAASWPCCollector
+from app.collectors.tsunami import TsunamiCollector
 from app.collectors.vigicrues import VigicruesCollector
 from app.collectors.weather import (
     MetNorwayCollector,
@@ -48,6 +50,7 @@ from app.collectors.weather import (
     as_stale_bundle,
     rainviewer_enabled_from_env,
 )
+from app.models.forecast import HazardForecast
 from app.models.schemas import (
     SEVERITY_RANK,
     AirQualityStatus,
@@ -81,6 +84,8 @@ from app.models.schemas import (
     ZoneWeather,
 )
 from app.services.embedded_frame import serialize_embedded_frame
+from app.services.forecasts import empty as empty_forecast
+from app.services.forecasts import has_storm_forecast, has_tsunami_forecast, storm_forecast, tsunami_forecast
 from app.services.geodesy import (
     deduplicate_hazards,
     enrich_hazard_for_point,
@@ -143,6 +148,8 @@ class AggregatorService:
         eccc: Optional[ECCCCollector] = None,
         metservice: Optional[MetServiceCollector] = None,
         vigicrues: Optional[VigicruesCollector] = None,
+        nhc: Optional[NHCCollector] = None,
+        tsunami: Optional[TsunamiCollector] = None,
         countries: Optional[CountryIndex] = None,
         geometries: Optional[GeometryIndex] = None,
     ) -> None:
@@ -169,6 +176,8 @@ class AggregatorService:
         self.eccc = eccc or ECCCCollector()
         self.metservice = metservice or MetServiceCollector()
         self.vigicrues = vigicrues or VigicruesCollector()
+        self.nhc = nhc or NHCCollector()
+        self.tsunami = tsunami or TsunamiCollector()
         share_budgets(self.get_all_collectors())  # the four Open-Meteo APIs share one quota
 
         self.storage = storage or SQLiteWALStorage(db_path=db_path)
@@ -192,6 +201,7 @@ class AggregatorService:
             eccc=self.eccc,
             metservice=self.metservice if self.metservice_enabled else None,
             vigicrues=self.vigicrues,
+            tsunami=self.tsunami,
         )
 
     def refresh_zones_from_storage(self) -> list[MonitoredZoneConfig]:
@@ -247,6 +257,8 @@ class AggregatorService:
             self.eccc,
             self.metservice,
             self.vigicrues,
+            self.nhc,
+            self.tsunami,
         ]
         off = [c for c, enabled in ((self.rainviewer, self.rainviewer_enabled), (self.metservice, self.metservice_enabled)) if not enabled]
         return [c for c in collectors if c not in off]
@@ -304,6 +316,8 @@ class AggregatorService:
             self.gdacs.fetch(),
             self.noaa_nws.fetch(),
             self.volcano.fetch(),
+            self.nhc.fetch(),
+            self.tsunami.fetch(),
             return_exceptions=True,
         )
 
@@ -326,7 +340,7 @@ class AggregatorService:
         return enriched, sources_ok, len(results)
 
     async def collect_and_fuse_hazards(self) -> list[HazardAlert]:
-        """Collect USGS, EMSC, GDACS, NOAA NWS and USGS Volcano in parallel, de-duplicate and record them."""
+        """Collect USGS, EMSC, GDACS, NOAA NWS, USGS Volcano, the NHC storms and the tsunami centres in parallel, de-duplicate and record them."""
         hazards, _, _ = await self.collect_hazards_with_status()
         return hazards
 
@@ -691,6 +705,7 @@ class AggregatorService:
     async def build_geojson_feature_collection(self) -> GeoJSONFeatureCollection:
         """Build an IETF RFC 7946 ``FeatureCollection`` for GIS tools (MapLibre, Leaflet, QGIS)."""
         hazards = await self.collect_and_fuse_hazards()
+        with_forecast = self.hazards_with_forecast()
         features: list[GeoJSONFeature] = []
 
         lons: list[float] = []
@@ -724,6 +739,7 @@ class AggregatorService:
                         "distance_to_zone_km": h.distance_to_zone_km,
                         "bearing_deg": h.bearing_deg,
                         "bearing_cardinal": h.bearing_cardinal,
+                        "has_forecast": h.id in with_forecast,
                         "attribution": h.attribution,
                     },
                 )
@@ -741,6 +757,26 @@ class AggregatorService:
             },
             features=features,
         )
+
+    def hazards_with_forecast(self) -> set[str]:
+        """The ids of the hazards that have a forecast to draw (``/v1/geojson/hazards/{id}/forecast``), from the last answers read."""
+        ids = {f"nhc_{storm.id}" for storm in self.nhc.last_state.storms if has_storm_forecast(storm)}
+        ids.update(event.hazard_id for event in self.tsunami.last_state.events if has_tsunami_forecast(event))
+        return ids
+
+    async def build_hazard_forecast(self, hazard_id: str) -> Optional[HazardForecast]:
+        """The forecast of a hazard as GeoJSON; ``None`` when no hazard has this id, an empty forecast with a reason when it has none."""
+        hazards = await self.collect_and_fuse_hazards()
+        hazard = next((h for h in hazards if h.id == hazard_id), None)
+        if hazard is None:
+            return None
+        storm = self.nhc.storm_for(hazard.id)
+        if storm is not None:
+            return storm_forecast(hazard, storm)
+        event = self.tsunami.event_for(hazard.id)
+        if event is not None:
+            return tsunami_forecast(hazard, event)
+        return empty_forecast(hazard)
 
     async def build_cap_feed(self) -> CAPFeedResponse:
         """Build the alert feed in the OASIS CAP 1.2 standard."""

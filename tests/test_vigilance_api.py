@@ -168,7 +168,7 @@ def test_the_openapi_documents_both_routes(recorded: World) -> None:
         operation = schema["paths"][path]["get"]
         assert operation["tags"] == ["Vigilances"]
         assert "official warning service" in operation["description"] or "not an official" in operation["description"]
-        assert {p["name"] for p in operation["parameters"]} == {"lat", "lon", "country", "lang", "river_radius_km"}
+        assert {p["name"] for p in operation["parameters"]} == {"lat", "lon", "country", "lang", "river_radius_km", "source"}
         assert all(p.get("description") for p in operation["parameters"])
         assert {"404", "422"} <= set(operation["responses"])
         assert "/v1/stream" in operation["description"] and "vigilance_push" in operation["description"]

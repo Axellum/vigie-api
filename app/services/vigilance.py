@@ -16,6 +16,9 @@ providers as little as it can:
 - A CAP document is asked only for a warning that an answer returns, once (it never changes), and at most
   ``CAP_DOCUMENTS_PER_REQUEST`` new ones per request: the others come with the next request.
 - The NWS answer is the hazards' own: no request of its own.
+- The tsunami messages of the U.S. warning centres are the hazards' own too (no request of its own). They name coasts by UGC zone
+  codes (United States, British Columbia) or by country (the international threat messages): listed by ``country=US`` or ``CA``,
+  or by ``source=tsunami`` for all of them, never matched to a point. The NWS alert that relays the same message is listed once.
 
 An answer says what it could not do (``coverage``): a country whose warnings name their areas with codes that
 have no shape here is not "without warnings", it is "not matched to a point".
@@ -45,6 +48,7 @@ from app.collectors.meteoalarm import (
     with_cap,
 )
 from app.collectors.metservice import MetServiceCollector
+from app.collectors.tsunami import TsunamiCollector, vtec_event_key
 from app.collectors.vigicrues import VigicruesCollector
 from app.geo import shape_to_geojson
 from app.models.schemas import SEVERITY_RANK, SeverityLevel
@@ -90,7 +94,10 @@ CREDIT_KEYS: dict[str, str] = {
     "metservice": "metservice_alerts",
     "vigicrues": "vigicrues",
     "noaa_nws": "noaa_nws",
+    "tsunami": "noaa_tsunami",
 }
+TSUNAMI_SOURCE = "tsunami"
+TSUNAMI_COUNTRIES = ("US", "CA")  # the countries the UGC zone codes of the domestic tsunami messages belong to
 FLOODING_WORD = "flooding"  # MeteoAlarm awareness type 12 (CAP profile v2.0): Météo-France's "inondation" (river floods)
 
 NO_SOURCE_NOTE = (
@@ -108,6 +115,12 @@ ECCC_NOTE = (
 NWS_NOTE = (
     "Only the Severe and Extreme alerts are read (the request the hazards already use). An alert that names "
     "zones (UGC codes) instead of a polygon is not matched to a point; ask by country to list it."
+)
+TSUNAMI_NOTE = (
+    "Read from tsunami.gov, the U.S. Tsunami Warning Centers: a warning, watch or advisory (domestic messages, areas named with UGC "
+    "zone codes) or a threat message (international, areas named with countries). None has a shape on this instance, so none is "
+    "matched to a point: list them with `country=US`, `country=CA` or `source=tsunami`. An information statement is not an alert "
+    "and is not listed."
 )
 
 
@@ -127,7 +140,7 @@ class SourceData:
     """What one source gave for one country, and what the API knows of it."""
 
     source: str
-    country: str
+    country: Optional[str]
     vigilances: list[Vigilance]
     coverage: VigilanceCoverage
     note: Optional[str] = None  # what is worth saying about this source for this country, in every answer
@@ -199,6 +212,7 @@ class VigilanceService:
         eccc: Optional[ECCCCollector] = None,
         metservice: Optional[MetServiceCollector] = None,
         vigicrues: Optional[VigicruesCollector] = None,
+        tsunami: Optional[TsunamiCollector] = None,
     ) -> None:
         self.meteoalarm = meteoalarm
         self.meteoalarm_cap = meteoalarm_cap
@@ -207,6 +221,7 @@ class VigilanceService:
         self.eccc = eccc
         self.metservice = metservice
         self.vigicrues = vigicrues
+        self.tsunami = tsunami
         self.countries = countries
         self.geometries = geometries
         self._watched_zones = watched_zones
@@ -302,8 +317,57 @@ class VigilanceService:
             ),
         )
 
+    async def _tsunami(self, country: Optional[str]) -> SourceData:
+        """The tsunami messages in force that name a country (``US``, ``CA``), or all of them (``None``)."""
+        assert self.tsunami is not None
+        try:
+            fetched = await self.tsunami.fetch_vigilances()
+        except (CollectorUnavailableError, ValueError) as exc:
+            return self._unavailable(TSUNAMI_SOURCE, country, exc)
+        now = clock.wall()
+        vigilances = [v for v in fetched.value if is_active(v, now) and (country is None or v.country == country)]
+        return SourceData(
+            TSUNAMI_SOURCE,
+            country,
+            vigilances,
+            VigilanceCoverage(
+                source=TSUNAMI_SOURCE,
+                country=country,
+                status="stale" if fetched.stale else "ok",
+                feed_updated_utc=self.tsunami.last_state.updated_utc,
+                fetched_age_s=self._age(self.tsunami, "global"),
+            ),
+            note=TSUNAMI_NOTE,
+        )
+
     @staticmethod
-    def _unavailable(source: str, country: str, exc: Exception) -> SourceData:
+    def _vtec_keys(vigilance: Vigilance) -> set[str]:
+        """The keys of the VTEC codes in the parameters of a warning (the NWS and the tsunami centres both carry them)."""
+        return {
+            key
+            for text in vigilance.texts
+            for parameter in text.parameters
+            if parameter.name == "VTEC" and (key := vtec_event_key(parameter.value)) is not None
+        }
+
+    def _without_relayed_tsunami(self, sources: list[SourceData], tsunami: SourceData) -> int:
+        """Leave out the NWS alerts that carry the VTEC code of a tsunami message of the centres: the same message, listed once.
+
+        Returns how many were left out.
+        """
+        keys = {key for vigilance in tsunami.vigilances for key in self._vtec_keys(vigilance)}
+        dropped = 0
+        if not keys:
+            return dropped
+        for data in sources:
+            if data.source == "noaa_nws":
+                kept = [v for v in data.vigilances if not (self._vtec_keys(v) & keys)]
+                dropped += len(data.vigilances) - len(kept)
+                data.vigilances = kept
+        return dropped
+
+    @staticmethod
+    def _unavailable(source: str, country: Optional[str], exc: Exception) -> SourceData:
         return SourceData(
             source,
             country,
@@ -391,6 +455,17 @@ class VigilanceService:
         return None if entry is None else max(0, int(clock.monotonic() - entry.stored_at))
 
     async def _country_sources(self, country: str) -> list[SourceData]:
+        """The sources of one country, then the tsunami messages that name it (United States, Canada)."""
+        sources = await self._national_sources(country)
+        if self.tsunami is not None and country in TSUNAMI_COUNTRIES:
+            tsunami = await self._tsunami(country)
+            dropped = self._without_relayed_tsunami(sources, tsunami)
+            if dropped:
+                tsunami.note = f"{TSUNAMI_NOTE} {dropped} NWS alert(s) with the VTEC code of one of these messages are listed here, not twice."
+            sources.append(tsunami)
+        return sources
+
+    async def _national_sources(self, country: str) -> list[SourceData]:
         """The sources of one country: the national one first; MeteoAlarm only if there is none, or it gave no answer."""
         if country == NWS_COUNTRY:
             return [await self._nws()]
@@ -434,7 +509,7 @@ class VigilanceService:
         data.coverage.warnings_not_matchable = len(not_matchable)
         schemes = sorted({code.scheme for v in not_matchable for code in v.area.geocodes})
         notes: list[str] = []
-        if not_matchable:
+        if not_matchable and data.source != TSUNAMI_SOURCE:  # the tsunami note says it in its own words
             what = " and ".join(schemes) if schemes else "their area"
             notes.append(
                 f"{len(not_matchable)} of {len(data.vigilances)} warnings name their area with {what} codes whose shape is not "
@@ -605,6 +680,15 @@ class VigilanceService:
         enriched, without = await self._with_texts(ordered, languages)
         self._forget_unlinked_documents()
         return self._response(VigilanceQuery(country=country), [country], sources, enriched, without)
+
+    async def for_tsunami(self) -> VigilancesResponse:
+        """Every tsunami message in force, whatever the coast it names (``source=tsunami``)."""
+        if self.tsunami is None:
+            raise KeyError(TSUNAMI_SOURCE)
+        data = await self._tsunami(None)
+        self._finish_coverage(data)
+        found = [self._localized(v) for v in data.vigilances]
+        return self._response(VigilanceQuery(source=TSUNAMI_SOURCE), [], [data], self._sorted(found), 0)
 
     def to_geojson(self, response: VigilancesResponse) -> VigilanceGeoJSONCollection:
         """The same answer as a GeoJSON FeatureCollection (RFC 7946); the geometry is null where the area has no shape here."""

@@ -25,7 +25,7 @@ import os
 from enum import Enum
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, PrivateAttr, computed_field
 
 from app.attribution import hazard_credit
 
@@ -264,6 +264,20 @@ class HazardAlert(BaseModel):
     bearing_cardinal: Optional[str] = Field(
         default=None, description="Cardinal direction from the target to the hazard (N, NE, E...)"
     )
+
+    # What names the same event in two sources when they do not agree on its time and place (a storm: its name and its
+    # season; a tsunami warning of the US centres: its VTEC code). Private: not in any response, only read by the de-duplication.
+    _event_key: Optional[str] = PrivateAttr(default=None)
+
+    @property
+    def event_key(self) -> Optional[str]:
+        """The key two reports of the same event share, or ``None`` when the source gives none."""
+        return self._event_key
+
+    def with_event_key(self, key: Optional[str]) -> "HazardAlert":
+        """Set the event key and return the alert."""
+        self._event_key = key
+        return self
 
     @computed_field(  # type: ignore[prop-decorator]
         description="Credit each reporting source asks for, to show with this alert. GDACS alerts are automatic "
