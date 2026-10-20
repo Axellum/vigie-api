@@ -1,0 +1,454 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>PAAQ-13-mcl1uw</identifier>
+  <sender>wcatwc@noaa.gov</sender>
+  <sent>2012-10-28T11:44:34-00:00</sent>
+  <status>Actual</status>
+  <msgType>Update</msgType>
+  <source>WCATWC</source>
+  <scope>Public</scope>
+  <code>profile:CAP-TSU:1.0</code>
+  <references>wcatwc@noaa.gov,PAAQ-1-mcl1uw,2012-10-28T03:07:27-00:00 wcatwc@noaa.gov,PAAQ-2-mcl1uw,2012-10-28T03:34:51-00:00 wcatwc@noaa.gov,PAAQ-3-mcl1uw,2012-10-28T04:10:28-00:00 wcatwc@noaa.gov,PAAQ-4-mcl1uw,2012-10-28T04:48:37-00:00 wcatwc@noaa.gov,PAAQ-5-mcl1uw,2012-10-28T05:02:58-00:00 wcatwc@noaa.gov,PAAQ-6-mcl1uw,2012-10-28T05:44:23-00:00 wcatwc@noaa.gov,PAAQ-7-mcl1uw,2012-10-28T06:17:44-00:00 wcatwc@noaa.gov,PAAQ-8-mcl1uw,2012-10-28T06:53:09-00:00 wcatwc@noaa.gov,PAAQ-9-mcl1uw,2012-10-28T07:49:46-00:00 wcatwc@noaa.gov,PAAQ-10-mcl1uw,2012-10-28T08:47:32-00:00 wcatwc@noaa.gov,PAAQ-11-mcl1uw,2012-10-28T09:47:46-00:00 wcatwc@noaa.gov,PAAQ-12-mcl1uw,2012-10-28T10:49:11-00:00</references>
+  <incidents>mcl1uw</incidents>
+  <info>
+    <category>Geo</category>
+    <event>Tsunami</event>
+    <responseType>None</responseType>
+    <urgency>Past</urgency>
+    <severity>Unknown</severity>
+    <certainty>Unlikely</certainty>
+    <eventCode>
+      <valueName>TsunamiSystemCategory</valueName>
+      <value>Cancellation</value>
+    </eventCode>
+    <onset>2012-10-28T11:44:34-00:00</onset>
+    <expires>2012-10-28T14:44:34-00:00</expires>
+    <senderName>NWS West Coast/Alaska Tsunami Warning Center Palmer AK</senderName>
+    <headline>The tsunami Advisory is canceled for the coastal areas of California from Gualala Point, California (80 miles NW of San Francisco) to the Oregon-California border.</headline>
+    <description>The tsunami Advisory is canceled for the coastal areas of California from Gualala Point, California (80 miles NW of San Francisco) to the Oregon-California border. - Event details: Preliminary magnitude 7.7 (Mw) earthquake / Lat: 52.900, Lon: -131.900 at 2012-10-28T03:04:10Z Tsunami cancellations indicate the end of the damaging tsunami threat.  A cancellation is issued after an evaluation of sea level data confirms that a destructive tsunami will not impact the alerted region, or after tsunami levels have subsided to non-damaging levels. </description>
+    <instruction>Evaluation: No destructive tsunami threat exists for Alaska, British Columbia, Washington, Oregon or California. However, some areas may experience non-damaging sea level changes. As local conditions can cause a wide variation in tsunami wave action the all clear determinations must be made by local authorities. This will be the last West Coast/Alaska Tsunami Warning Center message issued for this event.  Refer to the internet site wcatwc.arh.noaa.gov for more information. </instruction>
+    <web>http://wcatwc.arh.noaa.gov/tsuPortal/events/PAAQ/2012/10/28/mcl1uw/13/WEPA41/WEPA41.txt</web>
+    <parameter>
+      <valueName>EventLocationName</valueName>
+      <value>25 miles S of Sandspit, British Columbia</value>
+    </parameter>
+    <parameter>
+      <valueName>EventPreliminaryMagnitude</valueName>
+      <value>7.7</value>
+    </parameter>
+    <parameter>
+      <valueName>EventPreliminaryMagnitudeType</valueName>
+      <value>Mw</value>
+    </parameter>
+    <parameter>
+      <valueName>EventOriginTime</valueName>
+      <value>2012-10-28T03:04:10-00:00</value>
+    </parameter>
+    <parameter>
+      <valueName>EventDepth</valueName>
+      <value>19 kilometers</value>
+    </parameter>
+    <parameter>
+      <valueName>EventLatLon</valueName>
+      <value>52.900,-131.900 0.000</value>
+    </parameter>
+    <parameter>
+      <valueName>VTEC</valueName>
+      <value>/O.CAN.PAAQ.TS.Y.0024.000000T0000Z-000000T0000Z/</value>
+    </parameter>
+    <parameter>
+      <valueName>NWSUGC</valueName>
+      <value>CAZ002-001-281344-</value>
+    </parameter>
+    <parameter>
+      <valueName>ProductDefinition</valueName>
+      <value>Tsunami cancellations indicate the end of the damaging tsunami threat.  A cancellation is issued after an evaluation of sea level data confirms that a destructive tsunami will not impact the alerted region, or after tsunami levels have subsided to non-damaging levels. </value>
+    </parameter>
+    <parameter>
+      <valueName>WEPA41</valueName>
+      <value>Tsunami Warnings, Watches, and Advisories for AK, BC, and US West Coast</value>
+    </parameter>
+    <parameter>
+      <valueName>predictedArrivalTime: "Langara Island, British Columbia"</valueName>
+      <value>2012-10-27T21:16:00-07:00</value>
+    </parameter>
+    <parameter>
+      <valueName>predictedWaveHeight: "Langara Island, British Columbia"</valueName>
+      <value>0.100m 0.328ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Sitka, Alaska"</valueName>
+      <value>2012-10-27T23:30:00-08:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Sitka, Alaska"</valueName>
+      <value>0.122m 0.400ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Elfin Cove, Alaska"</valueName>
+      <value>2012-10-27T20:48:00-08:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Elfin Cove, Alaska"</valueName>
+      <value>0.061m 0.200ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Craig, Alaska"</valueName>
+      <value>2012-10-27T20:46:00-08:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Craig, Alaska"</valueName>
+      <value>0.091m 0.300ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Neah Bay, Washington"</valueName>
+      <value>2012-10-27T22:30:00-07:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Neah Bay, Washington"</valueName>
+      <value>0.091m 0.300ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Charleston, Oregon"</valueName>
+      <value>2012-10-28T00:02:00-07:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Charleston, Oregon"</valueName>
+      <value>0.122m 0.400ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Westport, Washington"</valueName>
+      <value>2012-10-27T22:50:00-07:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Westport, Washington"</valueName>
+      <value>0.091m 0.300ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Yakutat, Alaska"</valueName>
+      <value>2012-10-27T21:23:00-08:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Yakutat, Alaska"</valueName>
+      <value>0.122m 0.400ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Crescent City, California"</valueName>
+      <value>2012-10-28T02:14:00-07:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Crescent City, California"</valueName>
+      <value>0.457m 1.500ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Seward, Alaska"</valueName>
+      <value>2012-10-27T22:00:00-08:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Seward, Alaska"</valueName>
+      <value>0.152m 0.500ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Kodiak, Alaska"</valueName>
+      <value>2012-10-27T22:50:00-08:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Kodiak, Alaska"</valueName>
+      <value>0.122m 0.400ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Sand Point, Alaska"</valueName>
+      <value>2012-10-27T23:44:00-08:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Sand Point, Alaska"</valueName>
+      <value>0.091m 0.300ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Fort Point, New Hampshire"</valueName>
+      <value>2012-10-28T01:02:00-07:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Fort Point, New Hampshire"</valueName>
+      <value>0.152m 0.500ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "Dutch Harbor, Alaska"</valueName>
+      <value>2012-10-27T23:55:00-08:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "Dutch Harbor, Alaska"</valueName>
+      <value>0.030m 0.100ft</value>
+    </parameter>
+    <parameter>
+      <valueName>observedArrivalTime: "La Jolla, California"</valueName>
+      <value>2012-10-28T00:42:00-07:00</value>
+    </parameter>
+    <parameter>
+      <valueName>observedWaveHeight: "La Jolla, California"</valueName>
+      <value>0.061m 0.200ft</value>
+    </parameter>
+    <resource>
+      <resourceDesc>Event Data as a JSON document</resourceDesc>
+      <mimeType>application/json</mimeType>
+      <uri>http://wcatwc.arh.noaa.gov/tsuPortal/events/PAAQ/2012/10/28/mcl1uw/13/WEPA41/PAAQ.json</uri>
+    </resource>
+    <area>
+      <areaDesc>Coastal areas between and including Gualala Point, California (80 miles NW of San Francisco) to the Oregon-California border</areaDesc>
+      <circle>52.9,-131.9 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>CAZ002</value>
+      </geocode>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>CAZ001</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Langara Island, British Columbia</areaDesc>
+      <circle>54.266701,-133.066696 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ110</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Langara Island, British Columbia</areaDesc>
+      <circle>54.266701,-133.066696 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>BCZ110</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Sitka, Alaska</areaDesc>
+      <circle>57.053299,-135.346695 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PKZ042</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Sitka, Alaska</areaDesc>
+      <circle>57.053299,-135.346695 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PKZ042</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Elfin Cove, Alaska</areaDesc>
+      <circle>58.200001,-136.350006 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>AKZ022</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Elfin Cove, Alaska</areaDesc>
+      <circle>58.200001,-136.350006 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>AKZ022</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Craig, Alaska</areaDesc>
+      <circle>55.477001,-133.147995 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PKZ041</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Craig, Alaska</areaDesc>
+      <circle>55.477001,-133.147995 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PKZ041</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Neah Bay, Washington</areaDesc>
+      <circle>48.366699,-124.616699 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PZZ130</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Neah Bay, Washington</areaDesc>
+      <circle>48.366699,-124.616699 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PZZ130</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Charleston, Oregon</areaDesc>
+      <circle>43.349998,-124.330002 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PZZ310</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Charleston, Oregon</areaDesc>
+      <circle>43.349998,-124.330002 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PZZ310</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Westport, Washington</areaDesc>
+      <circle>46.906601,-124.106705 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>WAZ517</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Westport, Washington</areaDesc>
+      <circle>46.906601,-124.106705 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>WAZ517</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Yakutat, Alaska</areaDesc>
+      <circle>59.5467,-139.729996 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PKZ053</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Yakutat, Alaska</areaDesc>
+      <circle>59.5467,-139.729996 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PKZ053</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Crescent City, California</areaDesc>
+      <circle>41.7467,-124.183304 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>CAZ001</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Crescent City, California</areaDesc>
+      <circle>41.7467,-124.183304 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>CAZ001</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Seward, Alaska</areaDesc>
+      <circle>60.099998,-149.433304 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>AKZ125</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Seward, Alaska</areaDesc>
+      <circle>60.099998,-149.433304 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>AKZ125</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Kodiak, Alaska</areaDesc>
+      <circle>57.736698,-152.513306 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>AKZ171</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Kodiak, Alaska</areaDesc>
+      <circle>57.736698,-152.513306 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>AKZ171</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Sand Point, Alaska</areaDesc>
+      <circle>55.333302,-160.503296 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>AKZ181</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Sand Point, Alaska</areaDesc>
+      <circle>55.333302,-160.503296 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>AKZ181</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Fort Point, New Hampshire</areaDesc>
+      <circle>37.810001,-122.479996 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>ANZ154</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Fort Point, New Hampshire</areaDesc>
+      <circle>37.810001,-122.479996 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>ANZ154</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Dutch Harbor, Alaska</areaDesc>
+      <circle>53.876701,-166.533295 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PKZ171</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>Dutch Harbor, Alaska</areaDesc>
+      <circle>53.876701,-166.533295 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>PKZ171</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>La Jolla, California</areaDesc>
+      <circle>32.866001,-117.266998 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>CAZ043</value>
+      </geocode>
+    </area>
+    <area>
+      <areaDesc>La Jolla, California</areaDesc>
+      <circle>32.866001,-117.266998 0.0</circle>
+      <geocode>
+        <valueName>UGC</valueName>
+        <value>CAZ043</value>
+      </geocode>
+    </area>
+  </info>
+<Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo><CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315#WithComments"/><SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#dsa-sha1"/><Reference URI=""><Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/></Transforms><DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><DigestValue>Gj6hwPVWZtiRzKQ9itXSGCyAbAI=</DigestValue></Reference></SignedInfo><SignatureValue>iMRfvelHRwhKTAzwvLI45T8vKVZBa+8HzW5bd6oBIIzjPbmfk0MfkA==</SignatureValue><KeyInfo><KeyValue><DSAKeyValue><P>/X9TgR11EilS30qcLuzk5/YRt1I870QAwx4/gLZRJmlFXUAiUftZPY1Y+r/F9bow9subVWzXgTuA
+HTRv8mZgt2uZUKWkn5/oBHsQIsJPu6nX/rfGG/g7V+fGqKYVDwT7g/bTxR7DAjVUE1oWkTL2dfOu
+K2HXKu/yIgMZndFIAcc=</P><Q>l2BQjxUjC8yykrmCouuEC/BYHPU=</Q><G>9+GghdabPd7LvKtcNrhXuXmUr7v6OuqC+VdMCz0HgmdRWVeOutRZT+ZxBxCBgLRJFnEj6EwoFhO3
+zwkyjMim4TwWeotUfI0o4KOuHiuzpnWRbqN/C/ohNWLx+2J6ASQ7zKTxvqhRkImog9/hWuWfBpKL
+Zl6Ae1UlZAFMO/7PSSo=</G><Y>k0645gwlVis5kNrWyq/bdK8i4t8z958Bjmt9JYcjYZtCABmL77lyQxz1YJynDOwNEsn0QpW/+Nvg
+kE8ya+t7PheACOtfD2JDC0FXxHxevQWOAsxHNogY3VHWbWwNSoQMrsW8RLjnq8gGKK7dq6wZkYOy
+OyXWNIkN2f5Of02Sw3I=</Y></DSAKeyValue></KeyValue></KeyInfo></Signature></alert>
