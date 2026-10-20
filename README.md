@@ -56,8 +56,14 @@ All settings are optional environment variables.
 | `VIGIE_SCHEDULER` | `0` | `1` starts the background scheduler (refresh every 90 s, WebSocket push). |
 | `VIGIE_CONTACT` | none | E-mail address or URL added to the `User-Agent` sent to the providers. MET Norway and NOAA require an identifying contact: set it. |
 | `VIGIE_CAP_SENDER` | `vigie-api` | `sender` of the CAP alerts. |
+| `VIGIE_GRID_FORECAST_DEG` | `0.05` | Grid (degrees, about 5 km) the position is snapped to before the Open-Meteo forecast and MET Norway are asked. |
+| `VIGIE_GRID_AIR_QUALITY_DEG` | `0.1` | Same, for Open-Meteo Air Quality (about 11 km). |
+| `VIGIE_GRID_FLOOD_DEG` | `0.1` | Same, for Open-Meteo Flood (GloFAS). |
+| `VIGIE_GRID_MARINE_DEG` | `0.1` | Same, for Open-Meteo Marine. |
 
-No API key is needed by any provider.
+No API key is needed by any provider. A grid value outside 0.0001 to 10 degrees is ignored (the
+default is used). Only the request sent to the provider and the cache key use the snapped point: the
+response still reports the exact position of the client, and the distances to the hazards use it.
 
 ### Run on Windows (the PC that serves the display)
 

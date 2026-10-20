@@ -20,6 +20,13 @@ from typing import Any, Optional
 import httpx
 
 from app.collectors.base import BaseCollector, optional_float
+from app.collectors.grid import (
+    DEFAULT_AIR_QUALITY_GRID_DEG,
+    DEFAULT_FLOOD_GRID_DEG,
+    coord_str,
+    grid_step_from_env,
+    snap_to_grid,
+)
 from app.models.schemas import (
     AirQualityStatus,
     FloodRiskStatus,
@@ -39,7 +46,9 @@ class OpenMeteoFloodCollector(BaseCollector[FloodRiskStatus]):
 
     BASE_URL = "https://flood-api.open-meteo.com/v1/flood"
 
-    def __init__(self, http_client: Optional[httpx.AsyncClient] = None) -> None:
+    def __init__(
+        self, http_client: Optional[httpx.AsyncClient] = None, grid_deg: Optional[float] = None
+    ) -> None:
         super().__init__(
             provider_id="open_meteo_flood",
             name="Open-Meteo Flood API (Copernicus GloFAS)",
@@ -47,20 +56,22 @@ class OpenMeteoFloodCollector(BaseCollector[FloodRiskStatus]):
             ttl_seconds=600,
             http_client=http_client,
         )
+        self.grid_deg = (
+            grid_deg if grid_deg is not None else grid_step_from_env("VIGIE_GRID_FLOOD_DEG", DEFAULT_FLOOD_GRID_DEG)
+        )
 
     async def fetch_flood_risk(self, lat: float, lon: float) -> FloodRiskStatus:
-        """Fetch river discharge and flood risk at ``lat, lon``."""
-        lat_r = round(float(lat), 2)
-        lon_r = round(float(lon), 2)
-        cache_key = f"flood:{lat_r:.2f},{lon_r:.2f}"
+        """Fetch river discharge and flood risk near ``lat, lon`` (snapped to the flood grid)."""
+        lat_r, lon_r = snap_to_grid(lat, lon, self.grid_deg)
+        cache_key = f"flood:{coord_str(lat_r)},{coord_str(lon_r)}"
         return await self.fetch(cache_key=cache_key, lat=lat_r, lon=lon_r)
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> FloodRiskStatus:
         lat = float(kwargs["lat"])
         lon = float(kwargs["lon"])
         params = {
-            "latitude": f"{lat:.2f}",
-            "longitude": f"{lon:.2f}",
+            "latitude": coord_str(lat),
+            "longitude": coord_str(lon),
             "daily": "river_discharge,river_discharge_mean,river_discharge_max",
             "forecast_days": "7",
         }
@@ -113,7 +124,9 @@ class OpenMeteoAirQualityCollector(BaseCollector[AirQualityStatus]):
 
     BASE_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
 
-    def __init__(self, http_client: Optional[httpx.AsyncClient] = None) -> None:
+    def __init__(
+        self, http_client: Optional[httpx.AsyncClient] = None, grid_deg: Optional[float] = None
+    ) -> None:
         super().__init__(
             provider_id="open_meteo_aqi",
             name="Open-Meteo Air Quality, Dust & UV API",
@@ -121,20 +134,24 @@ class OpenMeteoAirQualityCollector(BaseCollector[AirQualityStatus]):
             ttl_seconds=600,
             http_client=http_client,
         )
+        self.grid_deg = (
+            grid_deg
+            if grid_deg is not None
+            else grid_step_from_env("VIGIE_GRID_AIR_QUALITY_DEG", DEFAULT_AIR_QUALITY_GRID_DEG)
+        )
 
     async def fetch_air_quality(self, lat: float, lon: float) -> AirQualityStatus:
-        """Fetch the AQI, fine particles, UV and dust / ash at ``lat, lon``."""
-        lat_r = round(float(lat), 2)
-        lon_r = round(float(lon), 2)
-        cache_key = f"aqi:{lat_r:.2f},{lon_r:.2f}"
+        """Fetch the AQI, fine particles, UV and dust / ash near ``lat, lon`` (snapped to the air quality grid)."""
+        lat_r, lon_r = snap_to_grid(lat, lon, self.grid_deg)
+        cache_key = f"aqi:{coord_str(lat_r)},{coord_str(lon_r)}"
         return await self.fetch(cache_key=cache_key, lat=lat_r, lon=lon_r)
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> AirQualityStatus:
         lat = float(kwargs["lat"])
         lon = float(kwargs["lon"])
         params = {
-            "latitude": f"{lat:.2f}",
-            "longitude": f"{lon:.2f}",
+            "latitude": coord_str(lat),
+            "longitude": coord_str(lon),
             "current": "european_aqi,us_aqi,pm10,pm2_5,uv_index,dust",
         }
         resp = await client.get(self.BASE_URL, params=params)

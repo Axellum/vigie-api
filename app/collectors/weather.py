@@ -28,6 +28,12 @@ from typing import Any, Optional
 import httpx
 
 from app.collectors.base import BaseCollector, optional_float
+from app.collectors.grid import (
+    DEFAULT_FORECAST_GRID_DEG,
+    coord_str,
+    grid_step_from_env,
+    snap_to_grid,
+)
 from app.models.schemas import CurrentWeather, DailyForecast
 
 # MET Norway symbol_code (without the _day / _night / _polartwilight suffix) -> WMO code.
@@ -105,7 +111,9 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
 
     BASE_URL = "https://api.open-meteo.com/v1/forecast"
 
-    def __init__(self, http_client: Optional[httpx.AsyncClient] = None) -> None:
+    def __init__(
+        self, http_client: Optional[httpx.AsyncClient] = None, grid_deg: Optional[float] = None
+    ) -> None:
         super().__init__(
             provider_id="open_meteo_hd",
             name="Open-Meteo High-Def (AROME / HRRR / IFS / ICON)",
@@ -114,11 +122,16 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
             is_fallback=False,
             http_client=http_client,
         )
+        self.grid_deg = (
+            grid_deg
+            if grid_deg is not None
+            else grid_step_from_env("VIGIE_GRID_FORECAST_DEG", DEFAULT_FORECAST_GRID_DEG)
+        )
 
-    @staticmethod
-    def cache_key_for(lat: float, lon: float, days: int) -> str:
-        """Cache key of a point forecast (coordinates rounded to 0.01 degree)."""
-        return f"om:{round(float(lat), 2):.2f},{round(float(lon), 2):.2f}:{days}"
+    def cache_key_for(self, lat: float, lon: float, days: int) -> str:
+        """Cache key of a point forecast: the position snapped to the forecast grid."""
+        s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
+        return f"om:{coord_str(s_lat)},{coord_str(s_lon)}:{days}"
 
     def get_stale_point(self, lat: float, lon: float, days: int) -> Optional[dict[str, Any]]:
         """Return the last cached forecast of a point, even if its TTL has expired."""
@@ -127,11 +140,12 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
     async def fetch_point(
         self, lat: float, lon: float, days: int = 7, allow_stale_on_error: bool = False
     ) -> dict[str, Any]:
-        """Fetch the full forecast at the coordinates (rounded to 0.01 degree)."""
+        """Fetch the full forecast near the coordinates (snapped to the forecast grid)."""
+        s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
         return await self.fetch(
             cache_key=self.cache_key_for(lat, lon, days),
-            lat=round(float(lat), 2),
-            lon=round(float(lon), 2),
+            lat=s_lat,
+            lon=s_lon,
             days=days,
             allow_stale_on_error=allow_stale_on_error,
         )
@@ -142,8 +156,8 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
         days = int(kwargs.get("days", 7))
 
         params = {
-            "latitude": f"{lat:.2f}",
-            "longitude": f"{lon:.2f}",
+            "latitude": coord_str(lat),
+            "longitude": coord_str(lon),
             "current": (
                 "temperature_2m,apparent_temperature,relative_humidity_2m,"
                 "pressure_msl,wind_speed_10m,wind_gusts_10m,wind_direction_10m,"
@@ -243,7 +257,9 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
 
     BASE_URL = "https://api.met.no/weatherapi/locationforecast/2.0/compact"
 
-    def __init__(self, http_client: Optional[httpx.AsyncClient] = None) -> None:
+    def __init__(
+        self, http_client: Optional[httpx.AsyncClient] = None, grid_deg: Optional[float] = None
+    ) -> None:
         super().__init__(
             provider_id="met_norway_fallback",
             name="MET Norway Locationforecast 2.0 (Global Fallback)",
@@ -251,6 +267,11 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
             ttl_seconds=300,
             is_fallback=True,
             http_client=http_client,
+        )
+        self.grid_deg = (
+            grid_deg
+            if grid_deg is not None
+            else grid_step_from_env("VIGIE_GRID_FORECAST_DEG", DEFAULT_FORECAST_GRID_DEG)
         )
 
     async def fetch_point(
@@ -261,15 +282,14 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
         allow_stale_on_error: bool = True,
         utc_offset_s: Optional[int] = None,
     ) -> dict[str, Any]:
-        """Fetch the fallback forecast at the coordinates.
+        """Fetch the fallback forecast near the coordinates (snapped to the forecast grid).
 
         ``utc_offset_s`` (the zone configuration) is only used to group the hourly series
         into local calendar days; MET Norway does not report the local offset.
         """
-        lat_r = round(float(lat), 2)
-        lon_r = round(float(lon), 2)
+        lat_r, lon_r = snap_to_grid(lat, lon, self.grid_deg)
         return await self.fetch(
-            cache_key=f"metno:{lat_r:.2f},{lon_r:.2f}:{days}:{utc_offset_s}",
+            cache_key=f"metno:{coord_str(lat_r)},{coord_str(lon_r)}:{days}:{utc_offset_s}",
             lat=lat_r,
             lon=lon_r,
             days=days,
@@ -284,7 +304,7 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
 
         resp = await client.get(
             self.BASE_URL,
-            params={"lat": f"{lat:.2f}", "lon": f"{lon:.2f}"},
+            params={"lat": coord_str(lat), "lon": coord_str(lon)},
         )
         resp.raise_for_status()
         return self.parse_response(resp.json(), days=days, utc_offset_s=kwargs.get("utc_offset_s"))

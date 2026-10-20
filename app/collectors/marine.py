@@ -18,6 +18,7 @@ from typing import Any, Literal, Optional
 import httpx
 
 from app.collectors.base import BaseCollector, optional_float
+from app.collectors.grid import DEFAULT_MARINE_GRID_DEG, coord_str, grid_step_from_env, snap_to_grid
 from app.models.schemas import MarineConditions
 
 SeaStateLabel = Literal["CALM", "SMOOTH", "MODERATE", "ROUGH", "VERY_ROUGH", "HIGH", "PHENOMENAL"]
@@ -57,7 +58,9 @@ class OpenMeteoMarineCollector(BaseCollector[MarineConditions]):
 
     BASE_URL = "https://marine-api.open-meteo.com/v1/marine"
 
-    def __init__(self, http_client: Optional[httpx.AsyncClient] = None) -> None:
+    def __init__(
+        self, http_client: Optional[httpx.AsyncClient] = None, grid_deg: Optional[float] = None
+    ) -> None:
         super().__init__(
             provider_id="open_meteo_marine",
             name="Open-Meteo Marine & Oceanography API",
@@ -65,20 +68,22 @@ class OpenMeteoMarineCollector(BaseCollector[MarineConditions]):
             ttl_seconds=300,
             http_client=http_client,
         )
+        self.grid_deg = (
+            grid_deg if grid_deg is not None else grid_step_from_env("VIGIE_GRID_MARINE_DEG", DEFAULT_MARINE_GRID_DEG)
+        )
 
     async def fetch_marine(self, lat: float, lon: float) -> MarineConditions:
-        """Fetch the marine conditions at ``lat, lon``."""
-        lat_r = round(float(lat), 2)
-        lon_r = round(float(lon), 2)
-        cache_key = f"marine:{lat_r:.2f},{lon_r:.2f}"
+        """Fetch the marine conditions near ``lat, lon`` (snapped to the marine grid)."""
+        lat_r, lon_r = snap_to_grid(lat, lon, self.grid_deg)
+        cache_key = f"marine:{coord_str(lat_r)},{coord_str(lon_r)}"
         return await self.fetch(cache_key=cache_key, lat=lat_r, lon=lon_r)
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> MarineConditions:
         lat = float(kwargs["lat"])
         lon = float(kwargs["lon"])
         params = {
-            "latitude": f"{lat:.2f}",
-            "longitude": f"{lon:.2f}",
+            "latitude": coord_str(lat),
+            "longitude": coord_str(lon),
             "current": (
                 "wave_height,wave_direction,wave_period,"
                 "swell_wave_height,swell_wave_direction,swell_wave_period,"

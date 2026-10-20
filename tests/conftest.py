@@ -1,7 +1,8 @@
 """Shared test configuration.
 
-- No test may reach the network: every ``httpx.AsyncClient`` request is refused, so a
-  collector that is not mocked behaves like an unavailable provider.
+- No test may reach the network: every ``httpx.AsyncClient`` request is refused (only an
+  ``httpx.MockTransport``, which answers from Python, is let through), so a collector that is
+  not mocked behaves like an unavailable provider.
 - The application database is a temporary file, never the developer's ``vigie.db``.
 - ``world`` gives a ready-to-use application with every provider mocked by sample data.
 """
@@ -39,15 +40,23 @@ from app.services.aggregator import AggregatorService  # noqa: E402
 from app.services.storage_wal import SQLiteWALStorage  # noqa: E402
 from tests import samples  # noqa: E402
 
+_REAL_SEND = httpx.AsyncClient.send
+
 
 @pytest.fixture(autouse=True)
 def _no_network(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Refuse every outgoing HTTP request made with httpx."""
+    """Refuse every outgoing HTTP request made with httpx, except those answered by ``httpx.MockTransport``.
 
-    async def _refuse(self: httpx.AsyncClient, request: httpx.Request, **kwargs: Any) -> httpx.Response:
+    A ``MockTransport`` answers from Python and never opens a socket, so a test can simulate a provider
+    with it. Any other client, including the ones the collectors create themselves, is refused.
+    """
+
+    async def _guard(self: httpx.AsyncClient, request: httpx.Request, **kwargs: Any) -> httpx.Response:
+        if isinstance(self._transport, httpx.MockTransport):
+            return await _REAL_SEND(self, request, **kwargs)
         raise httpx.ConnectError("network access is disabled in tests", request=request)
 
-    monkeypatch.setattr(httpx.AsyncClient, "send", _refuse)
+    monkeypatch.setattr(httpx.AsyncClient, "send", _guard)
 
 
 @dataclass

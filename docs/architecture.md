@@ -71,6 +71,18 @@ Nothing is padded, defaulted or copied from another field. At each layer:
 Every call goes through the collectors' caches, so a display polling every minute costs a few
 provider calls per TTL, not per request.
 
+## Provider calls
+
+The number of calls to the providers must not grow with the number of clients. What keeps it flat:
+
+- **Point grids.** The position sent upstream, and the cache key, are snapped to a grid coarser than
+  the weather models: 0.05 degree (about 5 km) for the forecast and MET Norway, 0.1 degree for air
+  quality, river discharge and marine conditions (`app/collectors/grid.py`, settings in the README).
+  Clients in the same cell share one call and one cache entry. The client keeps its exact position:
+  the response reports it and the distances to the hazards use it. Open-Meteo applies its own
+  elevation correction to the requested point, so the temperature near a hill is the one of the cell
+  centre, not of the exact spot: this is the price of the shared cell.
+
 ## Persistence
 
 SQLite in WAL mode, file `VIGIE_DB_PATH` or `vigie.db` in the repository root (git-ignored).

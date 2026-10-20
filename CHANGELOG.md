@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **Call sobriety, point grids.** The position sent to Open-Meteo (forecast, air quality, flood,
+  marine) and to MET Norway, and the cache key, are snapped to a grid: 0.05 degree for the forecast
+  and MET Norway, 0.1 degree for air quality, flood and marine (`VIGIE_GRID_FORECAST_DEG`,
+  `VIGIE_GRID_AIR_QUALITY_DEG`, `VIGIE_GRID_FLOOD_DEG`, `VIGIE_GRID_MARINE_DEG`). It used to be
+  0.01 degree, finer than the weather models. The response still reports the exact position and the
+  distances to the hazards still use it.
 - **Embedded frame contract** ([`docs/embedded-frame.md`](docs/embedded-frame.md)), same column
   order and counts:
   - `DAY` field 2 is the ISO date (`2026-10-20`) instead of a French weekday abbreviation.
