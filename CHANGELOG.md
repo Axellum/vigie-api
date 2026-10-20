@@ -106,6 +106,11 @@ All notable changes to this project are documented here. The format follows
   a simulated alert or block is credited to no provider. The compact frame is unchanged: it has no credit
   field. The compact snapshot is larger by about 2.5 KB with 15 hazards and 5 zones (measured on live data:
   12.3 KB before, 14.8 KB after).
+- **`SOURCES.md`**, the single list of the licence, terms, required credit, quota and clauses of each
+  source, with what is **not verified** (checked on 2026-10-20). `docs/data-sources.md` keeps how each
+  source is used (what is read, TTL, call volume, budget) and no longer repeats the terms. A test checks
+  that `SOURCES.md` quotes the credit texts of the code and has a row for every collector.
+- `LICENSE` (MIT, code only: the data belongs to each provider under its own terms).
 - `VIGIE_ENABLE_RAINVIEWER` (default on, unchanged): `0` stops asking RainViewer, whose free API is for
   personal and educational use only. `/v1/point` then leaves the radar fields unknown and `/v1/providers`
   lists 11 providers.
