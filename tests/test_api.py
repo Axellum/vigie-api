@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from unittest.mock import AsyncMock
 
 import pytest
@@ -49,7 +50,8 @@ async def test_weather_uses_the_stale_cache_and_says_so() -> None:
     om_collector = OpenMeteoCollector()
     metno_collector = MetNorwayCollector()
     cached = samples.parsed_open_meteo()
-    om_collector._cache[OpenMeteoCollector.cache_key_for(48.8566, 2.3522, 5)] = (0.0, cached)
+    # cached long ago (monotonic clock), so the entry is stale whatever the machine uptime
+    om_collector._cache[OpenMeteoCollector.cache_key_for(48.8566, 2.3522, 5)] = (time.monotonic() - 10_000.0, cached)
     om_collector._collect = AsyncMock(side_effect=RuntimeError("down"))  # type: ignore[method-assign]
     metno_collector._collect = AsyncMock(side_effect=RuntimeError("down"))  # type: ignore[method-assign]
     service = AggregatorService(open_meteo=om_collector, met_norway=metno_collector)
