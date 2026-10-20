@@ -126,6 +126,7 @@ def test_quotas_are_declared_in_one_place_with_their_source() -> None:
         "met_norway_fallback",
         "rainviewer_radar",
         "eccc_alerts",
+        "wmo_swic",  # not published: a ceiling of our own (see budget.py)
     }
     assert all(quota.source_url.startswith("https://") for quota in QUOTAS.values())
     assert len({id(QUOTAS[name]) for name in QUOTAS if name.startswith("open_meteo")}) == 1  # one shared quota

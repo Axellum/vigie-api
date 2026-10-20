@@ -4,7 +4,8 @@ Every collector counts the upstream requests it really sends (and, for Open-Mete
 ``weights.py``) over a sliding window of 24 hours. A provider that publishes a quota also has a budget:
 a request that would exceed it is **not sent**; the collector serves its cache, even expired, and the
 responses that carry that data say it is stale. A provider with no published quota has no budget, but
-its calls are still counted.
+its calls are still counted. The one exception is ``wmo_swic`` (the national services of the WMO registry, which
+publish no quota): it has a ceiling of our own, said to be ours wherever it is shown.
 
 The quotas are declared in ``QUOTAS``, the only place, each with the page it comes from. Open-Meteo
 applies one quota to its four APIs (forecast, air quality, river discharge, marine), so those four
@@ -73,6 +74,11 @@ QUOTAS: dict[str, Quota] = {
     # higher (about 1 request per second), contact us" (read 2026-10-20). A threshold above which the MSC asks to be
     # told, not a quota that refuses: it is kept as the limit all the same (this API sends under 300 a day).
     "eccc_alerts": Quota("eccc-msc", (Limit(DAY_S, 86_400),), "https://eccc-msc.github.io/open-data/usage-policy/readme_en/"),
+    # The national services of the WMO registry publish no quota, and neither does the WMO: this is a ceiling of our own, not a
+    # published limit, against a loop or an instance that follows the whole world. The worst case measured by the simulation
+    # (every country of the registry followed all day, tests/test_swic_sobriety.py) is about 37,000 requests: the ceiling is 50,000.
+    # The page it points to is the one of this project that states it (SOURCES.md).
+    "wmo_swic": Quota("wmo-swic", (Limit(DAY_S, 50_000),), "https://github.com/Axellum/vigie-api/blob/main/SOURCES.md"),
     # Not listed, no published quota: usgs_eq, emsc_seismic, gdacs_global, noaa_nws (a limit exists but "is
     # not public information"), usgs_volcano_gvp, noaa_swpc, and the other warning services: dwd_cap, metservice_cap and
     # vigicrues_flow publish none (nothing about a request rate on their terms or documentation pages, 2026-10-20: not

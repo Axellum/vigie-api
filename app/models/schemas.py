@@ -87,7 +87,7 @@ class QuotaStatus(BaseModel):
     """The published quota of a provider and how much of it is used."""
 
     group: str = Field(..., description="Providers that share this quota have the same group")
-    source_url: str = Field(..., description="Page that publishes the quota")
+    source_url: str = Field(..., description="Page that publishes the quota (for a ceiling this API sets itself, the page of this project that states it)")
     exhausted: bool = Field(..., description="True when the budget refuses a request: the cache is served, flagged stale")
     limits: list[QuotaLimitStatus]
 
