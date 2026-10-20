@@ -3,11 +3,11 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "alerte-mondiale-api"
+name = "vigie-api"
 version = "1.1.0"
-description = "Backend professionnel multi-providers de météo hyper-locale (GPS/Marine) et d'alertes catastrophes naturelles mondiales (OpenAPI 3.1, GeoJSON RFC 7946, OASIS CAP 1.2, ESP32-P4 <12Ko)"
+description = "Aggregates world natural hazards and weather for the Vigie displays: FastAPI backend, GeoJSON, OASIS CAP 1.2 and a compact ESP32 frame. Unknown values are never made up."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.110.0",
     "uvicorn[standard]>=0.27.0",
@@ -19,9 +19,27 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
+    "ruff>=0.6.0",
 ]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]
+# Long lines are tolerated: API field descriptions, the dashboard HTML and the watchlist seed.
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# FastAPI declares query parameters as default values: Query(...) is the documented idiom.
+"app/main.py" = ["B008"]
