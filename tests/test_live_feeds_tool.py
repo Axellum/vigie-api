@@ -15,10 +15,12 @@ from typing import Any, Optional
 import httpx
 import pytest
 
-from tests import samples
+from tests import samples, storm_samples
 from tests import vigilance_samples as national
+from tests.helpers import SimClock
 from tests.test_dwd import archive, cap_document
 from tests.test_metservice import BASE, synthetic_cap, synthetic_feed
+from tests.test_tsunami import TsunamiServer
 from tests.test_vigicrues import recorded_image_headers
 from tools import check_live_feeds as tool
 
@@ -103,6 +105,30 @@ def meteoalarm_answer(request: httpx.Request) -> httpx.Response:
     return httpx.Response(200, content=(FIXTURES / "atom_france.xml").read_bytes())
 
 
+def tsunami_host() -> Callable[[httpx.Request], httpx.Response]:
+    """tsunami.gov as recorded: the list of 40 bulletins, and (the newest being an information statement) the recorded Alaska one for its CAP."""
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        if request.url.path == storm_samples.TSUNAMI_LISTING_PATH:
+            return httpx.Response(200, content=storm_samples.tsunami_fixture("previous.js"))
+        return httpx.Response(200, content=storm_samples.tsunami_document(request.url.path) or storm_samples.tsunami_fixture("PAAQCAP_information_alaska.xml"))
+
+    return answer
+
+
+def nhc_host(status: bytes | None = None, bundle: bytes | int | None = None) -> Callable[[httpx.Request], httpx.Response]:
+    """The NHC as recorded: Hurricane Isaias of 2026-10-09 and the ZIP of its advisory 13A (or the answer a test puts in their place)."""
+    files = storm_samples.isaias_only() if status is None else status
+    zipped = storm_samples.nhc_fixture("al092026_5day_013A.zip") if bundle is None else bundle
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/CurrentStorms.json":
+            return httpx.Response(200, content=files)
+        return httpx.Response(zipped) if isinstance(zipped, int) else httpx.Response(200, content=zipped)
+
+    return answer
+
+
 def good_answers() -> dict[str, Callable[[httpx.Request], httpx.Response]]:
     """What each provider answers when nothing changed, keyed by host."""
     marine = samples.marine_payload()
@@ -124,6 +150,8 @@ def good_answers() -> dict[str, Callable[[httpx.Request], httpx.Response]]:
         "api.weather.gc.ca": lambda r: httpx.Response(200, content=national.national_fixture("eccc", "weather_alerts_items.json")),
         "alerts.metservice.com": lambda r: httpx.Response(200, content=national.national_fixture("metservice", "rss_empty.xml")),
         "www.vigicrues.gouv.fr": vigicrues_host(full_vigicrues_flow()),
+        "www.tsunami.gov": tsunami_host(),
+        "www.nhc.noaa.gov": nhc_host(),
     }
 
 
@@ -194,10 +222,14 @@ async def test_a_changed_format_is_a_failure_for_each_kind_of_source() -> None:
             "api.weather.gc.ca": lambda r: httpx.Response(200, json={"error": "maintenance"}),
             "alerts.metservice.com": lambda r: httpx.Response(200, text="<html><body>maintenance</body></html>"),
             "www.vigicrues.gouv.fr": lambda r: httpx.Response(200, json={"error": "maintenance"}),
+            "www.tsunami.gov": lambda r: httpx.Response(200, text="<html><body>maintenance</body></html>"),
+            "www.nhc.noaa.gov": lambda r: httpx.Response(200, json={"error": "maintenance"}),
         }
     )
     failed = {name for name, r in results.items() if r.outcome == "FAIL"}
     assert failed == {
+        "tsunami_warning_centers",
+        "nhc_storms",
         "gdacs_global",
         "noaa_nws",
         "usgs_volcano_gvp",
@@ -214,6 +246,68 @@ async def test_a_changed_format_is_a_failure_for_each_kind_of_source() -> None:
         "metservice_cap",
         "vigicrues_flow",
     }
+
+
+@pytest.mark.asyncio
+async def test_the_hurricane_center_with_a_storm_must_give_its_cone() -> None:
+    results = await run(only=["nhc_storms"])
+    assert results["nhc_storms"].outcome == "ok" and "Isaias (al092026)" in results["nhc_storms"].detail
+
+
+@pytest.mark.asyncio
+async def test_the_hurricane_center_with_no_storm_is_a_valid_empty_answer() -> None:
+    results = await run({"www.nhc.noaa.gov": nhc_host(status=storm_samples.nhc_fixture("CurrentStorms_empty.json"))}, only=["nhc_storms"])
+    assert results["nhc_storms"].outcome == "empty" and "no active storm" in results["nhc_storms"].detail
+    assert tool.exit_code(list(results.values())) == 0
+
+
+@pytest.mark.asyncio
+async def test_the_hurricane_center_fails_when_a_storm_has_no_bundle_or_no_cone_or_the_file_changed() -> None:
+    no_bundle = await run({"www.nhc.noaa.gov": nhc_host(bundle=404)}, only=["nhc_storms"])
+    assert no_bundle["nhc_storms"].outcome == "FAIL" and "Isaias: its forecast bundle could not be read" in no_bundle["nhc_storms"].detail
+    renamed_layers = await run({"www.nhc.noaa.gov": nhc_host(bundle=storm_samples.nhc_fixture("cp012026_5day_064.zip").replace(b"5day_pgn", b"5day_xxx"))}, only=["nhc_storms"])
+    assert renamed_layers["nhc_storms"].outcome == "FAIL"
+    not_the_file = await run({"www.nhc.noaa.gov": nhc_host(status=b'{"storms": []}')}, only=["nhc_storms"])
+    assert not_the_file["nhc_storms"].outcome == "FAIL" and "CurrentStorms" in not_the_file["nhc_storms"].detail
+    garbled = await run({"www.nhc.noaa.gov": nhc_host(status=b"<html>maintenance</html>")}, only=["nhc_storms"])
+    assert garbled["nhc_storms"].outcome == "FAIL"
+    busy = await run({"www.nhc.noaa.gov": lambda r: httpx.Response(503)}, only=["nhc_storms"])
+    assert busy["nhc_storms"].outcome == "unreachable"
+
+
+@pytest.mark.asyncio
+async def test_the_tsunami_centres_pass_with_a_quiet_list_and_read_the_cap_of_the_newest_bulletin() -> None:
+    results = await run(only=["tsunami_warning_centers"])
+    assert results["tsunami_warning_centers"].outcome == "ok"
+    assert results["tsunami_warning_centers"].detail.startswith("40 bulletins listed, the CAP of the newest (PAAQ WEAK53) read")
+
+
+@pytest.mark.asyncio
+async def test_the_tsunami_centres_pass_with_an_event_in_force_and_name_it(sim_clock: SimClock) -> None:
+    sim_clock.EPOCH = storm_samples.at("2026-10-09", "18:55")
+    sim_clock.now = 0.0
+    results = await run({"www.tsunami.gov": TsunamiServer(sim_clock)}, only=["tsunami_warning_centers"])
+    assert results["tsunami_warning_centers"].outcome == "ok"
+    assert "1 event(s) in force: PHEB 26282000 (ORANGE)" in results["tsunami_warning_centers"].detail
+
+
+@pytest.mark.asyncio
+async def test_the_tsunami_centres_fail_on_a_list_or_a_message_they_cannot_read() -> None:
+    changed = storm_samples.tsunami_fixture("previous.js").replace(b"'TWCID'", b"'CENTRE'")
+    unreadable_list = await run({"www.tsunami.gov": lambda r: httpx.Response(200, content=changed)}, only=["tsunami_warning_centers"])
+    assert unreadable_list["tsunami_warning_centers"].outcome == "FAIL"
+    empty_list = await run({"www.tsunami.gov": lambda r: httpx.Response(200, text="var prevEvents = {'event' : []};")}, only=["tsunami_warning_centers"])
+    assert empty_list["tsunami_warning_centers"].outcome == "FAIL" and "none that could be read" in empty_list["tsunami_warning_centers"].detail
+
+    def html_messages(request: httpx.Request) -> httpx.Response:
+        if request.url.path == storm_samples.TSUNAMI_LISTING_PATH:
+            return httpx.Response(200, content=storm_samples.tsunami_fixture("previous.js"))
+        return httpx.Response(200, text="<html><body>maintenance</body></html>")
+
+    not_cap = await run({"www.tsunami.gov": html_messages}, only=["tsunami_warning_centers"])
+    assert not_cap["tsunami_warning_centers"].outcome == "FAIL"
+    busy = await run({"www.tsunami.gov": lambda r: httpx.Response(429)}, only=["tsunami_warning_centers"])
+    assert busy["tsunami_warning_centers"].outcome == "unreachable"
 
 
 @pytest.mark.asyncio
