@@ -1,7 +1,12 @@
-"""``/v1/watched-points`` (the points the user watches) and ``near_places`` in the routes that carry hazards."""
+"""``/v1/watched-points`` (the points the user watches) and ``near_places`` in the routes that carry hazards.
+
+A watched point is personal and ``near_places`` is shared with every client: the two never meet (section 3).
+"""
 
 from __future__ import annotations
 
+import json
+import sqlite3
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock
@@ -9,11 +14,15 @@ from unittest.mock import AsyncMock
 import pytest
 
 from app.attribution import CREDITS
+from app.main import scheduler, ws_hub
 from app.models.places import MAX_WATCHED_RADIUS_KM, WatchedPointUpsertRequest
+from app.models.schemas import HazardCategory
 from app.services.places import PlaceSettings, default_faults
 from app.services.storage_wal import SQLiteWALStorage, WatchedPointsLimitError
 from tests import places_samples as real
 from tests.conftest import World
+
+pytestmark = pytest.mark.usefixtures("watched_points_write_on")  # the gate has its own tests, in test_watched_points_write_optin.py
 
 
 def add(world: World, **fields: Any) -> dict[str, Any]:
@@ -169,7 +178,7 @@ def test_a_database_made_before_this_feature_gets_the_new_tables_and_keeps_its_d
 
 
 # ============================================================================
-# 2. near_places in the routes that carry hazards
+# 2. near_places in the routes that carry hazards: reference places only
 # ============================================================================
 
 
@@ -182,11 +191,10 @@ def panama(world: World, monkeypatch: pytest.MonkeyPatch) -> World:
 
 
 def test_the_geojson_carries_the_places_and_says_they_are_derived(panama: World) -> None:
-    add(panama, name="Camp", kind="place", lat=7.62, lon=-80.80, radius_km=50.0)
     collection = panama.client.get("/v1/geojson/hazards").json()
     [feature] = collection["features"]
     properties = feature["properties"]
-    assert [(p["name"], p["kind"]) for p in properties["near_places"]] == [("Azuero Fault Zone", "fault"), ("Camp", "place")]
+    assert [(p["name"], p["kind"]) for p in properties["near_places"]] == [("Azuero Fault Zone", "fault")]
     assert properties["near_places"][0]["distance_km"] == pytest.approx(4.3, abs=0.1) and properties["near_places"][0]["sources"] == ["GEM"]
     assert properties["derived"] == ["near_places"]
     assert CREDITS["gem_faults"].text in properties["attribution"] and CREDITS["usgs"].text in properties["attribution"]
@@ -194,29 +202,28 @@ def test_the_geojson_carries_the_places_and_says_they_are_derived(panama: World)
     assert properties["severity"] == "RED"  # M 7.7: the magnitude decides it, as it does without any place
 
 
-def test_the_severity_is_the_same_with_and_without_a_place(panama: World) -> None:
-    without = panama.client.get("/v1/geojson/hazards").json()["features"][0]["properties"]["severity"]
-    add(panama, name="Camp", kind="place", lat=7.62, lon=-80.80, radius_km=50.0)
-    assert panama.client.get("/v1/geojson/hazards").json()["features"][0]["properties"]["severity"] == without
+def test_the_severity_is_the_one_the_source_gave_with_or_without_a_place(panama: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    source = real.usgs_earthquake(real.PANAMA_M77).severity.value
+    assert panama.client.get("/v1/geojson/hazards").json()["features"][0]["properties"]["severity"] == source
+    monkeypatch.setattr(panama.aggregator.places, "_faults", lambda: None)  # the places unknown: the same severity
+    assert panama.client.get("/v1/geojson/hazards").json()["features"][0]["properties"]["severity"] == source
 
 
 def test_the_json_routes_carry_the_places_too(panama: World) -> None:
-    add(panama, name="Camp", kind="place", lat=7.62, lon=-80.80, radius_km=50.0)
     snapshot = panama.client.get("/v1/snapshot", params={"compact": "false"}).json()
-    assert [p["name"] for p in snapshot["hazards"][0]["near_places"]] == ["Azuero Fault Zone", "Camp"]
+    assert [p["name"] for p in snapshot["hazards"][0]["near_places"]] == ["Azuero Fault Zone"]
     assert snapshot["hazards"][0]["derived"] == ["near_places"]
 
     point = panama.client.get("/v1/point", params={"lat": 7.6, "lon": -80.8, "radius_km": 200, "compact": "false"}).json()
-    assert [p["name"] for p in point["nearby_hazards"][0]["near_places"]] == ["Azuero Fault Zone", "Camp"]
+    assert [p["name"] for p in point["nearby_hazards"][0]["near_places"]] == ["Azuero Fault Zone"]
 
     history = panama.client.get("/v1/history").json()  # the collection recorded it: the history keeps what was said
-    assert [p["name"] for p in history["items"][0]["near_places"]] == ["Azuero Fault Zone", "Camp"]
+    assert [p["name"] for p in history["items"][0]["near_places"]] == ["Azuero Fault Zone"]
 
 
 def test_the_compact_profile_keeps_to_its_16_kib_and_carries_no_places(panama: World) -> None:
     """The compact snapshot and point (the default of both) are held to 16 KiB with the credit of every item: a place and the
     credit of its source on each of 15 hazards would not fit, so they are not in it. The field is null there: not worked out."""
-    add(panama, name="Camp", kind="place", lat=7.62, lon=-80.80, radius_km=50.0)
     for hazard in (
         panama.client.get("/v1/snapshot").json()["hazards"][0],
         panama.client.get("/v1/point", params={"lat": 7.6, "lon": -80.8, "radius_km": 200}).json()["nearby_hazards"][0],
@@ -267,3 +274,86 @@ def test_a_volcano_in_alert_is_told_to_the_earthquakes_near_it(world: World, mon
     assert [(p["name"], p["kind"], p["sources"]) for p in near] == [("Great Sitkin", "volcano", ["USGS_VOLCANO"])]
     assert near[0]["distance_km"] == pytest.approx(10.0, abs=0.1)
     assert all(f["properties"]["category"] != "VOLCANO" or f["properties"]["near_places"] is not None for f in features.values())
+
+
+def test_a_hazard_that_is_compared_with_nothing_says_so_with_null(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A storm has no fault or volcano to be near: ``null`` (not worked out), never an empty list that would claim "nothing is near"."""
+    storm = real.usgs_earthquake(real.PANAMA_M77).model_copy(update={"id": "nhc_test_storm", "category": HazardCategory.HURRICANE, "depth_km": None})
+    monkeypatch.setattr(world.aggregator.usgs, "fetch", AsyncMock(return_value=[storm]))
+    [feature] = world.client.get("/v1/geojson/hazards").json()["features"]
+    assert feature["properties"]["near_places"] is None and feature["properties"]["derived"] == []
+
+
+# ============================================================================
+# 3. A watched point is personal: it is in its own routes and nowhere else
+# ============================================================================
+
+HOME = "ZQX Home 7431"  # a name nobody else would write: it is looked for in everything the clients share
+
+
+def put_home_on_the_earthquake(world: World) -> dict[str, Any]:
+    """A point named HOME at the epicentre, with the biggest radius: the nearest a point can be to a hazard."""
+    return add(world, name=HOME, kind="place", lat=7.62, lon=-80.80, radius_km=MAX_WATCHED_RADIUS_KM)
+
+
+def test_a_watched_point_is_in_its_own_routes(panama: World) -> None:
+    put_home_on_the_earthquake(panama)
+    assert [p["name"] for p in panama.client.get("/v1/watched-points").json()] == [HOME]
+    status = panama.client.get("/v1/watched-points/status").json()
+    assert [p["point"]["name"] for p in status["points"]] == [HOME]
+
+
+def test_a_watched_point_never_appears_in_what_every_client_shares(panama: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A home, or any text someone wrote with POST, must not reach the hazards of every client (and of a public website)."""
+    put_home_on_the_earthquake(panama)
+    shared = {
+        "geojson": panama.client.get("/v1/geojson/hazards").text,
+        "history": panama.client.get("/v1/history").text,
+        "snapshot": panama.client.get("/v1/snapshot").text,
+        "snapshot (full)": panama.client.get("/v1/snapshot", params={"compact": "false"}).text,
+        "point": panama.client.get("/v1/point", params={"lat": 7.6, "lon": -80.8, "radius_km": 200}).text,
+        "point (full)": panama.client.get("/v1/point", params={"lat": 7.6, "lon": -80.8, "radius_km": 200, "compact": "false"}).text,
+        "cap": panama.client.get("/v1/cap/alerts").text,
+        "frame": panama.client.get("/v1/embedded/frame", params={"device_type": "waveshare-7b", "lat": 7.6, "lon": -80.8}).text,
+        "health": panama.client.get("/v1/health").text,
+    }
+    # The stream: what a client receives when it connects, and what the scheduler pushes for a new hazard.
+    with panama.client.websocket_connect("/v1/stream") as ws:
+        shared["stream (first message)"] = json.dumps(ws.receive_json())
+    scheduler._known_hazards.clear()
+    broadcast = AsyncMock()
+    monkeypatch.setattr(ws_hub, "broadcast", broadcast)
+    assert panama.client.post("/v1/scheduler/trigger").json()["new_or_upgraded_count"] == 1
+    shared["stream (push)"] = json.dumps(broadcast.await_args.args[0])
+
+    for route, text in shared.items():
+        assert HOME not in text, f"the name of a watched point is in {route}"
+    assert "Azuero Fault Zone" in shared["geojson"] and "Azuero Fault Zone" in shared["history"]  # the reference places are
+    # (the stream and the compact snapshot carry no near_places at all: they keep to 16 KiB)
+
+
+def test_a_watched_point_is_not_kept_in_the_hazard_history_either(panama: World) -> None:
+    """The history is the database the status reads: what is stored is the hazard, never the name of a point."""
+    put_home_on_the_earthquake(panama)
+    panama.client.get("/v1/geojson/hazards")
+    with sqlite3.connect(panama.aggregator.storage.db_path) as connection:
+        rows = connection.execute("SELECT payload_json FROM hazards_history").fetchall()
+    assert rows and all(HOME not in payload for (payload,) in rows)
+
+
+def test_the_places_of_a_hazard_do_not_change_when_a_point_is_added_or_deleted(panama: World) -> None:
+    before = panama.client.get("/v1/geojson/hazards").json()["features"][0]["properties"]
+    point = put_home_on_the_earthquake(panama)
+    during = panama.client.get("/v1/geojson/hazards").json()["features"][0]["properties"]
+    panama.client.delete(f"/v1/watched-points/{point['id']}")
+    after = panama.client.get("/v1/geojson/hazards").json()["features"][0]["properties"]
+    assert before["near_places"] == during["near_places"] == after["near_places"]
+    assert before["attribution"] == during["attribution"] == after["attribution"]
+
+
+def test_a_point_cannot_be_given_the_kind_of_a_near_place_by_the_hazard_routes(panama: World) -> None:
+    """Even a point of kind ``volcano`` or ``fault`` (what the user calls it) stays out of the hazards: they list the sources' volcanoes only."""
+    add(panama, name=HOME, kind="volcano", lat=7.62, lon=-80.80, radius_km=100.0)
+    add(panama, name=HOME + " fault", kind="fault", lat=7.62, lon=-80.80, radius_km=100.0)
+    names = [p["name"] for p in panama.client.get("/v1/geojson/hazards").json()["features"][0]["properties"]["near_places"]]
+    assert names == ["Azuero Fault Zone"]

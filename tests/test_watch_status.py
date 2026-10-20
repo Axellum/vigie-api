@@ -32,6 +32,8 @@ from app.services.watch import (
 from tests import places_samples as real
 from tests.conftest import World
 
+pytestmark = pytest.mark.usefixtures("watched_points_write_on")  # the points are written through the routes
+
 DAY = 86400
 NOW = 1_792_500_000  # a fixed "now" for the pure tests
 

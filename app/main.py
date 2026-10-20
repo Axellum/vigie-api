@@ -10,10 +10,11 @@ Endpoints:
 - ``GET    /v1/zones``             : Watched zones (SQLite watchlist).
 - ``POST   /v1/zones``             : Add or update a watched zone.
 - ``DELETE /v1/zones/{zone_id}``   : Delete a watched zone.
-- ``GET    /v1/watched-points``    : The points the user watches (a place, a fault, a volcano...): events near them are named
-                                     in ``near_places`` of the hazards.
-- ``POST   /v1/watched-points``    : Add or update a watched point.
-- ``DELETE /v1/watched-points/{point_id}`` : Delete a watched point.
+- ``GET    /v1/watched-points``    : The points the user watches (a place, a fault, a volcano...). Personal: they are listed
+                                     here and in their status, never in the hazards.
+- ``POST   /v1/watched-points``    : Add or update a watched point. Off unless ``VIGIE_ENABLE_WATCHED_POINTS_WRITE=1``:
+                                     it answers 403 otherwise.
+- ``DELETE /v1/watched-points/{point_id}`` : Delete a watched point (same switch).
 - ``GET    /v1/watched-points/status`` : For each point, the events of the last days within its radius, and "quiet" only when
                                      every hazard source answered and has been read without a gap.
 - ``GET    /v1/history``           : Hazard history from SQLite, with filters.
@@ -51,7 +52,7 @@ import time
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Literal, Optional
 
-from fastapi import FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -187,6 +188,28 @@ def simulation_enabled() -> bool:
     return _env_flag("VIGIE_ENABLE_SIMULATION")
 
 
+def watched_points_write_enabled() -> bool:
+    """``POST`` and ``DELETE`` of ``/v1/watched-points`` work only when ``VIGIE_ENABLE_WATCHED_POINTS_WRITE`` is ``1`` / ``true`` / ``yes`` / ``on``.
+
+    The routes have no authentication and a watched point is personal (a home, for example), so an instance that others can
+    reach keeps them off (the default) or puts a reverse proxy in front that lets nobody write. The reads always work.
+    Read at each request.
+    """
+    return _env_flag("VIGIE_ENABLE_WATCHED_POINTS_WRITE")
+
+
+def require_watched_points_write() -> None:
+    """Refuse a write of the watched points (403) while ``VIGIE_ENABLE_WATCHED_POINTS_WRITE`` is not on; it runs before the body is read."""
+    if not watched_points_write_enabled():
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Writing watched points is disabled on this instance. Set VIGIE_ENABLE_WATCHED_POINTS_WRITE=1 to enable it, "
+                "only on an instance that trusted clients alone can reach (the routes have no authentication)."
+            ),
+        )
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Load the bundled fault traces, start the background scheduler when enabled and stop it cleanly on shutdown."""
@@ -251,6 +274,7 @@ async def get_health() -> dict[str, Any]:
         "monitored_zones_count": len(aggregator.monitored_zones),
         "watched_points_count": len(aggregator.watched_points),
         "active_faults_loaded": len(faults) if (faults := aggregator.places.faults()) is not None else None,
+        "watched_points_write_enabled": watched_points_write_enabled(),
         "simulation_enabled": simulation_enabled(),
         "simulation_active": aggregator.simulation_active,
         "active_scenario": aggregator.active_scenario.value,
@@ -307,7 +331,7 @@ async def delete_zone(zone_id: str) -> dict[str, Any]:
 
 @app.get("/v1/watched-points", response_model=list[WatchedPoint], tags=["Watchlist"])
 async def get_watched_points() -> list[WatchedPoint]:
-    """List the points the instance watches (like `/v1/zones`, the list is not protected: it is public on a public instance)."""
+    """List the points the instance watches. The list is not protected (like `/v1/zones`): it is public on a public instance."""
     return aggregator.watched_points
 
 
@@ -315,13 +339,19 @@ async def get_watched_points() -> list[WatchedPoint]:
     "/v1/watched-points",
     response_model=WatchedPoint,
     tags=["Watchlist"],
-    responses={409: {"description": "The instance already keeps the largest number of watched points (`VIGIE_WATCHED_POINTS_MAX`)."}},
+    dependencies=[Depends(require_watched_points_write)],
+    responses={
+        403: {"description": "Writing watched points is off (`VIGIE_ENABLE_WATCHED_POINTS_WRITE` is not set to 1)."},
+        409: {"description": "The instance already keeps the largest number of watched points (`VIGIE_WATCHED_POINTS_MAX`)."},
+    },
 )
 async def upsert_watched_point(request: WatchedPointUpsertRequest) -> WatchedPoint:
     """Add or update a watched point: a name, a kind (`place`, `fault`, `volcano`, `custom`), a position and a radius.
 
-    The hazards within the radius of a point name it in their `near_places`, and `/v1/watched-points/status` lists what
-    happened near it. Like `/v1/zones`, the route has no authentication: do not leave it open on an instance that others can reach.
+    `/v1/watched-points/status` lists what happened near it. The point is personal: its name is shown by these two routes
+    only, never in the hazards. **Off unless `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`** (403 otherwise). The route has no
+    authentication: on an instance that others can reach, keep it off or block `POST` and `DELETE` of `/v1/watched-points`
+    in a reverse proxy, like `/v1/zones` and `/v1/simulate`.
     """
     try:
         return aggregator.upsert_watched_point(request)
@@ -329,9 +359,14 @@ async def upsert_watched_point(request: WatchedPointUpsertRequest) -> WatchedPoi
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@app.delete("/v1/watched-points/{point_id}", tags=["Watchlist"])
+@app.delete(
+    "/v1/watched-points/{point_id}",
+    tags=["Watchlist"],
+    dependencies=[Depends(require_watched_points_write)],
+    responses={403: {"description": "Writing watched points is off (`VIGIE_ENABLE_WATCHED_POINTS_WRITE` is not set to 1)."}},
+)
 async def delete_watched_point(point_id: str) -> dict[str, Any]:
-    """Delete a watched point."""
+    """Delete a watched point. Same switch as the `POST`: off unless `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`."""
     if not aggregator.delete_watched_point(point_id):
         raise HTTPException(status_code=404, detail=f"Watched point '{point_id}' not found")
     return {"status": "deleted", "point_id": point_id}

@@ -174,7 +174,7 @@ class AggregatorService:
         faults: Optional[FaultIndex] = None,
     ) -> None:
         self.started_at_utc = int(time.time())
-        # How far the hazards look for the places near them (faults, volcanoes in alert, the watched points): settings, not
+        # How far the hazards look for the places near them (faults, volcanoes in alert): settings, not
         # sourced facts (``PlaceSettings``). ``faults`` replaces the bundled fault file (a test).
         self.places = NearPlacesService(place_settings or PlaceSettings.from_env(), (lambda: faults) if faults is not None else None)
         # RainViewer is on unless VIGIE_ENABLE_RAINVIEWER turns it off (see ``rainviewer_enabled_from_env``).
@@ -456,7 +456,7 @@ class AggregatorService:
         fused = deduplicate_hazards(raw_hazards)
         enriched = [self._attach_nearest_monitored_zone(h) for h in fused]
         try:  # the places near each hazard; they never change a severity, and a failure of theirs never stops the hazards
-            enriched = self.places.annotate(enriched, self.watched_points)
+            enriched = self.places.annotate(enriched)
         except Exception:
             log.warning("near_places could not be worked out", exc_info=True)
         try:

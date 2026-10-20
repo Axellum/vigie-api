@@ -1,4 +1,4 @@
-"""Near places: what a hazard is close to, computed by Vigie (active faults, volcanoes in alert, the points the user watches).
+"""Near places: what a hazard is close to, computed by Vigie (active faults, volcanoes in alert). Never the points a user watches.
 
 The checks that matter run on **real answers recorded on 2026-10-20** (``tests/fixtures/places/README.md``): the M 7.7 earthquake of
 Panama, the real volcano alerts of the USGS and GDACS. The distance to a fault is checked against a second, independent
@@ -8,13 +8,15 @@ traces), not against the code that is tested.
 
 from __future__ import annotations
 
+import inspect
+
 import pytest
 from shapely.geometry import LineString
 
 from app.attribution import CREDITS
 from app.collectors.disasters import GDACSCollector
 from app.collectors.flood_air import USGSVolcanoCollector
-from app.models.places import NearPlace, WatchedPoint
+from app.models.places import NearPlace
 from app.models.schemas import HazardAlert, HazardCategory, SeverityLevel
 from app.services.geodesy import deduplicate_hazards
 from app.services.geoindex import line_distance_km
@@ -65,7 +67,7 @@ def straight_index(*traces: tuple[str, list[list[float]]]) -> FaultIndex:
 
 
 def no_faults() -> NearPlacesService:
-    """A service that knows no fault: the tests of the volcanoes and of the points look at those alone."""
+    """A service that knows no fault: the tests of the volcanoes look at those alone."""
     return NearPlacesService(PlaceSettings(), lambda: straight_index())
 
 
@@ -88,7 +90,7 @@ def test_the_panama_earthquake_is_about_4_km_from_the_azuero_fault_zone(service:
     quake = real.usgs_earthquake(real.PANAMA_M77)
     assert (quake.value_primary, quake.depth_km) == (7.7, 12.6)
 
-    places = service.near_places(quake, [], [])
+    places = service.near_places(quake, [])
     assert places is not None and [p.name for p in places] == ["Azuero Fault Zone"]
     place = places[0]
     assert (place.kind, place.sources) == ("fault", ["GEM"])
@@ -132,7 +134,7 @@ def test_the_faults_found_are_the_ones_an_independent_search_finds(event_id: str
             continue
         distance = distance_to_line_km(quake.lat, quake.lon, [vertex[:2] for vertex in feature["geometry"]["coordinates"]])
         truth[label] = min(distance, truth.get(label, float("inf")))
-    found = {p.name: p.distance_km for p in service.near_places(quake, [], []) or []}
+    found = {p.name: p.distance_km for p in service.near_places(quake, []) or []}
 
     must_be_found = {name for name, d in truth.items() if d <= radius - SIMPLIFICATION_KM}
     may_be_found = {name for name, d in truth.items() if d <= radius + SIMPLIFICATION_KM}
@@ -144,7 +146,7 @@ def test_the_faults_found_are_the_ones_an_independent_search_finds(event_id: str
 
 def test_the_tezpur_earthquake_is_about_3_km_from_the_barapani_tyrsad_fault(service: NearPlacesService) -> None:
     quake = real.usgs_earthquake(real.TEZPUR)
-    [place] = service.near_places(quake, [], []) or []
+    [place] = service.near_places(quake, []) or []
     assert place.name == "Barapani - Tyrsad Fault" and place.distance_km == pytest.approx(3.2, abs=0.6)
 
 
@@ -156,23 +158,23 @@ def test_a_deep_earthquake_is_not_compared_with_a_surface_trace(service: NearPla
         index = service.faults()
         assert index is not None
         assert trace in dict(index.near(quake.lat, quake.lon, 10.0, 5))  # the trace is there...
-        assert service.near_places(quake, [], []) == []  # ...and is not said
+        assert service.near_places(quake, []) == []  # ...and is not said
 
         # the depth limit is a setting
         deep_enough = NearPlacesService(PlaceSettings(fault_max_depth_km=250.0))
-        assert [p.name for p in deep_enough.near_places(quake, [], []) or []] == [trace]
+        assert [p.name for p in deep_enough.near_places(quake, []) or []] == [trace]
 
 
 def test_an_earthquake_with_no_depth_is_compared_with_the_faults(service: NearPlacesService) -> None:
     """A depth the source did not give is unknown, not deep: the trace is said."""
     quake = real.usgs_earthquake(real.PANAMA_M77).model_copy(update={"depth_km": None})
-    assert [p.name for p in service.near_places(quake, [], []) or []] == ["Azuero Fault Zone"]
+    assert [p.name for p in service.near_places(quake, []) or []] == ["Azuero Fault Zone"]
 
 
 def test_an_earthquake_far_from_every_trace_has_an_empty_list_not_a_missing_one(service: NearPlacesService) -> None:
     for event_id in (real.EASTER_ISLAND, real.FIJI_DATE_LINE):
         quake = real.usgs_earthquake(event_id)
-        assert service.near_places(quake, [], []) == []
+        assert service.near_places(quake, []) == []
 
 
 # ============================================================================
@@ -205,7 +207,7 @@ def test_a_fault_with_several_traces_is_said_once_at_its_nearest() -> None:
 def test_the_places_are_sorted_nearest_first_capped_and_rounded() -> None:
     traces = [(f"Fault {n}", [[10.0 + 0.01 * n, 0.0], [10.0 + 0.01 * n, 1.0]]) for n in range(1, 9)]  # 1.1 km, 2.2 km... 8.9 km
     service = NearPlacesService(PlaceSettings(max_places=5), lambda: straight_index(*traces))
-    places = service.near_places(alert(lat=0.5, lon=10.0), [], []) or []
+    places = service.near_places(alert(lat=0.5, lon=10.0), []) or []
     assert [p.name for p in places] == [f"Fault {n}" for n in range(1, 6)]
     assert [p.distance_km for p in places] == sorted(p.distance_km for p in places)
     assert all(round(p.distance_km, 1) == p.distance_km for p in places)
@@ -225,30 +227,33 @@ def test_an_empty_index_finds_nothing() -> None:
 def test_when_the_fault_file_cannot_be_read_the_faults_of_an_earthquake_are_unknown_not_none_near() -> None:
     service = NearPlacesService(PlaceSettings(), lambda: None)
     quake = real.usgs_earthquake(real.PANAMA_M77)
-    assert service.near_places(quake, [], []) is None  # not worked out: not "nothing is near"
-    storm = alert("storm", HazardCategory.HURRICANE, 15.0, -60.0)
-    assert service.near_places(storm, [], []) == []  # a storm needs no fault: it was worked out
-    annotated = service.annotate([quake, storm], [])
+    assert service.near_places(quake, []) is None  # not worked out: not "nothing is near"
+    deep = quake.model_copy(update={"id": "deep", "depth_km": 200.0})
+    assert service.near_places(deep, []) == []  # too deep for the faults, so it needs none: it was worked out
+    annotated = service.annotate([quake, deep])
     assert [h.near_places for h in annotated] == [None, []]
     assert annotated[0].derived == [] and annotated[1].derived == ["near_places"]
 
 
-def test_a_storm_a_flood_and_a_tsunami_are_not_compared_with_faults(service: NearPlacesService) -> None:
+def test_a_storm_a_flood_and_a_tsunami_are_compared_with_nothing_so_they_say_nothing(service: NearPlacesService) -> None:
+    """No reference place applies to them: ``null`` (not worked out), which is not the same answer as "nothing is near"."""
     on_the_fault = real.usgs_earthquake(real.PANAMA_M77)
     for category in (HazardCategory.HURRICANE, HazardCategory.FLOOD, HazardCategory.TSUNAMI, HazardCategory.WILDFIRE):
-        assert service.near_places(alert("x", category, on_the_fault.lat, on_the_fault.lon), [], []) == []
+        hazard = alert("x", category, on_the_fault.lat, on_the_fault.lon)
+        assert service.near_places(hazard, []) is None
+        [annotated] = service.annotate([hazard])
+        assert annotated.near_places is None and annotated.derived == []
 
 
 def test_a_volcanic_event_is_compared_with_the_faults(service: NearPlacesService) -> None:
     quake = real.usgs_earthquake(real.PANAMA_M77)
     eruption = alert("v1", HazardCategory.VOLCANO, quake.lat, quake.lon, depth_km=None, sources=("GDACS",))
-    assert [p.name for p in service.near_places(eruption, [], []) or []] == ["Azuero Fault Zone"]
+    assert [p.name for p in service.near_places(eruption, []) or []] == ["Azuero Fault Zone"]
 
 
 def test_a_simulated_alert_is_not_compared_with_anything(service: NearPlacesService) -> None:
     quake = real.usgs_earthquake(real.PANAMA_M77).model_copy(update={"id": "sim_eq_panama"})
-    point = WatchedPoint(id="p1", name="Here", kind="place", lat=quake.lat, lon=quake.lon, radius_km=50.0)
-    assert service.near_places(quake, [], [point]) is None
+    assert service.near_places(quake, []) is None
 
 
 # ============================================================================
@@ -284,12 +289,12 @@ def test_an_earthquake_near_a_volcano_in_alert_is_told() -> None:
     sitkin = real.volcano(real.usgs_volcanoes(), "Great Sitkin")
     lat, lon = north_of(sitkin, 12.0)
     quake = alert("eq1", lat=lat, lon=lon, depth_km=8.0)
-    [place] = no_faults().near_places(quake, [sitkin], []) or []
+    [place] = no_faults().near_places(quake, [sitkin]) or []
     assert (place.name, place.kind, place.sources) == ("Great Sitkin", "volcano", ["USGS_VOLCANO"])
     assert place.distance_km == pytest.approx(12.0, abs=0.1)
 
     far_lat, far_lon = north_of(sitkin, 40.0)
-    assert no_faults().near_places(alert("eq2", lat=far_lat, lon=far_lon), [sitkin], []) == []
+    assert no_faults().near_places(alert("eq2", lat=far_lat, lon=far_lon), [sitkin]) == []
 
 
 def test_the_volcano_radius_is_a_setting() -> None:
@@ -297,61 +302,44 @@ def test_the_volcano_radius_is_a_setting() -> None:
     lat, lon = north_of(sitkin, 30.0)
     quake = alert("eq3", lat=lat, lon=lon)
     wider = NearPlacesService(PlaceSettings(volcano_km=35.0), lambda: straight_index())
-    assert no_faults().near_places(quake, [sitkin], []) == []
-    assert [p.name for p in wider.near_places(quake, [sitkin], []) or []] == ["Great Sitkin"]
+    assert no_faults().near_places(quake, [sitkin]) == []
+    assert [p.name for p in wider.near_places(quake, [sitkin]) or []] == ["Great Sitkin"]
 
 
 def test_only_earthquakes_are_told_about_volcanoes_and_a_volcano_is_not_its_own_neighbour() -> None:
     gdacs = real.gdacs_volcanoes()
     kanlaon, taal = real.volcano(gdacs, "Kanlaon"), real.volcano(gdacs, "Taal")
     service = no_faults()
-    assert service.near_places(kanlaon, [kanlaon, taal], []) == []  # the volcano itself is not near itself; Taal is 4 degrees away
+    assert service.near_places(kanlaon, [kanlaon, taal]) == []  # the volcano itself is not near itself; Taal is 4 degrees away
     storm = alert("tc", HazardCategory.HURRICANE, kanlaon.lat + 0.05, kanlaon.lon)
-    assert service.near_places(storm, [kanlaon], []) == []  # a storm is not told about volcanoes
+    assert service.near_places(storm, [kanlaon]) is None  # a storm is not told about volcanoes, nor about anything
 
 
 def test_the_gdacs_volcano_is_named_too_and_credited() -> None:
     kanlaon = real.volcano(real.gdacs_volcanoes(), "Kanlaon")
     lat, lon = north_of(kanlaon, 9.0)
-    [annotated] = no_faults().annotate([alert("eq4", lat=lat, lon=lon), kanlaon], [])[:1]
+    [annotated] = no_faults().annotate([alert("eq4", lat=lat, lon=lon), kanlaon])[:1]
     [place] = annotated.near_places or []
     assert (place.name, place.kind, place.sources) == ("Kanlaon", "volcano", ["GDACS"])
     assert CREDITS["gdacs"].text in (annotated.attribution or "")  # the volcano's name comes from GDACS: its credit goes with it
 
 
 # ============================================================================
-# 5. The points the user watches
+# 5. The points the user watches are not here
 # ============================================================================
 
 
-def point(name: str, kind: str, lat: float, lon: float, radius_km: float, point_id: str = "p1") -> WatchedPoint:
-    return WatchedPoint(id=point_id, name=name, kind=kind, lat=lat, lon=lon, radius_km=radius_km)  # type: ignore[arg-type]
+def test_a_place_the_user_names_cannot_be_a_near_place() -> None:
+    """A near place is a fault or a volcano: the kinds ``place`` and ``custom`` of a watched point are refused (tests/test_watched_points.py checks the routes)."""
+    for kind in ("place", "custom"):
+        with pytest.raises(ValueError):
+            NearPlace(name="Home", kind=kind, distance_km=1.0)  # type: ignore[arg-type]
 
 
-def test_a_watched_point_is_named_within_its_own_radius_for_every_kind_of_hazard() -> None:
-    service = no_faults()
-    quake = real.usgs_earthquake(real.EASTER_ISLAND)
-    lat, lon = quake.lat + 30.0 / KM_PER_DEGREE, quake.lon
-    inside, outside = point("Inside", "place", lat, lon, 50.0, "p1"), point("Outside", "place", lat, lon, 20.0, "p2")
-    assert [(p.name, p.kind, p.sources) for p in service.near_places(quake, [], [inside, outside]) or []] == [("Inside", "place", [])]
-    storm = alert("tc2", HazardCategory.HURRICANE, quake.lat, quake.lon)
-    assert [p.name for p in service.near_places(storm, [], [inside, outside]) or []] == ["Inside"]
-
-
-def test_the_kind_the_user_gave_is_kept_and_a_name_is_said_once() -> None:
-    service = no_faults()
-    sitkin = real.volcano(real.usgs_volcanoes(), "Great Sitkin")
-    lat, lon = north_of(sitkin, 10.0)
-    quake = alert("eq5", lat=lat, lon=lon)
-    mine = point("great sitkin", "volcano", sitkin.lat, sitkin.lon, 40.0)  # the user watches the same volcano, in lower case
-    mixed = point("My camp", "custom", sitkin.lat, sitkin.lon, 40.0, "p2")
-    places = service.near_places(quake, [sitkin], [mine, mixed]) or []
-    # The volcano is said once (the report's spelling is kept, the user's copy is the same name); at the same distance the order is kind, then name.
-    assert [(p.name, p.kind, p.sources) for p in places] == [("My camp", "custom", []), ("Great Sitkin", "volcano", ["USGS_VOLCANO"])]
-
-
-def test_without_a_watched_point_nothing_is_added() -> None:
-    assert no_faults().near_places(real.usgs_earthquake(real.EASTER_ISLAND), [], []) == []
+def test_the_service_cannot_be_given_a_watched_point() -> None:
+    """The decision is in the signatures: only the hazard and the volcanoes the sources named come in."""
+    assert list(inspect.signature(NearPlacesService.near_places).parameters) == ["self", "hazard", "volcanoes"]
+    assert list(inspect.signature(NearPlacesService.annotate).parameters) == ["self", "hazards"]
 
 
 # ============================================================================
@@ -360,7 +348,7 @@ def test_without_a_watched_point_nothing_is_added() -> None:
 
 
 def test_the_result_is_named_in_derived_and_the_fault_is_credited(service: NearPlacesService) -> None:
-    [annotated] = service.annotate([real.usgs_earthquake(real.PANAMA_M77)], [])
+    [annotated] = service.annotate([real.usgs_earthquake(real.PANAMA_M77)])
     assert annotated.near_places is not None and annotated.derived == ["near_places"]
     attribution = annotated.attribution or ""
     assert CREDITS["gem_faults"].text in attribution and CREDITS["usgs"].text in attribution
@@ -372,7 +360,7 @@ def test_the_result_is_named_in_derived_and_the_fault_is_credited(service: NearP
 
 
 def test_an_empty_answer_is_still_derived_but_carries_no_fault_credit(service: NearPlacesService) -> None:
-    [annotated] = service.annotate([real.usgs_earthquake(real.EASTER_ISLAND)], [])
+    [annotated] = service.annotate([real.usgs_earthquake(real.EASTER_ISLAND)])
     assert annotated.near_places == [] and annotated.derived == ["near_places"]
     assert CREDITS["gem_faults"].text not in (annotated.attribution or "")
 
@@ -392,9 +380,8 @@ def test_the_severity_and_everything_else_never_change(service: NearPlacesServic
         sitkin,
         alert("storm", HazardCategory.HURRICANE, 15.0, -60.0, severity=SeverityLevel.RED),
     ]
-    mine = [point("Camp", "place", h.lat, h.lon, 100.0, f"p{n}") for n, h in enumerate(hazards)]
     before = [h.model_dump(exclude={"near_places", "derived", "attribution"}) for h in hazards]
-    annotated = service.annotate(hazards, mine)
+    annotated = service.annotate(hazards)
     assert [h.model_dump(exclude={"near_places", "derived", "attribution"}) for h in annotated] == before
     assert [h.severity for h in annotated] == [h.severity for h in hazards]
     assert all(h.near_places is None for h in hazards)  # the collectors' own (cached) objects are not touched
@@ -403,7 +390,7 @@ def test_the_severity_and_everything_else_never_change(service: NearPlacesServic
 
 def test_the_result_survives_the_history(service: NearPlacesService) -> None:
     """The history stores a hazard as JSON: the places come back, and an old row without them still reads."""
-    [annotated] = service.annotate([real.usgs_earthquake(real.PANAMA_M77)], [])
+    [annotated] = service.annotate([real.usgs_earthquake(real.PANAMA_M77)])
     assert HazardAlert.model_validate_json(annotated.model_dump_json()).near_places == annotated.near_places
     old_row = real.usgs_earthquake(real.PANAMA_M77).model_dump_json(exclude={"near_places", "derived", "attribution"})
     assert HazardAlert.model_validate_json(old_row).near_places is None

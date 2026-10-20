@@ -1,7 +1,7 @@
 """Near places: what an event is close to, computed by Vigie (``near_places`` of a hazard).
 
-An earthquake is "6 km from the Azuero Fault Zone (active fault)", or "12 km from Etna (volcano)", or "35 km from <a point the user
-watches>". Three sets of named places are compared with each hazard that has a position:
+An earthquake is "6 km from the Azuero Fault Zone (active fault)" or "12 km from Etna (volcano)". Two sets of reference places are
+compared with the hazards that have a position:
 
 - **Active faults**: the traces of the GEM Global Active Faults Database that have a name, bundled in
   ``app/data/gem-active-faults.geojson.gz`` (built by ``tools/build_faults.py``; CC BY-SA 4.0, see ``SOURCES.md``). Only for the
@@ -9,15 +9,19 @@ watches>". Three sets of named places are compared with each hazard that has a p
   the distance to a surface trace says nothing about it.
 - **Volcanoes**: only those the hazard sources name themselves (a GDACS eruption, a USGS elevated alert), never a bundled list
   (the Smithsonian list has no licence we could read yet), and only for earthquakes. A volcano that is not in alert is not here.
-- **Watched points**: the points the user added (``/v1/watched-points``), for every kind of hazard, within the radius of each point.
+
+**The points the user watches are not here.** ``near_places`` is in the outputs every client shares, a watched point is personal (a
+home, for example) and anyone who can write one could make any text appear in everyone's hazards: the watched points are listed
+by ``/v1/watched-points`` and ``/v1/watched-points/status`` only (``watch.py``).
 
 **The radii are settings, not sourced facts** (``PlaceSettings``, the "near" variables of the README): nobody publishes
 the distance at which an epicentre is "near" a fault, and the catalogues' positions are uncertain by several kilometres. They say
 how far this instance looks; ``docs/decisions/0008-sensitive-points.md`` gives the reasoning. The result never changes the
 severity of a hazard, and it is named in the ``derived`` list of the hazard.
 
-``near_places`` is ``None`` when it could not be worked out (the bundled file is missing or damaged, so the faults of an
-earthquake are unknown) and ``[]`` when it was and nothing is near: an empty list is an answer, not a gap.
+``near_places`` is ``None`` when it was not worked out (a hazard that is compared with nothing, such as a storm or a flood; a
+simulated alert; the bundled file is missing or damaged, so the faults of an earthquake are unknown) and ``[]`` when it was and
+nothing is near: an empty list is an answer, not a gap.
 """
 
 from __future__ import annotations
@@ -38,7 +42,7 @@ from shapely.affinity import translate
 from shapely.geometry import LineString, box
 
 from app.attribution import SIMULATED_ID_PREFIX
-from app.models.places import NearPlace, WatchedPoint
+from app.models.places import NearPlace
 from app.models.schemas import HazardAlert, HazardCategory
 from app.services.geodesy import EARTH_RADIUS_KM, haversine_km
 from app.services.geoindex import DATA_DIR, line_distance_km
@@ -161,7 +165,7 @@ def default_faults() -> Optional[FaultIndex]:
 
 
 class NearPlacesService:
-    """Works out the ``near_places`` of hazards from the faults, the volcanoes in alert and the watched points."""
+    """Works out the ``near_places`` of hazards from the faults and the volcanoes in alert (never from the watched points)."""
 
     def __init__(
         self,
@@ -179,11 +183,12 @@ class NearPlacesService:
         self,
         hazard: HazardAlert,
         volcanoes: Iterable[HazardAlert],
-        points: Iterable[WatchedPoint],
     ) -> Optional[list[NearPlace]]:
-        """The places near one hazard, nearest first; ``None`` when the faults it needs are unknown."""
+        """The places near one hazard, nearest first; ``None`` when it is compared with nothing or the faults it needs are unknown."""
         if hazard.id.startswith(SIMULATED_ID_PREFIX):
             return None  # a simulated alert is nowhere
+        if hazard.category not in FAULT_CATEGORIES:
+            return None  # a storm, a flood, a tsunami: no reference place is compared with it, which is not "nothing is near"
         found: list[NearPlace] = []
         if hazard.category in FAULT_CATEGORIES and (hazard.depth_km is None or hazard.depth_km <= self.settings.fault_max_depth_km):
             index = self.faults()
@@ -202,11 +207,7 @@ class NearPlacesService:
                     found.append(
                         NearPlace(name=volcano.place_name, kind="volcano", distance_km=round(distance, 1), sources=list(volcano.sources or [volcano.source]))
                     )
-        for point in points:
-            distance = haversine_km(hazard.lat, hazard.lon, point.lat, point.lon)
-            if distance <= point.radius_km:
-                found.append(NearPlace(name=point.name, kind=point.kind, distance_km=round(distance, 1)))
-        # The nearest first; a name is said once (a volcano the user also watches, a fault with several traces).
+        # The nearest first; a name is said once (a fault with several traces, a volcano that two sources name).
         found.sort(key=lambda place: (place.distance_km, place.kind, place.name))
         kept: list[NearPlace] = []
         seen: set[tuple[str, str]] = set()
@@ -217,8 +218,7 @@ class NearPlacesService:
                 kept.append(place)
         return kept[: self.settings.max_places]
 
-    def annotate(self, hazards: list[HazardAlert], points: Iterable[WatchedPoint]) -> list[HazardAlert]:
+    def annotate(self, hazards: list[HazardAlert]) -> list[HazardAlert]:
         """The hazards with their ``near_places`` (new objects: the collectors' cached alerts are not touched)."""
         volcanoes = [h for h in hazards if h.category == HazardCategory.VOLCANO and h.place_name is not None]
-        watched = list(points)
-        return [h.model_copy(update={"near_places": self.near_places(h, volcanoes, watched)}) for h in hazards]
+        return [h.model_copy(update={"near_places": self.near_places(h, volcanoes)}) for h in hazards]

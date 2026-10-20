@@ -267,10 +267,11 @@ class HazardAlert(BaseModel):
     )
     near_places: Optional[list[NearPlace]] = Field(
         default=None,
-        description="Named places close to the event, nearest first, computed by Vigie (active faults, volcanoes in alert, the points "
-        "the instance watches; the radii are settings). Empty: nothing is near. Null: not worked out (the faults are unknown, the "
-        "alert is simulated, or the compact profile of `/v1/snapshot` and `/v1/point`, which keeps to 16 KiB: ask `compact=false`). "
-        "Named in `derived`; it never changes `severity`",
+        description="Reference places close to an earthquake or a volcanic event, nearest first, computed by Vigie: the named active "
+        "faults and the volcanoes that the hazard sources name (the radii are settings). Never the points a user watches: they are "
+        "personal and listed by `/v1/watched-points` only. Empty: nothing is near. Null: not worked out (a hazard that is compared "
+        "with nothing, such as a storm or a flood; the faults are unknown; the alert is simulated; or the compact profile of "
+        "`/v1/snapshot` and `/v1/point`, which keeps to 16 KiB: ask `compact=false`). Named in `derived`; it never changes `severity`",
     )
 
     # What names the same event in two sources when they do not agree on its time and place (a storm: its name and its
