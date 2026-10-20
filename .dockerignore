@@ -3,6 +3,7 @@
 .github
 .wt
 .venv
+.venv-ha
 **/__pycache__
 **/*.pyc
 .pytest_cache
@@ -17,6 +18,9 @@ dist
 *.log
 logs
 tests
+tests_ha
+custom_components
+hacs.json
 tools
 docs
 scripts
