@@ -5,6 +5,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **No flood level is drawn from river discharge any more.** `flood_risk.flood_alert_level` of `/v1/point` is always
+  null and no longer raises `local_alert_level` (points, zones, dashboard). It came from `anomaly_ratio`, the highest
+  GloFAS ensemble member over the ensemble mean, which measures how far the forecast scenarios spread, not how high the
+  river is: on 2026-10-20 it said "yellow" for the Seine in Paris while the day's discharge (32.65 m3/s) was below the
+  mean forecast (55.63 m3/s). Open-Meteo gives no flood threshold. The discharges and the ratio stay, described for what
+  they are; official flood warnings are in `/v1/vigilances`. The embedded frame and the Home Assistant integration did
+  not use this level.
+
 ### Added
 
 - **A Home Assistant integration** (`custom_components/vigie`, `hacs.json`), configured in the interface: the address of
@@ -19,7 +29,8 @@ All notable changes to this project are documented here. The format follows
   is followed too and a push makes the integration read again at once; the poll stays as the fallback and the whole
   mechanism otherwise. English and French, diagnostics with the coordinates redacted. See
   [`docs/home-assistant.md`](docs/home-assistant.md) and [ADR 0004](docs/decisions/0004-home-assistant-integration-same-repository.md).
-  Not yet tried on a running Home Assistant.
+  Tried on a running Home Assistant 2026.10.2 on 2026-10-20: the entities against a real instance, `new`, `upgraded` and
+  `ended` from the fake instance, and the entities unavailable when the instance stops answering.
 - **`tests_ha/`**: 132 tests of the integration (`pytest-homeassistant-custom-component` 0.13.373, which pins Home
   Assistant 2026.10.2 and needs Python 3.14.2 or newer, in an environment of its own), and
   `tests/test_home_assistant_contract.py` in the API's CI, which checks that the answers they use (a real recorded one,

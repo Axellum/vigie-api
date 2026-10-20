@@ -35,7 +35,6 @@ from app.main import aggregator, app  # noqa: E402
 from app.models.schemas import (  # noqa: E402
     AirQualityStatus,
     FloodRiskStatus,
-    SeverityLevel,
     SimulationRequest,
     SimulationScenario,
     SpaceWeatherStatus,
@@ -135,7 +134,7 @@ def world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:
                 river_discharge_mean_m3s=40.0,
                 river_discharge_max_m3s=46.0,
                 anomaly_ratio=1.15,
-                flood_alert_level=SeverityLevel.GREEN,
+                flood_alert_level=None,
                 attribution=credit_text(*FLOOD),
             )
         ),

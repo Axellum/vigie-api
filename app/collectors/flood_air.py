@@ -90,10 +90,15 @@ class OpenMeteoFloodCollector(BaseCollector[FloodRiskStatus]):
 
     @staticmethod
     def parse_response(payload: dict[str, Any]) -> FloodRiskStatus:
-        """Compute the discharge ratio and the heuristic flood level.
+        """Read the river discharge; no flood level is drawn from it.
 
-        The ratio is the maximum forecast discharge over the mean forecast discharge (both
-        GloFAS ensemble statistics). The level is a heuristic, not an official warning.
+        ``river_discharge_max`` is the highest of the ensemble members and ``river_discharge_mean`` their
+        mean ("statistical analysis from ensemble members", https://open-meteo.com/en/docs/flood-api), so the
+        ratio of the two measures how far the forecast scenarios spread, not how high the river is. A level
+        drawn from it said "yellow flood" for the Seine in Paris on 2026-10-20 while the day's discharge
+        (32.65 m3/s) was below the mean forecast (55.63 m3/s): the members only disagreed (maximum 146.57).
+        The API gives no flood threshold or return period, so ``flood_alert_level`` stays null (unknown);
+        official flood warnings come from ``/v1/vigilances`` (Vigicrues, MeteoAlarm, NWS...).
         Raises ``ValueError`` when the response has no river discharge value.
         """
         daily = payload.get("daily") or {}
@@ -107,24 +112,14 @@ class OpenMeteoFloodCollector(BaseCollector[FloodRiskStatus]):
         max_q = round(max(maxes), 2)
         mean_q = round(sum(means) / len(means), 2) if means else None
 
-        ratio: Optional[float] = None
-        level: Optional[SeverityLevel] = None
-        if mean_q is not None:
-            ratio = round(max_q / max(mean_q, 1.0), 2)
-            level = SeverityLevel.GREEN
-            if max_q >= 50.0 and ratio >= 5.0:
-                level = SeverityLevel.RED
-            elif max_q >= 25.0 and ratio >= 3.0:
-                level = SeverityLevel.ORANGE
-            elif max_q >= 10.0 and ratio >= 2.0:
-                level = SeverityLevel.YELLOW
+        ratio = None if mean_q is None else round(max_q / max(mean_q, 1.0), 2)
 
         return FloodRiskStatus(
             river_discharge_m3s=max(0.0, curr_q),
             river_discharge_mean_m3s=None if mean_q is None else max(0.0, mean_q),
             river_discharge_max_m3s=max(0.0, max_q),
             anomaly_ratio=ratio,
-            flood_alert_level=level,
+            flood_alert_level=None,
             attribution=credit_text(*FLOOD),
         )
 
