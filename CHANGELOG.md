@@ -17,6 +17,27 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Active fires, from NASA FIRMS** (`nasa_firms`), for an instance that has a free key (`VIGIE_FIRMS_MAP_KEY`). The detections of
+  the VIIRS instruments of NOAA-20 and NOAA-21 (375 m pixels, near real-time product), read as one world file per source and UTC
+  day every 60 minutes when someone asks (`VIGIE_FIRMS_REFRESH_MINUTES`, `VIGIE_FIRMS_SOURCES`), kept as typed columns (about 10 MB
+  for the four files) and served without ever making a request wait for FIRMS once something was read:
+  - `GET /v1/fires?bbox=w,s,e,n`: a GeoJSON FeatureCollection of the detections of a box and of the last hours (24 by default, 48 at
+    most), with the fields of the FIRMS file; `min_confidence`, `min_frp`, `limit` (1,000 by default, 5,000 at most, the strongest
+    first, `metadata.truncated` when cut). A west greater than the east crosses the antimeridian.
+  - `GET /v1/fires/grid`: the same detections counted per cell of 0.25 to 10 degrees (`count`, `max_frp_mw`, `latest_utc`), for small
+    zooms.
+  - `fires_nearby` on `GET /v1/point` (`fire_radius_km`, 50 by default): count in 24 hours, nearest distance, highest power, named in
+    `derived`, never part of `local_alert_level`.
+  - The fires are not in `GET /v1/geojson/hazards`. A detection is a satellite pixel, not an alert and not a confirmed fire; every
+    answer carries NASA's acknowledgment and disclaimer word for word. Without a key the routes answer 404, `fires_nearby` is
+    null and `GET /v1/health` lists the source in `disabled_sources`.
+  - **The key is in the URL of every FIRMS request and is never shown**: it is redacted in every error, in `last_error` and in the
+    logs of `httpx`, and `tests/test_firms_secret.py` looks for it everywhere. A world read weighs 36 of the 5,000 transactions allowed
+    in 10 minutes (measured); FIRMS has no `ETag` or `Last-Modified`, so every read is a full read (about 5 MB, 47,000 to 59,000 rows,
+    0.15 s to parse): 60 reads and about 170 MB a day with 1,000 clients; nothing when nobody asks, apart from the read at start-up
+    ([ADR 0007](docs/decisions/0007-active-fires-from-nasa-firms.md), `docs/data-sources.md`).
+  - `tools/check_live_feeds.py` reads one world day of FIRMS when it has the key and **skips it without** (new outcome `skipped`,
+    never a failure): the weekly workflow has no key, so it skips FIRMS.
 - **More countries, through the registry of the WMO Severe Weather Information Centre** (`wmo_swic_registry`, `wmo_swic`).
   The registry lists the national services that publish CAP warnings (140 services in 135 countries on 2026-10-20). For a
   country that has no source of its own, the API reads the service's own feed (and the WMO's copy of it, for a service on a

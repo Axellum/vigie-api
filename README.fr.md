@@ -63,6 +63,7 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
 | `GET /v1/point?lat=&lon=` | Météo en un point GPS, mer (`marine=true`), débit des rivières, qualité de l'air, météo spatiale, dangers proches. |
 | `GET /v1/geojson/hazards` | Dangers actifs en GeoJSON (RFC 7946) : un point chacun. `has_forecast` dit si une tempête ou un tsunami a une prévision. |
 | `GET /v1/geojson/hazards/{id}/forecast` | La prévision d'un danger en GeoJSON : le cône, la trajectoire et les positions d'un cyclone tropical, l'épicentre et les heures d'arrivée d'un tsunami. Voir « Tempêtes et tsunamis » plus bas. |
+| `GET /v1/fires?bbox=w,s,e,n`, `GET /v1/fires/grid` | Les feux actifs vus par NASA FIRMS (VIIRS, NOAA-20 et NOAA-21) : les détections d'une zone en GeoJSON, ou comptées par cellule pour les petits zooms. Demande `VIGIE_FIRMS_MAP_KEY` (404 sans). Voir « Feux actifs » plus bas. |
 | `GET /v1/cap/alerts` | Dangers actifs en OASIS CAP 1.2. |
 | `GET /v1/vigilances?lat=&lon=` ou `?country=FR` ou `?source=tsunami` | Vigilances météo officielles qui couvrent un point, ou toutes celles d'un pays (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues et les services nationaux du registre de l'OMM), ou les messages de tsunami en cours, avec les mots de l'émetteur intacts. Voir plus bas. |
 | `GET /v1/vigilances/countries` | Les pays que cette instance sert avec ses réglages, les sources qui répondent pour chacun, et si leur licence est vérifiée. |
@@ -283,6 +284,37 @@ GET /v1/vigilances?source=tsunami                         tous les messages de t
   sauf la première en `304`, de quelques centaines d'octets), 230 ko et 116 ko un jour calme ; un message une fois, une
   archive une fois par avis. [ADR 0005](docs/decisions/0005-tsunamis-and-storms.md).
 
+## Feux actifs
+
+`GET /v1/fires` et `GET /v1/fires/grid` servent les feux actifs vus par les instruments VIIRS de NOAA-20 et NOAA-21 (le produit
+quasi temps réel de [NASA FIRMS](https://www.earthdata.nasa.gov/data/tools/firms), pixels de 375 m). **Ils demandent une clé gratuite**
+(`VIGIE_FIRMS_MAP_KEY`, voir « Configuration ») : sans elle ils répondent 404 et `GET /v1/health` liste la source dans
+`disabled_sources`. Les feux ne sont pas dans `GET /v1/geojson/hazards`, qu'une carte charge en entier.
+
+```
+GET /v1/fires?bbox=28,-22,38,-12                          les détections d'une zone, les plus fortes d'abord (1 000 au plus)
+GET /v1/fires?bbox=170,-25,-170,-10&hours=12&min_confidence=nominal   à cheval sur l'antiméridien, les 12 dernières heures
+GET /v1/fires/grid?cell_deg=5                             le monde compté par cellule de 5 degrés
+GET /v1/point?lat=-15.4&lon=28.3&fire_radius_km=50        fires_nearby : nombre, distance la plus proche, puissance maximale
+```
+
+- **Les champs sont ceux du fichier** : `acq_utc`, `satellite`, `instrument`, `confidence` (`low`, `nominal`, `high`), `frp_mw` (puissance
+  radiative du feu), `bright_ti4_k`, `bright_ti5_k`, `scan_km`, `track_km`, `daynight`, `version`. Une valeur que le fichier ne donne pas est `null`.
+- **Les limites** : `bbox` est `ouest,sud,est,nord` (un ouest plus grand que l'est passe l'antiméridien ; latitudes entre -90 et 90,
+  `sud < nord`) ; `hours` jusqu'à 48 ; `limit` 1 000 par défaut et 5 000 au plus (la grille : 5 000 et 20 000) ; `cell_deg` 0,25, 0,5, 1, 2, 5 ou
+  10. Tout le reste est un 422. `metadata` dit combien de détections correspondaient et si la réponse a été coupée.
+- **Une détection n'est pas une alerte.** C'est un pixel de satellite qui ressemble à un feu : l'absence de détection n'est pas
+  l'absence de feu (un satellite passe quelques fois par jour, les nuages cachent le sol), et la NASA ne conseille pas ces données pour
+  des décisions tactiques ni pour des conditions locales. Les données sont publiées environ 3 heures après l'observation (les
+  États-Unis et le Canada en quelques minutes). `fires_nearby` est nommé dans `derived` et ne relève jamais `local_alert_level`.
+- **Le crédit** que demande la NASA (`attribution`) et son avertissement (`disclaimer`) sont dans chaque réponse.
+- **Peu de requêtes.** FIRMS n'a ni `ETag` ni `Last-Modified` : chaque lecture est une lecture complète d'environ 5 Mo, une par source et
+  par jour UTC, au plus toutes les 60 minutes (`VIGIE_FIRMS_REFRESH_MINUTES`), seulement quand quelqu'un demande (et une fois au démarrage). Une journée de 1 000
+  clients, c'est 60 lectures, 2 160 des 5 000 transactions permises en 10 minutes (144 au plus à la fois) et environ 170 Mo. Une requête
+  n'attend jamais FIRMS dès que quelque chose a été lu. [ADR 0007](docs/decisions/0007-active-fires-from-nasa-firms.md).
+- **La clé n'est jamais montrée** : elle est dans l'URL de chaque requête à FIRMS, et elle est masquée dans chaque erreur, dans
+  `last_error` et dans les journaux. Gardez-la hors du dépôt et des commandes que vous partagez.
+
 ## Home Assistant
 
 `custom_components/vigie` est une intégration Home Assistant qui lit ces vigilances pour un lieu et donne un capteur
@@ -340,7 +372,7 @@ Tous les réglages sont des variables d'environnement facultatives.
 | `VIGIE_BUDGET_FRACTION` | `0.9` | Part du quota publié de chaque source (Open-Meteo 10 000 appels par jour, MET Norway, RainViewer) que l'API laisse passer. Au-delà, le cache est servi, marqué périmé. |
 | `VIGIE_FIRMS_MAP_KEY` | aucune | La `MAP_KEY` gratuite de [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/api/map_key/). Sans elle, les feux actifs sont désactivés : `GET /v1/fires` et `GET /v1/fires/grid` répondent 404, `fires_nearby` de `/v1/point` est nul et `GET /v1/health` liste la source dans `disabled_sources`. La clé est dans l'URL de chaque requête à FIRMS : l'API ne l'écrit jamais (erreurs, `last_error`, journaux), mais gardez-la hors du dépôt, de l'historique de votre shell et des commandes que vous partagez. Une valeur qui n'est pas faite de lettres et de chiffres désactive la source. |
 | `VIGIE_FIRMS_SOURCES` | `VIIRS_NOAA20_NRT,VIIRS_NOAA21_NRT` | Les produits FIRMS lus : un seul, ou les deux (un seul divise le volume par deux). Le reste est ignoré (Suomi NPP s'arrête le 2026-11-02, MODIS a une autre structure). |
-| `VIGIE_FIRMS_REFRESH_MINUTES` | `60` | Durée pendant laquelle une lecture des feux est gardée avant la suivante, de 10 à 360. Une lecture, ce sont deux fichiers d'environ 5 Mo : 60 minutes coûtent environ 170 Mo par jour quand quelqu'un demande, 30 minutes le double (`docs/data-sources.md`). Si personne ne demande, rien n'est lu. |
+| `VIGIE_FIRMS_REFRESH_MINUTES` | `60` | Durée pendant laquelle une lecture des feux est gardée avant la suivante, de 10 à 360. Une lecture, ce sont deux fichiers d'environ 5 Mo : 60 minutes coûtent environ 170 Mo par jour quand quelqu'un demande, 30 minutes le double (`docs/data-sources.md`). Une fois la lecture du démarrage faite, si personne ne demande, rien n'est lu. |
 
 Aucune source ne demande de clé d'API, sauf NASA FIRMS, facultative (les feux actifs : `VIGIE_FIRMS_MAP_KEY`). Une valeur de grille hors de 0,0001 à 10 degrés est ignorée (la
 valeur par défaut est utilisée). Seules la requête envoyée à la source et la clé du cache utilisent le point
