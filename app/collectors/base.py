@@ -12,6 +12,7 @@ import asyncio
 import math
 import os
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import timezone
 from email.utils import parsedate_to_datetime
@@ -294,6 +295,10 @@ class BaseCollector(ABC, Generic[T]):
             return result.value
         self._record_success(elapsed_ms, cache_key, result, ttl_seconds)
         return result
+
+    def call_weight(self, params: Mapping[str, str]) -> float:
+        """Weight of one upstream request in the quota of the provider: 1.0 unless the provider weights its calls."""
+        return 1.0
 
     @abstractmethod
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> T | Collected[T]:

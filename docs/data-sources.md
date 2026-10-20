@@ -43,12 +43,39 @@ polled for a position is also asked for a grid cell, not for the exact point (se
 
 A refresh happens only when someone asks after the TTL, so the calls per day of a cell are
 `86400 / TTL` at most, whatever the number of clients. With the TTLs above, per cell and per day:
-about 96 forecasts (15 minutes), 24 air quality calls (1 hour), 24 marine calls (1 hour) and 4
-river discharge calls (6 hours). The 5 default zones, with the scheduler on, cost about 440
-forecasts and 120 air quality calls a day. A GPS position adds a forecast, an air quality call and,
-when requested, marine and river discharge calls; two positions in the same cell share them. The
-hazard feeds add one call per feed per TTL (about 1,440 a day for USGS and EMSC, which have the
-shortest TTL, and fewer with the scheduler's 90 s period).
+at most 96 "now" requests of the forecast (15 minutes) and 24 daily ones (1 hour), 24 air quality
+calls (1 hour), 24 marine calls (1 hour) and 4 river discharge calls (6 hours). A GPS position adds
+those calls (marine and river discharge when requested); two positions in the same cell share them.
+The hazard feeds add one call per feed per TTL (at most 1,440 a day for USGS and EMSC, which have the
+shortest TTL; the scheduler alone refreshes them every 90 s, 960 a day).
+
+### Weight of the Open-Meteo calls
+
+Open-Meteo counts "API calls", not HTTP requests: one that asks for more than 10 variables or more
+than 2 weeks of data counts as several, with fractional counts
+([pricing](https://open-meteo.com/en/pricing): "a request for 2 weeks of data with 15 weather variables
+will be calculated as 1.5 API calls"; [blog](https://openmeteo.substack.com/p/weather-data-for-multiple-locations):
+weight = locations x days / 14 x variables / 10, the variables being the sum of the hourly, daily and
+current ones). The API applies `max(1, variables / 10) x max(1, days / 14)` per location
+(`app/collectors/weights.py`; the 15-minute variables are counted too, which can only over-estimate).
+The limit of 10,000 calls a day is a limit on this weight, not on the number of requests.
+
+| Request | Variables | Days | Weight |
+| --- | --- | --- | --- |
+| Forecast, as one request (before) | 10 current + 1 15-minute + 7 daily = 18 | 10 | **1.8** |
+| Forecast, "now" part (after) | 10 current + 1 15-minute = 11 | default | **1.1** |
+| Forecast, "daily" part (after) | 7 daily | 10 | **1.0** |
+| Air quality | 6 current | default | 1.0 |
+| River discharge | 3 daily | 7 | 1.0 |
+| Marine | 8 current | default | 1.0 |
+
+The forecast is the only request over 10 variables. Every one of its 18 variables is used (the
+frame or the JSON routes), so none was dropped: bringing one request to weight 1.0 would have cost 8
+fields. Splitting it does not lower the weight of one refresh of both parts (fractional counts: 1.1 + 1.0 =
+2.1 instead of 1.8), but the two parts are refreshed at their own pace: the current
+conditions and the 15-minute rain every 15 minutes (11 variables), the daily forecast every hour
+(7 variables, 10 days). Per cell and per day: 96 x 1.8 = 173 before, 96 x 1.1 + 24 x 1.0 = 130
+after (-25%) at the same freshness of the current conditions.
 
 ## Attribution to show
 

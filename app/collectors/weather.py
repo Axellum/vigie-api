@@ -22,6 +22,8 @@ no 15-minute nowcast in its compact product, so those stay unknown).
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import Mapping
 from datetime import date, datetime, timedelta
 from typing import Any, Optional
 
@@ -34,6 +36,7 @@ from app.collectors.grid import (
     grid_step_from_env,
     snap_to_grid,
 )
+from app.collectors.weights import open_meteo_weight
 from app.models.schemas import CurrentWeather, DailyForecast
 
 # The longest forecast any route returns (non-compact ``/v1/snapshot`` and ``/v1/point``: 10 days).
@@ -112,9 +115,37 @@ def _rounded(value: Any, digits: int = 1) -> Optional[float]:
 
 
 class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
-    """Primary collector: Open-Meteo forecast with the 15-minute rain of the next hour and the daily forecast."""
+    """Primary collector: Open-Meteo forecast with the 15-minute rain of the next hour and the daily forecast.
+
+    A position costs two requests, refreshed at the pace of what they carry:
+
+    - ``now``: the current conditions and the 15-minute rain of the next hour (11 variables, weight 1.1),
+      every 15 minutes, the resolution of that data;
+    - ``daily``: the daily forecast (7 variables, 10 days, weight 1.0), every hour, because the weather
+      models are updated every hour at best.
+
+    Asked as one request they would weigh 1.8 calls (18 variables) at every refresh of the shortest
+    lifetime; two requests with their own lifetimes weigh 1.1 + 1.0 / 4 per quarter of an hour.
+    Splitting never costs a field: the two sets of variables are the ones the single request had.
+    """
 
     BASE_URL = "https://api.open-meteo.com/v1/forecast"
+
+    # Variables of the "now" request, then of the "daily" request.
+    CURRENT_VARIABLES = (
+        "temperature_2m,apparent_temperature,relative_humidity_2m,"
+        "pressure_msl,wind_speed_10m,wind_gusts_10m,wind_direction_10m,"
+        "precipitation,weather_code,uv_index"
+    )
+    NOWCAST_VARIABLES = "precipitation"
+    DAILY_VARIABLES = (
+        "weather_code,temperature_2m_max,temperature_2m_min,"
+        "precipitation_sum,precipitation_probability_max,"
+        "wind_speed_10m_max,uv_index_max"
+    )
+    # The daily forecast is refreshed every hour: the models are updated hourly at best
+    # (https://open-meteo.com/en/docs, table "Update frequency"). The "now" part uses ``ttl_seconds``.
+    DAILY_TTL_SECONDS = 3600
 
     def __init__(
         self, http_client: Optional[httpx.AsyncClient] = None, grid_deg: Optional[float] = None
@@ -135,62 +166,108 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
             else grid_step_from_env("VIGIE_GRID_FORECAST_DEG", DEFAULT_FORECAST_GRID_DEG)
         )
 
-    def cache_key_for(self, lat: float, lon: float) -> str:
-        """Cache key of a point forecast: the position snapped to the forecast grid (no number of days)."""
+    def cache_keys_for(self, lat: float, lon: float) -> tuple[str, str]:
+        """Cache keys of the "now" and the "daily" parts of a point: its cell on the forecast grid (no number of days)."""
         s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
-        return f"om:{coord_str(s_lat)},{coord_str(s_lon)}"
+        cell = f"{coord_str(s_lat)},{coord_str(s_lon)}"
+        return f"om-now:{cell}", f"om-daily:{cell}"
 
     def get_stale_point(self, lat: float, lon: float) -> Optional[dict[str, Any]]:
-        """Return the last cached forecast of a point, even if its TTL has expired."""
-        return self._get_stale_cache(self.cache_key_for(lat, lon))
+        """Return the last cached forecast of a point, even if its TTL has expired.
+
+        ``None`` when the current conditions were never cached; a missing daily forecast is unknown (empty).
+        """
+        now_key, daily_key = self.cache_keys_for(lat, lon)
+        now = self._get_stale_cache(now_key)
+        if now is None:
+            return None
+        daily = self._get_stale_cache(daily_key) or {"utc_offset_s": None, "daily_10d": []}
+        return self._merge_parts(now, daily)
 
     async def fetch_point(self, lat: float, lon: float, allow_stale_on_error: bool = False) -> dict[str, Any]:
-        """Fetch the full forecast (``MAX_FORECAST_DAYS`` days) near the coordinates, snapped to the forecast grid."""
+        """Fetch the full forecast (``MAX_FORECAST_DAYS`` days) near the coordinates, snapped to the forecast grid.
+
+        Both parts are needed: when one of them cannot be had, the error is raised so that the caller
+        falls back to another provider.
+        """
         s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
-        return await self.fetch(
-            cache_key=self.cache_key_for(lat, lon),
-            lat=s_lat,
-            lon=s_lon,
-            allow_stale_on_error=allow_stale_on_error,
+        now_key, daily_key = self.cache_keys_for(lat, lon)
+        now, daily = await asyncio.gather(
+            self.fetch(
+                now_key, lat=s_lat, lon=s_lon, part="now", allow_stale_on_error=allow_stale_on_error
+            ),
+            self.fetch(
+                daily_key,
+                lat=s_lat,
+                lon=s_lon,
+                part="daily",
+                ttl_seconds=self.DAILY_TTL_SECONDS,
+                allow_stale_on_error=allow_stale_on_error,
+            ),
+            return_exceptions=True,
         )
+        for part in (now, daily):
+            if isinstance(part, BaseException):
+                raise part
+        return self._merge_parts(now, daily)  # type: ignore[arg-type]
+
+    @staticmethod
+    def request_params(part: str, lat: float, lon: float) -> dict[str, str]:
+        """Query parameters of the "now" or the "daily" request at ``lat, lon``."""
+        params = {"latitude": coord_str(lat), "longitude": coord_str(lon), "timezone": "auto"}
+        if part == "daily":
+            params["daily"] = OpenMeteoCollector.DAILY_VARIABLES
+            params["forecast_days"] = str(MAX_FORECAST_DAYS)
+        else:
+            params["current"] = OpenMeteoCollector.CURRENT_VARIABLES
+            params["minutely_15"] = OpenMeteoCollector.NOWCAST_VARIABLES
+            params["forecast_minutely_15"] = "4"
+        return params
+
+    def call_weight(self, params: Mapping[str, str]) -> float:
+        """Weight of one request under the Open-Meteo rule (see ``app/collectors/weights.py``)."""
+        return open_meteo_weight(params, default_forecast_days=7)
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> dict[str, Any]:
-        lat = float(kwargs["lat"])
-        lon = float(kwargs["lon"])
-
-        params = {
-            "latitude": coord_str(lat),
-            "longitude": coord_str(lon),
-            "current": (
-                "temperature_2m,apparent_temperature,relative_humidity_2m,"
-                "pressure_msl,wind_speed_10m,wind_gusts_10m,wind_direction_10m,"
-                "precipitation,weather_code,uv_index"
-            ),
-            "minutely_15": "precipitation",
-            "forecast_minutely_15": "4",
-            "daily": (
-                "weather_code,temperature_2m_max,temperature_2m_min,"
-                "precipitation_sum,precipitation_probability_max,"
-                "wind_speed_10m_max,uv_index_max"
-            ),
-            "forecast_days": str(MAX_FORECAST_DAYS),
-            "timezone": "auto",
-        }
+        part = str(kwargs.get("part", "now"))
+        params = self.request_params(part, float(kwargs["lat"]), float(kwargs["lon"]))
         resp = await client.get(self.BASE_URL, params=params)
         resp.raise_for_status()
-        return self.parse_response(resp.json())
+        payload = resp.json()
+        return self.parse_daily(payload) if part == "daily" else self.parse_now(payload)
+
+    @staticmethod
+    def _merge_parts(now: dict[str, Any], daily: dict[str, Any]) -> dict[str, Any]:
+        """Join the "now" and the "daily" parts into the weather bundle the aggregator uses."""
+        utc_offset = now.get("utc_offset_s")
+        return {
+            "provider_name": "Open-Meteo",
+            "utc_offset_s": utc_offset if utc_offset is not None else daily.get("utc_offset_s"),
+            "current": now["current"],
+            "rain_next_60m": now["rain_next_60m"],
+            "daily_10d": daily["daily_10d"],
+        }
 
     @staticmethod
     def parse_response(payload: dict[str, Any]) -> dict[str, Any]:
-        """Normalize an Open-Meteo response. Missing variables become ``None``.
+        """Normalize a response that carries both parts. Missing variables become ``None``.
 
         Raises ``ValueError`` when there is no current temperature at all: such a
         response is unusable and the caller must fall back to another provider.
         """
+        return OpenMeteoCollector._merge_parts(
+            OpenMeteoCollector.parse_now(payload), OpenMeteoCollector.parse_daily(payload)
+        )
+
+    @staticmethod
+    def parse_now(payload: dict[str, Any]) -> dict[str, Any]:
+        """Normalize the current conditions and the 15-minute rain of a response.
+
+        Raises ``ValueError`` when there is no current temperature at all.
+        """
         curr = payload.get("current")
         if not isinstance(curr, dict) or optional_float(curr.get("temperature_2m")) is None:
             raise ValueError("Open-Meteo response has no current temperature")
-        daily = payload.get("daily") or {}
         min15 = payload.get("minutely_15") or {}
 
         wind_deg = optional_float(curr.get("wind_direction_10m"))
@@ -214,6 +291,17 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
         if len(raw_steps) == 4 and all(step is not None for step in raw_steps):
             rain_next_60m = [round(max(0.0, step), 2) for step in raw_steps if step is not None]
 
+        utc_offset = optional_float(payload.get("utc_offset_seconds"))
+        return {
+            "utc_offset_s": None if utc_offset is None else int(utc_offset),
+            "current": current_weather,
+            "rain_next_60m": rain_next_60m,
+        }
+
+    @staticmethod
+    def parse_daily(payload: dict[str, Any]) -> dict[str, Any]:
+        """Normalize the daily forecast of a response. Missing variables become ``None``."""
+        daily = payload.get("daily") or {}
         times = daily.get("time") or []
         codes = daily.get("weather_code") or []
         tmins = daily.get("temperature_2m_min") or []
@@ -247,10 +335,7 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
 
         utc_offset = optional_float(payload.get("utc_offset_seconds"))
         return {
-            "provider_name": "Open-Meteo",
             "utc_offset_s": None if utc_offset is None else int(utc_offset),
-            "current": current_weather,
-            "rain_next_60m": rain_next_60m,
             "daily_10d": daily_forecasts,
         }
 

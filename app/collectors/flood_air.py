@@ -14,6 +14,7 @@ value at all raises ``ValueError``, so the caller reports "unknown" instead of a
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -27,6 +28,7 @@ from app.collectors.grid import (
     grid_step_from_env,
     snap_to_grid,
 )
+from app.collectors.weights import open_meteo_weight
 from app.models.schemas import (
     AirQualityStatus,
     FloodRiskStatus,
@@ -60,6 +62,10 @@ class OpenMeteoFloodCollector(BaseCollector[FloodRiskStatus]):
         self.grid_deg = (
             grid_deg if grid_deg is not None else grid_step_from_env("VIGIE_GRID_FLOOD_DEG", DEFAULT_FLOOD_GRID_DEG)
         )
+
+    def call_weight(self, params: Mapping[str, str]) -> float:
+        """Weight of one request under the Open-Meteo rule (3 variables, 7 days: 1.0)."""
+        return open_meteo_weight(params, default_forecast_days=92)
 
     async def fetch_flood_risk(self, lat: float, lon: float) -> FloodRiskStatus:
         """Fetch river discharge and flood risk near ``lat, lon`` (snapped to the flood grid)."""
@@ -142,6 +148,10 @@ class OpenMeteoAirQualityCollector(BaseCollector[AirQualityStatus]):
             if grid_deg is not None
             else grid_step_from_env("VIGIE_GRID_AIR_QUALITY_DEG", DEFAULT_AIR_QUALITY_GRID_DEG)
         )
+
+    def call_weight(self, params: Mapping[str, str]) -> float:
+        """Weight of one request under the Open-Meteo rule (6 current variables: 1.0)."""
+        return open_meteo_weight(params, default_forecast_days=5)
 
     async def fetch_air_quality(self, lat: float, lon: float) -> AirQualityStatus:
         """Fetch the AQI, fine particles, UV and dust / ash near ``lat, lon`` (snapped to the air quality grid)."""

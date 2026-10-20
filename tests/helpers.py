@@ -25,6 +25,7 @@ from app.collectors.space_weather import NOAASWPCCollector
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector, RainViewerCollector
 from app.services.aggregator import AggregatorService
 from app.services.storage_wal import SQLiteWALStorage
+from tests import samples
 
 
 class SimClock:
@@ -98,6 +99,23 @@ class Provider:
     def query(self, index: int = -1) -> dict[str, str]:
         """The query parameters of the ``index``-th request."""
         return dict(self.requests[index].url.params)
+
+    def with_param(self, name: str) -> list[httpx.Request]:
+        """The requests that carry the query parameter ``name``."""
+        return [request for request in self.requests if name in request.url.params]
+
+
+def forecast_provider(payload: Optional[dict[str, Any]] = None) -> Provider:
+    """Open-Meteo forecast: answers only the blocks (``current``, ``minutely_15``, ``daily``) a request asks for."""
+    full = payload if payload is not None else samples.open_meteo_payload()
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        asked = request.url.params
+        body: dict[str, Any] = {"utc_offset_seconds": full.get("utc_offset_seconds")}
+        body.update({block: full[block] for block in ("current", "minutely_15", "daily") if block in asked})
+        return httpx.Response(200, json=body)
+
+    return Provider(answer=answer)
 
 
 def unavailable_client() -> httpx.AsyncClient:

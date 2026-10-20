@@ -13,7 +13,7 @@ from app.collectors.seismic import USGSCollector
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector
 from app.services.geodesy import haversine_km
 from tests import samples
-from tests.helpers import Provider, make_service
+from tests.helpers import Provider, forecast_provider, make_service
 
 PARIS = (48.8566, 2.3522)
 
@@ -109,27 +109,27 @@ def test_grids_come_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> Non
 
 @pytest.mark.asyncio
 async def test_forecast_request_and_cache_use_the_snapped_point() -> None:
-    provider = Provider(samples.open_meteo_payload())
+    provider = forecast_provider()
     collector = OpenMeteoCollector(http_client=provider.client(), grid_deg=0.05)
 
     await collector.fetch_point(48.8566, 2.3522)
-    assert provider.count == 1
-    assert provider.query()["latitude"] == "48.85"
-    assert provider.query()["longitude"] == "2.35"
+    assert provider.count == 2  # the current conditions and the daily forecast
+    assert all(request.url.params["latitude"] == "48.85" for request in provider.requests)
+    assert all(request.url.params["longitude"] == "2.35" for request in provider.requests)
 
-    # A client 2 km away, and one 400 m away, are served by the same cache entry.
+    # A client 2 km away, and one 400 m away, are served by the same cache entries.
     await collector.fetch_point(48.8710, 2.3300)
     await collector.fetch_point(48.8590, 2.3560)
-    assert provider.count == 1
-
-    # A client in the next cell (about 10 km) costs a call.
-    await collector.fetch_point(48.95, 2.35)
     assert provider.count == 2
+
+    # A client in the next cell (about 10 km) costs two more requests.
+    await collector.fetch_point(48.95, 2.35)
+    assert provider.count == 4
 
 
 @pytest.mark.asyncio
 async def test_each_data_type_uses_its_own_grid() -> None:
-    forecast = Provider(samples.open_meteo_payload())
+    forecast = forecast_provider()
     air = Provider({"current": {"european_aqi": 31, "pm10": 14.0}})
     flood = Provider({"daily": {"river_discharge": [42.0], "river_discharge_mean": [40.0], "river_discharge_max": [46.0]}})
     marine = Provider(samples.marine_payload())
@@ -145,7 +145,7 @@ async def test_each_data_type_uses_its_own_grid() -> None:
     await flood_collector.fetch_flood_risk(lat, lon)
     await marine_collector.fetch_marine(lat, lon)
 
-    assert (forecast.query()["latitude"], forecast.query()["longitude"]) == ("48.85", "2.35")
+    assert {(r.url.params["latitude"], r.url.params["longitude"]) for r in forecast.requests} == {("48.85", "2.35")}
     for provider in (air, flood, marine):
         assert (provider.query()["latitude"], provider.query()["longitude"]) == ("48.9", "2.4")
 
@@ -155,7 +155,7 @@ async def test_each_data_type_uses_its_own_grid() -> None:
     await air_collector.fetch_air_quality(near_lat, near_lon)
     await flood_collector.fetch_flood_risk(near_lat, near_lon)
     await marine_collector.fetch_marine(near_lat, near_lon)
-    assert forecast.count == 2
+    assert forecast.count == 4  # another forecast cell: the "now" and the "daily" part again
     assert air.count == 1 and flood.count == 1 and marine.count == 1
 
 
@@ -173,7 +173,7 @@ async def test_the_response_keeps_the_exact_position_and_distances_use_it(tmp_pa
             ]
         }
     )
-    forecast = Provider(samples.open_meteo_payload())
+    forecast = forecast_provider()
     service = make_service(
         tmp_path / "grid.db",
         usgs=USGSCollector(http_client=usgs.client()),
@@ -183,7 +183,7 @@ async def test_the_response_keeps_the_exact_position_and_distances_use_it(tmp_pa
 
     point = await service.build_point_response(lat=lat, lon=lon, radius_km=500.0)
 
-    assert forecast.query()["latitude"] == "48.85"  # the snapped point went upstream
+    assert {r.url.params["latitude"] for r in forecast.requests} == {"48.85"}  # the snapped point went upstream
     assert point.coordinates.lat == round(lat, 4) and point.coordinates.lon == round(lon, 4)  # the exact one is reported
     assert len(point.nearby_hazards) == 1
     assert point.nearby_hazards[0].distance_to_zone_km == haversine_km(lat, lon, hazard_lat, hazard_lon)

@@ -17,6 +17,11 @@ All notable changes to this project are documented here. The format follows
   cached once per position; the compact profiles slice it. A frame (5 days) and a full page
   (10 days) used to cost one Open-Meteo call each per position. `fetch_weather_with_fallback` no
   longer takes `days`.
+- **Call sobriety, weight of the Open-Meteo calls.** Open-Meteo counts a request of more than 10
+  variables as several calls; the forecast (18 variables, weight 1.8) is now two requests: the
+  current conditions and the 15-minute rain (weight 1.1, every 15 minutes) and the daily forecast
+  (weight 1.0, every hour). No variable is dropped. The weight of each request is computed from the
+  published rule (`app/collectors/weights.py`).
 - **Call sobriety, TTLs from the sources' rhythm.** Open-Meteo forecast 5 to 15 minutes, air quality
   10 to 60 minutes, marine 5 to 60 minutes, river discharge 10 minutes to 6 hours, RainViewer 3 to
   10 minutes (the evidence and what is **not verified** are in `docs/data-sources.md`).

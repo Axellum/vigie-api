@@ -10,7 +10,7 @@ import pytest
 from app.collectors.weather import MAX_FORECAST_DAYS, MetNorwayCollector, OpenMeteoCollector
 from app.models.schemas import DeviceType
 from tests import samples
-from tests.helpers import Provider, make_service
+from tests.helpers import Provider, forecast_provider, make_service
 
 
 def ten_day_payload() -> dict[str, Any]:
@@ -24,18 +24,19 @@ def ten_day_payload() -> dict[str, Any]:
 
 @pytest.mark.asyncio
 async def test_the_forecast_is_asked_for_ten_days_whatever_the_profile() -> None:
-    provider = Provider(ten_day_payload())
+    provider = forecast_provider(ten_day_payload())
     collector = OpenMeteoCollector(http_client=provider.client())
 
     await collector.fetch_point(48.8566, 2.3522)
 
     assert MAX_FORECAST_DAYS == 10
-    assert provider.query()["forecast_days"] == "10"
+    (daily_request,) = provider.with_param("daily")
+    assert daily_request.url.params["forecast_days"] == "10"
 
 
 @pytest.mark.asyncio
 async def test_compact_and_full_snapshots_share_one_call_per_zone(tmp_path: Path) -> None:
-    provider = Provider(ten_day_payload())
+    provider = forecast_provider(ten_day_payload())
     service = make_service(tmp_path / "cache-key.db", open_meteo=OpenMeteoCollector(http_client=provider.client()))
     zones = len(service.monitored_zones)
     assert zones == 5
@@ -44,7 +45,9 @@ async def test_compact_and_full_snapshots_share_one_call_per_zone(tmp_path: Path
     full = await service.build_snapshot(device_type=DeviceType.WEB, compact=False)
     compact_again = await service.build_snapshot(device_type=DeviceType.TAB5, compact=True)
 
-    assert provider.count == zones  # one call per zone, not one per zone and per number of days
+    # One "now" and one "daily" request per zone, not one more per zone and per number of days.
+    assert len(provider.with_param("current")) == zones
+    assert len(provider.with_param("daily")) == zones
     assert all(len(zone.daily_10d) == 5 for zone in compact.zones)
     assert all(len(zone.daily_10d) == 10 for zone in full.zones)
     assert all(len(zone.daily_10d) == 5 for zone in compact_again.zones)
@@ -54,7 +57,7 @@ async def test_compact_and_full_snapshots_share_one_call_per_zone(tmp_path: Path
 
 @pytest.mark.asyncio
 async def test_point_profiles_share_the_cache_entry(tmp_path: Path) -> None:
-    provider = Provider(ten_day_payload())
+    provider = forecast_provider(ten_day_payload())
     service = make_service(
         tmp_path / "cache-key-point.db", open_meteo=OpenMeteoCollector(http_client=provider.client())
     )
@@ -62,7 +65,7 @@ async def test_point_profiles_share_the_cache_entry(tmp_path: Path) -> None:
     compact = await service.build_point_response(lat=45.0, lon=5.0, compact=True)
     full = await service.build_point_response(lat=45.0, lon=5.0, compact=False)
 
-    assert provider.count == 1
+    assert len(provider.with_param("current")) == 1 and len(provider.with_param("daily")) == 1
     assert len(compact.daily) == 5 and len(full.daily) == 10
 
 

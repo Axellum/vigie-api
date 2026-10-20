@@ -13,12 +13,14 @@ inland points: the collector then raises, and the caller reports "no marine data
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any, Literal, Optional
 
 import httpx
 
 from app.collectors.base import BaseCollector, optional_float
 from app.collectors.grid import DEFAULT_MARINE_GRID_DEG, coord_str, grid_step_from_env, snap_to_grid
+from app.collectors.weights import open_meteo_weight
 from app.models.schemas import MarineConditions
 
 SeaStateLabel = Literal["CALM", "SMOOTH", "MODERATE", "ROUGH", "VERY_ROUGH", "HIGH", "PHENOMENAL"]
@@ -73,6 +75,10 @@ class OpenMeteoMarineCollector(BaseCollector[MarineConditions]):
         self.grid_deg = (
             grid_deg if grid_deg is not None else grid_step_from_env("VIGIE_GRID_MARINE_DEG", DEFAULT_MARINE_GRID_DEG)
         )
+
+    def call_weight(self, params: Mapping[str, str]) -> float:
+        """Weight of one request under the Open-Meteo rule (8 current variables: 1.0)."""
+        return open_meteo_weight(params, default_forecast_days=7)
 
     async def fetch_marine(self, lat: float, lon: float) -> MarineConditions:
         """Fetch the marine conditions near ``lat, lon`` (snapped to the marine grid)."""

@@ -49,9 +49,10 @@ async def test_weather_falls_back_to_met_norway_when_open_meteo_fails() -> None:
 async def test_weather_uses_the_stale_cache_and_says_so() -> None:
     om_collector = OpenMeteoCollector()
     metno_collector = MetNorwayCollector()
-    cached = samples.parsed_open_meteo()
-    # cached long ago (monotonic clock), so the entry is stale whatever the machine uptime
-    om_collector._cache[om_collector.cache_key_for(48.8566, 2.3522)] = expired_entry(cached)
+    # cached long ago (monotonic clock), so the entries are stale whatever the machine uptime
+    now_key, daily_key = om_collector.cache_keys_for(48.8566, 2.3522)
+    om_collector._cache[now_key] = expired_entry(OpenMeteoCollector.parse_now(samples.open_meteo_payload()))
+    om_collector._cache[daily_key] = expired_entry(OpenMeteoCollector.parse_daily(samples.open_meteo_payload()))
     om_collector._collect = AsyncMock(side_effect=RuntimeError("down"))  # type: ignore[method-assign]
     metno_collector._collect = AsyncMock(side_effect=RuntimeError("down"))  # type: ignore[method-assign]
     service = AggregatorService(open_meteo=om_collector, met_norway=metno_collector)
