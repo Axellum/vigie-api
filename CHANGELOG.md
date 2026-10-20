@@ -20,7 +20,7 @@ All notable changes to this project are documented here. The format follows
   mechanism otherwise. English and French, diagnostics with the coordinates redacted. See
   [`docs/home-assistant.md`](docs/home-assistant.md) and [ADR 0004](docs/decisions/0004-home-assistant-integration-same-repository.md).
   Not yet tried on a running Home Assistant.
-- **`tests_ha/`**: 130 tests of the integration (`pytest-homeassistant-custom-component` 0.13.373, which pins Home
+- **`tests_ha/`**: 132 tests of the integration (`pytest-homeassistant-custom-component` 0.13.373, which pins Home
   Assistant 2026.10.2 and needs Python 3.14.2 or newer, in an environment of its own), and
   `tests/test_home_assistant_contract.py` in the API's CI, which checks that the answers they use (a real recorded one,
   the builders, the fake instance) are answers of the API's own models.

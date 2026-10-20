@@ -180,7 +180,8 @@ Invoke-RestMethod -Method Post "http://<PC address>:8099/fake/remove?phenomenon=
 ```
 
 At the next poll (up to the interval; lower it to 1 minute in the options) the sensor goes to yellow and the event entity
-fires `new`, then `upgraded` (with `previous_level`), then `ended`. Delete the entry when done. The fake instance has no
+fires `new`, then `upgraded` (with `previous_level`), then `ended`. (`tests_ha/test_fake_instance.py` plays exactly this
+over real HTTP.) Delete the entry when done. The fake instance has no
 authentication: run it on a trusted network.
 
 ## Limits
