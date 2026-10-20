@@ -52,10 +52,23 @@ and its rules: [`architecture.md`](architecture.md)). Licence, credit and what i
 | **MeteoAlarm Atom feeds** (EUMETNET), `feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-<country>` ([index of the 39 feeds](https://feeds.meteoalarm.org/)) | One feed per country, asked only for the countries that are needed (below). One entry is one warning for one area: level and type (in the title), times, identifier, message type, event, codes or polygon of the area, link to the CAP document. Entries that are tests or exercises, or have no identifier, are skipped. A feed is from about 1 KB (no warning) to 730 KB (France 146 KB with 34 departments warned, Switzerland 726 KB, on 2026-10-20), without compression. | 180 s. MeteoAlarm publishes **no update rhythm and no cache lifetime** for the feeds (they send `Cache-Control: max-age=0, private, must-revalidate`, no `ETag`, no `Last-Modified`, no `304`): **not verified**. The value comes from the terms of redistribution, which want the delay between the website and the redistributor to be under five minutes on average and ten at most: a 3-minute cache serves a warning at most 3 minutes old. |
 | **MeteoAlarm CAP documents**, `feeds.meteoalarm.org/api/v1/warnings/feeds-<country>/<id>` | The words of the issuer: headline, description and instruction in each language (up to 8 for Germany), the name of the issuing service, the web page. One document holds all the areas of one message. | 6 hours: a document is never modified (an update is a new document, with a new address), so this only bounds the memory. A document the server does not have (HTTP 404: every Italian one on 2026-10-20) is remembered 15 minutes, then asked again. |
 | **NOAA National Weather Service**, `api.weather.gov/alerts/active?status=actual&severity=Extreme,Severe` | **The answer of the hazards**, read a second way: the same alerts as warnings (CAP fields, UGC and SAME codes, polygon when there is one, the forecast office's headline, description and instruction). | 120 s, as the hazards. **No request of its own** (see below). |
+| **DWD** (Deutscher Wetterdienst), `opendata.dwd.de/weather/alerts/cap/DISTRICT_DWD_STAT/Z_CAP_C_EDZW_LATEST_PVW_STATUS_PREMIUMDWD_DISTRICT_MUL.zip` ([open data help](https://www.dwd.de/DE/leistungen/opendata/hilfe.html): the CAP DWD profile 2.1.14, the product overview, the implementation notes) | One ZIP for all of Germany: the **status** (every warning in force at the last production) **by district** (the polygon of an area is the district, with its holes cut out), in the **multilingual** variant (one CAP document per warning, one `info` per language: German, English, French, Spanish, Arabic, Russian, Turkish, Polish). `LATEST` is a name that always points to the newest production. 8 to 16 KB on 2026-10-20 (4 documents, 7 areas), 80 KB at most over the three days of history read. A cancelled warning is no longer listed: cancellations and all-clears are only in the `DIFFERENCE` products, which are not read. Chosen over the `COMMUNEUNION` product (finer, smaller) because that one has no polygon for the sea areas. | 120 s. The DWD produces the status up to once a minute, and at least every ten minutes even if nothing changed (implementation notes); about every 10 minutes was observed on 2026-10-20. It sends no `Cache-Control` but `ETag` and `Last-Modified`, and answers `304` to `If-None-Match` and to `If-Modified-Since` (checked): a refresh that finds nothing new is a few hundred bytes. The delay for a redistributor is not published: **not verified**. |
+| **ECCC** (Environment and Climate Change Canada), MSC GeoMet OGC API, `api.weather.gc.ca/collections/weather-alerts/items` ([docs](https://eccc-msc.github.io/open-data/msc-geomet/readme_en/)) | One request lists every alert in force in Canada (`limit=1000`; the next pages are asked only if a stormy day needs them, at most ten): colour, name, texts in English and French, times, province, polygon of the forecast area. 156 KB (31 KB with gzip) for 36 alerts on 2026-10-20. The Datamart CAP files are **not** read: see [`SOURCES.md`](../SOURCES.md). | 300 s. GeoMet sends no `Cache-Control`, no `ETag` and no `Last-Modified`, and ECCC documents no update rhythm for the list (the CAP files are posted as the alerts are issued): **not verified**. One request per refresh, a rate far under the usage policy's 86,400 a day. |
+| **MetService** (New Zealand), `alerts.metservice.com/cap/rss` ([the system](https://about.metservice.com/about-severe-weather-warnings)) | The RSS feed, then the CAP document each item links to (each fetched once, forgotten when it leaves the feed; only addresses under `alerts.metservice.com` are fetched). The format is documented by the issuer ([user guide v1.2](https://www.metservice.com/files/documents/cap/MetService-CAP-Feed-User-Guide-v1.2.pdf)) but **the feed was empty on 2026-10-20: no real item has been seen** (see [`SOURCES.md`](../SOURCES.md), which also says where the licence stands). | 300 s: the feed sends `Cache-Control: max-age=300, must-revalidate` and a `Last-Modified` that answers `If-Modified-Since` with a `304` (checked). |
+| **Vigicrues** (SCHAPI), `www.vigicrues.gouv.fr/services/InfoVigiCru.geojson` ([services v1.1](https://www.vigicrues.gouv.fr/services/v1.1)) | One request for all of France: 337 sections of rivers, a line each, with the colour (1 to 4) of the vigilance. Only the sections above green are returned (19 on 2026-10-20: 17 yellow, 2 orange). 2.2 MB, not compressed. No lighter endpoint carries the level: the others of the documentation give the referential, forecasts and observations. | 30 minutes, 10 while a section is orange or red. The [dataset](https://www.data.gouv.fr/datasets/troncons-de-cours-deau-vigicrues-simplifies-avec-niveau-de-vigilance-crues-2) says the flow follows the vigilance bulletins, twice a day (10 a.m. and 4 p.m.) outside floods and more often during them (the rhythm of the extra bulletins is **not verified**). The server sends `Cache-Control: max-age=120` but no `ETag` and no `Last-Modified`: **no conditional request**, so every refresh costs the 2.2 MB. |
 
 ### Which feeds are asked
 
-A MeteoAlarm feed is asked **only for a country that is needed**; 39 feeds exist, one request of a client never asks for them all.
+A feed is asked **only for a country that is needed**; 39 MeteoAlarm feeds exist, one request of a client never asks for them all. **One source answers for a country** (the reasons: [ADR 0003](decisions/0003-national-source-preferred-rivers-are-lines.md)):
+
+| Country | Asked | Never asked |
+| --- | --- | --- |
+| Germany | DWD | MeteoAlarm's German feed, unless the DWD gave no answer (then it stands in, and the answer says so) |
+| Canada | ECCC | |
+| New Zealand | MetService | |
+| France | MeteoAlarm, and Vigicrues | |
+| the other 38 MeteoAlarm countries | MeteoAlarm | |
+| the United States | nothing of its own (the NWS answer of the hazards) | |
 
 - The country of a position is found **offline** (borders bundled in `app/data/`, see [`SOURCES.md`](../SOURCES.md)), without asking any service.
 - A request for a position asks the feed of its country (two near a border); a request by `country=` asks that one.
@@ -70,6 +83,26 @@ Measured by `tests/test_vigilance_sobriety.py` (simulated providers serving the 
 | 500 clients on 50 positions of four countries asking every 30 minutes for 6 hours (6,000 answers) | **320** feed requests (80 for each of four countries in 6 hours, i.e. 320 a day each), 4 CAP documents |
 | The simulated day of 1,000 clients of `tests/test_call_sobriety.py`, with the warnings on | **640** feed requests, and NOAA NWS still **705** (the same as without the warnings: the second reading of the answer costs no request) |
 
+The national sources, measured the same way by `tests/test_national_sobriety.py` (the answers recorded on 2026-10-20, one simulated day, the scheduler's 90 s cycle):
+
+| Scenario | Requests a day |
+| --- | ---: |
+| The 5 default zones: DWD, ECCC, MetService | **0** each (no zone in those countries) |
+| The 5 default zones: Vigicrues (Paris is in France) | **46** on a calm day (30 minutes of cache, looked at every 90 s: a refresh every 31.5 minutes), **138** while a section is orange or red (a refresh every 10.5 minutes), 2.2 MB each: about 100 MB a day, 300 MB during a flood |
+| A zone, a followed point or a client in **Germany** | **480** to the DWD, 479 of them `304` without a body (the first answer is 16 KB), and **0** to MeteoAlarm for Germany (320 a day before this work) |
+| A zone in **Canada** | **240** to GeoMet, 31 KB each with gzip (about 7.5 MB a day) |
+| A zone in **New Zealand** | **240** to MetService, 239 of them `304` |
+| The same, with 1,000 reads of the warnings spread over the day (one every 86 s), or 10,000 (one every 9 s) | DWD 520 / 667, ECCC 249 / 278, MetService 247 / 278, Vigicrues 137 / 139: **never more than one request per cache lifetime** (720, 288, 288 and 144 a day), whatever the number of readers |
+
+For the 5 default zones the new sources add the Vigicrues flow only; a client in Germany costs the DWD instead of the German MeteoAlarm feed.
+
+**A river section is a line.** A position is matched to a section when it lies within `river_radius_km` of the line of the flow, and the distance is returned (`distance_km`). 5 km by default, 50 at most. The reasons for 5 km: the lines of the flow are simplified, the flood plain of a large river is several kilometres wide, and the vigilance is a heads-up, not a flood map of the position; the client sees the distance and can ask for less. The distance is worked out on a plane where longitudes are scaled by the cosine of the latitude (right at the scale of a few tens of kilometres).
+
+**The duplicates.** Two rules keep the same event from being said twice:
+
+1. *A national source is preferred to MeteoAlarm's copy of it* (Germany: DWD). MeteoAlarm's German feed is a copy of the DWD's warnings, in `EMMA_ID` codes with no polygon; the DWD gives the same warnings with their polygons and eight languages. MeteoAlarm is used for Germany only if the DWD gives no answer, and then flagged as a stand-in (`coverage[].note`); its copies are in the answer, not in the pushes.
+2. *France: a MeteoAlarm "flooding" warning is left out when a Vigicrues section of the same answer crosses its département at the same level or higher.* MeteoAlarm's "Flooding" (type 12) is Météo-France's "inondation" colour per département, which the data of 2026-10-20 show to follow the Vigicrues colours: every département still warned had a section at the same level or higher. If no section is in the answer (none within the radius, or Vigicrues does not answer), or only a lower one, the département's warning stays. "Rain-flood" (type 13) is another vigilance and always stays. That MeteoAlarm derives its flooding colour from Vigicrues is **deduced** from the data, not read in a current document.
+
 ### Levels, phenomena and status: the tables
 
 The API derives three fields; they are in `derived` on every warning and the source's own words stay beside them. A word that is in no table gives `null`: it is never guessed. `tools/check_live_feeds.py` fails (weekly) when a feed of France carries a word that is not in a table.
@@ -83,6 +116,19 @@ The API derives three fields; they are in `derived` on every warning and the sou
 | Orange (3, Severe) | Severe | `ORANGE` |
 | Red (4, Extreme) | Extreme | `RED` |
 | any other word | Unknown or any other word | `null` |
+
+The national services, for the same field:
+
+| Source and word | `level` |
+| --- | --- |
+| **DWD**, CAP `severity` (profile 2.1.14, 2.2.2.6): Minor (a *Wetterwarnung*) | `YELLOW` (**not** `GREEN` as for the NWS: a Minor warning of the DWD is a yellow warning) |
+| DWD: Moderate (*markante Wetterwarnung*) | `ORANGE` |
+| DWD: Severe (*Unwetterwarnung*) | `RED` |
+| DWD: Extreme (*extreme Unwetterwarnung*, violet in the DWD's scale) | `RED` (our scale stops at red; the word `Extreme` stays in `level_original`) |
+| **ECCC**, `risk_colour_en`: yellow, orange, red | `YELLOW`, `ORANGE`, `RED` (no other colour is in the table: a statement has none, and gets `null`; only yellow was seen on 2026-10-20) |
+| **MetService**, the `ColourCode` parameter (always present, guide 3.2.14.2): Yellow / Orange / Red | `YELLOW` (the Watches and the Severe Thunderstorm Watch), `ORANGE` (the Orange Warnings and the Road Snowfall Warning), `RED` (the Red Warnings and the Severe Thunderstorm Warning). Any other value, or a colour the headline contradicts, gives `null` |
+| MetService, no `ColourCode`: the words of the headline (the guide lists the twelve) | the colour word ("Heavy Rain Warning - Orange") if it is the only one; "Severe Thunderstorm Warning" `RED`; "Road Snowfall Warning" `ORANGE`; a "Watch" `YELLOW`; anything else `null`. The CAP `severity` is never used: a Severe Thunderstorm Watch is `Moderate` and yellow |
+| **Vigicrues**, `NivInfViCr`: 1 / 2 / 3 / 4 | green (never returned: a green section is no warning) / `YELLOW` / `ORANGE` / `RED` (the colours of the official local bulletins, compared on 2026-10-20) |
 
 **Phenomenon** (`phenomenon`, from `phenomenon_original`).
 
@@ -104,7 +150,25 @@ The API derives three fields; they are in `derived` on every warning and the sou
 
 A "rain-flood" (pluvial flooding) is grouped with the floods and a "marine hazard" with the coastal events: these two choices are ours, the profile does not group the types. The MeteoAlarm word is the one of the entry's title; the CAP elements give the same level and type as `parameter`s.
 
-**Status** (`status`, from `message_type`, the CAP `msgType`): `Alert` is `new`, `Update` is `update`, `Cancel` is `cancel`. A cancelled warning, and one whose end (the later of `ends_utc` and `expires_utc`) is past, is not returned: the feeds keep listing expired warnings (the four orange floods of the French feed of 2026-10-20 had ended 12 hours before it was read).
+The national services, for the same field (a word no rule covers is `other`, never a guess; `null` when the source gives no name or number at all):
+
+| `phenomenon` | **DWD**, `eventCode` `II` (profile 2.1.14, section 3.1; the profile says the encoding may change) | **ECCC**, `alert_name_en` (the first rule whose words are all in the name, in this order) | **MetService** (the `<event>` word; the words of the headline only for a word the guide does not list) | **Vigicrues** |
+| --- | --- | --- | --- | --- |
+| `wind` | 11-16 (coast, sea), 51-58 (gusts, strong wind, storm) | tornado, hurricane, tropical storm, wind | `wind` (also a tornado, in the headline) | |
+| `thunderstorm` | 31, 33, 34, 36, 38, 40-42, 44-46, 48, 49, 90-93, 95, 96 (thunderstorms, some with gusts, rain or hail) | thunderstorm | `thunderstorm` (the Severe Thunderstorm Watch and Warning) | |
+| `rain` | 61-66 | rainfall, rain | `rain` | |
+| `snow-ice` | 70-76, 84-87 (snow, drifts, black ice) | blizzard, blowing snow, snow squall, snowfall, winter storm, freezing rain, freezing drizzle, flash freeze, snow | `snow` (also the Road Snowfall Warning) | |
+| `cold` | 22, 82, 83 (frost) | arctic outflow, wind chill, extreme cold, frost | | |
+| `heat` | 247, 248 | heat | | |
+| `fog` | 59 | fog | | |
+| `flood` | | flood | | every section |
+| `coastal` | | storm surge, tsunami | | |
+| `other` | 79, 88, 89, 246 | any other name | `localStorm` (a local severe event that is not a thunderstorm), any other word | |
+| `null` | a number not listed | no name | no word | |
+
+The DWD numbers are the ones of the profile's event table; the rules of ECCC come from the names seen on 2026-10-20 (five kinds in force) and are **not verified** against a complete list of names (ECCC publishes none that was found). MetService's come from its own user guide (the five `<event>` words, the twelve headlines, the `ColourCode` table: sections 3.2.2, 3.2.10 and 3.2.14.2), and **no real item of the feed has been read against them**.
+
+**Status** (`status`, from `message_type`, the CAP `msgType`; also the DWD and MetService): `Alert` is `new`, `Update` is `update`, `Cancel` is `cancel` (the MetService feed holds no cancelled alert, says its guide: the mapping is there in case one is ever served). ECCC (GeoMet has no `msgType`): `status_en` `issued` is `new` and `continued` is `update` (any other word gives `null`); `ended`, the third word seen on 2026-10-20, is an alert that is over but still listed for about an hour: it is skipped, not returned. Vigicrues has none. A cancelled warning, and one whose end (the later of `ends_utc` and `expires_utc`) is past, is not returned: the feeds keep listing expired warnings (the four orange floods of the French feed of 2026-10-20 had ended 12 hours before it was read).
 
 ## Call volume
 
@@ -115,7 +179,7 @@ calls (1 hour), 24 marine calls (1 hour) and 4 river discharge calls (6 hours). 
 those calls (marine and river discharge when requested); two positions in the same cell share them.
 The hazard feeds add one call per feed per TTL (at most 1,440 a day for USGS and EMSC, which have the
 shortest TTL; the scheduler alone refreshes them every 90 s, 960 a day). The official warnings add one call per MeteoAlarm feed per 180 s, only for the countries that are needed
-(320 a day per feed when the scheduler keeps it fresh; none for the NWS, whose answer is the hazards' own). The README gives the calls
+(320 a day per feed when the scheduler keeps it fresh; none for the NWS, whose answer is the hazards' own), and the national services one call per cache lifetime of their own for the countries that are needed (DWD 480 a day, mostly `304`; ECCC and MetService 240; Vigicrues 46 on a calm day, 138 in a flood; see above). The README gives the calls
 a day measured by a simulation of 1,000 clients on 50 points, before and after the TTLs, grids and
 budget.
 
@@ -153,9 +217,9 @@ Every request the API sends is counted (calls, and weight for Open-Meteo) over a
 hours and reported by `GET /v1/providers` (`calls_24h`, `weight_24h`, `quota`). A provider that
 **publishes a quota** also has a budget; the quotas are declared in one place,
 `app/collectors/budget.py` (`QUOTAS`), and listed with their source page in [`SOURCES.md`](../SOURCES.md):
-Open-Meteo (one quota for its four APIs: forecast, air quality, river discharge, marine), MET Norway and
-RainViewer have one. NOAA NWS has a limit that "is not public information", and USGS, EMSC, GDACS,
-USGS Volcano, NOAA SWPC and MeteoAlarm publish none: no budget for them (**not verified**), their calls are only counted.
+Open-Meteo (one quota for its four APIs: forecast, air quality, river discharge, marine), MET Norway,
+RainViewer and ECCC (a usage-policy line of 86,400 requests a day: a threshold to tell ECCC about, kept as a limit all the same) have one. NOAA NWS has a limit that "is not public information", and USGS, EMSC, GDACS,
+USGS Volcano, NOAA SWPC, MeteoAlarm, the DWD, MetService and Vigicrues publish none: no budget for them (**not verified**), their calls are only counted.
 
 The budget lets through 90 % of each limit (`VIGIE_BUDGET_FRACTION`): a margin for another program on
 the same IP address and for the difference between this count and the provider's. A request that

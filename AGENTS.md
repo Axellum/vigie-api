@@ -68,3 +68,8 @@ owner (no `&&`).
     `phenomenon`) come from the tables of `docs/data-sources.md`, are named in `derived`, and are `None` when no table
     covers the word. Never translate, shorten or reword an official text, and never guess a level. A shape that
     has no stated licence is not added to `app/data/` ([`SOURCES.md`](SOURCES.md) says which, and why).
+    A country has one source: its national service when there is a collector for it (`NATIONAL_SOURCES` in
+    `app/services/vigilance.py`), MeteoAlarm's copy only as a stand-in
+    ([ADR 0003](docs/decisions/0003-national-source-preferred-rivers-are-lines.md)). A new national source is a collector,
+    a credit, a row in `SOURCES.md`, recorded answers in `tests/fixtures/<source>/` with a README, a check in
+    `tools/check_live_feeds.py`, and a line in `docs/data-sources.md` for its cache and its request count.
