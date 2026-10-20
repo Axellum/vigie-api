@@ -58,8 +58,9 @@ Nothing is padded, defaulted or copied from another field. At each layer:
   `null` in JSON and an empty field in the frame.
 - Hazards: if no hazard source answers, the global status is unknown (`max_severity = null`)
   instead of an all-clear `GREEN`.
-- Simulation: simulated alerts exist for testing. They are labelled (`(SIMULATION)` in the
-  title, `simulation_active` in the snapshot and the frame, CAP status `Exercise`).
+- Simulation: simulated alerts exist for testing (the simulator is off unless `VIGIE_ENABLE_SIMULATION=1`).
+  They are labelled (`(SIMULATION)` in the title, `simulation_active` in the snapshot and the frame,
+  CAP status `Exercise`).
 
 ## Data flow of `GET /v1/embedded/frame`
 
@@ -125,8 +126,11 @@ Tables: `monitored_zones` (the watchlist, seeded with five cities), `hazards_his
 - **Flood level.** `flood_alert_level` is a heuristic (ratio of the maximum to the mean forecast
   discharge with fixed thresholds), not an official flood warning.
 - **Simulation and history.** `/v1/simulate` is not authenticated, and simulated alerts are also
-  written to the SQLite hazard history (labelled `(SIMULATION)`). Do not expose the API outside
-  the local network.
+  written to the SQLite hazard history (labelled `(SIMULATION)`). That is why the route is **off by
+  default**: it answers 403 unless the instance sets `VIGIE_ENABLE_SIMULATION=1`
+  (`GET /v1/health` reports `simulation_enabled`). Enable it only where trusted clients alone can reach
+  the API. The rest of the API is not authenticated either (`POST /v1/zones`, `POST /v1/scheduler/trigger`):
+  do not expose it to the Internet without a reverse proxy that does.
 - **Duplicate title and value.** When USGS and EMSC report the same earthquake the merged alert
   keeps the USGS title and the highest magnitude, so the title can show a slightly lower
   magnitude than the value.

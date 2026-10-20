@@ -218,7 +218,7 @@ def test_hazards_green_when_sources_answer_with_nothing(world: World) -> None:
     assert status["hazard_sources_ok"] == 5
 
 
-def test_simulation_snapshot_size_and_standards(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_simulation_snapshot_size_and_standards(world: World, simulation_on: None, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(aggregator.usgs, "fetch", AsyncMock(return_value=[samples.earthquake()]))
 
     sim = world.client.post("/v1/simulate", json={"scenario": "mega_tsunami_japan"})
@@ -270,7 +270,7 @@ def test_cap_does_not_invent_a_value(world: World, monkeypatch: pytest.MonkeyPat
     assert info["parameters"]["value_primary"] is None
 
 
-def test_zones_crud_and_history(world: World) -> None:
+def test_zones_crud_and_history(world: World, simulation_on: None) -> None:
     assert len(world.client.get("/v1/zones").json()) == 5
 
     created = world.client.post(
@@ -330,7 +330,7 @@ def test_detect_new_or_upgraded_hazards() -> None:
     assert detect_new_or_upgraded_hazards({"eq_1": yellow}, [unknown]) == []
 
 
-def test_scheduler_endpoints_and_websocket_push(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_scheduler_endpoints_and_websocket_push(world: World, simulation_on: None, monkeypatch: pytest.MonkeyPatch) -> None:
     scheduler._known_hazards.clear()
     scheduler.cycles_count = 0
     broadcast_mock = AsyncMock()

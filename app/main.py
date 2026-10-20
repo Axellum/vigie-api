@@ -20,7 +20,8 @@ Endpoints:
                                      (contract: ``docs/embedded-frame.md``).
 - ``GET    /v1/geojson/hazards``   : IETF RFC 7946 GeoJSON (``FeatureCollection``).
 - ``GET    /v1/cap/alerts``        : OASIS CAP 1.2 (Common Alerting Protocol).
-- ``POST   /v1/simulate``          : Inject a simulated scenario (always labelled as a simulation).
+- ``POST   /v1/simulate``          : Inject a simulated scenario (always labelled as a simulation). Off unless
+                                     ``VIGIE_ENABLE_SIMULATION=1``: it answers 403 otherwise.
 - ``WS     /v1/stream``            : Real-time WebSocket stream for connected terminals.
 """
 
@@ -86,9 +87,23 @@ ws_hub = WebSocketHub()
 scheduler = BackgroundAlertScheduler(aggregator=aggregator, ws_hub=ws_hub, interval_seconds=90)
 
 
+def _env_flag(name: str) -> bool:
+    """True when the environment variable ``name`` is ``1`` / ``true`` / ``yes`` / ``on`` (default: off)."""
+    return os.environ.get(name, "0").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def scheduler_enabled() -> bool:
     """The background scheduler runs only when ``VIGIE_SCHEDULER`` is ``1`` / ``true`` / ``yes`` / ``on``."""
-    return os.environ.get("VIGIE_SCHEDULER", "0").strip().lower() in {"1", "true", "yes", "on"}
+    return _env_flag("VIGIE_SCHEDULER")
+
+
+def simulation_enabled() -> bool:
+    """``POST /v1/simulate`` works only when ``VIGIE_ENABLE_SIMULATION`` is ``1`` / ``true`` / ``yes`` / ``on``.
+
+    The route has no authentication and writes simulated alerts into the hazard history, so an
+    instance that is reachable by others must keep it off (the default). Read at each request.
+    """
+    return _env_flag("VIGIE_ENABLE_SIMULATION")
 
 
 @asynccontextmanager
@@ -138,6 +153,7 @@ async def get_health() -> dict[str, Any]:
         "uptime_seconds": max(0, int(time.time()) - aggregator.started_at_utc),
         "storage_journal_mode": aggregator.storage.get_journal_mode(),
         "monitored_zones_count": len(aggregator.monitored_zones),
+        "simulation_enabled": simulation_enabled(),
         "simulation_active": aggregator.simulation_active,
         "active_scenario": aggregator.active_scenario.value,
         "scheduler": scheduler.get_status(),
@@ -282,9 +298,23 @@ async def get_cap_alerts() -> CAPFeedResponse:
     return await aggregator.build_cap_feed()
 
 
-@app.post("/v1/simulate", response_model=SimulationResponse, tags=["Simulator"])
+@app.post(
+    "/v1/simulate",
+    response_model=SimulationResponse,
+    tags=["Simulator"],
+    responses={403: {"description": "The simulator is off (VIGIE_ENABLE_SIMULATION is not set to 1)."}},
+)
 async def post_simulate(request: SimulationRequest) -> SimulationResponse:
-    """Inject a simulated scenario (labelled as a simulation) and notify the WebSocket clients."""
+    """Inject a simulated scenario (labelled as a simulation) and notify the WebSocket clients.
+
+    Off by default: the route has no authentication and writes the simulated alerts into the hazard
+    history. Set ``VIGIE_ENABLE_SIMULATION=1`` on an instance that only trusted clients can reach.
+    """
+    if not simulation_enabled():
+        raise HTTPException(
+            status_code=403,
+            detail="The simulator is disabled on this instance. Set VIGIE_ENABLE_SIMULATION=1 to enable it.",
+        )
     response = aggregator.trigger_simulation(request)
     await ws_hub.broadcast(
         {

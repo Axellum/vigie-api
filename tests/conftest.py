@@ -24,7 +24,7 @@ from fastapi.testclient import TestClient
 # Must be set before ``app.main`` is imported: it builds the aggregator at import time.
 _TEST_DIR = Path(tempfile.mkdtemp(prefix="vigie-tests-"))
 os.environ["VIGIE_DB_PATH"] = str(_TEST_DIR / "vigie-tests.db")
-for _name in ("VIGIE_SCHEDULER", "VIGIE_CAP_SENDER", "VIGIE_CONTACT"):
+for _name in ("VIGIE_SCHEDULER", "VIGIE_CAP_SENDER", "VIGIE_CONTACT", "VIGIE_ENABLE_SIMULATION"):
     os.environ.pop(_name, None)
 
 from app import clock as app_clock  # noqa: E402
@@ -68,6 +68,12 @@ def sim_clock(monkeypatch: pytest.MonkeyPatch) -> SimClock:
     monkeypatch.setattr(app_clock, "_monotonic", clock.monotonic)
     monkeypatch.setattr(app_clock, "_wall", clock.time)
     return clock
+
+
+@pytest.fixture()
+def simulation_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Enable ``POST /v1/simulate`` for the test (it is off unless ``VIGIE_ENABLE_SIMULATION`` is set)."""
+    monkeypatch.setenv("VIGIE_ENABLE_SIMULATION", "1")
 
 
 @dataclass

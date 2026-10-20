@@ -7,6 +7,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **The simulator is opt-in.** `POST /v1/simulate` has no authentication and writes simulated alerts into
+  the hazard history, so it now answers 403 unless the instance sets `VIGIE_ENABLE_SIMULATION=1`
+  (default off). `GET /v1/health` reports `simulation_enabled`; the dashboard hides the simulation buttons
+  when it is off. Nothing else uses the route.
 - **Call sobriety, point grids.** The position sent to Open-Meteo (forecast, air quality, flood,
   marine) and to MET Norway, and the cache key, are snapped to a grid: 0.05 degree for the forecast
   and MET Norway, 0.1 degree for air quality, flood and marine (`VIGIE_GRID_FORECAST_DEG`,

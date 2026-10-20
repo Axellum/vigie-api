@@ -509,7 +509,7 @@ class CAPFeedResponse(BaseModel):
 
 
 # ============================================================================
-# Crisis simulation (/v1/simulate)
+# Simulator (/v1/simulate, off unless VIGIE_ENABLE_SIMULATION=1)
 # ============================================================================
 
 

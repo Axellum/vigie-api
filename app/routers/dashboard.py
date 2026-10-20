@@ -4,8 +4,8 @@ A self-contained HTML5 / CSS / JS page (dark theme, no external dependency) that
 
 1. The health of every provider and its circuit breaker.
 2. The watched zones (``/v1/zones``) and the active hazards (``/v1/snapshot``).
-3. Buttons to start a simulated scenario (``/v1/simulate``) or to run one scheduler cycle
-   (``/v1/scheduler/trigger``).
+3. Buttons to start a simulated scenario (``/v1/simulate``, shown only when the instance enables the
+   simulator with ``VIGIE_ENABLE_SIMULATION=1``) or to run one scheduler cycle (``/v1/scheduler/trigger``).
 4. The live embedded frame (``GET /v1/embedded/frame``) for the Waveshare 7B and the Tab5.
 
 A value the API reports as unknown (``null``) is shown as "n/a", never as a number.
@@ -96,6 +96,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       cursor: pointer;
     }
     button:hover { border-color: var(--accent); }
+    .sim-controls { display: contents; }
+    .sim-controls[hidden] { display: none; }
     .grid {
       display: grid;
       grid-template-columns: repeat(12, 1fr);
@@ -158,12 +160,15 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   </header>
 
   <section class="toolbar">
-    <span>Simulation (test data, always labelled):</span>
-    <button onclick="triggerSim('mega_tsunami_japan')">M7.8 earthquake and tsunami, Japan</button>
-    <button onclick="triggerSim('cat5_hurricane_caribbean')">Category 5 hurricane, Antilles</button>
-    <button onclick="triggerSim('volcano_eruption_iceland')">Eruption and ash, Iceland</button>
-    <button onclick="triggerSim('severe_squall_marine')">Violent squall and 5.4 m swell</button>
-    <button onclick="triggerSim('clear')">Back to real data</button>
+    <div id="sim-controls" class="sim-controls" hidden>
+      <span>Simulation (test data, always labelled):</span>
+      <button onclick="triggerSim('mega_tsunami_japan')">M7.8 earthquake and tsunami, Japan</button>
+      <button onclick="triggerSim('cat5_hurricane_caribbean')">Category 5 hurricane, Antilles</button>
+      <button onclick="triggerSim('volcano_eruption_iceland')">Eruption and ash, Iceland</button>
+      <button onclick="triggerSim('severe_squall_marine')">Violent squall and 5.4 m swell</button>
+      <button onclick="triggerSim('clear')">Back to real data</button>
+    </div>
+    <span id="sim-off-note" hidden>Simulator off (set VIGIE_ENABLE_SIMULATION=1 to enable it).</span>
     <button onclick="triggerScheduler()">Run one collection cycle</button>
     <select id="device-select" onchange="refreshAll()">
       <option value="waveshare-7b">Display: Waveshare 7B (1024x600)</option>
@@ -279,6 +284,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         `Scheduler: ${health.scheduler.running ? 'running' : 'stopped'} (${health.scheduler.cycles_count} cycles)`;
       document.getElementById('sim-badge').textContent =
         `Simulation: ${health.simulation_active ? 'ACTIVE (' + esc(health.active_scenario) + ')' : 'off'}`;
+      document.getElementById('sim-controls').hidden = !health.simulation_enabled;
+      document.getElementById('sim-off-note').hidden = !!health.simulation_enabled;
 
       document.getElementById('hazards-count').textContent = `${snap.hazards.length}`;
       document.getElementById('hazards-body').innerHTML = snap.hazards.map(h => `

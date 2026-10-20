@@ -28,7 +28,7 @@ without any promise of support or availability.
 | `GET /v1/history` | Hazard history stored in SQLite. |
 | `GET /v1/health`, `GET /v1/providers` | Health, circuit breaker and cache state of each provider, and its calls, weight and quota over 24 hours. |
 | `GET/POST /v1/scheduler/...` | State of the optional background scheduler, run one cycle now. |
-| `POST /v1/simulate` | Inject a **simulated** scenario for testing (always labelled as a simulation). |
+| `POST /v1/simulate` | Inject a **simulated** scenario for testing (always labelled as a simulation). **Off by default**: it answers 403 unless `VIGIE_ENABLE_SIMULATION=1`. |
 | `WS /v1/stream` | WebSocket with the initial state and alert pushes. |
 | `GET /dashboard` | Web supervision page. |
 | `GET /docs` | Interactive OpenAPI documentation. |
@@ -54,6 +54,7 @@ All settings are optional environment variables.
 | --- | --- | --- |
 | `VIGIE_DB_PATH` | `vigie.db` in the repository root (git-ignored) | SQLite file (watchlist, history, last snapshot). |
 | `VIGIE_SCHEDULER` | `0` | `1` starts the background scheduler (refresh every 90 s, WebSocket push). |
+| `VIGIE_ENABLE_SIMULATION` | `0` | `1` enables `POST /v1/simulate` (and the dashboard buttons). The route has no authentication and writes the simulated alerts into the hazard history: enable it only on an instance that trusted clients alone can reach. |
 | `VIGIE_CONTACT` | none | E-mail address or URL added to the `User-Agent` sent to the providers. MET Norway and NOAA require an identifying contact: set it. |
 | `VIGIE_CAP_SENDER` | `vigie-api` | `sender` of the CAP alerts. |
 | `VIGIE_GRID_FORECAST_DEG` | `0.05` | Grid (degrees, about 5 km) the position is snapped to before the Open-Meteo forecast and MET Norway are asked. |
