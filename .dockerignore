@@ -23,3 +23,6 @@ scripts
 *.md
 Dockerfile
 .dockerignore
+
+# The operator's own, non-redistributable EMMA_ID shapes (tools/build_geometries.py --emma) never go into an image.
+app/data/local
