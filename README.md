@@ -42,6 +42,9 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
   to allow personal use only and forbid resupply. Fine for one home; ask MetService before relaying its warnings to
   other people, or turn it off on an instance that serves them (`VIGIE_ENABLE_METSERVICE=0`; on by default, the Docker
   image keeps it on) ([`SOURCES.md`](SOURCES.md)).
+- The national services of the WMO registry (`VIGIE_WMO_SOURCES`): the terms of each issuer count, and most were not found or
+  restrict copying. The default reads only the 7 whose own terms were read and allow relaying them; `all` is for an instance
+  that only its owner uses. Hong Kong and China are never read ([`SOURCES.md`](SOURCES.md)).
 
 ## Endpoints
 
@@ -53,7 +56,8 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
 | `GET /v1/geojson/hazards` | Active hazards as GeoJSON (RFC 7946): one point each. `has_forecast` says whether a storm or a tsunami has a forecast. |
 | `GET /v1/geojson/hazards/{id}/forecast` | The forecast of a hazard as GeoJSON: the cone, track and positions of a tropical cyclone, the epicentre and arrival times of a tsunami. See "Storms and tsunamis" below. |
 | `GET /v1/cap/alerts` | Active hazards as OASIS CAP 1.2. |
-| `GET /v1/vigilances?lat=&lon=` or `?country=FR` or `?source=tsunami` | Official weather warnings that cover a point, or all those of a country (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues), or the tsunami messages in force, the issuer's words untouched. See below. |
+| `GET /v1/vigilances?lat=&lon=` or `?country=FR` or `?source=tsunami` | Official weather warnings that cover a point, or all those of a country (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues, and the national services of the WMO registry), or the tsunami messages in force, the issuer's words untouched. See below. |
+| `GET /v1/vigilances/countries` | The countries this instance serves with its settings, the sources that answer for each, and whether their licence is verified. |
 | `GET /v1/vigilances.geojson` | The same warnings as GeoJSON, the shape of each area as geometry. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Watched zones (the watchlist). A zone needs its `utc_offset_s`. |
 | `GET /v1/history` | Hazard history stored in SQLite. |
@@ -73,7 +77,7 @@ that authenticates in front of it if you must.
 `GET /v1/vigilances` gives the warnings that the national weather services publish: **MeteoAlarm** (EUMETNET) for
 39 European countries, the **Deutscher Wetterdienst** for Germany, **Environment and Climate Change Canada**,
 **MetService** for New Zealand, the **National Weather Service** for the United States, and **Vigicrues** for the
-river floods of France. It relays them; it does not issue any. The words of the issuer (headline, description and
+river floods of France, and, for more countries, the national services of the WMO registry (below). It relays them; it does not issue any. The words of the issuer (headline, description and
 instruction, in every language it wrote) are returned untouched.
 
 **One source answers for a country.** Germany is the DWD (MeteoAlarm's copy of the German warnings is not asked for,
@@ -146,7 +150,7 @@ section says it, finer.
 - **A warning that cannot be matched to a point says so.** A point is matched by the polygon of the warning, by the
   shape of its area code, or, for a river section, by its distance to the line (`river_radius_km`, `distance_km` in
   the answer). Warnings of France, Belgium, Germany, Canada and of the countries that send polygons (for example
-  Switzerland and Norway) are matched. Warnings that name only MeteoAlarm `EMMA_ID` codes (Italy, Spain,
+  Switzerland and Norway) are matched. Warnings that name only MeteoAlarm `EMMA_ID` codes (Italy,
   Austria, Poland...) are listed by `country=` but **not matched to a point**: the shapes of these codes have no stated
   licence and are not bundled ([`SOURCES.md`](SOURCES.md)). For a point, `coverage[].warnings_not_matchable` counts them, so an empty
   list is not read as "nothing to fear". The same goes for the NWS alerts that name zones instead of a polygon.
@@ -163,6 +167,66 @@ section says it, finer.
   a CAP document, which holds the issuer's words, is asked once and only for a
   warning that an answer returns; the NWS needs no request of its own. See "Calls to the providers" below.
 - The embedded frame of the displays does **not** change.
+
+### More countries, through the WMO registry
+
+The World Meteorological Organization keeps a registry of the national services that publish CAP warnings (the Severe
+Weather Information Centre: 140 services in 135 countries on 2026-10-20). For a country that has **no source of its own**
+the API reads the service of that registry, with the same rules (one source answers, the issuer's words untouched, the
+fields of the API named in `derived`). `VIGIE_WMO_SOURCES` picks which services are read, because each issuer's own terms
+count and most were not found or restrict copying ([`SOURCES.md`](SOURCES.md), one row for each of the 28 services that were
+looked at):
+
+- `verified` (the default): only the **7 services whose own terms were read and allow relaying them**: Algeria, Argentina,
+  Barbados, Jamaica, Mexico, the Philippines, and Spain (AEMET instead of MeteoAlarm, because AEMET's feed gives polygons
+  where MeteoAlarm's gives codes: 34 against 0 on 2026-10-20, [ADR 0006](docs/decisions/0006-wmo-registry-services.md)).
+- `all`: every service that is not excluded, 95 services in 94 countries. Only for an instance that only its owner uses: 88 of
+  them have terms that are unknown or restrict copying. Hong Kong and China are never read.
+- `off`: none.
+
+```
+GET /v1/vigilances/countries                   the countries this instance serves with its settings: the sources, and whether the licence is verified
+GET /v1/vigilances?country=MX                  the warnings of Mexico (SMN), polygons, the texts in Spanish as written
+GET /v1/vigilances?lat=38.9067&lon=1.4206      Ibiza: the AEMET warnings whose polygon contains the point
+```
+
+Real answer for Ibiza at 18:34 UTC on 2026-10-20 (the feeds were read live; cut):
+
+```json
+{
+  "query": {"lat": 38.9067, "lon": 1.4206, "country": null, "river_radius_km": 5.0},
+  "countries": ["ES"],
+  "vigilances": [{
+    "id": "swic:es-aemet-es:2.49.0.0.724.0.ES.20261020172954.645301PRP120201792517394:0.0",
+    "source": "swic", "country": "ES",
+    "attribution": "Source: AEMET (Agencia Estatal de Meteorología), Spain. Información elaborada por la Agencia Estatal de Meteorología. © AEMET | Warnings of a national meteorological service, from the registry of the WMO Severe Weather Information Centre (https://severeweather.wmo.int). The issuer's own terms apply to each warning",
+    "identifier": "2.49.0.0.724.0.ES.20261020172954.645301PRP120201792517394",
+    "onset_utc": 1792515600, "expires_utc": 1792526399, "message_type": "Alert", "status": "new",
+    "level": "YELLOW", "level_original": "amarillo",
+    "phenomenon": "rain", "phenomenon_original": "Aviso de lluvias de nivel amarillo",
+    "event": "Aviso de lluvias de nivel amarillo", "issuer": "AEMET. Agencia Estatal de Meteorología",
+    "texts": [{"language": "es-ES", "headline": "Aviso de lluvias de nivel amarillo. Ibiza y Formentera", "description": "Precipitación acumulada en una hora: 20 mm. ...", "instruction": "..."},
+              {"language": "en-GB", "headline": "Moderate rain warning. Ibiza y Formentera", "description": "...", "instruction": "..."}],
+    "area": {"description": "Ibiza y Formentera", "geocodes": [{"scheme": "AEMET-Meteoalerta zona", "value": "645301"}], "has_polygon": true, "localization": "polygon"},
+    "derived": ["status", "level", "phenomenon"]
+  }],
+  "coverage": [{"source": "swic", "source_id": "es-aemet-es", "country": "ES", "status": "ok", "warnings_in_feed": 19, "warnings_not_matchable": 0}]
+}
+```
+
+- **A service that does not answer is not "nothing in force".** Each service is its own line of `coverage` (`source: "swic"`,
+  `source_id`): `ok`, `stale` (its last answer, marked), or `unavailable`. On the same day the Philippines' feed did not
+  answer in time from the test PC, and the API said `unavailable` for it, never an empty list.
+- **Warnings that name only codes** (the Philippines, India) are listed by `country=` and counted in
+  `coverage[].warnings_not_matchable`; they are not placed on a point. A warning with a polygon or a circle is matched.
+- **`level` and `phenomenon` are derived** from a colour the issuer writes (`amarillo`, `Alerta Roja`...) or the CAP
+  severity (`Minor` gives no level), and from the event words in English, Spanish, Portuguese and French; anything else is
+  `null`. The issuer's `event`, `texts` in every language and `level_original` stay as written.
+- **What it costs**: a service is asked every 6 minutes at most, with conditional requests (`304`) where the server gives a
+  validator, and each CAP document is read once. A simulated day of the scheduler (`tests/test_swic_sobriety.py`): **2,010
+  requests and 10.6 MB** for the 7 services of the default, **36,924 requests and 51 MB** for `all` with a followed point
+  in each of the 94 countries (the worst case; the number of clients adds nothing). A ceiling of 50,000 requests a day
+  covers the whole set. [`docs/data-sources.md`](docs/data-sources.md) has the rhythm and its reasons.
 
 ## Storms and tsunamis
 
@@ -243,6 +307,7 @@ All settings are optional environment variables.
 | `VIGIE_ENABLE_SIMULATION` | `0` | `1` enables `POST /v1/simulate` (and the dashboard buttons). The route has no authentication and writes the simulated alerts into the hazard history: enable it only on an instance that trusted clients alone can reach. |
 | `VIGIE_ENABLE_RAINVIEWER` | `1`; `0` in the Docker image | `0` stops asking RainViewer (the radar fields of `/v1/point` stay unknown). Its free API is for personal and educational use: set `0` on an instance that serves other people. |
 | `VIGIE_ENABLE_METSERVICE` | `1` (also in the Docker image) | `0` stops asking MetService (New Zealand): a position there then gets no source, and the answer says it is turned off. Its feed says CC BY 4.0 but the website terms it points to allow personal use only and forbid resupply, and which one governs is not verified: set `0` on an instance that serves other people unless MetService agrees. |
+| `VIGIE_WMO_SOURCES` | `verified` | Which national services of the WMO registry are read for the countries that have no source of their own: `verified` (only those whose own terms were read and allow relaying them), `all` (every service that is not excluded, for an instance only its owner uses) or `off`. An unknown value means `verified`. See "More countries, through the WMO registry". |
 | `VIGIE_CONTACT` | none | E-mail address or URL added to the `User-Agent` sent to the providers. MET Norway and NOAA require an identifying contact: set it. |
 | `VIGIE_CAP_SENDER` | `vigie-api` | `sender` of the CAP alerts. |
 | `VIGIE_GRID_FORECAST_DEG` | `0.05` | Grid (degrees, about 5 km) the position is snapped to before the Open-Meteo forecast and MET Norway are asked. |
@@ -396,7 +461,7 @@ CI (`.github/workflows/`):
 | --- | --- |
 | Earthquakes | USGS, EMSC / SeismicPortal, GDACS |
 | Disasters | GDACS, NOAA NWS, USGS Volcano Hazards Program, NOAA National Hurricane Center (tropical cyclones), NOAA U.S. Tsunami Warning Centers (tsunami messages) |
-| Official weather warnings | MeteoAlarm (EUMETNET, 39 European countries), Deutscher Wetterdienst (Germany), Environment and Climate Change Canada, MetService (New Zealand), NOAA NWS (United States), Vigicrues (river floods of France) |
+| Official weather warnings | MeteoAlarm (EUMETNET, 39 European countries), Deutscher Wetterdienst (Germany), Environment and Climate Change Canada, MetService (New Zealand), NOAA NWS (United States), Vigicrues (river floods of France), the national services of the WMO Severe Weather Information Centre registry (7 read by default: Algeria, Argentina, Barbados, Jamaica, Mexico, the Philippines, Spain) |
 | Space weather | NOAA SWPC |
 | Weather | Open-Meteo (primary), MET Norway (fallback), RainViewer (radar) |
 | Marine, river discharge, air quality | Open-Meteo Marine, Flood (GloFAS), Air Quality (CAMS) |

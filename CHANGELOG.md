@@ -17,6 +17,40 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **More countries, through the registry of the WMO Severe Weather Information Centre** (`wmo_swic_registry`, `wmo_swic`).
+  The registry lists the national services that publish CAP warnings (140 services in 135 countries on 2026-10-20). For a
+  country that has no source of its own, the API reads the service's own feed (and the WMO's copy of it, for a service on a
+  national host), merges the two by CAP `sender` and `identifier`, follows `references` (an `Update` or `Cancel` removes what
+  it replaces), reads each CAP document once, and answers `/v1/vigilances` with the issuer's words untouched in every
+  language. The shapes are polygons, circles (drawn as 48-point polygons, cut at the date line) or codes only; a warning that
+  names only codes (the Philippines, India) is counted in `warnings_not_matchable`, never placed. `status`, `level` and
+  `phenomenon` are derived by tables (a colour in the issuer's parameter, else the CAP severity: `Minor` gives no level; the
+  event words in English, Spanish, Portuguese and French) and listed in `derived`; anything else is `null`.
+- **Only the terms that were read.** `VIGIE_WMO_SOURCES` is `verified` by default: the 7 services whose own terms page, or an
+  open licence named in their own feed (CC BY 4.0), was read on 2026-10-20 (Algeria, Argentina, Barbados, Jamaica, Mexico, the
+  Philippines, Spain). `all` reads every service that is not excluded (95 services in 94 countries; for an instance only its
+  owner uses), `off` none. Hong Kong and China are never read. `SOURCES.md` has one row for each of the 28 services whose terms
+  were looked at: the address read, the credit, what is not verified. A bare "public domain" line is not enough (15 of the 25
+  feeds outside the WMO's bucket that answered carry it, four with site terms that restrict copying).
+- **Spain is answered by AEMET** instead of MeteoAlarm: AEMET's feed had 34 items with polygons on 2026-10-20, MeteoAlarm's 216
+  entries had none. MeteoAlarm stands in, flagged, if AEMET does not answer (the Germany rule). A second exception needs the
+  same kind of evidence ([ADR 0006](docs/decisions/0006-wmo-registry-services.md)).
+- **`GET /v1/vigilances/countries`**: the countries the instance serves with its settings, the sources that answer for each
+  (the tsunami source under the United States and Canada included), and whether their licence is verified. A country nobody
+  serves is a 404 that points to it. The borders of every country a service answers for (135) are in
+  `app/data/countries.geojson.gz` (Natural Earth, public domain; a test checks it).
+- **A service that does not answer is never "nothing in force"**: each service is its own line of `coverage` (`source: swic`,
+  `source_id`; `ok`, `stale`, `unavailable`), a circuit per service keeps one bad feed from closing the others, and one that never
+  answered is silent for the push (it ends nothing).
+- **Sober on the national servers**: a service is asked at most every 5 minutes (6 with the scheduler's 90 s cycle: 240 a day),
+  with `If-None-Match` / `If-Modified-Since`; a feed with no validator waits 5 minutes per 64 KiB it weighs, up to 30; items older
+  than 14 days, more than 60 new documents a read, and error pages are not read; the WMO's copy (it exists for 1 of 260 addresses)
+  is paused after three misses; a ceiling of 50,000 requests a day covers the set (`wmo_swic`, ours). A simulated day
+  (`tests/test_swic_sobriety.py`): **2,010 requests and 10.6 MB** for the 7 verified services, **36,924 requests and 51 MB**
+  for `all` with a followed point in each of the 94 countries.
+- **The registry and a sample of its services in the weekly check** (`tools/check_live_feeds.py`): fails when the registry loses
+  services, when a verified service's feed, country or licence line is gone, or when documents cannot be read.
+- [ADR 0006](docs/decisions/0006-wmo-registry-services.md).
 - **Tropical cyclones of the National Hurricane Center** (`nhc_storms`). Each active storm is a hazard that is a point (category
   `HURRICANE`, at its current position, the wind in km/h, a level from the Saffir-Simpson thresholds: 34 kt yellow, 64 orange,
   96 red), and `GET /v1/geojson/hazards/{id}/forecast` serves its **cone, track, forecast positions and coastal watches and
