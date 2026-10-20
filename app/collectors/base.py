@@ -8,6 +8,7 @@ and reports its health through ``get_health()``.
 
 from __future__ import annotations
 
+import asyncio
 import math
 import os
 import time
@@ -81,6 +82,8 @@ class BaseCollector(ABC, Generic[T]):
 
         # In-memory cache keyed by an arbitrary string (e.g. "global" or "48.86,2.35")
         self._cache: dict[str, tuple[float, T]] = {}
+        # The upstream request being sent for each cache key (see ``_coalesced_upstream``)
+        self._inflight: dict[str, asyncio.Task[T]] = {}
 
     def _get_cached_if_fresh(self, cache_key: str) -> Optional[T]:
         """Return the cached entry if its TTL has not expired."""
@@ -135,11 +138,13 @@ class BaseCollector(ABC, Generic[T]):
         return True
 
     async def fetch(self, cache_key: str = "global", force_refresh: bool = False, **kwargs: Any) -> T:
-        """Run the collection behind the TTL cache and the circuit breaker.
+        """Run the collection behind the TTL cache, the request coalescing and the circuit breaker.
 
-        With ``allow_stale_on_error=True`` (default) and a cached value, the cached value is
-        returned on failure. Otherwise ``CollectorUnavailableError`` is raised so that the
-        orchestrator can switch to its fallback.
+        Concurrent calls for the same ``cache_key`` share one upstream request: the first one starts
+        it, the others wait for its answer (or its error). Each caller then applies its own policy:
+        with ``allow_stale_on_error=True`` (default) and a cached value, the cached value is returned
+        on failure. Otherwise ``CollectorUnavailableError`` is raised so that the orchestrator can
+        switch to its fallback.
         """
         allow_stale: bool = bool(kwargs.pop("allow_stale_on_error", True))
 
@@ -156,6 +161,44 @@ class BaseCollector(ABC, Generic[T]):
                 f"Circuit breaker OPEN for {self.name} ({self.last_error})"
             )
 
+        try:
+            return await self._coalesced_upstream(cache_key, kwargs)
+        except Exception as exc:
+            stale = self._get_stale_cache(cache_key) if allow_stale else None
+            if stale is not None:
+                return stale
+            raise CollectorUnavailableError(
+                f"Collector {self.name} failed: {type(exc).__name__}: {exc}"
+            ) from exc
+
+    async def _coalesced_upstream(self, cache_key: str, kwargs: dict[str, Any]) -> T:
+        """Return the answer of the upstream request for ``cache_key``, starting it only if none is running.
+
+        The request runs in its own task, shared by every caller: a caller that is cancelled (a client
+        that hangs up) leaves the others waiting for the answer, and the answer is cached even when
+        nobody waits for it any more.
+        """
+        loop = asyncio.get_running_loop()
+        task = self._inflight.get(cache_key)
+        if task is not None and (task.done() or task.get_loop() is not loop):
+            # A leftover of a closed event loop (a test client, a restarted server): never wait for it.
+            self._inflight.pop(cache_key, None)
+            task = None
+        if task is None:
+            task = loop.create_task(self._upstream(cache_key, kwargs))
+            self._inflight[cache_key] = task
+            task.add_done_callback(lambda done, key=cache_key: self._upstream_done(key, done))
+        return await asyncio.shield(task)
+
+    def _upstream_done(self, cache_key: str, task: "asyncio.Task[T]") -> None:
+        """Forget a finished upstream request and mark its error as retrieved (every waiter may be gone)."""
+        if self._inflight.get(cache_key) is task:
+            del self._inflight[cache_key]
+        if not task.cancelled():
+            task.exception()
+
+    async def _upstream(self, cache_key: str, kwargs: dict[str, Any]) -> T:
+        """Send the upstream request once, record its outcome in the circuit breaker and the cache."""
         start_mono = time.monotonic()
         try:
             if self._external_client is not None:
@@ -166,18 +209,13 @@ class BaseCollector(ABC, Generic[T]):
                     timeout=self.timeout_seconds, headers=headers, follow_redirects=True
                 ) as client:
                     result = await self._collect(client, **kwargs)
-
-            elapsed_ms = (time.monotonic() - start_mono) * 1000.0
-            self._record_success(elapsed_ms, cache_key, result)
-            return result
         except Exception as exc:
             self._record_failure(f"{type(exc).__name__}: {exc}")
-            stale = self._get_stale_cache(cache_key) if allow_stale else None
-            if stale is not None:
-                return stale
-            raise CollectorUnavailableError(
-                f"Collector {self.name} failed: {type(exc).__name__}: {exc}"
-            ) from exc
+            raise
+
+        elapsed_ms = (time.monotonic() - start_mono) * 1000.0
+        self._record_success(elapsed_ms, cache_key, result)
+        return result
 
     @abstractmethod
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> T:

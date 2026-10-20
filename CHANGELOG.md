@@ -17,6 +17,8 @@ All notable changes to this project are documented here. The format follows
   cached once per position; the compact profiles slice it. A frame (5 days) and a full page
   (10 days) used to cost one Open-Meteo call each per position. `fetch_weather_with_fallback` no
   longer takes `days`.
+- **Call sobriety, request coalescing.** Simultaneous requests for the same cache key now send one
+  upstream request (they used to send one each, and each failure counted in the circuit breaker).
 - **Embedded frame contract** ([`docs/embedded-frame.md`](docs/embedded-frame.md)), same column
   order and counts:
   - `DAY` field 2 is the ISO date (`2026-10-20`) instead of a French weekday abbreviation.

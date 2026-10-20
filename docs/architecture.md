@@ -28,7 +28,7 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | --- | --- |
 | `app/main.py` | FastAPI application, routes, WebSocket hub, optional scheduler (lifespan). |
 | `app/models/schemas.py` | Pydantic models. A value a provider did not supply is `None`; no model has a default number standing for missing data. |
-| `app/collectors/base.py` | `BaseCollector`: HTTP client, circuit breaker (`CLOSED`, `OPEN`, `HALF_OPEN`), TTL cache, health. |
+| `app/collectors/base.py` | `BaseCollector`: HTTP client, circuit breaker (`CLOSED`, `OPEN`, `HALF_OPEN`), TTL cache, request coalescing, health. |
 | `app/collectors/seismic.py` | USGS and EMSC earthquakes. |
 | `app/collectors/disasters.py` | GDACS and NOAA NWS alerts. |
 | `app/collectors/flood_air.py` | River discharge (GloFAS), air quality and dust, USGS volcanoes. |
@@ -86,6 +86,11 @@ The number of calls to the providers must not grow with the number of clients. W
   the longest length any route returns (10 days) and cached once per cell. The compact profiles
   (5 days: the frame, `compact=true`) slice the answer; the number of days is not part of any cache
   key. A watched zone read by a frame and by a web page used to cost two calls.
+- **One upstream request for simultaneous callers.** `BaseCollector.fetch` runs the request of a
+  cache key in one shared task: N clients asking for the same key at the same time send one request
+  and all receive its answer or its error (each caller then applies its own stale policy). The
+  circuit breaker counts that single failure once. A client that hangs up does not cancel the
+  request for the others, and the answer is cached even when nobody waits for it any more.
 
 ## Persistence
 
