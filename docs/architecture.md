@@ -28,7 +28,8 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | --- | --- |
 | `app/main.py` | FastAPI application, routes, WebSocket hub, optional scheduler (lifespan). |
 | `app/models/schemas.py` | Pydantic models. A value a provider did not supply is `None`; no model has a default number standing for missing data. |
-| `app/collectors/grid.py`, `app/collectors/weights.py` | Point grids (snapping, settings); weight of an Open-Meteo request. |
+| `app/collectors/grid.py`, `app/collectors/weights.py`, `app/collectors/budget.py` | Point grids (snapping, settings); weight of an Open-Meteo request; published quotas and the call budget. |
+| `app/clock.py` | Time source of the collectors, replaceable by a test (simulated clock). |
 | `app/collectors/base.py` | `BaseCollector`: HTTP client, circuit breaker (`CLOSED`, `OPEN`, `HALF_OPEN`), TTL cache, request coalescing, health. |
 | `app/collectors/seismic.py` | USGS and EMSC earthquakes. |
 | `app/collectors/disasters.py` | GDACS and NOAA NWS alerts. |
@@ -92,6 +93,11 @@ The number of calls to the providers must not grow with the number of clients. W
   variables, refreshed every 15 minutes) and the daily forecast (7 variables, every hour) are now
   separate requests with their own cache entries; the weight of each request is computed from the
   published rule in `app/collectors/weights.py` (see `data-sources.md`).
+- **A call budget per source.** Every request goes through `BaseCollector._get`, which counts it
+  (and its weight) over a sliding window of 24 hours. A provider with a published quota (Open-Meteo,
+  MET Norway, RainViewer; `app/collectors/budget.py`) never gets a request that would exceed it:
+  the collector serves its expired cache instead and the responses say `stale`. The four Open-Meteo
+  APIs share one budget. `GET /v1/providers` reports `calls_24h`, `weight_24h` and the quota.
 - **TTLs from the sources' own rhythm.** Each source is cached for the time it takes to change, not
   for a round 5 minutes: the table with the evidence, the source URL and what could not be verified
   is [`data-sources.md`](data-sources.md). MET Norway is asked as its terms require: a conditional

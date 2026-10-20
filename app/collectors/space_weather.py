@@ -52,7 +52,7 @@ class NOAASWPCCollector(BaseCollector[SpaceWeatherStatus]):
         )
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> SpaceWeatherStatus:
-        resp = await client.get(self.KP_URL)
+        resp = await self._get(client, self.KP_URL)
         resp.raise_for_status()
         return self.parse_kp_json(resp.json())
 

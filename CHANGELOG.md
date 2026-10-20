@@ -17,6 +17,13 @@ All notable changes to this project are documented here. The format follows
   cached once per position; the compact profiles slice it. A frame (5 days) and a full page
   (10 days) used to cost one Open-Meteo call each per position. `fetch_weather_with_fallback` no
   longer takes `days`.
+- **Call sobriety, call budget.** Each collector counts the requests it really sends, and their
+  weight for Open-Meteo, over 24 hours; `GET /v1/providers` (and `/v1/health`) report `calls_24h`,
+  `weight_24h`, `quota` and `budget_refusals`. A provider with a published quota (Open-Meteo, MET
+  Norway, RainViewer; `app/collectors/budget.py`) is never sent a request that would exceed 90 % of
+  it (`VIGIE_BUDGET_FRACTION`): its expired cache is served instead and marked stale (`(stale cache)`
+  in the weather source, `stale` on `air_quality`, `flood_risk` and `marine`). The four Open-Meteo
+  APIs share one budget.
 - **Call sobriety, weight of the Open-Meteo calls.** Open-Meteo counts a request of more than 10
   variables as several calls; the forecast (18 variables, weight 1.8) is now two requests: the
   current conditions and the 15-minute rain (weight 1.1, every 15 minutes) and the daily forecast

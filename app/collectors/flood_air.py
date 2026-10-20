@@ -71,7 +71,8 @@ class OpenMeteoFloodCollector(BaseCollector[FloodRiskStatus]):
         """Fetch river discharge and flood risk near ``lat, lon`` (snapped to the flood grid)."""
         lat_r, lon_r = snap_to_grid(lat, lon, self.grid_deg)
         cache_key = f"flood:{coord_str(lat_r)},{coord_str(lon_r)}"
-        return await self.fetch(cache_key=cache_key, lat=lat_r, lon=lon_r)
+        fetched = await self.fetch_ex(cache_key=cache_key, lat=lat_r, lon=lon_r)
+        return fetched.value.model_copy(update={"stale": True}) if fetched.stale else fetched.value
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> FloodRiskStatus:
         lat = float(kwargs["lat"])
@@ -82,7 +83,7 @@ class OpenMeteoFloodCollector(BaseCollector[FloodRiskStatus]):
             "daily": "river_discharge,river_discharge_mean,river_discharge_max",
             "forecast_days": "7",
         }
-        resp = await client.get(self.BASE_URL, params=params)
+        resp = await self._get(client, self.BASE_URL, params=params)
         resp.raise_for_status()
         return self.parse_response(resp.json())
 
@@ -157,7 +158,8 @@ class OpenMeteoAirQualityCollector(BaseCollector[AirQualityStatus]):
         """Fetch the AQI, fine particles, UV and dust / ash near ``lat, lon`` (snapped to the air quality grid)."""
         lat_r, lon_r = snap_to_grid(lat, lon, self.grid_deg)
         cache_key = f"aqi:{coord_str(lat_r)},{coord_str(lon_r)}"
-        return await self.fetch(cache_key=cache_key, lat=lat_r, lon=lon_r)
+        fetched = await self.fetch_ex(cache_key=cache_key, lat=lat_r, lon=lon_r)
+        return fetched.value.model_copy(update={"stale": True}) if fetched.stale else fetched.value
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> AirQualityStatus:
         lat = float(kwargs["lat"])
@@ -167,7 +169,7 @@ class OpenMeteoAirQualityCollector(BaseCollector[AirQualityStatus]):
             "longitude": coord_str(lon),
             "current": "european_aqi,us_aqi,pm10,pm2_5,uv_index,dust",
         }
-        resp = await client.get(self.BASE_URL, params=params)
+        resp = await self._get(client, self.BASE_URL, params=params)
         resp.raise_for_status()
         return self.parse_response(resp.json())
 
@@ -259,7 +261,7 @@ class USGSVolcanoCollector(BaseCollector[list[HazardAlert]]):
         )
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> list[HazardAlert]:
-        resp = await client.get(self.FEED_URL)
+        resp = await self._get(client, self.FEED_URL)
         resp.raise_for_status()
         return self.parse_volcanoes(resp.json())
 

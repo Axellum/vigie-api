@@ -66,7 +66,7 @@ class GDACSCollector(BaseCollector[list[HazardAlert]]):
         )
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> list[HazardAlert]:
-        resp = await client.get(self.FEED_URL)
+        resp = await self._get(client, self.FEED_URL)
         resp.raise_for_status()
         payload = resp.json()
         return self.parse_geojson(payload)
@@ -163,7 +163,7 @@ class NOAANWSCollector(BaseCollector[list[HazardAlert]]):
         )
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> list[HazardAlert]:
-        resp = await client.get(self.FEED_URL)
+        resp = await self._get(client, self.FEED_URL)
         resp.raise_for_status()
         payload = resp.json()
         return self.parse_alerts(payload)

@@ -26,7 +26,7 @@ without any promise of support or availability.
 | `GET /v1/cap/alerts` | Active hazards as OASIS CAP 1.2. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Watched zones (the watchlist). A zone needs its `utc_offset_s`. |
 | `GET /v1/history` | Hazard history stored in SQLite. |
-| `GET /v1/health`, `GET /v1/providers` | Health, circuit breaker and cache state of each provider. |
+| `GET /v1/health`, `GET /v1/providers` | Health, circuit breaker and cache state of each provider, and its calls, weight and quota over 24 hours. |
 | `GET/POST /v1/scheduler/...` | State of the optional background scheduler, run one cycle now. |
 | `POST /v1/simulate` | Inject a **simulated** scenario for testing (always labelled as a simulation). |
 | `WS /v1/stream` | WebSocket with the initial state and alert pushes. |
@@ -60,6 +60,7 @@ All settings are optional environment variables.
 | `VIGIE_GRID_AIR_QUALITY_DEG` | `0.1` | Same, for Open-Meteo Air Quality (about 11 km). |
 | `VIGIE_GRID_FLOOD_DEG` | `0.1` | Same, for Open-Meteo Flood (GloFAS). |
 | `VIGIE_GRID_MARINE_DEG` | `0.1` | Same, for Open-Meteo Marine. |
+| `VIGIE_BUDGET_FRACTION` | `0.9` | Part of each published provider quota (Open-Meteo 10,000 calls a day, MET Norway, RainViewer) the API lets through. Beyond it the cache is served, flagged stale. |
 
 No API key is needed by any provider. A grid value outside 0.0001 to 10 degrees is ignored (the
 default is used). Only the request sent to the provider and the cache key use the snapped point: the

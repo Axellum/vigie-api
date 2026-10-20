@@ -4,6 +4,9 @@ Guarantees invariant 1 of ``AGENTS.md``: a collector that times out or fails
 (USGS, EMSC, GDACS, NOAA, Open-Meteo, MET Norway...) never blocks the asyncio
 event loop and never makes the API fail. It keeps the last valid value in cache
 and reports its health through ``get_health()``.
+
+Every request a collector sends goes through ``BaseCollector._get``, which counts it (and its weight)
+and refuses it when the published quota of the provider is used up (see ``budget.py``).
 """
 
 from __future__ import annotations
@@ -21,6 +24,13 @@ from typing import Any, Generic, Optional, TypeVar
 import httpx
 
 from app import clock
+from app.collectors.budget import (
+    QUOTAS,
+    BudgetExhaustedError,
+    CallBudget,
+    UsageWindow,
+    budget_fraction_from_env,
+)
 from app.models.schemas import CircuitState, ProviderHealth
 
 T = TypeVar("T")
@@ -103,6 +113,15 @@ class Collected(Generic[T]):
     validators: Optional[dict[str, str]] = None
 
 
+@dataclass(frozen=True)
+class Fetched(Generic[T]):
+    """A value and whether it is **stale**: served from an expired cache entry because the provider
+    failed or its call budget is used up. The callers whose response can say so mark it."""
+
+    value: T
+    stale: bool = False
+
+
 class BaseCollector(ABC, Generic[T]):
     """Resilient base for all asynchronous HTTP collectors."""
 
@@ -140,6 +159,12 @@ class BaseCollector(ABC, Generic[T]):
         self._cache: dict[str, CacheEntry[T]] = {}
         # The upstream request being sent for each cache key (see ``_coalesced_upstream``)
         self._inflight: dict[str, asyncio.Task[T]] = {}
+
+        # Requests really sent over the last 24 hours, and the budget (shared with the providers that
+        # share the same published quota, see ``share_budgets``)
+        self.usage = UsageWindow()
+        self.budget = CallBudget(QUOTAS.get(provider_id), budget_fraction_from_env())
+        self.budget_refusals: int = 0
 
     def _get_cached_if_fresh(self, cache_key: str) -> Optional[T]:
         """Return the cached entry if its TTL has not expired."""
@@ -203,13 +228,22 @@ class BaseCollector(ABC, Generic[T]):
         return True
 
     async def fetch(self, cache_key: str = "global", force_refresh: bool = False, **kwargs: Any) -> T:
-        """Run the collection behind the TTL cache, the request coalescing and the circuit breaker.
+        """Return the value of ``cache_key``: ``fetch_ex`` without the stale flag."""
+        return (await self.fetch_ex(cache_key, force_refresh, **kwargs)).value
+
+    async def fetch_ex(self, cache_key: str = "global", force_refresh: bool = False, **kwargs: Any) -> Fetched[T]:
+        """Run the collection behind the TTL cache, the request coalescing, the circuit breaker and the budget.
 
         Concurrent calls for the same ``cache_key`` share one upstream request: the first one starts
         it, the others wait for its answer (or its error). Each caller then applies its own policy:
         with ``allow_stale_on_error=True`` (default) and a cached value, the cached value is returned
         on failure. Otherwise ``CollectorUnavailableError`` is raised so that the orchestrator can
         switch to its fallback.
+
+        When the call budget of the provider is used up the request is not sent: the cached value is
+        returned, even expired and whatever ``allow_stale_on_error`` says, and flagged stale; with no
+        cached value ``CollectorUnavailableError`` is raised. A refused request is not a failure of the
+        provider: the circuit breaker does not see it.
 
         ``ttl_seconds`` (optional) replaces the TTL of the collector for the entry this call stores;
         a ``_collect`` that returns ``Collected(fresh_for_s=...)`` replaces it with what the provider said.
@@ -221,22 +255,27 @@ class BaseCollector(ABC, Generic[T]):
         if not force_refresh:
             fresh = self._get_cached_if_fresh(cache_key)
             if fresh is not None:
-                return fresh
+                return Fetched(fresh)
 
         if not self._can_attempt_network():
             stale = self._get_stale_cache(cache_key) if allow_stale else None
             if stale is not None:
-                return stale
+                return Fetched(stale, stale=True)
             raise CollectorUnavailableError(
                 f"Circuit breaker OPEN for {self.name} ({self.last_error})"
             )
 
         try:
-            return await self._coalesced_upstream(cache_key, ttl_seconds, kwargs)
+            return Fetched(await self._coalesced_upstream(cache_key, ttl_seconds, kwargs))
+        except BudgetExhaustedError as exc:
+            stale = self._get_stale_cache(cache_key)
+            if stale is not None:
+                return Fetched(stale, stale=True)
+            raise CollectorUnavailableError(f"Call budget of {self.name} exhausted: {exc}") from exc
         except Exception as exc:
             stale = self._get_stale_cache(cache_key) if allow_stale else None
             if stale is not None:
-                return stale
+                return Fetched(stale, stale=True)
             raise CollectorUnavailableError(
                 f"Collector {self.name} failed: {type(exc).__name__}: {exc}"
             ) from exc
@@ -284,6 +323,9 @@ class BaseCollector(ABC, Generic[T]):
                     timeout=self.timeout_seconds, headers=headers, follow_redirects=True
                 ) as client:
                     result = await self._collect(client, previous=previous, **kwargs)
+        except BudgetExhaustedError:
+            self.budget_refusals += 1
+            raise
         except Exception as exc:
             self._record_failure(f"{type(exc).__name__}: {exc}")
             raise
@@ -295,6 +337,26 @@ class BaseCollector(ABC, Generic[T]):
             return result.value
         self._record_success(elapsed_ms, cache_key, result, ttl_seconds)
         return result
+
+    async def _get(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        *,
+        params: Optional[Mapping[str, str]] = None,
+        headers: Optional[Mapping[str, str]] = None,
+    ) -> httpx.Response:
+        """Send a GET request to the provider: the only way a collector reaches it.
+
+        The request is counted (calls and weight over 24 hours) when it is sent, whatever its outcome.
+        When the call budget is used up it is not sent and ``BudgetExhaustedError`` is raised.
+        """
+        weight = self.call_weight(params or {})
+        now = clock.monotonic()
+        if not self.budget.try_spend(weight, now):
+            raise BudgetExhaustedError(f"{self.provider_id}: a request of weight {weight:g} does not fit in the budget")
+        self.usage.add(now, weight)
+        return await client.get(url, params=params, headers=headers)
 
     def call_weight(self, params: Mapping[str, str]) -> float:
         """Weight of one upstream request in the quota of the provider: 1.0 unless the provider weights its calls."""
@@ -330,4 +392,8 @@ class BaseCollector(ABC, Generic[T]):
             last_success_utc=self.last_success_utc,
             cache_age_s=newest_age_s,
             last_error=self.last_error,
+            calls_24h=self.usage.calls(clock.monotonic()),
+            weight_24h=self.usage.weight(clock.monotonic()),
+            quota=self.budget.status(clock.monotonic()),
+            budget_refusals=self.budget_refusals,
         )

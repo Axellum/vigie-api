@@ -29,7 +29,14 @@ from typing import Any, Optional
 
 import httpx
 
-from app.collectors.base import BaseCollector, CacheEntry, Collected, optional_float, response_lifetime_s
+from app.collectors.base import (
+    BaseCollector,
+    CacheEntry,
+    Collected,
+    Fetched,
+    optional_float,
+    response_lifetime_s,
+)
 from app.collectors.grid import (
     DEFAULT_FORECAST_GRID_DEG,
     coord_str,
@@ -114,6 +121,11 @@ def _rounded(value: Any, digits: int = 1) -> Optional[float]:
     return None if number is None else round(number, digits)
 
 
+def as_stale_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
+    """The weather bundle labelled as coming from an expired cache entry (``stale``, and the provider name says so)."""
+    return {**bundle, "provider_name": f"{bundle['provider_name']} (stale cache)", "stale": True}
+
+
 class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
     """Primary collector: Open-Meteo forecast with the 15-minute rain of the next hour and the daily forecast.
 
@@ -188,15 +200,16 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
         """Fetch the full forecast (``MAX_FORECAST_DAYS`` days) near the coordinates, snapped to the forecast grid.
 
         Both parts are needed: when one of them cannot be had, the error is raised so that the caller
-        falls back to another provider.
+        falls back to another provider. A part served from an expired entry because the call budget is
+        used up makes the whole bundle stale (``bundle["stale"]``, and the provider name says so).
         """
         s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
         now_key, daily_key = self.cache_keys_for(lat, lon)
         now, daily = await asyncio.gather(
-            self.fetch(
+            self.fetch_ex(
                 now_key, lat=s_lat, lon=s_lon, part="now", allow_stale_on_error=allow_stale_on_error
             ),
-            self.fetch(
+            self.fetch_ex(
                 daily_key,
                 lat=s_lat,
                 lon=s_lon,
@@ -209,7 +222,9 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
         for part in (now, daily):
             if isinstance(part, BaseException):
                 raise part
-        return self._merge_parts(now, daily)  # type: ignore[arg-type]
+        assert isinstance(now, Fetched) and isinstance(daily, Fetched)
+        bundle = self._merge_parts(now.value, daily.value)
+        return as_stale_bundle(bundle) if (now.stale or daily.stale) else bundle
 
     @staticmethod
     def request_params(part: str, lat: float, lon: float) -> dict[str, str]:
@@ -231,7 +246,7 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> dict[str, Any]:
         part = str(kwargs.get("part", "now"))
         params = self.request_params(part, float(kwargs["lat"]), float(kwargs["lon"]))
-        resp = await client.get(self.BASE_URL, params=params)
+        resp = await self._get(client, self.BASE_URL, params=params)
         resp.raise_for_status()
         payload = resp.json()
         return self.parse_daily(payload) if part == "daily" else self.parse_now(payload)
@@ -377,13 +392,14 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
         into local calendar days; MET Norway does not report the local offset.
         """
         lat_r, lon_r = snap_to_grid(lat, lon, self.grid_deg)
-        return await self.fetch(
+        fetched = await self.fetch_ex(
             cache_key=f"metno:{coord_str(lat_r)},{coord_str(lon_r)}:{utc_offset_s}",
             lat=lat_r,
             lon=lon_r,
             utc_offset_s=utc_offset_s,
             allow_stale_on_error=allow_stale_on_error,
         )
+        return as_stale_bundle(fetched.value) if fetched.stale else fetched.value
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> Collected[dict[str, Any]]:
         """Ask MET Norway as its terms require: a conditional request, and the answer valid until ``Expires``.
@@ -400,7 +416,8 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
         if previous is not None and previous.validators and previous.validators.get("Last-Modified"):
             headers["If-Modified-Since"] = previous.validators["Last-Modified"]
 
-        resp = await client.get(
+        resp = await self._get(
+            client,
             self.BASE_URL,
             params={"lat": coord_str(lat), "lon": coord_str(lon)},
             headers=headers,
@@ -538,7 +555,7 @@ class RainViewerCollector(BaseCollector[dict[str, Any]]):
         )
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> dict[str, Any]:
-        resp = await client.get(self.MAPS_URL)
+        resp = await self._get(client, self.MAPS_URL)
         resp.raise_for_status()
         return self.parse_maps(resp.json())
 

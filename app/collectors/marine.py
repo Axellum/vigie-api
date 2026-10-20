@@ -84,7 +84,8 @@ class OpenMeteoMarineCollector(BaseCollector[MarineConditions]):
         """Fetch the marine conditions near ``lat, lon`` (snapped to the marine grid)."""
         lat_r, lon_r = snap_to_grid(lat, lon, self.grid_deg)
         cache_key = f"marine:{coord_str(lat_r)},{coord_str(lon_r)}"
-        return await self.fetch(cache_key=cache_key, lat=lat_r, lon=lon_r)
+        fetched = await self.fetch_ex(cache_key=cache_key, lat=lat_r, lon=lon_r)
+        return fetched.value.model_copy(update={"stale": True}) if fetched.stale else fetched.value
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> MarineConditions:
         lat = float(kwargs["lat"])
@@ -98,7 +99,7 @@ class OpenMeteoMarineCollector(BaseCollector[MarineConditions]):
                 "ocean_current_velocity,ocean_current_direction"
             ),
         }
-        resp = await client.get(self.BASE_URL, params=params)
+        resp = await self._get(client, self.BASE_URL, params=params)
         resp.raise_for_status()
         return self.parse_response(resp.json())
 

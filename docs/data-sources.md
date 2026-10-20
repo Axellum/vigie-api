@@ -77,6 +77,31 @@ conditions and the 15-minute rain every 15 minutes (11 variables), the daily for
 (7 variables, 10 days). Per cell and per day: 96 x 1.8 = 173 before, 96 x 1.1 + 24 x 1.0 = 130
 after (-25%) at the same freshness of the current conditions.
 
+### Call budget
+
+Every request the API sends is counted (calls, and weight for Open-Meteo) over a sliding window of 24
+hours and reported by `GET /v1/providers` (`calls_24h`, `weight_24h`, `quota`). A provider that
+**publishes a quota** also has a budget; the quotas are declared in one place,
+`app/collectors/budget.py` (`QUOTAS`):
+
+| Provider | Published quota | Source |
+| --- | --- | --- |
+| Open-Meteo (forecast, air quality, river discharge, marine: one quota for the four) | 10,000 calls a day, 5,000 an hour, 600 a minute, on the weighted calls | [terms](https://open-meteo.com/en/terms), [pricing](https://open-meteo.com/en/pricing) |
+| MET Norway | 20 requests a second per application, above which a special agreement is needed | [terms of service](https://api.met.no/doc/TermsOfService) |
+| RainViewer | 100 requests a minute per IP address | [FAQ](https://rainviewer.com/api/transition-faq.html) |
+| NOAA NWS | exists but "is not public information": no budget, **not verified** | [documentation](https://www.weather.gov/documentation/services-web-api) |
+| USGS, EMSC, GDACS, USGS Volcano, NOAA SWPC | none found on their pages: no budget, **not verified** | see the tables above |
+
+The budget lets through 90 % of each limit (`VIGIE_BUDGET_FRACTION`): a margin for another program on
+the same IP address and for the difference between this count and the provider's. A request that
+would exceed it is **not sent**: the collector serves its cache, even expired, and the responses that
+carry that data say so (`weather_source` ends with `(stale cache)` and `weather_fallback_active` is
+true; `stale: true` on `air_quality`, `flood_risk` and `marine`). With nothing cached the data is
+unknown (or, for the weather, the MET Norway fallback is used). The budget frees itself as the window
+slides, and a refused request is not a failure of the provider: the circuit breaker does not see it.
+The monthly limit of Open-Meteo (300,000 calls) is the daily one over 30 days and is not tracked
+separately. A redirect followed by the HTTP client is not counted.
+
 ## Attribution to show
 
 A screen or page that displays this data should credit its sources (links and credits are listed in the

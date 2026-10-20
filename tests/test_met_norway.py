@@ -154,7 +154,9 @@ async def test_a_failure_serves_the_expired_value_and_keeps_the_validator(sim_cl
 
     sim_clock.advance(601.0)
     met.fail = True
-    assert await collector.fetch_point(48.85, 2.35) is first  # stale fallback, as before
+    stale = await collector.fetch_point(48.85, 2.35)  # the expired value is served, and says so
+    assert stale["stale"] is True and stale["provider_name"].endswith("(stale cache)")
+    assert stale["current"] == first["current"]
 
     met.fail = False
     assert await collector.fetch_point(48.85, 2.35) is first  # 304 again

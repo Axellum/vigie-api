@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Awaitable, Optional, TypeVar
 
+from app.collectors.budget import share_budgets
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector
 from app.collectors.flood_air import (
     OpenMeteoAirQualityCollector,
@@ -34,7 +35,12 @@ from app.collectors.flood_air import (
 from app.collectors.marine import OpenMeteoMarineCollector
 from app.collectors.seismic import EMSCCollector, USGSCollector
 from app.collectors.space_weather import NOAASWPCCollector
-from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector, RainViewerCollector
+from app.collectors.weather import (
+    MetNorwayCollector,
+    OpenMeteoCollector,
+    RainViewerCollector,
+    as_stale_bundle,
+)
 from app.models.schemas import (
     SEVERITY_RANK,
     AirQualityStatus,
@@ -134,6 +140,7 @@ class AggregatorService:
         self.flood = flood or OpenMeteoFloodCollector()
         self.air_quality = air_quality or OpenMeteoAirQualityCollector()
         self.swpc = swpc or NOAASWPCCollector()
+        share_budgets(self.get_all_collectors())  # the four Open-Meteo APIs share one quota
 
         self.storage = storage or SQLiteWALStorage(db_path=db_path)
         self.monitored_zones: list[dict[str, Any]] = [
@@ -209,8 +216,10 @@ class AggregatorService:
         """
         try:
             bundle = await self.open_meteo.fetch_point(lat, lon, allow_stale_on_error=False)
-            self.last_weather_fallback_used = False
-            return bundle, False
+            # A bundle served from an expired entry (the call budget is used up) says so: it counts as a fallback.
+            stale = bool(bundle.get("stale"))
+            self.last_weather_fallback_used = stale
+            return bundle, stale
         except Exception:
             pass
 
@@ -226,7 +235,7 @@ class AggregatorService:
         stale = self.open_meteo.get_stale_point(lat, lon)
         if stale is not None:
             self.last_weather_fallback_used = True
-            return {**stale, "provider_name": f"{stale['provider_name']} (stale cache)", "stale": True}, True
+            return as_stale_bundle(stale), True
 
         self.last_weather_fallback_used = True
         return None, False
