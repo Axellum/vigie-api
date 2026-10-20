@@ -1,11 +1,12 @@
-"""Scheduler asynchrone en arrière-plan & Détecteur différentiel d'alertes Push (`app/services/scheduler.py`).
+"""Background scheduler and differential push detector (``app/services/scheduler.py``).
 
-Ce service assure :
-1. Le rafraîchissement périodique non-bloquant du snapshot mondial (`run_single_cycle`).
-2. La détection différentielle (`detect_new_or_upgraded_hazards`) de toute **nouvelle alerte**
-   ou **aggravation de sévérité** (`GREEN -> YELLOW -> ORANGE -> RED` ou hausse de magnitude/intensité).
-3. La diffusion instantanée via WebSocket (`/v1/stream`) des alertes urgentes accompagnées
-   de la trame C++ mise à jour (`embedded_frame`) pour les terminaux Waveshare 7B et M5Stack Tab5.
+This service:
+
+1. Refreshes the world snapshot periodically without blocking (``run_single_cycle``).
+2. Detects every **new alert** or **severity increase** (``detect_new_or_upgraded_hazards``:
+   ``GREEN -> YELLOW -> ORANGE -> RED``, or a higher magnitude / intensity).
+3. Pushes urgent alerts over WebSocket (``/v1/stream``) together with the updated embedded
+   frame (``embedded_frame``) for the displays.
 """
 
 from __future__ import annotations
@@ -15,16 +16,21 @@ import contextlib
 import time
 from typing import Any, Optional
 
-from app.models.schemas import HazardAlert, SEVERITY_RANK
+from app.models.schemas import SEVERITY_RANK, HazardAlert
 from app.services.aggregator import AggregatorService
 from app.services.embedded_frame import serialize_embedded_frame
+
+
+def _value_increased(previous: Optional[float], current: Optional[float]) -> bool:
+    """True when both values are known and the value went up."""
+    return previous is not None and current is not None and current > previous
 
 
 def detect_new_or_upgraded_hazards(
     previous_by_id: dict[str, HazardAlert],
     current_hazards: list[HazardAlert],
 ) -> list[HazardAlert]:
-    """Retourne les alertes nouvellement apparues ou dont la sévérité / intensité a augmenté."""
+    """Return the alerts that are new or whose severity / intensity increased."""
     changed: list[HazardAlert] = []
     for h in current_hazards:
         prev = previous_by_id.get(h.id)
@@ -32,13 +38,15 @@ def detect_new_or_upgraded_hazards(
             changed.append(h)
         elif SEVERITY_RANK[h.severity] > SEVERITY_RANK[prev.severity]:
             changed.append(h)
-        elif h.value_primary > prev.value_primary or (h.tsunami_warning and not prev.tsunami_warning):
+        elif _value_increased(prev.value_primary, h.value_primary) or (
+            h.tsunami_warning and not prev.tsunami_warning
+        ):
             changed.append(h)
     return changed
 
 
 class BackgroundAlertScheduler:
-    """Ordonnanceur asynchrone de collecte périodique et de notification Push WebSocket."""
+    """Asynchronous scheduler of periodic collection and WebSocket push notification."""
 
     def __init__(
         self,
@@ -60,7 +68,7 @@ class BackgroundAlertScheduler:
         self._task: Optional[asyncio.Task[None]] = None
 
     async def run_single_cycle(self) -> dict[str, Any]:
-        """Exécute un cycle complet de collecte, calcul différentiel et push WebSocket si nécessaire."""
+        """Run one full cycle: collect, compute the difference, push over WebSocket if needed."""
         now_utc = int(time.time())
         try:
             snapshot = await self.aggregator.build_snapshot()
@@ -93,7 +101,11 @@ class BackgroundAlertScheduler:
                 "total_hazards": len(snapshot.hazards),
                 "new_or_upgraded_count": len(diff),
                 "new_or_upgraded_ids": [h.id for h in diff],
-                "max_severity": snapshot.global_status.max_severity.value,
+                "max_severity": (
+                    snapshot.global_status.max_severity.value
+                    if snapshot.global_status.max_severity is not None
+                    else None
+                ),
             }
         except Exception as exc:
             self.last_error = f"{type(exc).__name__}: {exc}"
@@ -110,14 +122,14 @@ class BackgroundAlertScheduler:
             await asyncio.sleep(self.interval_seconds)
 
     def start(self) -> None:
-        """Démarre la boucle de collecte périodique en tâche de fond asyncio."""
+        """Start the periodic collection loop as an asyncio background task."""
         if self.running:
             return
         self.running = True
         self._task = asyncio.create_task(self._loop())
 
     async def stop(self) -> None:
-        """Arrête proprement la tâche de fond asyncio."""
+        """Stop the asyncio background task cleanly."""
         self.running = False
         if self._task is not None:
             self._task.cancel()
@@ -126,7 +138,7 @@ class BackgroundAlertScheduler:
             self._task = None
 
     def get_status(self) -> dict[str, Any]:
-        """Retourne l'état opérationnel du scheduler."""
+        """Return the operational state of the scheduler."""
         return {
             "running": self.running,
             "interval_seconds": self.interval_seconds,

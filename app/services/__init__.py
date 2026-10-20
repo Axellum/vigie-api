@@ -1,1 +1,1 @@
-"""Services de géodésie et de fusion spatiotemporelle."""
+"""Services: aggregation, geodesy, persistence, scheduler and embedded frame."""

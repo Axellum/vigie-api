@@ -1,1 +1,1 @@
-"""Modèles de données Pydantic pour Vigie Mondiale API."""
+"""Pydantic data models of the Vigie API."""

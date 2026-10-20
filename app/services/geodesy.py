@@ -1,33 +1,33 @@
-"""Moteur géodésique (Haversine, Relèvement/Cap, ETA Tsunami) et déduplication multi-providers.
+"""Geodesy (haversine, bearing, tsunami ETA) and multi-provider de-duplication.
 
-Ce module fournit :
-1. `haversine_km` : distance orthodromique sur sphère terrestre moyenne (R = 6371.0088 km).
-2. `initial_bearing_deg` & `bearing_to_cardinal` : azimut exact (0-360°) et point cardinal
-   (N, NE, E, SE, S, SW, W, NW) depuis la position de l'utilisateur/bateau vers la menace.
-3. `estimate_tsunami_eta_minutes` : estimation physique du temps de propagation d'un tsunami
-   en fonction de la profondeur océanique moyenne (v = sqrt(g * d)).
-4. `deduplicate_hazards` : fusion spatiotemporelle inter-agences (ex: un même séisme
-   remonté simultanément par USGS, EMSC et GDACS) en conservant le meilleur score et la
-   liste complète des sources confirmantes.
+This module provides:
+
+1. ``haversine_km``: great-circle distance on a mean Earth sphere (R = 6371.0088 km).
+2. ``initial_bearing_deg`` and ``bearing_to_cardinal``: true azimuth (0-360 degrees) and
+   cardinal point (N, NE, E, SE, S, SW, W, NW) from the user / vessel towards the threat.
+3. ``estimate_tsunami_eta_minutes``: long-wave travel time of a tsunami from the mean ocean
+   depth (v = sqrt(g * d)). It is an order-of-magnitude estimate, not a forecast.
+4. ``deduplicate_hazards``: space-time merge across agencies (for example one earthquake
+   reported by USGS, EMSC and GDACS), keeping the best score and the full source list.
 """
 
 from __future__ import annotations
 
 import math
-from typing import Iterable
+from typing import Iterable, Optional
 
-from app.models.schemas import HazardAlert, HazardCategory, SEVERITY_RANK, SeverityLevel
+from app.models.schemas import SEVERITY_RANK, HazardAlert, HazardCategory, SeverityLevel
 
-# Rayon terrestre moyen IUGG (en kilomètres)
+# IUGG mean Earth radius (kilometres)
 EARTH_RADIUS_KM: float = 6371.0088
-# Accélération de la pesanteur standard (m/s²)
+# Standard gravity (m/s^2)
 GRAVITY_M_S2: float = 9.80665
 
 CARDINAL_8: tuple[str, ...] = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Calcule la distance orthodromique (grand cercle) en kilomètres entre deux points WGS84."""
+    """Return the great-circle distance in kilometres between two WGS84 points."""
     phi1 = math.radians(lat1)
     phi2 = math.radians(lat2)
     d_phi = math.radians(lat2 - lat1)
@@ -43,10 +43,10 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 def initial_bearing_deg(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Calcule le relèvement initial (azimut vrai en degrés [0.0, 360.0[) du point 1 vers le point 2.
+    """Return the initial bearing (true azimuth in degrees, [0.0, 360.0[) from point 1 to point 2.
 
-    Permet à un bateau ou une station fixe de savoir immédiatement dans quelle direction
-    se situe l'épicentre d'un séisme, d'un cyclone ou d'un grain violent.
+    Lets a boat or a fixed station know at once in which direction an earthquake epicentre,
+    a cyclone or a violent squall lies.
     """
     if math.isclose(lat1, lat2, abs_tol=1e-9) and math.isclose(lon1, lon2, abs_tol=1e-9):
         return 0.0
@@ -62,17 +62,17 @@ def initial_bearing_deg(lat1: float, lon1: float, lat2: float, lon2: float) -> f
 
 
 def bearing_to_cardinal(bearing_deg: float) -> str:
-    """Convertit un azimut en degrés [0, 360[ en direction cardinale à 8 secteurs (N, NE, E...)."""
+    """Convert an azimuth in [0, 360[ degrees to one of 8 cardinal directions (N, NE, E...)."""
     normalized = (bearing_deg + 360.0) % 360.0
     index = int((normalized + 22.5) // 45.0) % 8
     return CARDINAL_8[index]
 
 
 def estimate_tsunami_eta_minutes(distance_km: float, avg_depth_m: float = 4000.0) -> int:
-    """Estime le temps d'arrivée d'une onde de tsunami (en minutes) selon la loi d'onde longue.
+    """Estimate a tsunami arrival time (minutes) with the long-wave law.
 
-    En océan profond (d = 4000 m), la célérité de l'onde est c = sqrt(g * d) ≈ 198.05 m/s ≈ 713 km/h.
-    Retourne toujours au minimum 1 minute si la distance est non nulle.
+    In deep ocean (d = 4000 m) the wave speed is c = sqrt(g * d), about 198 m/s or 713 km/h.
+    Returns at least 1 minute when the distance is not zero.
     """
     if distance_km <= 0.0:
         return 0
@@ -90,7 +90,7 @@ def enrich_hazard_for_point(
     zone_id: str | None = None,
     zone_name: str | None = None,
 ) -> HazardAlert:
-    """Calcule et injecte distance, relèvement (cap + cardinal) et ETA tsunami vers un point de référence."""
+    """Add the distance, the bearing (degrees and cardinal) and the tsunami ETA towards a reference point."""
     dist_km = haversine_km(ref_lat, ref_lon, hazard.lat, hazard.lon)
     bearing = initial_bearing_deg(ref_lat, ref_lon, hazard.lat, hazard.lon)
     cardinal = bearing_to_cardinal(bearing)
@@ -118,7 +118,7 @@ def _are_duplicate_hazards(
     max_time_diff_s: int = 120,
     max_dist_km: float = 100.0,
 ) -> bool:
-    """Détermine si deux alertes provenant de sources différentes décrivent le même phénomène physique."""
+    """Tell whether two alerts from different sources describe the same physical phenomenon."""
     if a.category != b.category:
         return False
 
@@ -128,20 +128,26 @@ def _are_duplicate_hazards(
     if a.category == HazardCategory.EARTHQUAKE:
         return time_diff <= max_time_diff_s and dist_km <= max_dist_km
 
-    # Pour les phénomènes étendus (cyclones, volcans, tsunamis, inondations), fenêtre temporelle de 6h et 150 km
+    # Extended phenomena (cyclones, volcanoes, tsunamis, floods): 6 hour window and 150 km
     return time_diff <= 21600 and dist_km <= 150.0
 
 
+def _max_known(a: Optional[float], b: Optional[float]) -> Optional[float]:
+    """Return the larger of two optional values, ignoring unknown ones."""
+    known = [v for v in (a, b) if v is not None]
+    return max(known) if known else None
+
+
 def _merge_two_hazards(primary: HazardAlert, secondary: HazardAlert) -> HazardAlert:
-    """Fusionne deux alertes du même événement en conservant le meilleur score et la liste des sources."""
-    # Conserver la sévérité la plus haute
+    """Merge two alerts of the same event, keeping the best score and the list of sources."""
+    # Keep the highest severity
     best_severity: SeverityLevel = (
         primary.severity
         if SEVERITY_RANK[primary.severity] >= SEVERITY_RANK[secondary.severity]
         else secondary.severity
     )
 
-    # Ordre canonique des sources sans doublon
+    # Canonical source order without duplicates
     merged_sources: list[str] = []
     for src in (primary.sources or [primary.source]) + (secondary.sources or [secondary.source]):
         for token in src.split("+"):
@@ -149,12 +155,11 @@ def _merge_two_hazards(primary: HazardAlert, secondary: HazardAlert) -> HazardAl
             if clean and clean not in merged_sources:
                 merged_sources.append(clean)
 
-    # Choisir l'alerte ayant la valeur primaire la plus élevée ou le titre le plus descriptif
-    best_value = max(primary.value_primary, secondary.value_primary)
+    best_value = _max_known(primary.value_primary, secondary.value_primary)
     best_depth = primary.depth_km if primary.depth_km is not None else secondary.depth_km
     tsunami_flag = bool(primary.tsunami_warning or secondary.tsunami_warning)
 
-    # Préférer le titre et les coordonnées de USGS s'il est présent, sinon le premier
+    # Prefer the title and the coordinates of USGS when present, else the first alert
     preferred = primary if "USGS" in (primary.sources or [primary.source]) else (
         secondary if "USGS" in (secondary.sources or [secondary.source]) else primary
     )
@@ -165,6 +170,7 @@ def _merge_two_hazards(primary: HazardAlert, secondary: HazardAlert) -> HazardAl
             "source": "+".join(merged_sources),
             "sources": merged_sources,
             "value_primary": best_value,
+            "value_unit": preferred.value_unit or primary.value_unit or secondary.value_unit,
             "depth_km": best_depth,
             "tsunami_warning": tsunami_flag,
         }
@@ -176,14 +182,15 @@ def deduplicate_hazards(
     max_time_diff_s: int = 120,
     max_dist_km: float = 100.0,
 ) -> list[HazardAlert]:
-    """Déduplique et fusionne une liste d'alertes multi-providers (ex: USGS + EMSC + GDACS).
+    """De-duplicate and merge a multi-provider alert list (for example USGS + EMSC + GDACS).
 
-    Trie le résultat par sévérité décroissante puis par horodatage décroissant (plus récent en tête).
+    The result is sorted by decreasing severity, then decreasing known value, then by
+    decreasing time (most recent first). An unknown value sorts after every known one.
     """
     merged_list: list[HazardAlert] = []
 
     for candidate in hazards:
-        # Normaliser la liste `sources` si elle est vide
+        # Normalize the ``sources`` list when it is empty
         normalized_sources = candidate.sources or [
             s.strip() for s in candidate.source.split("+") if s.strip()
         ]
@@ -206,7 +213,12 @@ def deduplicate_hazards(
             merged_list[matched_idx] = _merge_two_hazards(merged_list[matched_idx], cand)
 
     merged_list.sort(
-        key=lambda h: (SEVERITY_RANK[h.severity], h.value_primary, h.timestamp_utc),
+        key=lambda h: (
+            SEVERITY_RANK[h.severity],
+            h.value_primary is not None,
+            h.value_primary if h.value_primary is not None else 0.0,
+            h.timestamp_utc,
+        ),
         reverse=True,
     )
     return merged_list

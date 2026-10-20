@@ -1,13 +1,14 @@
-"""Dashboard Web Pro de Supervision & Salle de Crise (`GET /dashboard`).
+"""Web supervision dashboard (``GET /dashboard``).
 
-Fournit une interface HTML5/CSS/JS autonome (Mode Sombre Tactique, zéro dépendance externe)
-permettant :
-1. De visualiser en temps réel l'état des 12 providers mondiaux et de leurs Circuit Breakers.
-2. De visualiser les zones mondiales surveillées (`/v1/zones`) et les alertes actives (`/v1/snapshot`).
-3. D'injecter en 1 clic les scénarios de simulation (`/v1/simulate`) ou de déclencher un cycle
-   du scheduler (`/v1/scheduler/trigger`).
-4. D'inspecter en direct la trame embarquée C++ (`GET /v1/embedded/frame`) et sa somme CRC32
-   pour les terminaux Waveshare 7B (1024×600) et M5Stack Tab5 (1280×720 + GPS Grove).
+A self-contained HTML5 / CSS / JS page (dark theme, no external dependency) that shows:
+
+1. The health of every provider and its circuit breaker.
+2. The watched zones (``/v1/zones``) and the active hazards (``/v1/snapshot``).
+3. Buttons to start a simulated scenario (``/v1/simulate``) or to run one scheduler cycle
+   (``/v1/scheduler/trigger``).
+4. The live embedded frame (``GET /v1/embedded/frame``) for the Waveshare 7B and the Tab5.
+
+A value the API reports as unknown (``null``) is shown as "n/a", never as a number.
 """
 
 from __future__ import annotations
@@ -15,14 +16,14 @@ from __future__ import annotations
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 
-router = APIRouter(tags=["Web Crisis Dashboard"])
+router = APIRouter(tags=["Dashboard"])
 
 DASHBOARD_HTML = """<!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Vigie Mondiale Pro — Centre de Supervision & Salle de Crise</title>
+  <title>Vigie API - Supervision</title>
   <style>
     :root {
       --bg-0: hsl(222, 32%, 7%);
@@ -40,7 +41,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: radial-gradient(circle at top right, hsl(220, 38%, 13%), var(--bg-0));
+      background: var(--bg-0);
       color: var(--text-0);
       min-height: 100vh;
       padding: 18px 24px;
@@ -54,16 +55,16 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       padding: 16px 20px;
       background: var(--bg-1);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 8px;
       margin-bottom: 18px;
     }
-    .brand h1 { font-size: 1.35rem; letter-spacing: 0.4px; }
+    .brand h1 { font-size: 1.25rem; letter-spacing: 0.2px; }
     .brand p { color: var(--text-1); font-size: 0.85rem; margin-top: 4px; }
     .badges { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
     .badge {
       padding: 6px 12px;
       border-radius: 999px;
-      font-weight: 700;
+      font-weight: 600;
       font-size: 0.8rem;
       border: 1px solid var(--border);
       background: var(--bg-2);
@@ -79,7 +80,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       padding: 14px 18px;
       background: var(--bg-1);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 8px;
       margin-bottom: 18px;
       align-items: center;
     }
@@ -89,15 +90,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       color: var(--text-0);
       border: 1px solid var(--border);
       padding: 8px 13px;
-      border-radius: 8px;
+      border-radius: 6px;
       font-size: 0.82rem;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.15s ease;
     }
-    button:hover { border-color: var(--accent); background: hsl(222, 26%, 19%); }
-    .btn-danger { border-color: hsla(354, 88%, 58%, 0.6); color: hsl(354, 95%, 74%); }
-    .btn-ok { border-color: hsla(150, 75%, 44%, 0.6); color: hsl(150, 85%, 68%); }
+    button:hover { border-color: var(--accent); }
     .grid {
       display: grid;
       grid-template-columns: repeat(12, 1fr);
@@ -106,18 +104,17 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     .card {
       background: var(--bg-1);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 8px;
       padding: 16px;
     }
-    .col-4 { grid-column: span 4; }
     .col-6 { grid-column: span 6; }
-    .col-8 { grid-column: span 8; }
-    .col-12 { grid-column: span 12; }
+    .col-7 { grid-column: span 7; }
+    .col-5 { grid-column: span 5; }
     @media (max-width: 1100px) {
-      .col-4, .col-6, .col-8 { grid-column: span 12; }
+      .col-5, .col-6, .col-7 { grid-column: span 12; }
     }
     .card h2 {
-      font-size: 0.98rem;
+      font-size: 0.95rem;
       margin-bottom: 12px;
       color: var(--accent);
       display: flex;
@@ -134,12 +131,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     pre {
       background: hsl(224, 36%, 5%);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 6px;
       padding: 12px;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 0.78rem;
       color: hsl(165, 85%, 72%);
-      overflow-x: auto;
+      overflow: auto;
       line-height: 1.45;
       max-height: 320px;
     }
@@ -148,60 +145,61 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <body>
   <header>
     <div class="brand">
-      <h1>🌍 VIGIE MONDIALE PRO — SALLE DE CRISE & SUPERVISION API</h1>
-      <p>Multi-Providers (USGS · EMSC · GDACS · NOAA · Open-Meteo HD · MET Norway · Marine · GloFAS · SWPC) · ESP32-P4 Waveshare 7B & M5Stack Tab5</p>
+      <h1>Vigie API - Supervision</h1>
+      <p>Sources: USGS, EMSC, GDACS, NOAA NWS, USGS Volcano, NOAA SWPC, Open-Meteo, MET Norway, RainViewer. Unknown values are shown as n/a.</p>
     </div>
     <div class="badges">
-      <span id="defcon-badge" class="badge sev-GREEN">DEFCON : GREEN</span>
-      <span id="kp-badge" class="badge">SOLAIRE Kp : --</span>
-      <span id="wal-badge" class="badge">SQLite : WAL</span>
-      <span id="sched-badge" class="badge">Scheduler : Actif</span>
+      <span id="severity-badge" class="badge">Max severity: --</span>
+      <span id="kp-badge" class="badge">Solar Kp: --</span>
+      <span id="wal-badge" class="badge">SQLite: --</span>
+      <span id="sched-badge" class="badge">Scheduler: --</span>
+      <span id="sim-badge" class="badge">Simulation: --</span>
     </div>
   </header>
 
   <section class="toolbar">
-    <span>⚡ Simulateur de Crises :</span>
-    <button class="btn-danger" onclick="triggerSim('mega_tsunami_japan')">🌊 Séisme M7.8 + Tsunami Japon</button>
-    <button class="btn-danger" onclick="triggerSim('cat5_hurricane_caribbean')">🌀 Ouragan Cat. 5 Antilles</button>
-    <button class="btn-danger" onclick="triggerSim('volcano_eruption_iceland')">🌋 Éruption + Cendres Islande</button>
-    <button onclick="triggerSim('severe_squall_marine')">⛵ Grain Violent & Houle 5.4m</button>
-    <button class="btn-ok" onclick="triggerSim('clear')">✅ Retour au Calme (Clear)</button>
-    <button onclick="triggerScheduler()">🔄 Cycle Scheduler Immédiat</button>
+    <span>Simulation (test data, always labelled):</span>
+    <button onclick="triggerSim('mega_tsunami_japan')">M7.8 earthquake and tsunami, Japan</button>
+    <button onclick="triggerSim('cat5_hurricane_caribbean')">Category 5 hurricane, Antilles</button>
+    <button onclick="triggerSim('volcano_eruption_iceland')">Eruption and ash, Iceland</button>
+    <button onclick="triggerSim('severe_squall_marine')">Violent squall and 5.4 m swell</button>
+    <button onclick="triggerSim('clear')">Back to real data</button>
+    <button onclick="triggerScheduler()">Run one collection cycle</button>
     <select id="device-select" onchange="refreshAll()">
-      <option value="waveshare-7b">Écran : Waveshare 7B (1024×600)</option>
-      <option value="tab5">Écran : M5Stack Tab5 (1280×720 + GPS)</option>
-      <option value="marine">Écran : Navigation Marine Bateau</option>
+      <option value="waveshare-7b">Display: Waveshare 7B (1024x600)</option>
+      <option value="tab5">Display: M5Stack Tab5 (1280x720 + GPS)</option>
+      <option value="marine">Display: marine navigation</option>
     </select>
   </section>
 
   <main class="grid">
-    <section class="card col-7" style="grid-column: span 7;">
-      <h2>🚨 Alertes Catastrophes Mondiales Dédupliquées <span id="hazards-count">0</span></h2>
+    <section class="card col-7">
+      <h2>Active hazards <span id="hazards-count">0</span></h2>
       <table>
         <thead>
           <tr>
-            <th>Sévérité</th>
-            <th>Catégorie</th>
-            <th>Titre & Épicentre</th>
-            <th>Valeur</th>
-            <th>Sources Fusionnées</th>
-            <th>Dist / Cap / ETA Tsunami</th>
+            <th>Severity</th>
+            <th>Category</th>
+            <th>Title</th>
+            <th>Value</th>
+            <th>Sources</th>
+            <th>Distance / bearing / tsunami ETA</th>
           </tr>
         </thead>
         <tbody id="hazards-body"></tbody>
       </table>
     </section>
 
-    <section class="card col-5" style="grid-column: span 5;">
-      <h2>📍 Watchlist Zones Surveillées (SQLite WAL)</h2>
+    <section class="card col-5">
+      <h2>Watched zones</h2>
       <table>
         <thead>
           <tr>
             <th>Zone</th>
-            <th>Alerte</th>
+            <th>Alert</th>
             <th>Temp</th>
-            <th>Vent / Raf</th>
-            <th>Pluie 15m</th>
+            <th>Wind / gust</th>
+            <th>Rain, next hour</th>
             <th>Source</th>
           </tr>
         </thead>
@@ -210,14 +208,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     </section>
 
     <section class="card col-6">
-      <h2>🛡️ Santé des 12 Collecteurs & Circuit Breakers</h2>
+      <h2>Provider health and circuit breakers</h2>
       <table>
         <thead>
           <tr>
             <th>Provider</th>
-            <th>Domaine</th>
+            <th>Domain</th>
             <th>Circuit</th>
-            <th>Latence</th>
+            <th>Latency</th>
             <th>Cache</th>
           </tr>
         </thead>
@@ -226,12 +224,20 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     </section>
 
     <section class="card col-6">
-      <h2>📟 Trame Embarquée C++ (`/v1/embedded/frame` — Sans malloc + CRC32)</h2>
-      <pre id="embedded-frame-box">Chargement de la trame C++...</pre>
+      <h2>Embedded frame (/v1/embedded/frame, sample GPS position 47.75, -3.36)</h2>
+      <pre id="embedded-frame-box">Loading the frame...</pre>
     </section>
   </main>
 
   <script>
+    function esc(value) {
+      return String(value).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+    }
+
+    function fmt(value, unit) {
+      return (value === null || value === undefined) ? 'n/a' : esc(value) + (unit ? ' ' + unit : '');
+    }
+
     async function triggerSim(scenario) {
       await fetch('/v1/simulate', {
         method: 'POST',
@@ -258,46 +264,52 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       const frameText = await frameRes.text();
 
       const gs = snap.global_status;
-      const defcon = document.getElementById('defcon-badge');
-      defcon.textContent = `DEFCON : ${gs.max_severity} (R:${gs.active_red_count} O:${gs.active_orange_count})`;
-      defcon.className = `badge sev-${gs.max_severity}`;
+      const sev = document.getElementById('severity-badge');
+      if (gs.max_severity === null) {
+        sev.textContent = 'Max severity: unknown (no hazard source answered)';
+        sev.className = 'badge';
+      } else {
+        sev.textContent = `Max severity: ${gs.max_severity} (red ${gs.active_red_count}, orange ${gs.active_orange_count})`;
+        sev.className = `badge sev-${gs.max_severity}`;
+      }
+      document.getElementById('kp-badge').textContent =
+        gs.solar_kp === null ? 'Solar Kp: n/a' : `Solar Kp: ${gs.solar_kp} (${gs.solar_storm_level})`;
+      document.getElementById('wal-badge').textContent = `SQLite: ${(health.storage_journal_mode || 'n/a').toUpperCase()}`;
+      document.getElementById('sched-badge').textContent =
+        `Scheduler: ${health.scheduler.running ? 'running' : 'stopped'} (${health.scheduler.cycles_count} cycles)`;
+      document.getElementById('sim-badge').textContent =
+        `Simulation: ${health.simulation_active ? 'ACTIVE (' + esc(health.active_scenario) + ')' : 'off'}`;
 
-      document.getElementById('kp-badge').textContent = `SOLAIRE Kp : ${gs.solar_kp} (${gs.solar_storm_level})`;
-      document.getElementById('wal-badge').textContent = `SQLite : ${(health.storage_journal_mode || 'wal').toUpperCase()}`;
-
-      const hBody = document.getElementById('hazards-body');
-      document.getElementById('hazards-count').textContent = `${snap.hazards.length} active(s)`;
-      hBody.innerHTML = snap.hazards.map(h => `
+      document.getElementById('hazards-count').textContent = `${snap.hazards.length}`;
+      document.getElementById('hazards-body').innerHTML = snap.hazards.map(h => `
         <tr>
-          <td><span class="badge sev-${h.severity}">${h.severity}</span></td>
-          <td>${h.category}</td>
-          <td>${h.title}</td>
-          <td><strong>${h.value_primary} ${h.value_unit}</strong></td>
-          <td>${(h.sources || [h.source]).join(' + ')}</td>
-          <td>${h.distance_to_zone_km || 0} km (${h.bearing_cardinal || 'N'})${h.tsunami_warning ? ' · 🌊 ETA ' + (h.tsunami_eta_minutes || '?') + 'm' : ''}</td>
+          <td><span class="badge sev-${esc(h.severity)}">${esc(h.severity)}</span></td>
+          <td>${esc(h.category)}</td>
+          <td>${esc(h.title)}</td>
+          <td><strong>${fmt(h.value_primary, h.value_unit)}</strong></td>
+          <td>${esc((h.sources || [h.source]).join(' + '))}</td>
+          <td>${fmt(h.distance_to_zone_km, 'km')} ${h.bearing_cardinal ? '(' + esc(h.bearing_cardinal) + ')' : ''}${h.tsunami_warning ? ' - tsunami ETA ' + fmt(h.tsunami_eta_minutes, 'min') : ''}</td>
         </tr>
-      `).join('') || '<tr><td colspan="6">Aucune catastrophe critique active.</td></tr>';
+      `).join('') || '<tr><td colspan="6">No active hazard.</td></tr>';
 
-      const zBody = document.getElementById('zones-body');
-      zBody.innerHTML = snap.zones.map(z => `
+      document.getElementById('zones-body').innerHTML = snap.zones.map(z => `
         <tr>
-          <td><strong>${z.name}</strong></td>
-          <td><span class="badge sev-${z.local_alert_level}">${z.local_alert_level}</span></td>
-          <td>${z.current.temp_c}°C</td>
-          <td>${z.current.wind_kmh} / ${z.current.gust_kmh} km/h</td>
-          <td>[${(z.rain_next_60m || []).join(', ')}] mm</td>
-          <td>${z.weather_source}</td>
+          <td><strong>${esc(z.name)}</strong></td>
+          <td><span class="badge sev-${esc(z.local_alert_level)}">${esc(z.local_alert_level)}</span></td>
+          <td>${z.current ? fmt(z.current.temp_c, 'C') : 'n/a'}</td>
+          <td>${z.current ? fmt(z.current.wind_kmh) + ' / ' + fmt(z.current.gust_kmh) + ' km/h' : 'n/a'}</td>
+          <td>${z.rain_next_60m ? '[' + z.rain_next_60m.map(esc).join(', ') + '] mm' : 'n/a'}</td>
+          <td>${z.weather_source ? esc(z.weather_source) : 'no weather'}</td>
         </tr>
       `).join('');
 
-      const pBody = document.getElementById('providers-body');
-      pBody.innerHTML = (health.providers || []).map(p => `
+      document.getElementById('providers-body').innerHTML = (health.providers || []).map(p => `
         <tr>
-          <td>${p.name}</td>
-          <td>${p.domain}</td>
-          <td><span class="badge ${p.circuit_state === 'CLOSED' ? 'sev-GREEN' : 'sev-ORANGE'}">${p.circuit_state}</span></td>
-          <td>${p.latency_ms} ms</td>
-          <td>${p.cache_age_s !== null ? p.cache_age_s + 's' : 'froid'}</td>
+          <td>${esc(p.name)}</td>
+          <td>${esc(p.domain)}</td>
+          <td><span class="badge ${p.circuit_state === 'CLOSED' ? 'sev-GREEN' : 'sev-ORANGE'}">${esc(p.circuit_state)}</span></td>
+          <td>${esc(p.latency_ms)} ms</td>
+          <td>${p.cache_age_s !== null ? esc(p.cache_age_s) + ' s' : 'cold'}</td>
         </tr>
       `).join('');
 
@@ -312,6 +324,6 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
-async def get_crisis_dashboard() -> HTMLResponse:
-    """Sert le Dashboard Web Pro de Supervision et de Salle de Crise."""
+async def get_dashboard() -> HTMLResponse:
+    """Serve the web supervision dashboard."""
     return HTMLResponse(content=DASHBOARD_HTML)

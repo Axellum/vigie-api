@@ -1,34 +1,40 @@
-"""Service de persistance SQLite en mode WAL (`app/services/storage_wal.py`).
+"""SQLite persistence in WAL mode (``app/services/storage_wal.py``).
 
-Assure :
-1. La gestion dynamique et persistante des **Zones Mondiales Surveillées (Watchlist)**
-   pour `/v1/zones` (`GET`, `POST`, `DELETE`).
-2. L'historisation dédupliquée des catastrophes naturelles (`hazards_history`)
-   pour l'analyse de tendances et le rejeu via `/v1/history`.
-3. La sauvegarde du dernier snapshot valide (`snapshot_cache`) pour un démarrage à froid
-   instantané des écrans Waveshare 7B et M5Stack Tab5 même en cas de coupure Internet.
+Provides:
+
+1. Dynamic, persistent management of the **watched zones** (watchlist) behind ``/v1/zones``
+   (``GET``, ``POST``, ``DELETE``).
+2. De-duplicated hazard history (``hazards_history``) for trend analysis and replay through
+   ``/v1/history``.
+3. The last valid snapshot (``snapshot_cache``), so a cold start can serve something even
+   when the Internet is down.
+
+The database file is ``VIGIE_DB_PATH`` when set, otherwise ``vigie.db`` at the repository
+root (git-ignored). A ``vigie_mondiale.db`` left by an earlier layout is reused when present.
 """
 
 from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 import sqlite3
 import time
+from pathlib import Path
 from typing import Any, Iterable, Optional
 
 from app.models.schemas import (
+    SEVERITY_RANK,
     DeviceType,
     HazardAlert,
     HazardCategory,
     MonitoredZoneConfig,
     MonitoredZoneUpsertRequest,
-    SEVERITY_RANK,
     SeverityLevel,
     SnapshotResponse,
 )
 
+# Initial watchlist. The UTC offsets are the fixed offsets of the cities (no daylight saving
+# time): they are only used when the weather provider does not give the real local offset.
 DEFAULT_WATCHLIST_SEED: list[dict[str, Any]] = [
     {"id": "z0", "name": "Paris, FR", "lat": 48.8566, "lon": 2.3522, "utc_offset_s": 3600, "alert_radius_km": 500.0, "is_marine": False},
     {"id": "z1", "name": "Tokyo, JP", "lat": 35.6762, "lon": 139.6503, "utc_offset_s": 32400, "alert_radius_km": 600.0, "is_marine": True},
@@ -38,24 +44,27 @@ DEFAULT_WATCHLIST_SEED: list[dict[str, Any]] = [
 ]
 
 
+def default_db_path() -> Path:
+    """Return the database path: ``VIGIE_DB_PATH``, else ``vigie.db`` in the repository root."""
+    env_path = os.environ.get("VIGIE_DB_PATH")
+    if env_path:
+        return Path(env_path)
+    root = Path(__file__).resolve().parents[2]
+    current = root / "vigie.db"
+    legacy = root / "vigie_mondiale.db"
+    return legacy if (not current.exists() and legacy.exists()) else current
+
+
 class SQLiteWALStorage:
-    """Gestionnaire SQLite haute concurrence en mode Write-Ahead Logging (WAL)."""
+    """High-concurrency SQLite storage in Write-Ahead Logging (WAL) mode."""
 
     def __init__(self, db_path: Optional[str | Path] = None) -> None:
-        if db_path is None:
-            env_path = os.environ.get("VIGIE_DB_PATH")
-            if env_path:
-                self.db_path = Path(env_path)
-            else:
-                self.db_path = Path(__file__).resolve().parents[2] / "vigie_mondiale.db"
-        else:
-            self.db_path = Path(db_path)
-
+        self.db_path = default_db_path() if db_path is None else Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_schema_and_seed()
 
     def _connect(self) -> sqlite3.Connection:
-        """Ouvre une connexion SQLite configurée avec WAL, synchronous=NORMAL et busy_timeout."""
+        """Open a SQLite connection configured with WAL, synchronous=NORMAL and a busy timeout."""
         conn = sqlite3.connect(str(self.db_path), timeout=5.0)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL;")
@@ -64,8 +73,40 @@ class SQLiteWALStorage:
         conn.execute("PRAGMA foreign_keys=ON;")
         return conn
 
+    @staticmethod
+    def _make_hazard_value_nullable(conn: sqlite3.Connection) -> None:
+        """Rebuild ``hazards_history`` when an older layout declared ``value_primary NOT NULL``.
+
+        A hazard whose source gives no value (NOAA NWS alerts) is stored with a NULL value,
+        never with a made-up number.
+        """
+        columns = conn.execute("PRAGMA table_info(hazards_history)").fetchall()
+        needs_rebuild = any(c["name"] == "value_primary" and int(c["notnull"]) == 1 for c in columns)
+        if not needs_rebuild:
+            return
+        conn.executescript(
+            """
+            ALTER TABLE hazards_history RENAME TO hazards_history_old;
+            CREATE TABLE hazards_history (
+                id TEXT PRIMARY KEY,
+                category TEXT NOT NULL,
+                severity TEXT NOT NULL,
+                severity_rank INTEGER NOT NULL,
+                timestamp_utc INTEGER NOT NULL,
+                lat REAL NOT NULL,
+                lon REAL NOT NULL,
+                value_primary REAL,
+                source TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                updated_utc INTEGER NOT NULL
+            );
+            INSERT INTO hazards_history SELECT * FROM hazards_history_old;
+            DROP TABLE hazards_history_old;
+            """
+        )
+
     def _init_schema_and_seed(self) -> None:
-        """Crée les tables si elles n'existent pas et injecte la Watchlist initiale."""
+        """Create the tables when missing and seed the initial watchlist."""
         with self._connect() as conn:
             conn.executescript(
                 """
@@ -88,22 +129,26 @@ class SQLiteWALStorage:
                     timestamp_utc INTEGER NOT NULL,
                     lat REAL NOT NULL,
                     lon REAL NOT NULL,
-                    value_primary REAL NOT NULL,
+                    value_primary REAL,
                     source TEXT NOT NULL,
                     payload_json TEXT NOT NULL,
                     updated_utc INTEGER NOT NULL
                 );
-
-                CREATE INDEX IF NOT EXISTS idx_hazards_ts
-                    ON hazards_history(timestamp_utc DESC);
-                CREATE INDEX IF NOT EXISTS idx_hazards_cat_sev
-                    ON hazards_history(category, severity_rank DESC, timestamp_utc DESC);
 
                 CREATE TABLE IF NOT EXISTS snapshot_cache (
                     device_type TEXT PRIMARY KEY,
                     server_utc INTEGER NOT NULL,
                     payload_json TEXT NOT NULL
                 );
+                """
+            )
+            self._make_hazard_value_nullable(conn)
+            conn.executescript(
+                """
+                CREATE INDEX IF NOT EXISTS idx_hazards_ts
+                    ON hazards_history(timestamp_utc DESC);
+                CREATE INDEX IF NOT EXISTS idx_hazards_cat_sev
+                    ON hazards_history(category, severity_rank DESC, timestamp_utc DESC);
                 """
             )
 
@@ -130,17 +175,17 @@ class SQLiteWALStorage:
             conn.commit()
 
     def get_journal_mode(self) -> str:
-        """Retourne le mode journal SQLite actif (permet de vérifier `wal` dans les tests)."""
+        """Return the active SQLite journal mode (lets the tests check for ``wal``)."""
         with self._connect() as conn:
             row = conn.execute("PRAGMA journal_mode;").fetchone()
             return str(row[0]).lower() if row else "unknown"
 
     # ========================================================================
-    # 1. Gestion des Zones Surveillées (Watchlist)
+    # 1. Watched zones (watchlist)
     # ========================================================================
 
     def list_zones(self) -> list[MonitoredZoneConfig]:
-        """Retourne toutes les zones surveillées triées par identifiant."""
+        """Return all watched zones sorted by identifier."""
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT id, name, lat, lon, utc_offset_s, alert_radius_km, is_marine FROM monitored_zones ORDER BY id ASC"
@@ -159,7 +204,7 @@ class SQLiteWALStorage:
         ]
 
     def upsert_zone(self, req: MonitoredZoneUpsertRequest) -> MonitoredZoneConfig:
-        """Ajoute ou met à jour une zone surveillée dans SQLite WAL."""
+        """Add or update a watched zone."""
         now_utc = int(time.time())
         with self._connect() as conn:
             zone_id = (req.id or "").strip()
@@ -209,18 +254,18 @@ class SQLiteWALStorage:
         )
 
     def delete_zone(self, zone_id: str) -> bool:
-        """Supprime une zone surveillée par son identifiant. Retourne True si supprimée."""
+        """Delete a watched zone by identifier. Return True when a zone was deleted."""
         with self._connect() as conn:
             cur = conn.execute("DELETE FROM monitored_zones WHERE id = ?", (zone_id,))
             conn.commit()
             return cur.rowcount > 0
 
     # ========================================================================
-    # 2. Historisation des Catastrophes (`hazards_history`)
+    # 2. Hazard history (``hazards_history``)
     # ========================================================================
 
     def record_hazards(self, hazards: Iterable[HazardAlert]) -> int:
-        """Enregistre ou met à jour une liste d'alertes dédupliquées dans l'historique SQLite WAL."""
+        """Insert or update a list of de-duplicated alerts in the history."""
         now_utc = int(time.time())
         rows_to_upsert: list[tuple[Any, ...]] = []
         for h in hazards:
@@ -270,7 +315,7 @@ class SQLiteWALStorage:
         min_severity: Optional[SeverityLevel] = None,
         limit: int = 50,
     ) -> list[HazardAlert]:
-        """Interroge l'historique SQLite WAL avec filtrage par catégorie et sévérité minimale."""
+        """Query the history, filtered by category and minimum severity."""
         clauses: list[str] = []
         params: list[Any] = []
 
@@ -305,11 +350,11 @@ class SQLiteWALStorage:
         return alerts
 
     # ========================================================================
-    # 3. Cache du Dernier Snapshot (`snapshot_cache`)
+    # 3. Last snapshot (``snapshot_cache``)
     # ========================================================================
 
     def save_snapshot(self, snapshot: SnapshotResponse) -> None:
-        """Persiste le dernier snapshot valide pour un profil d'écran donné."""
+        """Persist the last valid snapshot of a display profile."""
         with self._connect() as conn:
             conn.execute(
                 """
@@ -330,7 +375,7 @@ class SQLiteWALStorage:
     def load_last_snapshot(
         self, device_type: DeviceType = DeviceType.WAVESHARE_7B
     ) -> Optional[SnapshotResponse]:
-        """Charge le dernier snapshot sauvegardé pour un démarrage à froid instantané."""
+        """Load the last saved snapshot, for an instant cold start."""
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT payload_json FROM snapshot_cache WHERE device_type = ?",

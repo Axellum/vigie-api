@@ -1,1 +1,1 @@
-"""Suite de tests unitaires et d'intégration pour Vigie Mondiale API."""
+"""Unit and integration tests of the Vigie API."""

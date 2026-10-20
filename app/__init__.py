@@ -1,3 +1,3 @@
-"""Package principal de Vigie Mondiale API (alerte_mondiale_api)."""
+"""Vigie API: world hazards and weather for the Vigie displays."""
 
 __version__ = "1.1.0"

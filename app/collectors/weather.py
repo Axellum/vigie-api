@@ -1,29 +1,37 @@
-"""Collecteurs météo hyper-locale GPS (`lat, lon`), Fallback MET Norway et Radar Pluie RainViewer.
+"""Weather collectors: Open-Meteo (primary), MET Norway (fallback) and RainViewer (radar).
 
-Architecture Multi-Providers Météo :
-1. `OpenMeteoCollector` (Primaire) : Combine automatiquement les modèles haute définition
-   locaux (Météo-France AROME 1.5 km, NOAA HRRR 3 km, DWD ICON-D2, ECMWF IFS, JMA)
-   et fournit la prévision de pluie aux 15 minutes (`minutely_15`) aux coordonnées exactes.
-2. `MetNorwayCollector` (Filet de sécurité / Fallback 100 % gratuit mondial) :
-   Interroge `api.met.no/weatherapi/locationforecast/2.0/compact` pour assurer une continuité
-   totale terrestre et maritime si Open-Meteo est indisponible.
-3. `RainViewerCollector` (Radar Pluie) : Récupère les horodatages et modèles d'URL de tuiles
-   radar mondiales et nowcast (`https://api.rainviewer.com/public/weather-maps.json`).
+Multi-provider weather:
+
+1. ``OpenMeteoCollector`` (primary): high-resolution blended models (Meteo-France
+   AROME, NOAA HRRR, DWD ICON-D2, ECMWF IFS, JMA...) with the 15-minute precipitation
+   of the next hour (``minutely_15``) at the exact coordinates. Open-Meteo documents that
+   15-minute data is native only in Central Europe and North America; elsewhere it is
+   interpolated from hourly data. This is the only source of the short-term rain of the
+   embedded frame (``ZONE`` fields 16 to 18 and ``RAIN5M``).
+2. ``MetNorwayCollector`` (fallback): ``api.met.no`` Locationforecast 2.0 (compact),
+   used when Open-Meteo is unavailable.
+3. ``RainViewerCollector`` (radar): timestamp and tile URL template of the latest observed
+   frame of the world precipitation radar. The free RainViewer API has had no nowcast (future
+   frames) since 2026-01-01, so nothing about future rain comes from it; the embedded frame
+   does not use it at all.
+
+Rule: a variable the provider does not supply stays ``None``. Nothing is guessed,
+padded or copied from another field (for example MET Norway has no gust, no UV and
+no 15-minute nowcast in its compact product, so those stay unknown).
 """
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Any, Optional
 
 import httpx
 
-from app.collectors.base import BaseCollector
+from app.collectors.base import BaseCollector, optional_float
 from app.models.schemas import CurrentWeather, DailyForecast
 
-DAYS_FR = ("Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim")
-
-# Correspondance entre les codes symbol_code de MET Norway et les codes numériques WMO
+# MET Norway symbol_code (without the _day / _night / _polartwilight suffix) -> WMO code.
+# A symbol that is not listed gives ``None`` (unknown), never a default code.
 _METNO_SYMBOL_TO_WMO: dict[str, int] = {
     "clearsky": 0,
     "fair": 1,
@@ -36,20 +44,64 @@ _METNO_SYMBOL_TO_WMO: dict[str, int] = {
     "lightrainshowers": 80,
     "rainshowers": 81,
     "heavyrainshowers": 82,
+    "lightsleet": 68,
+    "sleet": 69,
+    "heavysleet": 69,
+    "lightsleetshowers": 83,
+    "sleetshowers": 83,
+    "heavysleetshowers": 84,
     "lightsnow": 71,
     "snow": 73,
     "heavysnow": 75,
+    "lightsnowshowers": 85,
+    "snowshowers": 85,
+    "heavysnowshowers": 86,
+    "lightrainandthunder": 95,
     "rainandthunder": 95,
     "heavyrainandthunder": 99,
+    "lightrainshowersandthunder": 95,
+    "rainshowersandthunder": 95,
+    "heavyrainshowersandthunder": 99,
+    "lightsleetandthunder": 95,
+    "sleetandthunder": 95,
+    "heavysleetandthunder": 99,
+    "lightsnowandthunder": 95,
+    "snowandthunder": 95,
+    "heavysnowandthunder": 99,
 }
 
 
-class WeatherPointBundle(dict):
-    """Dictionnaire typé contenant `current`, `rain_next_60m`, `daily_10d`, `utc_offset_s`, `provider_name`."""
+def _wmo_from_metno_symbol(symbol: Any) -> Optional[int]:
+    """Convert a MET Norway ``symbol_code`` to a WMO code, or ``None`` if unknown."""
+    if not isinstance(symbol, str) or not symbol:
+        return None
+    return _METNO_SYMBOL_TO_WMO.get(symbol.split("_")[0].lower())
+
+
+def _clamped_int(value: Any, low: int, high: int) -> Optional[int]:
+    """Round a provider number to an int within ``[low, high]``, or ``None`` if it is missing."""
+    number = optional_float(value)
+    if number is None:
+        return None
+    return min(high, max(low, int(round(number))))
+
+
+def _non_negative(value: Any, digits: int = 1) -> Optional[float]:
+    """Round a provider number to ``digits`` decimals (never below zero), or ``None``."""
+    number = optional_float(value)
+    if number is None:
+        return None
+    return round(max(0.0, number), digits)
+
+
+def _rounded(value: Any, digits: int = 1) -> Optional[float]:
+    """Round a provider number that may legitimately be negative (temperatures), or ``None``."""
+    number = optional_float(value)
+    return None if number is None else round(number, digits)
 
 
 class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
-    """Collecteur primaire Open-Meteo (Forecast + Minutely-15 + Daily 10j)."""
+    """Primary collector: Open-Meteo forecast with the 15-minute rain of the next hour and the daily forecast."""
 
     BASE_URL = "https://api.open-meteo.com/v1/forecast"
 
@@ -63,17 +115,23 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
             http_client=http_client,
         )
 
+    @staticmethod
+    def cache_key_for(lat: float, lon: float, days: int) -> str:
+        """Cache key of a point forecast (coordinates rounded to 0.01 degree)."""
+        return f"om:{round(float(lat), 2):.2f},{round(float(lon), 2):.2f}:{days}"
+
+    def get_stale_point(self, lat: float, lon: float, days: int) -> Optional[dict[str, Any]]:
+        """Return the last cached forecast of a point, even if its TTL has expired."""
+        return self._get_stale_cache(self.cache_key_for(lat, lon, days))
+
     async def fetch_point(
         self, lat: float, lon: float, days: int = 7, allow_stale_on_error: bool = False
     ) -> dict[str, Any]:
-        """Récupère la météo complète au centième de degré près (`lat, lon`)."""
-        lat_r = round(float(lat), 2)
-        lon_r = round(float(lon), 2)
-        cache_key = f"om:{lat_r:.2f},{lon_r:.2f}:{days}"
+        """Fetch the full forecast at the coordinates (rounded to 0.01 degree)."""
         return await self.fetch(
-            cache_key=cache_key,
-            lat=lat_r,
-            lon=lon_r,
+            cache_key=self.cache_key_for(lat, lon, days),
+            lat=round(float(lat), 2),
+            lon=round(float(lon), 2),
             days=days,
             allow_stale_on_error=allow_stale_on_error,
         )
@@ -88,14 +146,15 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
             "longitude": f"{lon:.2f}",
             "current": (
                 "temperature_2m,apparent_temperature,relative_humidity_2m,"
-                "surface_pressure,wind_speed_10m,wind_gusts_10m,wind_direction_10m,"
-                "precipitation,weather_code"
+                "pressure_msl,wind_speed_10m,wind_gusts_10m,wind_direction_10m,"
+                "precipitation,weather_code,uv_index"
             ),
             "minutely_15": "precipitation",
             "forecast_minutely_15": "4",
             "daily": (
                 "weather_code,temperature_2m_max,temperature_2m_min,"
-                "precipitation_sum,wind_speed_10m_max,uv_index_max"
+                "precipitation_sum,precipitation_probability_max,"
+                "wind_speed_10m_max,uv_index_max"
             ),
             "forecast_days": str(min(10, max(1, days))),
             "timezone": "auto",
@@ -106,64 +165,73 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
 
     @staticmethod
     def parse_response(payload: dict[str, Any]) -> dict[str, Any]:
-        """Normalise la réponse JSON d'Open-Meteo."""
-        curr = payload.get("current") or {}
+        """Normalize an Open-Meteo response. Missing variables become ``None``.
+
+        Raises ``ValueError`` when there is no current temperature at all: such a
+        response is unusable and the caller must fall back to another provider.
+        """
+        curr = payload.get("current")
+        if not isinstance(curr, dict) or optional_float(curr.get("temperature_2m")) is None:
+            raise ValueError("Open-Meteo response has no current temperature")
         daily = payload.get("daily") or {}
         min15 = payload.get("minutely_15") or {}
 
-        uv_list = daily.get("uv_index_max") or [3.0]
-        uv_val = round(float(uv_list[0] if uv_list and uv_list[0] is not None else 3.0), 1)
-
+        wind_deg = optional_float(curr.get("wind_direction_10m"))
         current_weather = CurrentWeather(
-            temp_c=round(float(curr.get("temperature_2m", 15.0)), 1),
-            feels_like_c=round(float(curr.get("apparent_temperature", curr.get("temperature_2m", 15.0))), 1),
-            humidity_pct=int(round(float(curr.get("relative_humidity_2m", 70)))),
-            pressure_hpa=round(float(curr.get("surface_pressure", 1013.2)), 1),
-            wind_kmh=round(float(curr.get("wind_speed_10m", 10.0)), 1),
-            gust_kmh=round(float(curr.get("wind_gusts_10m", curr.get("wind_speed_10m", 15.0))), 1),
-            wind_deg=int(round(float(curr.get("wind_direction_10m", 0)))) % 361,
-            rain_1h_mm=round(float(curr.get("precipitation", 0.0)), 2),
-            weather_code=int(curr.get("weather_code", 1)),
-            uv_index=uv_val,
-            aqi_eu=22,
+            temp_c=_rounded(curr.get("temperature_2m")),
+            feels_like_c=_rounded(curr.get("apparent_temperature")),
+            humidity_pct=_clamped_int(curr.get("relative_humidity_2m"), 0, 100),
+            pressure_hpa=_non_negative(curr.get("pressure_msl")),
+            wind_kmh=_non_negative(curr.get("wind_speed_10m")),
+            gust_kmh=_non_negative(curr.get("wind_gusts_10m")),
+            wind_deg=None if wind_deg is None else int(round(wind_deg)) % 360,
+            rain_1h_mm=_non_negative(curr.get("precipitation"), 2),
+            weather_code=_clamped_int(curr.get("weather_code"), 0, 99),
+            uv_index=_non_negative(curr.get("uv_index")),
+            aqi_eu=None,
         )
 
-        raw_min15 = min15.get("precipitation") or []
-        rain_next_60m = [
-            round(float(x if x is not None else 0.0), 2) for x in raw_min15[:4]
-        ]
-        while len(rain_next_60m) < 4:
-            rain_next_60m.append(round(current_weather.rain_1h_mm / 4.0, 2))
+        # The nowcast is all-or-nothing: four numeric 15-minute steps, else unknown.
+        raw_steps = [optional_float(x) for x in (min15.get("precipitation") or [])[:4]]
+        rain_next_60m: Optional[list[float]] = None
+        if len(raw_steps) == 4 and all(step is not None for step in raw_steps):
+            rain_next_60m = [round(max(0.0, step), 2) for step in raw_steps if step is not None]
 
-        daily_forecasts: list[DailyForecast] = []
         times = daily.get("time") or []
         codes = daily.get("weather_code") or []
         tmins = daily.get("temperature_2m_min") or []
         tmaxs = daily.get("temperature_2m_max") or []
         rains = daily.get("precipitation_sum") or []
+        probs = daily.get("precipitation_probability_max") or []
         winds = daily.get("wind_speed_10m_max") or []
+        uvs = daily.get("uv_index_max") or []
 
-        for idx, dt_str in enumerate(times):
+        def at(values: list[Any], idx: int) -> Any:
+            return values[idx] if idx < len(values) else None
+
+        daily_forecasts: list[DailyForecast] = []
+        for idx, day_str in enumerate(times):
             try:
-                dt_obj = datetime.strptime(str(dt_str), "%Y-%m-%d")
-                day_label = DAYS_FR[dt_obj.weekday()]
+                day_iso = date.fromisoformat(str(day_str)).isoformat()
             except ValueError:
-                day_label = f"J+{idx}"
-
+                continue
             daily_forecasts.append(
                 DailyForecast(
-                    d=day_label,
-                    code=int(codes[idx]) if idx < len(codes) and codes[idx] is not None else 1,
-                    tmin=round(float(tmins[idx]), 1) if idx < len(tmins) and tmins[idx] is not None else 10.0,
-                    tmax=round(float(tmaxs[idx]), 1) if idx < len(tmaxs) and tmaxs[idx] is not None else 18.0,
-                    rain_mm=round(float(rains[idx]), 1) if idx < len(rains) and rains[idx] is not None else 0.0,
-                    wind_max=round(float(winds[idx]), 1) if idx < len(winds) and winds[idx] is not None else 15.0,
+                    date=day_iso,
+                    code=_clamped_int(at(codes, idx), 0, 99),
+                    tmin=_rounded(at(tmins, idx)),
+                    tmax=_rounded(at(tmaxs, idx)),
+                    rain_mm=_non_negative(at(rains, idx)),
+                    rain_probability_pct=_clamped_int(at(probs, idx), 0, 100),
+                    wind_max=_non_negative(at(winds, idx)),
+                    uv_max=_non_negative(at(uvs, idx)),
                 )
             )
 
+        utc_offset = optional_float(payload.get("utc_offset_seconds"))
         return {
-            "provider_name": "Open-Meteo (AROME/HRRR/IFS HD)",
-            "utc_offset_s": int(payload.get("utc_offset_seconds", 0)),
+            "provider_name": "Open-Meteo",
+            "utc_offset_s": None if utc_offset is None else int(utc_offset),
             "current": current_weather,
             "rain_next_60m": rain_next_60m,
             "daily_10d": daily_forecasts,
@@ -171,7 +239,7 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
 
 
 class MetNorwayCollector(BaseCollector[dict[str, Any]]):
-    """Collecteur secondaire (Filet de sécurité 100 % gratuit mondial) : MET Norway Locationforecast 2.0."""
+    """Fallback collector: MET Norway Locationforecast 2.0 (compact)."""
 
     BASE_URL = "https://api.met.no/weatherapi/locationforecast/2.0/compact"
 
@@ -186,17 +254,26 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
         )
 
     async def fetch_point(
-        self, lat: float, lon: float, days: int = 7, allow_stale_on_error: bool = True
+        self,
+        lat: float,
+        lon: float,
+        days: int = 7,
+        allow_stale_on_error: bool = True,
+        utc_offset_s: Optional[int] = None,
     ) -> dict[str, Any]:
-        """Récupère la météo de secours depuis MET Norway aux coordonnées (`lat, lon`)."""
+        """Fetch the fallback forecast at the coordinates.
+
+        ``utc_offset_s`` (the zone configuration) is only used to group the hourly series
+        into local calendar days; MET Norway does not report the local offset.
+        """
         lat_r = round(float(lat), 2)
         lon_r = round(float(lon), 2)
-        cache_key = f"metno:{lat_r:.2f},{lon_r:.2f}:{days}"
         return await self.fetch(
-            cache_key=cache_key,
+            cache_key=f"metno:{lat_r:.2f},{lon_r:.2f}:{days}:{utc_offset_s}",
             lat=lat_r,
             lon=lon_r,
             days=days,
+            utc_offset_s=utc_offset_s,
             allow_stale_on_error=allow_stale_on_error,
         )
 
@@ -210,102 +287,113 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
             params={"lat": f"{lat:.2f}", "lon": f"{lon:.2f}"},
         )
         resp.raise_for_status()
-        return self.parse_response(resp.json(), days=days)
+        return self.parse_response(resp.json(), days=days, utc_offset_s=kwargs.get("utc_offset_s"))
 
     @staticmethod
-    def parse_response(payload: dict[str, Any], days: int = 7) -> dict[str, Any]:
-        """Convertit le format GeoJSON timeseries de MET Norway vers le schéma unifié Vigie Mondiale."""
+    def parse_response(
+        payload: dict[str, Any], days: int = 7, utc_offset_s: Optional[int] = None
+    ) -> dict[str, Any]:
+        """Convert the MET Norway timeseries to the unified schema. Missing variables are ``None``.
+
+        The compact product has no apparent temperature, no gusts, no UV index and no
+        15-minute precipitation, so ``feels_like_c``, ``gust_kmh``, ``uv_index`` and
+        ``rain_next_60m`` are always unknown here. Daily values are computed from the
+        hourly series over local calendar days (``utc_offset_s``, UTC when unknown); the
+        first and the last day may be partial.
+        """
         props = payload.get("properties") or {}
         timeseries = props.get("timeseries") or []
         if not timeseries:
-            raise ValueError("MET Norway timeseries vide")
+            raise ValueError("MET Norway timeseries is empty")
 
         first = timeseries[0].get("data") or {}
         instant = (first.get("instant") or {}).get("details") or {}
-        next_1h = first.get("next_1_hours") or first.get("next_6_hours") or {}
-        summary = (next_1h.get("summary") or {}).get("symbol_code", "partlycloudy_day")
-        n1_details = next_1h.get("details") or {}
+        temp_c = optional_float(instant.get("air_temperature"))
+        if temp_c is None:
+            raise ValueError("MET Norway response has no current temperature")
 
-        base_symbol = str(summary).split("_")[0].lower()
-        wmo_code = _METNO_SYMBOL_TO_WMO.get(base_symbol, 2)
-
-        temp_c = round(float(instant.get("air_temperature", 15.0)), 1)
-        wind_ms = float(instant.get("wind_speed", 3.0))
-        wind_kmh = round(wind_ms * 3.6, 1)
-        gust_ms = float(instant.get("wind_speed_of_gust", wind_ms * 1.35))
-        gust_kmh = round(gust_ms * 3.6, 1)
-        rain_1h = round(float(n1_details.get("precipitation_amount", 0.0)), 2)
+        next_1h = first.get("next_1_hours") or {}
+        next_6h = first.get("next_6_hours") or {}
+        symbol = (next_1h.get("summary") or {}).get("symbol_code") or (next_6h.get("summary") or {}).get(
+            "symbol_code"
+        )
+        wind_ms = optional_float(instant.get("wind_speed"))
+        wind_deg = optional_float(instant.get("wind_from_direction"))
 
         current_weather = CurrentWeather(
-            temp_c=temp_c,
-            feels_like_c=temp_c,
-            humidity_pct=int(round(float(instant.get("relative_humidity", 75)))),
-            pressure_hpa=round(float(instant.get("air_pressure_at_sea_level", 1013.2)), 1),
-            wind_kmh=wind_kmh,
-            gust_kmh=gust_kmh,
-            wind_deg=int(round(float(instant.get("wind_from_direction", 0)))) % 361,
-            rain_1h_mm=rain_1h,
-            weather_code=wmo_code,
-            uv_index=round(float(instant.get("ultraviolet_index_clear_sky", 2.5)), 1),
-            aqi_eu=20,
+            temp_c=round(temp_c, 1),
+            feels_like_c=None,
+            humidity_pct=_clamped_int(instant.get("relative_humidity"), 0, 100),
+            pressure_hpa=_non_negative(instant.get("air_pressure_at_sea_level")),
+            wind_kmh=None if wind_ms is None else round(max(0.0, wind_ms) * 3.6, 1),
+            gust_kmh=None,
+            wind_deg=None if wind_deg is None else int(round(wind_deg)) % 360,
+            rain_1h_mm=_non_negative((next_1h.get("details") or {}).get("precipitation_amount"), 2),
+            weather_code=_wmo_from_metno_symbol(symbol),
+            uv_index=None,
+            aqi_eu=None,
         )
 
-        step_mm = round(rain_1h / 4.0, 2)
-        rain_next_60m = [step_mm, step_mm, step_mm, step_mm]
-
-        # Agrégation journalière à partir des pas horaires disponibles
+        offset = timedelta(seconds=utc_offset_s or 0)
         by_day: dict[str, dict[str, Any]] = {}
         for item in timeseries:
-            t_str = str(item.get("time") or "")
-            if len(t_str) < 10:
+            try:
+                stamp = datetime.fromisoformat(str(item.get("time") or "").replace("Z", "+00:00"))
+            except ValueError:
                 continue
-            day_key = t_str[:10]
+            day_key = (stamp + offset).date().isoformat()
             data = item.get("data") or {}
             inst = (data.get("instant") or {}).get("details") or {}
-            n1 = (data.get("next_1_hours") or data.get("next_6_hours") or {}).get("details") or {}
+            n1 = data.get("next_1_hours") or {}
+            n6 = data.get("next_6_hours") or {}
 
-            t_val = float(inst.get("air_temperature", temp_c))
-            w_val = float(inst.get("wind_speed", wind_ms)) * 3.6
-            r_val = float(n1.get("precipitation_amount", 0.0))
-
-            if day_key not in by_day:
-                by_day[day_key] = {"tmin": t_val, "tmax": t_val, "rain": r_val, "wind": w_val, "code": wmo_code}
-            else:
-                entry = by_day[day_key]
-                entry["tmin"] = min(entry["tmin"], t_val)
-                entry["tmax"] = max(entry["tmax"], t_val)
-                entry["rain"] += r_val
-                entry["wind"] = max(entry["wind"], w_val)
+            entry = by_day.setdefault(
+                day_key, {"temps": [], "winds": [], "rain": None, "codes": []}
+            )
+            t_val = optional_float(inst.get("air_temperature"))
+            if t_val is not None:
+                entry["temps"].append(t_val)
+            w_val = optional_float(inst.get("wind_speed"))
+            if w_val is not None:
+                entry["winds"].append(w_val * 3.6)
+            rain_val = optional_float((n1.get("details") or {}).get("precipitation_amount"))
+            if rain_val is None:
+                rain_val = optional_float((n6.get("details") or {}).get("precipitation_amount"))
+            if rain_val is not None:
+                entry["rain"] = (entry["rain"] or 0.0) + rain_val
+            code = _wmo_from_metno_symbol(
+                (n6.get("summary") or {}).get("symbol_code") or (n1.get("summary") or {}).get("symbol_code")
+            )
+            if code is not None:
+                entry["codes"].append(code)
 
         daily_forecasts: list[DailyForecast] = []
-        for idx, (day_key, vals) in enumerate(list(by_day.items())[:days]):
-            try:
-                dt_obj = datetime.strptime(day_key, "%Y-%m-%d")
-                day_label = DAYS_FR[dt_obj.weekday()]
-            except ValueError:
-                day_label = f"J+{idx}"
+        for day_key, vals in list(by_day.items())[: max(0, days)]:
             daily_forecasts.append(
                 DailyForecast(
-                    d=day_label,
-                    code=int(vals["code"]),
-                    tmin=round(vals["tmin"], 1),
-                    tmax=round(vals["tmax"], 1),
-                    rain_mm=round(vals["rain"], 1),
-                    wind_max=round(vals["wind"], 1),
+                    date=day_key,
+                    # The most severe symbol of the day (WMO codes grow with severity).
+                    code=max(vals["codes"]) if vals["codes"] else None,
+                    tmin=round(min(vals["temps"]), 1) if vals["temps"] else None,
+                    tmax=round(max(vals["temps"]), 1) if vals["temps"] else None,
+                    rain_mm=None if vals["rain"] is None else round(vals["rain"], 1),
+                    rain_probability_pct=None,
+                    wind_max=round(max(vals["winds"]), 1) if vals["winds"] else None,
+                    uv_max=None,
                 )
             )
 
         return {
-            "provider_name": "MET Norway Locationforecast 2.0 (Fallback)",
-            "utc_offset_s": 0,
+            "provider_name": "MET Norway (fallback)",
+            "utc_offset_s": None,
             "current": current_weather,
-            "rain_next_60m": rain_next_60m,
+            "rain_next_60m": None,
             "daily_10d": daily_forecasts,
         }
 
 
 class RainViewerCollector(BaseCollector[dict[str, Any]]):
-    """Collecteur des métadonnées radar de pluie mondiales RainViewer API."""
+    """Collector of the RainViewer world radar metadata."""
 
     MAPS_URL = "https://api.rainviewer.com/public/weather-maps.json"
 
@@ -325,25 +413,23 @@ class RainViewerCollector(BaseCollector[dict[str, Any]]):
 
     @staticmethod
     def parse_maps(payload: dict[str, Any]) -> dict[str, Any]:
-        """Extrait le dernier frame radar et le template d'URL de tuiles."""
-        host = str(payload.get("host") or "https://tilecache.rainviewer.com")
+        """Extract the latest observed radar frame and the tile URL template.
+
+        Only past frames are used: a nowcast (future) frame is a forecast, not a radar image,
+        and the free API no longer provides any. Raises ``ValueError`` when the response lists
+        no past frame: no timestamp or URL is invented.
+        """
+        host = str(payload.get("host") or "")
         radar = payload.get("radar") or {}
         past = radar.get("past") or []
-        nowcast = radar.get("nowcast") or []
 
-        latest = nowcast[0] if nowcast else (past[-1] if past else None)
-        if isinstance(latest, dict) and latest.get("path"):
-            path = str(latest["path"])
-            ts_utc = int(latest.get("time") or 0)
-            tile_template = f"{host}{path}/256/{{z}}/{{x}}/{{y}}/2/1_1.png"
-        else:
-            ts_utc = int(datetime.now().timestamp())
-            tile_template = f"{host}/v2/radar/{ts_utc}/256/{{z}}/{{x}}/{{y}}/2/1_1.png"
+        latest = past[-1] if past else None
+        if not host or not isinstance(latest, dict) or not latest.get("path") or not latest.get("time"):
+            raise ValueError("RainViewer response lists no past radar frame")
 
         return {
             "host": host,
-            "radar_timestamp_utc": ts_utc,
-            "radar_tile_url_template": tile_template,
+            "radar_timestamp_utc": int(latest["time"]),
+            "radar_tile_url_template": f"{host}{latest['path']}/256/{{z}}/{{x}}/{{y}}/2/1_1.png",
             "past_frames_count": len(past),
-            "nowcast_frames_count": len(nowcast),
         }

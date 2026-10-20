@@ -1,36 +1,41 @@
-"""Application principale FastAPI (OpenAPI 3.1) — Vigie Mondiale API (`alerte_mondiale_api`).
+"""FastAPI application (OpenAPI 3.1) of the Vigie API.
 
-Endpoints exposés :
-- `GET    /dashboard`           : Salle de Crise & Supervision Web (Mode Sombre Tactique autonome).
-- `GET    /v1/health`           : Santé globale du backend, mode SQLite WAL et résumé des collecteurs.
-- `GET    /v1/providers`        : État détaillé du Circuit Breaker et du cache de chaque agence.
-- `GET    /v1/scheduler/status` : État du scheduler temps réel et compteur de cycles.
-- `POST   /v1/scheduler/trigger`: Déclenchement immédiat d'un cycle de collecte et push différentiel.
-- `GET    /v1/zones`            : Liste des zones mondiales surveillées (Watchlist SQLite WAL).
-- `POST   /v1/zones`            : Ajout ou modification dynamique d'une zone surveillée.
-- `DELETE /v1/zones/{zone_id}`  : Suppression d'une zone surveillée.
-- `GET    /v1/history`          : Historique SQLite WAL des catastrophes mondiales avec filtres.
-- `GET    /v1/point`            : Météo hyper-locale GPS (`lat, lon`), pluie 15 min, radar, marine (`marine=true`),
-                                  crues GloFAS, qualité de l'air/cendres, météo spatiale et catastrophes proches.
-- `GET    /v1/snapshot`         : Snapshot multi-zones + alertes mondiales optimisé `< 12 Ko`
-                                  pour toute la gamme d'écrans (`waveshare-7b`, `tab5`, `marine`, `web`).
-- `GET    /v1/embedded/frame`   : Trame texte ultra-compacte (`HEAD|...`, `ZONE|...`, `RAIN5M|...`, `DAY|...`, `HAZ|...`, `END|CRC32`)
-                                  alignée à 100 % avec `vigie_decoder_trame_api` en C++ sans `malloc` sur ESP32-P4.
-- `GET    /v1/geojson/hazards`  : Standard international IETF RFC 7946 GeoJSON (`FeatureCollection`).
-- `GET    /v1/cap/alerts`       : Standard international OASIS CAP 1.2 (`Common Alerting Protocol`).
-- `POST   /v1/simulate`         : Injection de scénarios de crise réalistes et diffusion WebSocket.
-- `WS     /v1/stream`           : Flux temps réel WebSocket pour les terminaux connectés.
+Endpoints:
+
+- ``GET    /dashboard``            : Web supervision dashboard.
+- ``GET    /v1/health``            : Global health, SQLite mode and collector summary.
+- ``GET    /v1/providers``         : Circuit breaker and cache state of every provider.
+- ``GET    /v1/scheduler/status``  : Scheduler state and cycle counter.
+- ``POST   /v1/scheduler/trigger`` : Run one collection cycle and differential push now.
+- ``GET    /v1/zones``             : Watched zones (SQLite watchlist).
+- ``POST   /v1/zones``             : Add or update a watched zone.
+- ``DELETE /v1/zones/{zone_id}``   : Delete a watched zone.
+- ``GET    /v1/history``           : Hazard history from SQLite, with filters.
+- ``GET    /v1/point``             : Weather at a GPS position (``lat, lon``): 15-minute rain, radar,
+                                     marine (``marine=true``), river discharge, air quality / ash,
+                                     space weather and nearby hazards.
+- ``GET    /v1/snapshot``          : Multi-zone snapshot plus world hazards, under 12 KiB, for every
+                                     display profile (``waveshare-7b``, ``tab5``, ``marine``, ``web``).
+- ``GET    /v1/embedded/frame``    : Compact text frame for the ESP32-P4 displays
+                                     (contract: ``docs/embedded-frame.md``).
+- ``GET    /v1/geojson/hazards``   : IETF RFC 7946 GeoJSON (``FeatureCollection``).
+- ``GET    /v1/cap/alerts``        : OASIS CAP 1.2 (Common Alerting Protocol).
+- ``POST   /v1/simulate``          : Inject a simulated scenario (always labelled as a simulation).
+- ``WS     /v1/stream``            : Real-time WebSocket stream for connected terminals.
 """
 
 from __future__ import annotations
 
+import os
 import time
-from typing import Any, Optional
+from contextlib import asynccontextmanager
+from typing import Any, AsyncIterator, Optional
 
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 
+from app import __version__
 from app.models.schemas import (
     CAPFeedResponse,
     DeviceType,
@@ -52,7 +57,7 @@ from app.services.scheduler import BackgroundAlertScheduler
 
 
 class WebSocketHub:
-    """Gestionnaire des connexions WebSocket temps réel (Waveshare 7B, M5Stack Tab5, Web)."""
+    """Manager of the real-time WebSocket connections (Waveshare 7B, M5Stack Tab5, web)."""
 
     def __init__(self) -> None:
         self.active_connections: list[WebSocket] = []
@@ -80,16 +85,33 @@ aggregator = AggregatorService()
 ws_hub = WebSocketHub()
 scheduler = BackgroundAlertScheduler(aggregator=aggregator, ws_hub=ws_hub, interval_seconds=90)
 
+
+def scheduler_enabled() -> bool:
+    """The background scheduler runs only when ``VIGIE_SCHEDULER`` is ``1`` / ``true`` / ``yes`` / ``on``."""
+    return os.environ.get("VIGIE_SCHEDULER", "0").strip().lower() in {"1", "true", "yes", "on"}
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Start the background scheduler when enabled and stop it cleanly on shutdown."""
+    if scheduler_enabled():
+        scheduler.start()
+    try:
+        yield
+    finally:
+        await scheduler.stop()
+
+
 app = FastAPI(
-    title="Vigie Mondiale API — Multi-Provider Weather, Marine & Global Disasters",
-    version="1.1.0",
-    openapi_version="3.1.0",
+    title="Vigie API",
+    version=__version__,
+    lifespan=lifespan,
     description=(
-        "API industrielle multi-providers de météo hyper-locale par coordonnées GPS/Marine "
-        "(Open-Meteo HD + Fallback MET Norway + RainViewer + Open-Meteo Marine + Flood GloFAS + Air Quality/Dust) "
-        "et d'alertes catastrophes naturelles mondiales dédupliquées (USGS + EMSC + GDACS + NOAA NWS + USGS Volcano + NOAA SWPC). "
-        "Persistance SQLite WAL, Scheduler temps réel, standards IETF RFC 7946 GeoJSON, OASIS CAP 1.2, profils JSON < 12 Ko et trame C++ sans malloc "
-        "pour les écrans Waveshare 7B (1024x600), M5Stack Tab5 (1280x720 + GPS Grove) et terminaux marins."
+        "Aggregates world natural hazards (USGS, EMSC, GDACS, NOAA NWS, USGS Volcano, NOAA SWPC) "
+        "and weather (Open-Meteo, MET Norway fallback, RainViewer radar, marine, river discharge, "
+        "air quality) for the Vigie displays. A value no provider supplied is reported as unknown "
+        "(null, or an empty field in the embedded frame); nothing is ever made up. "
+        "Standards: IETF RFC 7946 GeoJSON, OASIS CAP 1.2."
     ),
 )
 
@@ -104,14 +126,14 @@ app.add_middleware(
 app.include_router(dashboard_router)
 
 
-@app.get("/v1/health", tags=["Monitoring & Resilience"])
+@app.get("/v1/health", tags=["Monitoring"])
 async def get_health() -> dict[str, Any]:
-    """Retourne l'état de santé global du serveur, le mode SQLite WAL, le scheduler et la synthèse des collecteurs."""
+    """Return the global health, the SQLite mode, the scheduler and the collector summary."""
     providers = aggregator.get_providers_health()
     healthy_count = sum(1 for p in providers if p.healthy)
     return {
         "status": "ok" if healthy_count > 0 else "degraded",
-        "version": "1.1.0",
+        "version": __version__,
         "server_utc": int(time.time()),
         "uptime_seconds": max(0, int(time.time()) - aggregator.started_at_utc),
         "storage_journal_mode": aggregator.storage.get_journal_mode(),
@@ -129,71 +151,71 @@ async def get_health() -> dict[str, Any]:
     }
 
 
-@app.get("/v1/providers", response_model=list[ProviderHealth], tags=["Monitoring & Resilience"])
+@app.get("/v1/providers", response_model=list[ProviderHealth], tags=["Monitoring"])
 async def get_providers() -> list[ProviderHealth]:
-    """Retourne l'état détaillé du Circuit Breaker et du cache TTL de chaque provider."""
+    """Return the circuit breaker and TTL cache state of each provider."""
     return aggregator.get_providers_health()
 
 
-@app.get("/v1/scheduler/status", tags=["Monitoring & Resilience"])
+@app.get("/v1/scheduler/status", tags=["Monitoring"])
 async def get_scheduler_status() -> dict[str, Any]:
-    """Retourne l'état opérationnel du scheduler asynchrone et des alertes suivies."""
+    """Return the state of the asynchronous scheduler and the tracked alerts."""
     return scheduler.get_status()
 
 
-@app.post("/v1/scheduler/trigger", tags=["Monitoring & Resilience"])
+@app.post("/v1/scheduler/trigger", tags=["Monitoring"])
 async def post_scheduler_trigger() -> dict[str, Any]:
-    """Déclenche immédiatement un cycle de collecte, détection différentielle et push WebSocket."""
+    """Run one collection, differential detection and WebSocket push cycle now."""
     return await scheduler.run_single_cycle()
 
 
-@app.get("/v1/zones", response_model=list[MonitoredZoneConfig], tags=["Watchlist & SQLite WAL"])
+@app.get("/v1/zones", response_model=list[MonitoredZoneConfig], tags=["Watchlist"])
 async def get_zones() -> list[MonitoredZoneConfig]:
-    """Liste les zones géographiques surveillées persistées dans SQLite WAL."""
+    """List the watched geographic zones stored in SQLite."""
     return aggregator.list_zones()
 
 
-@app.post("/v1/zones", response_model=MonitoredZoneConfig, tags=["Watchlist & SQLite WAL"])
+@app.post("/v1/zones", response_model=MonitoredZoneConfig, tags=["Watchlist"])
 async def upsert_zone(request: MonitoredZoneUpsertRequest) -> MonitoredZoneConfig:
-    """Ajoute ou met à jour une zone surveillée dans SQLite WAL."""
+    """Add or update a watched zone in SQLite."""
     return aggregator.upsert_zone(request)
 
 
-@app.delete("/v1/zones/{zone_id}", tags=["Watchlist & SQLite WAL"])
+@app.delete("/v1/zones/{zone_id}", tags=["Watchlist"])
 async def delete_zone(zone_id: str) -> dict[str, Any]:
-    """Supprime une zone surveillée de la Watchlist SQLite WAL."""
+    """Delete a watched zone from the SQLite watchlist."""
     deleted = aggregator.delete_zone(zone_id)
     if not deleted:
-        raise HTTPException(status_code=404, detail=f"Zone '{zone_id}' introuvable")
+        raise HTTPException(status_code=404, detail=f"Zone '{zone_id}' not found")
     return {"status": "deleted", "zone_id": zone_id}
 
 
-@app.get("/v1/history", response_model=HistoryResponse, tags=["Watchlist & SQLite WAL"])
+@app.get("/v1/history", response_model=HistoryResponse, tags=["Watchlist"])
 async def get_hazards_history(
-    category: Optional[HazardCategory] = Query(default=None, description="Filtrer par catégorie de catastrophe"),
-    min_severity: Optional[SeverityLevel] = Query(default=None, description="Sévérité minimale (GREEN, YELLOW, ORANGE, RED)"),
-    limit: int = Query(default=50, ge=1, le=500, description="Nombre maximal d'entrées historiques"),
+    category: Optional[HazardCategory] = Query(default=None, description="Filter by hazard category"),
+    min_severity: Optional[SeverityLevel] = Query(default=None, description="Minimum severity (GREEN, YELLOW, ORANGE, RED)"),
+    limit: int = Query(default=50, ge=1, le=500, description="Maximum number of history entries"),
 ) -> HistoryResponse:
-    """Interroge l'historique SQLite WAL des catastrophes mondiales dédupliquées."""
+    """Query the SQLite history of de-duplicated world hazards."""
     return aggregator.get_history(category=category, min_severity=min_severity, limit=limit)
 
 
-@app.get("/v1/point", response_model=PointResponse, tags=["Embedded & GPS Mobile / Marine"])
+@app.get("/v1/point", response_model=PointResponse, tags=["Embedded & GPS"])
 async def get_point_weather_and_hazards(
-    lat: float = Query(..., ge=-90.0, le=90.0, description="Latitude GPS exacte (WGS84)"),
-    lon: float = Query(..., ge=-180.0, le=180.0, description="Longitude GPS exacte (WGS84)"),
-    marine: bool = Query(default=False, description="Activer la météo marine (vagues, houle, courants)"),
-    radius_km: float = Query(default=500.0, gt=0.0, le=5000.0, description="Rayon de recherche d'alertes (km)"),
-    sog_knots: Optional[float] = Query(default=None, ge=0.0, description="Vitesse fond du navire/véhicule (nœuds)"),
-    cog_deg: Optional[float] = Query(default=None, ge=0.0, lt=360.0, description="Route fond (degrés)"),
+    lat: float = Query(..., ge=-90.0, le=90.0, description="Exact GPS latitude (WGS84)"),
+    lon: float = Query(..., ge=-180.0, le=180.0, description="Exact GPS longitude (WGS84)"),
+    marine: bool = Query(default=False, description="Include marine weather (waves, swell, currents)"),
+    radius_km: float = Query(default=500.0, gt=0.0, le=5000.0, description="Hazard search radius (km)"),
+    sog_knots: Optional[float] = Query(default=None, ge=0.0, description="Speed over ground of the vessel or vehicle (knots)"),
+    cog_deg: Optional[float] = Query(default=None, ge=0.0, lt=360.0, description="Course over ground (degrees)"),
     device_type: DeviceType = Query(
         default=DeviceType.TAB5,
-        description="Profil d'écran ou de client (tab5, waveshare-7b, marine, web, generic)",
+        description="Display or client profile (tab5, waveshare-7b, marine, web, generic)",
     ),
-    max_hazards: Optional[int] = Query(default=None, ge=1, le=100, description="Nombre maximal d'alertes retournées"),
-    compact: bool = Query(default=True, description="Profil compact (< 12 Ko) pour ESP32-P4"),
+    max_hazards: Optional[int] = Query(default=None, ge=1, le=100, description="Maximum number of hazards returned"),
+    compact: bool = Query(default=True, description="Compact profile (under 12 KiB) for the ESP32-P4"),
 ) -> PointResponse:
-    """Fournit la météo hyper-locale (15 min), les conditions marines, crues GloFAS, air/poussières et alertes autour d'un point GPS."""
+    """Weather at one position (15-minute rain, marine, river discharge, air, space weather) plus nearby hazards."""
     return await aggregator.build_point_response(
         lat=lat,
         lon=lon,
@@ -207,18 +229,18 @@ async def get_point_weather_and_hazards(
     )
 
 
-@app.get("/v1/snapshot", response_model=SnapshotResponse, tags=["Embedded & Multi-Display"])
+@app.get("/v1/snapshot", response_model=SnapshotResponse, tags=["Embedded & GPS"])
 async def get_snapshot(
     device_type: DeviceType = Query(
         default=DeviceType.WAVESHARE_7B,
-        description="Profil d'écran cible (waveshare-7b, tab5, marine, web, generic)",
+        description="Target display profile (waveshare-7b, tab5, marine, web, generic)",
     ),
     max_hazards: Optional[int] = Query(
-        default=None, ge=1, le=50, description="Nombre maximal d'alertes catastrophes dans le snapshot"
+        default=None, ge=1, le=50, description="Maximum number of hazards in the snapshot"
     ),
-    compact: bool = Query(default=True, description="Garantit un payload < 12 Ko pour ESP32-P4"),
+    compact: bool = Query(default=True, description="Keep the payload under 12 KiB for the ESP32-P4"),
 ) -> SnapshotResponse:
-    """Retourne le snapshot complet multi-zones + alertes mondiales dédupliquées (< 12 Ko)."""
+    """Return the full multi-zone snapshot plus the de-duplicated world hazards (under 12 KiB)."""
     return await aggregator.build_snapshot(
         device_type=device_type,
         max_hazards=max_hazards,
@@ -226,18 +248,18 @@ async def get_snapshot(
     )
 
 
-@app.get("/v1/embedded/frame", response_class=PlainTextResponse, tags=["Embedded & Multi-Display"])
+@app.get("/v1/embedded/frame", response_class=PlainTextResponse, tags=["Embedded & GPS"])
 async def get_embedded_frame(
     device_type: DeviceType = Query(
         default=DeviceType.WAVESHARE_7B,
-        description="Profil matériel cible (waveshare-7b, tab5, marine)",
+        description="Target hardware profile (waveshare-7b, tab5, marine)",
     ),
-    lat: Optional[float] = Query(default=None, ge=-90.0, le=90.0, description="Latitude GPS optionnelle"),
-    lon: Optional[float] = Query(default=None, ge=-180.0, le=180.0, description="Longitude GPS optionnelle"),
-    marine: bool = Query(default=False, description="Inclure les vagues et l'état de la mer dans la zone GPS"),
-    max_hazards: int = Query(default=12, ge=1, le=30, description="Nombre maximal de lignes HAZ"),
+    lat: Optional[float] = Query(default=None, ge=-90.0, le=90.0, description="Optional GPS latitude"),
+    lon: Optional[float] = Query(default=None, ge=-180.0, le=180.0, description="Optional GPS longitude"),
+    marine: bool = Query(default=False, description="Include waves and sea state in the GPS zone"),
+    max_hazards: int = Query(default=12, ge=1, le=30, description="Maximum number of HAZ lines"),
 ) -> PlainTextResponse:
-    """Génère la trame texte compacte (`HEAD|...`, `ZONE|...`, `RAIN5M|...`, `DAY|...`, `HAZ|...`, `END|CRC32`) décodable sans `malloc` en C++."""
+    """Return the compact text frame (HEAD, ZONE, RAIN5M, DAY, HAZ, END with CRC32); see docs/embedded-frame.md."""
     frame_str = await aggregator.build_embedded_frame(
         device_type=device_type,
         lat=lat,
@@ -248,21 +270,21 @@ async def get_embedded_frame(
     return PlainTextResponse(content=frame_str, media_type="text/plain; charset=utf-8")
 
 
-@app.get("/v1/geojson/hazards", response_model=GeoJSONFeatureCollection, tags=["International Standards"])
+@app.get("/v1/geojson/hazards", response_model=GeoJSONFeatureCollection, tags=["Standards"])
 async def get_geojson_hazards() -> GeoJSONFeatureCollection:
-    """Exporte toutes les catastrophes actives au format standard IETF RFC 7946 GeoJSON."""
+    """Export every active hazard as IETF RFC 7946 GeoJSON."""
     return await aggregator.build_geojson_feature_collection()
 
 
-@app.get("/v1/cap/alerts", response_model=CAPFeedResponse, tags=["International Standards"])
+@app.get("/v1/cap/alerts", response_model=CAPFeedResponse, tags=["Standards"])
 async def get_cap_alerts() -> CAPFeedResponse:
-    """Exporte toutes les alertes actives au format standard OASIS CAP 1.2 (Common Alerting Protocol)."""
+    """Export every active alert as OASIS CAP 1.2 (Common Alerting Protocol)."""
     return await aggregator.build_cap_feed()
 
 
-@app.post("/v1/simulate", response_model=SimulationResponse, tags=["Crisis Simulator"])
+@app.post("/v1/simulate", response_model=SimulationResponse, tags=["Simulator"])
 async def post_simulate(request: SimulationRequest) -> SimulationResponse:
-    """Injecte un scénario de crise réaliste et notifie instantanément les clients WebSocket."""
+    """Inject a simulated scenario (labelled as a simulation) and notify the WebSocket clients."""
     response = aggregator.trigger_simulation(request)
     await ws_hub.broadcast(
         {
@@ -277,7 +299,7 @@ async def post_simulate(request: SimulationRequest) -> SimulationResponse:
 
 @app.websocket("/v1/stream")
 async def websocket_stream(websocket: WebSocket) -> None:
-    """Flux temps réel WebSocket poussant l'état initial puis les mises à jour d'alertes."""
+    """Real-time WebSocket stream: the initial state, then alert updates."""
     await ws_hub.connect(websocket)
     try:
         initial_snap = await aggregator.build_snapshot()
