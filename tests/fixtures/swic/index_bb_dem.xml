@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <title>Active Alerts issued by CAP.CAP (Common Alerting Protocol based Emergency Warning System)</title>
+  <link rel="alternate" href="http://brb-primary.capews.com/capews/public/atom?type=cap" />
+  <id>http://brb-primary.capews.com/capews/public/atom?type=cap</id>
+  <rights>Copyright, Department of Emergency Management. Licensed under CC BY 4.0.</rights>
+  <updated>2026-10-20T16:39:40Z</updated>
+  <dc:date>2026-10-20T16:39:40Z</dc:date>
+  <dc:rights>Copyright, Department of Emergency Management. Licensed under CC BY 4.0.</dc:rights>
+</feed>
+

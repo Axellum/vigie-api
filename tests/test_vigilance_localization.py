@@ -52,8 +52,26 @@ def test_the_country_of_a_point(place: str, point: tuple[float, float], countrie
     assert default_countries().countries_for_point(*point) == countries, place
 
 
-def test_every_country_with_a_source_has_a_border() -> None:
-    assert set(default_countries().countries()) == {*COUNTRY_FEEDS, "US", "CA", "NZ"}
+def test_every_country_a_source_answers_for_has_a_border() -> None:
+    """A position finds its country by the borders: a country with a source and no border could never be asked by a point."""
+    from app.collectors.swic_registry import bundled_registry
+    from app.collectors.swic_terms import is_eligible
+
+    borders = set(default_countries().countries())
+    collectors = {*COUNTRY_FEEDS, "US", "CA", "NZ", "DE"}
+    registry = {source.country for source in bundled_registry() if source.country and is_eligible(source, "all")}
+    assert collectors <= borders
+    assert registry <= borders, sorted(registry - borders)
+    assert borders == collectors | registry  # and no border without a source: it would be bytes for nothing
+
+
+def test_every_country_the_service_serves_has_a_border() -> None:
+    """With every service of the registry on, the countries the instance lists are all countries a position can fall in."""
+    from tests.swic_samples import service_serving_everything
+
+    service = service_serving_everything()
+    served = {item.country for item in service.countries_listing()}
+    assert served and served <= set(default_countries().countries()), sorted(served - set(default_countries().countries()))
 
 
 # ---------------------------------------------------------------- the shapes of the codes
@@ -80,7 +98,7 @@ def test_the_shapes_keep_the_names_of_the_regions() -> None:
 def test_the_shapes_are_small_enough_to_live_in_the_repository() -> None:
     sizes = {path.name: path.stat().st_size for path in DATA_DIR.glob("*.geojson.gz")}
     assert set(sizes) == {"countries.geojson.gz", "geocodes-nuts.geojson.gz"}
-    assert sum(sizes.values()) < 400 * 1024, sizes
+    assert sum(sizes.values()) < 1024 * 1024, sizes  # 135 countries since the services of the WMO registry (it was 42)
 
 
 def test_a_point_belongs_to_the_one_region_it_lies_in() -> None:

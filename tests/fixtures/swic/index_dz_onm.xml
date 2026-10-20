@@ -1,0 +1,58 @@
+<?xml version="1.0" ?>
+<?xml-stylesheet type="text/xsl" href="cap-atom-viewer.xsl"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:cap="urn:oasis:names:tc:emergency:cap:1.2">
+  <id>urn:oid:2.49.0.1.12.0</id>
+  <title>Weather Alerts by National Meteorological Office - Algeria</title>
+  <link rel="self" type="application/atom+xml" href="https://ametvigilance.meteo.dz/rss/rss_meteo_dz.xml"/>
+  <updated>2026-10-20T16:14:53Z</updated>
+  <author>
+    <name>National Meteorological Office - Algeria</name>
+  </author>
+  <rights>Copyright, National Meteorological Office. Licensed under CC BY 4.0.</rights>
+  <entry>
+    <id>urn:oid:2.49.0.1.12.0.2026.10.20.16.14.53.618512</id>
+    <title>Rain Moderate warning for the wilaya: ALGER</title>
+    <published>2026-10-20T16:14:53Z</published>
+    <updated>2026-10-20T16:14:53Z</updated>
+    <author>
+      <name>National Meteorological Office - Algeria</name>
+    </author>
+    <link type="application/cap+xml" href="https://ametvigilance.meteo.dz/CAPs/2026.10.20.16.14.53.618512.xml"/>
+    <cap:sent>2026-10-20T16:14:53Z</cap:sent>
+    <cap:status>Actual</cap:status>
+    <cap:msgType>Alert</cap:msgType>
+    <cap:scope>Public</cap:scope>
+    <cap:urgency>Immediate</cap:urgency>
+    <cap:severity>Moderate</cap:severity>
+    <cap:certainty>Observed</cap:certainty>
+    <cap:effective>2026-10-20T16:14:53Z</cap:effective>
+    <cap:onset>2026-10-20T18:00:00Z</cap:onset>
+    <cap:expires>2026-10-21T00:00:00Z</cap:expires>
+    <cap:area>
+      <cap:areaDesc>ALGER</cap:areaDesc>
+    </cap:area>
+  </entry>
+<entry>
+    <id>urn:oid:2.49.0.1.12.0.2026.10.20.16.14.53.629080</id>
+    <title>Thunderstorm Moderate warning for the wilaya: ALGER</title>
+    <published>2026-10-20T16:14:53Z</published>
+    <updated>2026-10-20T16:14:53Z</updated>
+    <author>
+      <name>National Meteorological Office - Algeria</name>
+    </author>
+    <link type="application/cap+xml" href="https://ametvigilance.meteo.dz/CAPs/2026.10.20.16.14.53.629080.xml"/>
+    <cap:sent>2026-10-20T16:14:53Z</cap:sent>
+    <cap:status>Actual</cap:status>
+    <cap:msgType>Alert</cap:msgType>
+    <cap:scope>Public</cap:scope>
+    <cap:urgency>Immediate</cap:urgency>
+    <cap:severity>Moderate</cap:severity>
+    <cap:certainty>Observed</cap:certainty>
+    <cap:effective>2026-10-20T16:14:53Z</cap:effective>
+    <cap:onset>2026-10-20T18:00:00Z</cap:onset>
+    <cap:expires>2026-10-21T00:00:00Z</cap:expires>
+    <cap:area>
+      <cap:areaDesc>ALGER</cap:areaDesc>
+    </cap:area>
+  </entry>
+</feed>

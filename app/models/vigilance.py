@@ -1,6 +1,6 @@
 """Models of the official national weather warnings ("vigilances"): MeteoAlarm, the US National Weather Service, the
-German Weather Service (DWD), Environment and Climate Change Canada (ECCC), MetService (New Zealand) and Vigicrues
-(river floods, France).
+German Weather Service (DWD), Environment and Climate Change Canada (ECCC), MetService (New Zealand), Vigicrues
+(river floods, France) and the national services of the WMO Severe Weather Information Centre registry ("swic").
 
 The principle (``docs/architecture.md``): **the official content stays intact**, our normalized fields stand
 beside it and say that they are ours.
@@ -100,8 +100,12 @@ class Vigilance(BaseModel):
     """One official warning for one area."""
 
     id: str = Field(..., description="Identifier of this warning for this area in this API (unique, stable while the source keeps it)")
-    source: Literal["meteoalarm", "noaa_nws", "dwd", "eccc", "metservice", "vigicrues", "tsunami"] = Field(
-        ..., description="Where the warning comes from"
+    source: Literal["meteoalarm", "noaa_nws", "dwd", "eccc", "metservice", "vigicrues", "tsunami", "swic"] = Field(
+        ...,
+        description=(
+            "Where the warning comes from. `swic`: a national service listed in the registry of the WMO Severe Weather "
+            "Information Centre; the service is named in `attribution` and `issuer`, and its registry id is the second part of `id`"
+        ),
     )
     country: Optional[str] = Field(default=None, description="ISO 3166-1 alpha-2 country of the warning")
     attribution: str = Field(..., description="The credit the source asks for (with the issuer where the source names it)")
@@ -176,7 +180,11 @@ class VigilanceQuery(BaseModel):
 class VigilanceCoverage(BaseModel):
     """What the API knows of one source for one country, so that an empty answer is not read as "nothing to fear"."""
 
-    source: str = Field(..., description="meteoalarm, noaa_nws, dwd, eccc, metservice, vigicrues or tsunami")
+    source: str = Field(..., description="meteoalarm, noaa_nws, dwd, eccc, metservice, vigicrues, tsunami or swic")
+    source_id: Optional[str] = Field(
+        default=None,
+        description="For `swic`: the id of the service in the WMO registry (`mx-smn-es`). Each registry service is its own line. Null for the other sources",
+    )
     country: Optional[str] = Field(default=None, description="ISO 3166-1 alpha-2 country")
     status: Literal["ok", "stale", "unavailable"] = Field(
         ..., description="`stale`: the provider did not answer, the last answer is served; `unavailable`: no answer at all"
@@ -188,6 +196,26 @@ class VigilanceCoverage(BaseModel):
     feed_updated_utc: Optional[int] = Field(default=None, description="Time the source says its list was updated")
     fetched_age_s: Optional[int] = Field(default=None, description="Age of the answer the API holds (seconds)")
     note: Optional[str] = None
+
+
+class VigilanceCountry(BaseModel):
+    """A country this instance has a source of official warnings for, with the settings it runs with."""
+
+    country: str = Field(..., description="ISO 3166-1 alpha-2 country")
+    sources: list[str] = Field(
+        ...,
+        description=(
+            "The sources asked for this country: `meteoalarm`, `vigicrues`, `dwd`, `eccc`, `metservice`, `noaa_nws`, or "
+            "`swic:<id>` for a service of the WMO registry (the id is the one of `coverage[].source_id`)"
+        ),
+    )
+    licence_verified: bool = Field(
+        ...,
+        description=(
+            "True when the reuse terms of every source listed were read and allow relaying its warnings (SOURCES.md). "
+            "False when one of them was not verified: the instance serves it all the same, and says so in `coverage`"
+        ),
+    )
 
 
 class VigilancesResponse(BaseModel):

@@ -1,0 +1,197 @@
+{
+  "documents": {
+    "https://alert.met.no/weatherapi/metalerts/2.0/current?cap=2.49.0.1.578.0.20261020123600.051": "cap_no_met_update.xml",
+    "https://ametvigilance.meteo.dz/CAPs/2026.10.20.16.14.53.618512.xml": "cap_dz_onm_rain.xml",
+    "https://ametvigilance.meteo.dz/CAPs/2026.10.20.16.14.53.629080.xml": "cap_dz_onm_thunderstorm.xml",
+    "https://meteoalert.meteoinfo.ru/belarus/cap-feed/en/2.49.0.0.112.0-20261020-071701-0024440-00-EN.xml": "cap_by_cancel_1.xml",
+    "https://meteoalert.meteoinfo.ru/belarus/cap-feed/en/2.49.0.0.112.0-20261020-071701-0024447-00-EN.xml": "cap_by_cancel_2.xml",
+    "https://meteoalert.meteoinfo.ru/kazakhstan/cap-feed/en/2.49.0.0.398.0-20261020-125701-0486752-00-EN.xml": "cap_kz_en.xml",
+    "https://meteoalert.meteoinfo.ru/kazakhstan/cap-feed/ru/2.49.0.0.398.0-20261020-125701-0486752-00-RU.xml": "cap_kz_ru.xml",
+    "https://meteoinfo.ru/hmc-output/cap/cap-feed/en/20261016051609-0265790.xml": "cap_ru_en_yellow.xml",
+    "https://meteoinfo.ru/hmc-output/cap/cap-feed/en/20261017043958-0266022.xml": "cap_ru_en_orange.xml",
+    "https://meteoinfo.ru/hmc-output/cap/cap-feed/ru/20261016051609-0265790.xml": "cap_ru_ru_yellow.xml",
+    "https://meteoinfo.ru/hmc-output/cap/cap-feed/ru/20261017043958-0266022.xml": "cap_ru_ru_orange.xml",
+    "https://metproducts.gov.tt/ttms/public/api/feed/869.xml": "cap_tt_ttms_alert.xml",
+    "https://metproducts.gov.tt/ttms/public/api/feed/870.xml": "cap_tt_ttms_cancel.xml",
+    "https://publicalert.pagasa.dost.gov.ph/output/wcp/92954aca-ba22-4bd8-bf42-4550cf26eed0.cap": "cap_ph_pagasa_1.xml",
+    "https://publicalert.pagasa.dost.gov.ph/output/wcp/f80ed31f-fd01-4058-846d-713e9f0f88ec.cap": "cap_ph_pagasa_2.xml",
+    "https://sachet.ndma.gov.in/cap_public_website/FetchXMLFile?identifier=1792510737644028": "cap_in_ndma_geocodes.xml",
+    "https://sachet.ndma.gov.in/cap_public_website/FetchXMLFile?identifier=1792514414323006": "cap_in_ndma_two_languages.xml",
+    "https://smn.conagua.gob.mx/tools/PHP/feedsmn/FILES/xml_cap/avisossmn-lluvias-20261018-063013_cap.xml": "cap_mx_smn_red.xml",
+    "https://smn.conagua.gob.mx/tools/PHP/feedsmn/FILES/xml_cap/avisossmn-lluvias-20261019-093431_cap.xml": "cap_mx_smn_orange.xml",
+    "https://ssl.smn.gob.ar/feeds/CAP/xml_generados/CAP_20261020091335_Lluvia_Patagonia_alertas_alertas_10.xml": "cap_ar_smn_update_1.xml",
+    "https://ssl.smn.gob.ar/feeds/CAP/xml_generados/CAP_20261020091335_Lluvia_Patagonia_alertas_alertas_11.xml": "cap_ar_smn_update_2.xml",
+    "https://www.aemet.es/documentos_d/eltiempo/prediccion/avisos/cap/Z_CAP_C_LEMM_20261020092533_AFAZ712701VIRM2222.xml": "cap_es_aemet_alert.xml",
+    "https://www.aemet.es/documentos_d/eltiempo/prediccion/avisos/cap/Z_CAP_C_LEMM_20261020120409_AFAZ659501PRP12017.xml": "cap_es_aemet_update_2.xml",
+    "https://www.aemet.es/documentos_d/eltiempo/prediccion/avisos/cap/Z_CAP_C_LEMM_20261020122807_AFAZ659501PRP22017.xml": "cap_es_aemet_update_1.xml",
+    "https://www.gestiondelriesgo.gov.co/rss/caps/IDEAM20261009T000000INC05380AR.xml": "cap_co_ungrd_test_1.xml",
+    "https://www.gestiondelriesgo.gov.co/rss/caps/IDEAM20261009T000000INC17380AR.xml": "cap_co_ungrd_test_2.xml",
+    "https://www.inumet.gub.uy/reportes/riesgo/cap_2026_10_08_02_16_21.xml": "cap_uy_inumet_two_infos.xml",
+    "https://www.inumet.gub.uy/reportes/riesgo/cap_2026_10_09_22_27_09.xml": "cap_uy_inumet_one_info.xml",
+    "https://www.met.gov.kw/XML/cap.xml": "cap_kw_dom_arabic_english.xml",
+    "https://www.tmd.go.th/uploads/CAP/en/CAPTMD20261020055643_2.xml": "cap_th_tmd_67_polygons.xml"
+  },
+  "indexes": {
+    "index_ar_smn.xml": {
+      "entries_in_the_real_feed": 97,
+      "etag": null,
+      "kept_entries": 2,
+      "last_modified": null,
+      "url": "https://ssl.smn.gob.ar/CAP/AR.php",
+      "wire_bytes": 62673
+    },
+    "index_bb_dem.xml": {
+      "entries_in_the_real_feed": 0,
+      "etag": null,
+      "kept_entries": 0,
+      "last_modified": null,
+      "url": "https://brb-primary.capews.com/capews/public/atom?type=cap",
+      "wire_bytes": 688
+    },
+    "index_by_belhydromet.xml": {
+      "entries_in_the_real_feed": 4,
+      "etag": "\"f71-65e406ab976b4\"",
+      "kept_entries": 2,
+      "last_modified": "Tue, 20 Oct 2026 07:17:01 GMT",
+      "url": "https://meteoalert.meteoinfo.ru/belarus/cap-feed/en/atom.xml",
+      "wire_bytes": 3953
+    },
+    "index_co_ungrd.xml": {
+      "entries_in_the_real_feed": 22,
+      "etag": null,
+      "kept_entries": 2,
+      "last_modified": null,
+      "url": "https://www.gestiondelriesgo.gov.co/rss/AtomAlert.aspx",
+      "wire_bytes": 26020
+    },
+    "index_dz_onm.xml": {
+      "entries_in_the_real_feed": 41,
+      "etag": "\"6ad79384-9b65\"",
+      "kept_entries": 2,
+      "last_modified": "Tue, 20 Oct 2026 16:15:00 GMT",
+      "url": "https://ametvigilance.meteo.dz/rss/rss_meteo_dz.xml",
+      "wire_bytes": 39781
+    },
+    "index_es_aemet.xml": {
+      "entries_in_the_real_feed": 34,
+      "etag": null,
+      "kept_entries": 3,
+      "last_modified": "Tue, 20 Oct 2026 12:28:07 GMT",
+      "url": "https://www.aemet.es/documentos_d/eltiempo/prediccion/avisos/rss/CAP_AFAE_wah_RSS.xml",
+      "wire_bytes": 18650
+    },
+    "index_in_ndma.xml": {
+      "entries_in_the_real_feed": 100,
+      "etag": "W/\"77931-1792514603877\"",
+      "kept_entries": 2,
+      "last_modified": "Tue, 20 Oct 2026 16:43:23 GMT",
+      "url": "https://sachet.ndma.gov.in/cap_public_website/rss/rss_india.xml",
+      "wire_bytes": 77931
+    },
+    "index_jm_no_active.xml": {
+      "entries_in_the_real_feed": 1,
+      "etag": null,
+      "kept_entries": 1,
+      "last_modified": null,
+      "url": "https://alert.metservice.gov.jm/capfeed.php",
+      "wire_bytes": 1552
+    },
+    "index_kw_dom.xml": {
+      "entries_in_the_real_feed": 1,
+      "etag": "\"6ad45257-646\"",
+      "kept_entries": 1,
+      "last_modified": "Sun, 18 Oct 2026 05:00:07 GMT",
+      "url": "https://www.met.gov.kw/rss_eng/kuwait_cap.xml",
+      "wire_bytes": 1606
+    },
+    "index_kz_en.xml": {
+      "entries_in_the_real_feed": 294,
+      "etag": "\"3e021-65e452aaed1e4\"",
+      "kept_entries": 1,
+      "last_modified": "Tue, 20 Oct 2026 12:57:02 GMT",
+      "url": "https://meteoalert.meteoinfo.ru/kazakhstan/cap-feed/en/atom.xml",
+      "wire_bytes": 253985
+    },
+    "index_kz_ru.xml": {
+      "entries_in_the_real_feed": 294,
+      "etag": "\"44cdb-65e452aaecdfc\"",
+      "kept_entries": 1,
+      "last_modified": "Tue, 20 Oct 2026 12:57:02 GMT",
+      "url": "https://meteoalert.meteoinfo.ru/kazakhstan/cap-feed/ru/atom.xml",
+      "wire_bytes": 281819
+    },
+    "index_mx_smn.xml": {
+      "entries_in_the_real_feed": 392,
+      "etag": null,
+      "kept_entries": 2,
+      "last_modified": null,
+      "url": "https://smn.conagua.gob.mx/tools/PHP/feedsmn/cap.php",
+      "wire_bytes": 255134
+    },
+    "index_no_met.xml": {
+      "entries_in_the_real_feed": 9,
+      "etag": null,
+      "kept_entries": 1,
+      "last_modified": "Tue, 20 Oct 2026 16:41:30 GMT",
+      "url": "https://alert.met.no/feed?lang=en",
+      "wire_bytes": 9162
+    },
+    "index_ph_pagasa.xml": {
+      "entries_in_the_real_feed": 51,
+      "etag": null,
+      "kept_entries": 2,
+      "last_modified": null,
+      "url": "https://publicalert.pagasa.dost.gov.ph/feeds/",
+      "wire_bytes": 18906
+    },
+    "index_ru_en.xml": {
+      "entries_in_the_real_feed": 257,
+      "etag": "\"2c49f-65e4827fc0970-gzip\"",
+      "kept_entries": 2,
+      "last_modified": "Tue, 20 Oct 2026 16:31:01 GMT",
+      "url": "https://meteoinfo.ru/hmc-output/cap/cap-feed/en/atom.xml",
+      "wire_bytes": 181407
+    },
+    "index_ru_ru.xml": {
+      "entries_in_the_real_feed": 257,
+      "etag": "\"31d5e-65e4827fb9ff8-gzip\"",
+      "kept_entries": 2,
+      "last_modified": "Tue, 20 Oct 2026 16:31:01 GMT",
+      "url": "https://meteoinfo.ru/hmc-output/cap/cap-feed/ru/atom.xml",
+      "wire_bytes": 204126
+    },
+    "index_th_tmd.xml": {
+      "entries_in_the_real_feed": 10,
+      "etag": null,
+      "kept_entries": 1,
+      "last_modified": null,
+      "url": "https://www.tmd.go.th/en/api/xml/CAP",
+      "wire_bytes": 10592
+    },
+    "index_tt_ttms.xml": {
+      "entries_in_the_real_feed": 848,
+      "etag": null,
+      "kept_entries": 2,
+      "last_modified": null,
+      "url": "https://metproducts.gov.tt/ttms/public/api/feed?type=rss",
+      "wire_bytes": 641035
+    },
+    "index_uy_inumet.xml": {
+      "entries_in_the_real_feed": 8,
+      "etag": "\"1535-65d7610719895-gzip\"",
+      "kept_entries": 2,
+      "last_modified": "Sat, 10 Oct 2026 05:52:03 GMT",
+      "url": "https://www.inumet.gub.uy/reportes/riesgo/rss.xml",
+      "wire_bytes": 5429
+    },
+    "mirror_rss.xml": {
+      "entries_in_the_real_feed": 500,
+      "etag": null,
+      "kept_entries": 2,
+      "last_modified": null,
+      "url": "https://severeweather.wmo.int/v2/cap-alerts/cn-cma-xx/rss.xml",
+      "wire_bytes": 557087
+    }
+  },
+  "recorded_at": "2026-10-20T17:00:00Z"
+}

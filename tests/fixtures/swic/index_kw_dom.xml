@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <atom:link rel="hub" href="https://alert-hub.appspot.com" />
+        <atom:link rel="self" href="https://www.met.gov.kw/rss_eng/kuwait_cap.xml" type="application/rss+xml"/>
+        <title>Current Warnings for State Of Kuwait Issued by the Kuwait Meteorological Department</title>
+        <link>https://www.met.gov.kw/rss_eng/kuwait_cap.xml</link>
+        <description>Current Warnings for State Of Kuwait Issued by the Kuwait Meteorological Department</description>
+        <language>en</language>
+        <copyright>public domain</copyright>
+        <pubDate>Sat, 03 Oct 2026 07:22:54 GMT</pubDate>
+        <lastBuildDate>Sat, 03 Oct 2026 07:22:54 GMT</lastBuildDate>
+        <docs>http://blogs.law.harvard.edu/tech/rss</docs>
+        <image>
+			<title>Current Warnings for State Of Kuwait Issued by the Kuwait Meteorological Department</title>
+			<url>https://www.met.gov.kw/images/newlogo2.png</url>
+			<link>https://www.met.gov.kw/rss_eng/kuwait_cap.xml</link>
+		</image>
+        <item>
+            <title>Fog</title>
+            <pubDate>Sat, 03 Oct 2026 07:22:54 GMT</pubDate>
+            <link>https://www.met.gov.kw/XML/cap.xml</link>
+            <description>Visibility is expected to be less than 1000m over some areas .</description>
+            <author>forecast.info@dgca.gov.kw</author>
+            <category>Met</category>
+            <guid isPermaLink="false">urn:oid:2.49.0.0.414.0.27607221601</guid>
+        </item>
+    </channel>
+</rss>

@@ -123,6 +123,9 @@ and its rules: [`architecture.md`](architecture.md)). Licence, credit and what i
 | **MetService** (New Zealand), `alerts.metservice.com/cap/rss` ([the system](https://about.metservice.com/about-severe-weather-warnings)) | The RSS feed, then the CAP document each item links to (each fetched once, forgotten when it leaves the feed; only addresses under `alerts.metservice.com` are fetched). The format is documented by the issuer ([user guide v1.2](https://www.metservice.com/files/documents/cap/MetService-CAP-Feed-User-Guide-v1.2.pdf)) but **the feed was empty on 2026-10-20: no real item has been seen** (see [`SOURCES.md`](../SOURCES.md), which also says where the licence stands). | 300 s: the feed sends `Cache-Control: max-age=300, must-revalidate` and a `Last-Modified` that answers `If-Modified-Since` with a `304` (checked). |
 | **Vigicrues** (SCHAPI), `www.vigicrues.gouv.fr/services/InfoVigiCru.geojson` ([services v1.1](https://www.vigicrues.gouv.fr/services/v1.1)) | One request for all of France: 337 sections of rivers, a line each, with the colour (1 to 4) of the vigilance. Only the sections above green are returned (19 on 2026-10-20: 17 yellow, 2 orange). 2.2 MB, not compressed. No lighter endpoint carries the level: the others of the documentation give the referential, forecasts and observations. | A look at the publication image every 15 minutes (5 while a section is orange or red); the flow itself only when the image changed, at the latest after 12 hours. The [dataset](https://www.data.gouv.fr/datasets/troncons-de-cours-deau-vigicrues-simplifies-avec-niveau-de-vigilance-crues-2) says the flow follows the vigilance bulletins, twice a day (10 a.m. and 4 p.m.) outside floods and more often during them (the rhythm of the extra bulletins is **not verified**). The server sends `Cache-Control: max-age=120` but no `ETag` and no `Last-Modified`: **no conditional request** on the flow; measured on 2026-10-20 it is not compressed (`gzip, deflate, br` are ignored), a `Range` request is answered with the whole body and no filter is taken. Every read costs the 2.2 MB, so the reads are cut to the publications, using the validators of the national map image the same publication regenerates (`/ftp/img_france.png`, a `HEAD` of about 330 bytes; see [`SOURCES.md`](../SOURCES.md) for what is and is not verified). |
 
+| **WMO Severe Weather Information Centre, registry of services** (`wmo_swic_registry`), `severeweather.wmo.int/v2/json/sources.json` ([the centre](https://severeweather.wmo.int)) | The list of the national services that publish CAP warnings: id, country, name, feed addresses. 140 records on 2026-10-20 (156 KB). Used to know which countries can be served, not as a filter (all are `operating` and `official`). | A day, with `If-Modified-Since`. The registry changed last on 2024-03-18. A snapshot is bundled; if the WMO does not answer it is asked again in an hour. |
+| **The services of the registry** (`wmo_swic`), the feeds of `capAlertFeed` and the CAP document of each item | See "The services of the WMO registry" below. | 5 minutes at most per service, longer for a feed that cannot be asked conditionally. |
+
 ### Which feeds are asked
 
 A feed is asked **only for a country that is needed**; 39 MeteoAlarm feeds exist, one request of a client never asks for them all. **One source answers for a country** (the reasons: [ADR 0003](decisions/0003-national-source-preferred-rivers-are-lines.md)):
@@ -135,6 +138,9 @@ A feed is asked **only for a country that is needed**; 39 MeteoAlarm feeds exist
 | France | MeteoAlarm, and Vigicrues | |
 | the other 38 MeteoAlarm countries | MeteoAlarm | |
 | the United States | nothing of its own (the NWS answer of the hazards) | |
+| Spain | AEMET's own feed, through the registry | MeteoAlarm's Spanish feed, unless AEMET gave no answer (then it stands in, and the answer says so) |
+| any other country with a verified service of the registry (Algeria, Argentina, Barbados, Jamaica, Mexico, the Philippines) | that service | |
+| any other country with a service of the registry, `VIGIE_WMO_SOURCES=all` only | that service | |
 
 - The country of a position is found **offline** (borders bundled in `app/data/`, see [`SOURCES.md`](../SOURCES.md)), without asking any service.
 - A request for a position asks the feed of its country (two near a border); a request by `country=` asks that one.
@@ -168,6 +174,81 @@ For the 5 default zones the new sources add the Vigicrues flow only; a client in
 
 1. *A national source is preferred to MeteoAlarm's copy of it* (Germany: DWD). MeteoAlarm's German feed is a copy of the DWD's warnings, in `EMMA_ID` codes with no polygon; the DWD gives the same warnings with their polygons and eight languages. MeteoAlarm is used for Germany only if the DWD gives no answer, and then flagged as a stand-in (`coverage[].note`); its copies are in the answer, not in the pushes.
 2. *France: a MeteoAlarm "flooding" warning is left out when a Vigicrues section of the same answer crosses its département at the same level or higher.* MeteoAlarm's "Flooding" (type 12) is Météo-France's "inondation" colour per département, which the data of 2026-10-20 show to follow the Vigicrues colours: every département still warned had a section at the same level or higher. If no section is in the answer (none within the radius, or Vigicrues does not answer), or only a lower one, the département's warning stays. "Rain-flood" (type 13) is another vigilance and always stays. That MeteoAlarm derives its flooding colour from Vigicrues is **deduced** from the data, not read in a current document.
+
+### The services of the WMO registry
+
+The registry of the WMO's Severe Weather Information Centre lists the national services that publish CAP warnings (140 on
+2026-10-20 in 135 countries). A country that has a source of its own keeps it (the rule of ADR 0003); a service of the registry
+answers for a country that has none. The decisions and their evidence: [ADR 0006](decisions/0006-wmo-registry-services.md); the
+terms of each service: [`SOURCES.md`](../SOURCES.md). **Which services an instance reads** is `VIGIE_WMO_SOURCES`:
+
+| Setting | Services read | Countries (on 2026-10-20) |
+| --- | --- | --- |
+| `verified` (the default) | the 7 whose reuse terms were read and allow it | 7: Algeria, Argentina, Barbados, Jamaica, Mexico, the Philippines, and Spain (AEMET instead of MeteoAlarm) |
+| `all` | the 95 that are not excluded and not shadowed by a collector | 94 |
+| `off` | none | none |
+
+Of the 140 records, 43 are for countries that already have a collector (the MeteoAlarm countries, the United States, Germany,
+Canada, New Zealand), and 2 are never read (Hong Kong, China). `GET /v1/vigilances/countries` lists what the instance serves
+with its setting.
+
+**How a service is read.**
+
+1. Its feeds: the addresses of `capAlertFeed` (205 for the 140 services; 51 services have several, one per language). RSS or Atom;
+   an item is read only if it is less than 14 days old, or the index says it is still in force. Links are followed only on the
+   feed's own site (on an S3 bucket, on its own host), never to an IP address or `localhost`.
+2. For a service on a national host, the WMO's own copy of its feed (`severeweather.wmo.int/v2/cap-alerts/<id>/rss.xml`), to add what
+   the feed lacks. On 2026-10-20 only 1 of 260 such addresses answered (the 259 others: HTTP 404), so a miss is remembered for a
+   day and three misses in a row pause the copy for an hour. A service whose feed is in the WMO's bucket is not asked twice.
+3. The two are merged by CAP `sender` and `identifier`. An `Update` or a `Cancel` removes the alerts its `references` name
+   (Argentina chains dozens). Each CAP document is read **once**, whichever feed lists it, and at most 60 new ones per read of a
+   service (the rest at the next). The XML is parsed without a DTD or entity.
+4. A CAP alert with status other than `Actual`, scope other than `Public`, urgency `Past` or certainty `Unlikely` is not a warning.
+   The alerts of the same event in two languages under two identifiers (Russia, Kazakhstan) are one warning with two texts.
+
+**Placing a warning.** A polygon (`lat,lon` pairs, with any white space) is used as it is; a circle is drawn as a 48-point
+polygon (cut at the date line, none near a pole); codes only (the Philippines' SAME codes, India's district codes, Thailand's
+ISO 3166-2) are kept as `geocodes` and the warning is **counted in `warnings_not_matchable`**, never placed. The identifier
+and the geocodes are the issuer's, unchanged, in `/v1/vigilances.geojson` as in the JSON.
+
+**The three derived fields** (in `derived`; a word in no table gives `null`):
+
+| Field | From | Table |
+| --- | --- | --- |
+| `status` | `msgType` | `Alert` is `new`, `Update` is `update`, `Cancel` is `cancel` |
+| `level` | a colour the issuer writes in its own parameter (`awareness_level`, `AEMET-Meteoalerta nivel`, `nivel`: exactly one colour word), else the CAP `severity` | green / verde, yellow / amarillo / amarilla, orange / naranja, red / rojo / roja give `GREEN`, `YELLOW`, `ORANGE`, `RED`. Severity: `Moderate` `YELLOW`, `Severe` `ORANGE`, `Extreme` `RED`; **`Minor` and `Unknown` give `null`** (the services do not agree on what a minor alert is: the DWD calls it yellow, the NWS green, the Philippines' signal 1 is "Minor") |
+| `phenomenon` | the `event` words, every language of the alert (they must agree), accents and case ignored, a keyword matches the start of a word, the first rule in this order wins | `avalanche`; `wind` (tropical cyclone, hurricane, typhoon, tornado...); `coastal` (storm surge, tsunami, swell, high seas, marine...); `fire`; `flood`; `other` (sandstorm); `snow-ice`; `thunderstorm`; `cold`; `heat`; `fog`; `rain`; `wind` (wind, gale, gust); `other` (drought, dust). English, Spanish, Portuguese and French only; the full lists are `PHENOMENON_RULES` in `app/collectors/swic_cap.py`. An event in none, or in two languages that disagree, gives `null` |
+
+The issuer's own words (`event`, `texts` in every language, `level_original`, `phenomenon_original`) are passed unchanged.
+
+**Coverage.** Each service is its own line of `coverage[]`, with `source: swic` and its `source_id`: `ok`, `stale` (the last good answer
+is served, marked), or `unavailable` (nothing was ever read; never read as "nothing in force"), with a note when only part of its
+feeds answered, when its warnings came from the WMO's copy only, or when documents were left for the next read. A service
+that is `unavailable` is silent for the push: it ends nothing. Spain's MeteoAlarm copies appear only if AEMET is `unavailable`.
+
+**The rhythm of a service**, and why:
+
+| Rule | Value | Why |
+| --- | --- | --- |
+| Cache | 5 minutes (`SOURCE_TTL_S`); with the scheduler's 90 s cycle a service is asked every 6 minutes, **240 times a day** | Of 149 feeds asked for their headers on 2026-10-20, 17 sent a `Cache-Control` and 10 an `Expires`. The shortest lifetime announced was 60 s (Spain, Kuwait, Singapore, Thailand, Uruguay; Argentina 60 to 180 s): 5 minutes is five times that, and no feed asked for more. The others announced nothing, `no-store`, or a server default (Mexico: a year) |
+| Conditional requests | `If-None-Match` / `If-Modified-Since` when the last answer gave a validator | 138 of the 150 feeds that answered on 2026-10-20 gave one. A `304` weighs a few hundred bytes (Algeria and Spain: 237 of 240) |
+| A feed with no validator | 5 minutes per 64 KiB (rounded up) of what it weighs on the wire, 30 minutes at most | It is downloaded whole each time: Trinidad and Tobago's feed is 641 KB of XML (67 KB sent), so every 10 minutes |
+| Size caps | an index 2 MB and 1,500 items, a CAP document 1 MB; an error page is not read | China's feed (never read) lists 1,000 items, 1 MB, and each document weighs 89 KiB |
+| A service that fails | the third failure in a row waits 60 s, then twice as long up to an hour; an HTTP 4xx waits an hour | One bad feed must not close the others: every service has its own circuit |
+| The set | a ceiling of 50,000 requests a day (`wmo_swic`, ours: no service publishes one) | So that a loop cannot hammer a hundred servers; the real use is far below it |
+
+**What it costs** (`tests/test_swic_sobriety.py`, run it with `pytest -s`: a simulated day of the scheduler against the registry
+and the feeds as measured on 2026-10-20, `tests/fixtures/swic/profile.json`; nothing touches the network). One followed point in
+each country, the worst case a personal instance can ask of this part; the number of clients adds nothing:
+
+| Scenario | Requests a day | Bytes a day |
+| --- | ---: | ---: |
+| `VIGIE_WMO_SOURCES=verified` (the default): 7 services in 7 countries | **2,010** (feeds 1,680, documents 322, the WMO's copy 7, registry 1) | **10.6 MB** (Philippines 5.2, Mexico 3.4, Argentina 0.8, the other four 1.1 together) |
+| `all`: 95 services in 94 countries, one point in each | **36,924** (feeds 35,073, documents 1,824, the WMO's copy 26, registry 1) | **51.1 MB** (Kazakhstan 12.6, Trinidad and Tobago 9.4, Philippines 5.2, Mexico 3.4, Thailand 2.7, Russia 1.9...) |
+| The simulated day of 1,000 clients (`python -m tests.simulation`) | the registry once (**1**); no service is asked without a followed point or a watched zone in its country | 21 kB |
+
+The Philippines and Mexico are heavy because their feeds give no validator; a validator would cut them to a few hundred bytes a
+request. Nothing is sent to anyone: the services are asked read-only, with the `User-Agent` of the API.
 
 ### Levels, phenomena and status: the tables
 
@@ -238,6 +319,10 @@ The DWD numbers are the ones of the profile's event table; the rules of ECCC com
 
 ## Call volume
 
+The services of the WMO registry add, per service that is read, 240 requests a day (a conditional request each 6 minutes), documents
+once each and the registry once a day: 2,010 requests and 10.6 MB a day for the 7 services read by default, 36,924 and 51 MB with
+`VIGIE_WMO_SOURCES=all` and a followed point in each of the 94 countries (see "The services of the WMO registry").
+
 A refresh happens only when someone asks after the TTL, so the calls per day of a cell are
 `86400 / TTL` at most, whatever the number of clients. With the TTLs above, per cell and per day:
 at most 96 "now" requests of the forecast (15 minutes) and 24 daily ones (1 hour), 24 air quality
@@ -285,7 +370,7 @@ hours and reported by `GET /v1/providers` (`calls_24h`, `weight_24h`, `quota`). 
 `app/collectors/budget.py` (`QUOTAS`), and listed with their source page in [`SOURCES.md`](../SOURCES.md):
 Open-Meteo (one quota for its four APIs: forecast, air quality, river discharge, marine), MET Norway,
 RainViewer and ECCC (a usage-policy line of 86,400 requests a day: a threshold to tell ECCC about, kept as a limit all the same) have one. NOAA NWS has a limit that "is not public information", and USGS, EMSC, GDACS,
-USGS Volcano, NOAA SWPC, the NHC, the tsunami centres, MeteoAlarm, the DWD, MetService and Vigicrues publish none: no budget for them (**not verified**), their calls are only counted.
+USGS Volcano, NOAA SWPC, the NHC, the tsunami centres, MeteoAlarm, the DWD, MetService and Vigicrues publish none: no budget for them (**not verified**), their calls are only counted. The services of the WMO registry publish none either; the set has a ceiling of 50,000 requests a day (`wmo_swic`), which is ours and not a published limit.
 
 The budget lets through 90 % of each limit (`VIGIE_BUDGET_FRACTION`): a margin for another program on
 the same IP address and for the difference between this count and the provider's. A request that

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>2.49.0.0.398.0-20261020-125701-0486752-00-EN</identifier>
+  <sender>kalmenova_a@meteo.kz</sender>
+  <sent>2026-10-20T12:57:01-00:00</sent>
+  <status>Actual</status>
+  <msgType>Alert</msgType>
+  <scope>Public</scope>
+  <info>
+    <language>en-US</language>
+    <category>Met</category>
+    <event>Wind</event>
+    <urgency>Future</urgency>
+    <severity>Moderate</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>HMCEVE</valueName>
+      <value>21</value>
+    </eventCode>
+    <onset>2026-10-20T15:00:00-00:00</onset>
+    <expires>2026-10-21T15:00:00-00:00</expires>
+    <headline>Wind</headline>
+    <area>
+      <areaDesc>Fyodorov district (Kostanay Region)</areaDesc>
+      <polygon>53.024,62.051 52.982,62.125 52.937,62.351 53.015,62.358 53.001,62.476 53.052,62.586 53.138,62.579 53.153,62.797 53.277,62.826 53.203,62.869 53.2,62.955 53.345,63.005 53.314,62.776 53.384,62.719 53.439,62.848 53.42,62.997 53.507,62.997 53.533,63.074 53.479,63.167 53.534,63.316 53.672,63.298 53.673,63.476 53.761,63.437 53.748,63.56 53.816,63.549 53.913,63.528 53.969,63.617 54.119,63.577 54.119,63.695 54.228,63.668 54.229,63.668 54.091,62.486 53.985,62.528 53.864,62.329 53.688,62.098 53.646,62.152 53.693,62.253 53.661,62.455 53.479,62.353 53.419,62.364 53.401,62.477 53.163,62.395 53.123,62.245 53.065,62.245 53.024,62.051</polygon>
+      <geocode>
+        <valueName>KZSTD</valueName>
+        <value>229</value>
+      </geocode>
+    </area>
+  </info>
+</alert>

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+    <identifier>avisossmn-LLuvias-447</identifier>
+    <sender>smn.conagua.gob.mx</sender>
+    <sent>2026-10-19T09:40:00-06:00</sent>
+    <status>Actual</status>
+    <msgType>Alert</msgType>
+    <scope>Public</scope>
+    <code>01</code>
+    <info>
+        <language>es-MX</language>
+        <category>Met</category>
+        <event>Aviso de lluvias</event>
+        <responseType>Execute</responseType>
+        <urgency>Future</urgency>
+        <severity>Severe</severity>
+        <certainty>Possible</certainty>
+        <effective>2026-10-19T09:40:00-06:00</effective>
+        <expires>2026-10-20T06:00:00-06:00</expires>
+        <senderName>Servicio Meteorológico Nacional</senderName>
+        <headline>Frente núm. 2</headline>
+        <description>Durante este día se pronostican lluvias puntuales torrenciales (150 a 250 mm), descargas eléctricas y rachas fuertes de viento.</description>
+        <instruction>Extremar precauciones a la población en general en las zonas de los estados mencionados y atender las recomendaciones emitidas por las autoridades del Sistema Nacional de Protección Civil, en cada entidad.</instruction>
+        <web>https://smn.conagua.gob.mx/</web>
+        <contact>webmaster.smn@conagua.gob.mx</contact>
+        <parameter>
+            <valueName>Elaboró</valueName>
+            <value>Patricia  López  Trujillo</value>
+        </parameter>
+        <parameter>
+            <valueName>Revisó</valueName>
+            <value>Antonio Alvarado Rosas</value>
+        </parameter>
+        <parameter>
+            <valueName>layer:Google:Region:0.1</valueName>
+            <value>Golfo de México, Pacifico Sur, Mesa de Norte</value>
+        </parameter>
+        <area>
+            <areaDesc>TAB, VER</areaDesc>
+            <polygon>18.45356,-94.97681 17.64926,-95.14160 17.41879,-94.89990 17.35588,-94.79004 17.27197,-94.05396 17.45023,-93.71338 17.62832,-93.55957 17.92125,-93.43872 18.07798,-93.31787 18.33888,-93.47168 18.15107,-94.08691 18.09887,-94.41650 18.42229,-94.85596 18.45356,-94.97681</polygon>
+        </area>
+    </info>
+</alert>

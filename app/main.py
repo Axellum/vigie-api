@@ -22,10 +22,13 @@ Endpoints:
 - ``GET    /v1/geojson/hazards/{id}/forecast`` : the forecast of a hazard that has one (``has_forecast``): the cone and track
                                      of a tropical cyclone, the arrival times of a tsunami, as GeoJSON.
 - ``GET    /v1/cap/alerts``        : OASIS CAP 1.2 (Common Alerting Protocol).
-- ``GET    /v1/vigilances``        : Official national weather warnings (MeteoAlarm, DWD, ECCC, MetService, NWS, and the
-                                     Vigicrues river floods of France) for a point (``lat, lon``) or a country
-                                     (``country``), and the tsunami messages of the U.S. warning centres (``source=tsunami``).
+- ``GET    /v1/vigilances``        : Official national weather warnings (MeteoAlarm, DWD, ECCC, MetService, NWS, the Vigicrues
+                                     river floods of France, and the national services of the WMO registry) for a point
+                                     (``lat, lon``) or a country (``country``), and the tsunami messages of the U.S.
+                                     warning centres (``source=tsunami``).
 - ``GET    /v1/vigilances.geojson``: The same, as GeoJSON.
+- ``GET    /v1/vigilances/countries``: The countries this instance has a source for, with the sources and whether their
+                                     reuse terms were verified.
 - ``POST   /v1/simulate``          : Inject a simulated scenario (always labelled as a simulation). Off unless
                                      ``VIGIE_ENABLE_SIMULATION=1``: it answers 403 otherwise.
 - ``WS     /v1/stream``            : Real-time WebSocket stream for connected terminals.
@@ -60,12 +63,12 @@ from app.models.schemas import (
     SimulationResponse,
     SnapshotResponse,
 )
-from app.models.vigilance import VigilanceGeoJSONCollection, VigilancesResponse
+from app.models.vigilance import VigilanceCountry, VigilanceGeoJSONCollection, VigilancesResponse
 from app.routers.dashboard import router as dashboard_router
 from app.services.aggregator import AggregatorService
 from app.services.geoindex import DEFAULT_RIVER_RADIUS_KM, MAX_RIVER_RADIUS_KM
 from app.services.scheduler import BackgroundAlertScheduler
-from app.services.vigilance import FOLLOW_DECIMALS, SUPPORTED_COUNTRIES, TSUNAMI_SOURCE, parse_languages
+from app.services.vigilance import FOLLOW_DECIMALS, TSUNAMI_SOURCE, parse_languages
 
 # The most positions one WebSocket connection can follow for official warnings.
 MAX_FOLLOWED_POINTS_PER_CONNECTION = 10
@@ -377,8 +380,10 @@ VIGILANCE_DESCRIPTION = (
     "Ask either for a position (`lat` and `lon`: the warnings whose area contains that exact point) or for a country "
     "(`country`, ISO 3166-1 alpha-2: every warning of that country). Sources: the MeteoAlarm feeds of 39 European "
     "countries, the Deutscher Wetterdienst for Germany (preferred to MeteoAlarm's copies), Environment and Climate "
-    "Change Canada, MetService for New Zealand, the Severe and Extreme alerts of the US National Weather Service, and "
-    "Vigicrues for the river floods of France. `source=tsunami` (alone) lists the tsunami warnings, watches, advisories and "
+    "Change Canada, MetService for New Zealand, the Severe and Extreme alerts of the US National Weather Service, "
+    "Vigicrues for the river floods of France, and the national services of the WMO Severe Weather Information Centre "
+    "registry for the other countries (`GET /v1/vigilances/countries` lists what this instance reads; which services it reads "
+    "depends on `VIGIE_WMO_SOURCES`). `source=tsunami` (alone) lists the tsunami warnings, watches, advisories and "
     "threat messages in force of the U.S. Tsunami Warning Centers; they name coasts by zone codes or countries, never by a "
     "shape, and `country=US` or `CA` lists them with that country's warnings. A river section is a line: for a position it counts when it lies within "
     "`river_radius_km` of it, and `distance_km` says how far. The words of the issuer are "
@@ -405,10 +410,13 @@ def _vigilance_request(lat: Optional[float], lon: Optional[float], country: Opti
         raise HTTPException(status_code=422, detail="Ask for a position (`lat`, `lon`) or for a `country`, not both")
     if lat is None and country is None:
         raise HTTPException(status_code=422, detail="Ask for a position (`lat` and `lon`), a `country` or `source=tsunami`")
-    if country is not None and country.upper() not in SUPPORTED_COUNTRIES:
+    if country is not None and country.upper() not in aggregator.vigilances.supported_countries():
         raise HTTPException(
             status_code=404,
-            detail=f"No official warning source for country '{country.upper()}'. Countries with a source: {', '.join(SUPPORTED_COUNTRIES)}",
+            detail=(
+                f"No official warning source for country '{country.upper()}' on this instance. "
+                "Countries with a source: GET /v1/vigilances/countries"
+            ),
         )
 
 
@@ -488,6 +496,24 @@ async def get_vigilances_geojson(
 ) -> VigilanceGeoJSONCollection:
     """The same warnings as GeoJSON (RFC 7946)."""
     return aggregator.vigilances.to_geojson(await _vigilances(lat, lon, country, lang, river_radius_km, source))
+
+
+@app.get(
+    "/v1/vigilances/countries",
+    response_model=list[VigilanceCountry],
+    tags=["Vigilances"],
+    description=(
+        "The countries this instance has a source of official warnings for, with the settings it runs with: by default the "
+        "MeteoAlarm countries, Germany, Canada, New Zealand (unless turned off), the United States and the services of the WMO "
+        "registry whose reuse terms were verified; with `VIGIE_WMO_SOURCES=all` every service of the registry that is not excluded. "
+        "`sources` names what is asked for the country (the id of a registry service is the one of `coverage[].source_id`); "
+        "`licence_verified` is true when the reuse terms of every one of them were read and allow relaying its warnings (SOURCES.md)."
+    ),
+)
+async def get_vigilance_countries() -> list[VigilanceCountry]:
+    """The countries with a source of official warnings on this instance."""
+    await aggregator.vigilances.ensure_registry()
+    return aggregator.vigilances.countries_listing()
 
 
 @app.post(

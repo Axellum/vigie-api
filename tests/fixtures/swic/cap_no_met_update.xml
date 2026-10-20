@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>2.49.0.1.578.0.20261020123600.051</identifier>
+  <sender>meteorologi@met.no</sender>
+  <sent>2026-10-20T12:36:54+00:00</sent>
+  <status>Actual</status>
+  <msgType>Update</msgType>
+  <scope>Public</scope>
+  <code>profile:cap:https://git.smhi.se/metcoop/metcoop-cap-profile/blob/version-1.0/metcoop-cap-profile.md</code>
+  <references>meteorologi@met.no,2.49.0.1.578.0.20261020122215.026,2026-10-20T12:23:08+00:00 meteorologi@met.no,2.49.0.1.578.0.20261019155752.076,2026-10-19T17:45:47+00:00</references>
+  <info>
+    <language>no</language>
+    <category>Met</category>
+    <event>Kuling</event>
+    <responseType>Monitor</responseType>
+    <urgency>Future</urgency>
+    <severity>Moderate</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+        <valueName>OET:v1.0</valueName>
+        <value>OET-221</value>
+    </eventCode>
+    <eventCode>
+        <valueName>eventType</valueName>
+        <value>gale</value>
+    </eventCode>
+    <onset>2026-10-20T12:00:00+00:00</onset>
+    <expires>2026-10-21T03:00:00+00:00</expires>
+    <senderName>Meteorologisk Institutt</senderName>
+    <headline>Kuling, gult nivå, Lyngør - Oksøy, 2026-10-20T12:00:00+00:00, 2026-10-21T03:00:00+00:00</headline>
+    <description>Tirsdag ettermiddag økning til nordøstlig periodevis stiv kuling 15 m/s. Minkende natt til onsdag.</description>
+    <instruction>Vurder å la båten ligge: Det kan være farlig å være ute i småbåt. </instruction>
+    <web>https://www.met.no/vaer-og-klima/ekstremvaervarsler-og-andre-farevarsler/vaerfenomener-som-kan-gi-farevarsel-fra-met/kuling-stormvarsel-for-kyst-og-naere-fiskebanker</web>
+    <contact>https://www.met.no/kontakt-oss</contact>
+    <parameter>
+        <valueName>consequences</valueName>
+        <value>Grov sjø: Hvitt skum fra bølgetopper som brekker. </value>
+    </parameter>
+    <parameter>
+        <valueName>eventAwarenessName</valueName>
+        <value>Kuling</value>
+    </parameter>
+    <parameter>        
+        <valueName>awareness_level</valueName>
+        <value>2; yellow; Moderate</value>
+    </parameter>
+    <parameter>
+    <valueName>riskMatrixColor</valueName>
+    <value>Yellow</value>
+    </parameter>
+    <parameter>
+        <valueName>awarenessSeriousness</valueName>
+        <value>Utfordrende situasjon</value>
+    </parameter>
+    <parameter>
+        <valueName>awareness_type</valueName>
+        <value>1; Wind</value>
+    </parameter>
+    <parameter>
+        <valueName>triggerLevel</valueName>
+        <value>13.9m/s</value>
+    </parameter>
+    <parameter>
+        <valueName>awarenessResponse</valueName>
+        <value>Følg med</value>
+    </parameter>
+    <parameter>
+        <valueName>geographicDomain</valueName>
+        <value>marine</value>
+    </parameter>
+    <area>
+      <areaDesc>Lyngør - Oksøy</areaDesc>
+      
+          <polygon>58.6808,9.0262 58.4702,8.68 58.387,8.8337 58.4172,8.8837 58.5517,9.1107 58.6068,9.205 58.6808,9.0262 58.6808,9.0262</polygon>
+          <polygon>58.4702,8.68 58.1732,8.1467 58.1543,7.9947 58.0428,8.0677 58.0777,8.2053 58.0777,8.2055 58.0928,8.2647 58.0933,8.267 58.0943,8.2698 58.0955,8.2725 58.2053,8.4982 58.2055,8.4985 58.2953,8.6798 58.2965,8.682 58.387,8.8337 58.4702,8.68 58.4702,8.68</polygon>
+    <altitude>0</altitude>
+    <ceiling>900</ceiling>
+    </area>
+  </info>
+  <info>
+    <language>en-GB</language>
+    <category>Met</category>
+    <event>Gale</event>
+    <responseType>Monitor</responseType>
+    <urgency>Future</urgency>
+    <severity>Moderate</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+        <valueName>OET:v1.0</valueName>
+        <value>OET-221</value>
+    </eventCode>
+    <eventCode>
+        <valueName>eventType</valueName>
+        <value>gale</value>
+    </eventCode>
+    <onset>2026-10-20T12:00:00+00:00</onset>
+    <expires>2026-10-21T03:00:00+00:00</expires>
+    <senderName>MET Norway</senderName>
+    <headline>Gale, yellow level, Lyngoer - Oksoey, 2026-10-20T12:00:00+00:00, 2026-10-21T03:00:00+00:00</headline>
+    <description>Tuesday afternoon increasing northeasterly occasionally near gale force 7.</description>
+    <instruction>Consider not taking the boat out: Risk of dangerous situations when in a small boat at sea. </instruction>
+    <web>https://www.met.no/vaer-og-klima/ekstremvaervarsler-og-andre-farevarsler/vaerfenomener-som-kan-gi-farevarsel-fra-met/kuling-stormvarsel-for-kyst-og-naere-fiskebanker</web>
+    <contact>https://www.met.no/en/contact-us</contact>
+    <parameter>
+        <valueName>consequences</valueName>
+        <value>Sea heaps up: Moderate amounts of airborne spray. </value>
+    </parameter>
+    <parameter>
+        <valueName>eventAwarenessName</valueName>
+        <value>Gale</value>
+    </parameter>
+    <parameter>        
+        <valueName>awareness_level</valueName>
+        <value>2; yellow; Moderate</value>
+    </parameter>
+    <parameter>
+    <valueName>riskMatrixColor</valueName>
+    <value>Yellow</value>
+    </parameter>
+    <parameter>
+        <valueName>awarenessSeriousness</valueName>
+        <value>Challenging situation</value>
+    </parameter>
+    <parameter>
+        <valueName>awareness_type</valueName>
+        <value>1; Wind</value>
+    </parameter>
+    <parameter>
+        <valueName>triggerLevel</valueName>
+        <value>13.9m/s</value>
+    </parameter>
+    <parameter>
+        <valueName>awarenessResponse</valueName>
+        <value>Be aware</value>
+    </parameter>
+    <parameter>
+        <valueName>geographicDomain</valueName>
+        <value>marine</value>
+    </parameter>
+    <area>
+      <areaDesc>Lyngoer - Oksoey</areaDesc>
+      
+          <polygon>58.6808,9.0262 58.4702,8.68 58.387,8.8337 58.4172,8.8837 58.5517,9.1107 58.6068,9.205 58.6808,9.0262 58.6808,9.0262</polygon>
+          <polygon>58.4702,8.68 58.1732,8.1467 58.1543,7.9947 58.0428,8.0677 58.0777,8.2053 58.0777,8.2055 58.0928,8.2647 58.0933,8.267 58.0943,8.2698 58.0955,8.2725 58.2053,8.4982 58.2055,8.4985 58.2953,8.6798 58.2965,8.682 58.387,8.8337 58.4702,8.68 58.4702,8.68</polygon>
+    <altitude>0</altitude>
+    <ceiling>900</ceiling>
+    </area>
+  </info>
+</alert>

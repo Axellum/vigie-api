@@ -1,0 +1,2249 @@
+{
+ "excluded": [
+  "cn-cma-xx",
+  "hk-hko-xx"
+ ],
+ "how": "tools measured by hand on 2026-10-20 (see README.md): one GET of each feed address the registry lists",
+ "mirror_404_bytes": 18984,
+ "recorded_at": "2026-10-20T17:00:00Z",
+ "registry": {
+  "body_bytes": 156002,
+  "etag": false,
+  "last_modified": true,
+  "wire_bytes": 20972
+ },
+ "services": {
+  "af-andma-en": [
+   {
+    "body_bytes": 1286,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/af-andma-en/rss.xml",
+    "wire_bytes": 1286
+   }
+  ],
+  "ag-ms-en": [
+   {
+    "error": "ConnectError",
+    "status": null,
+    "url": "https://alert.metoffice.gov.ag/capfeed.php"
+   }
+  ],
+  "ai-dma-en": [
+   {
+    "body_bytes": 572,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": false,
+    "last_modified": false,
+    "recent": 0,
+    "status": 200,
+    "url": "https://axa-primary.capews.com/capews/public/atom?type=cap",
+    "wire_bytes": 572
+   }
+  ],
+  "al-igewe-en": [
+   {
+    "body_bytes": 1253,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/al-igewe-en/rss.xml",
+    "wire_bytes": 1253
+   }
+  ],
+  "ao-inamet-en": [
+   {
+    "body_bytes": 1228,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ao-inamet-en/rss.xml",
+    "wire_bytes": 1228
+   },
+   {
+    "body_bytes": 1214,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ao-inamet-pt/rss.xml",
+    "wire_bytes": 1214
+   }
+  ],
+  "ar-smn-es": [
+   {
+    "body_bytes": 62673,
+    "doc_bytes": 1916,
+    "docs_measured": 2,
+    "entries": 97,
+    "error": null,
+    "etag": false,
+    "last_modified": false,
+    "recent": 97,
+    "status": 200,
+    "url": "https://ssl.smn.gob.ar/CAP/AR.php",
+    "wire_bytes": 2405
+   }
+  ],
+  "bb-dem-xx": [
+   {
+    "body_bytes": 688,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": false,
+    "last_modified": false,
+    "recent": 0,
+    "status": 200,
+    "url": "https://brb-primary.capews.com/capews/public/atom?type=cap",
+    "wire_bytes": 688
+   }
+  ],
+  "bf-meteo-en": [
+   {
+    "body_bytes": 1155,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/bf-meteo-en/rss.xml",
+    "wire_bytes": 1155
+   },
+   {
+    "body_bytes": 1167,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/bf-meteo-fr/rss.xml",
+    "wire_bytes": 1167
+   }
+  ],
+  "bh-meteo-en": [
+   {
+    "body_bytes": 1124,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/bh-meteo-en/rss.xml",
+    "wire_bytes": 1124
+   },
+   {
+    "body_bytes": 1212,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/bh-meteo-ar/rss.xml",
+    "wire_bytes": 1212
+   }
+  ],
+  "bi-meteo-en": [
+   {
+    "body_bytes": 1178,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/bi-meteo-en/rss.xml",
+    "wire_bytes": 1178
+   },
+   {
+    "body_bytes": 1195,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/bi-meteo-fr/rss.xml",
+    "wire_bytes": 1195
+   }
+  ],
+  "bj-meteo-en": [
+   {
+    "body_bytes": 1127,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/bj-meteo-en/rss.xml",
+    "wire_bytes": 1127
+   },
+   {
+    "body_bytes": 1176,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/bj-meteo-fr/rss.xml",
+    "wire_bytes": 1176
+   }
+  ],
+  "br-inmet-pt": [
+   {
+    "error": "ConnectError",
+    "status": null,
+    "url": "https://apiprevmet3.inmet.gov.br/avisos/rss"
+   }
+  ],
+  "bw-met-en": [
+   {
+    "body_bytes": 3578,
+    "doc_bytes": 5820,
+    "docs_measured": 2,
+    "entries": 2,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 2,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/bw-met-en/rss.xml",
+    "wire_bytes": 3578
+   }
+  ],
+  "by-belhydromet-en": [
+   {
+    "body_bytes": 3953,
+    "doc_bytes": 447,
+    "docs_measured": 2,
+    "entries": 4,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 4,
+    "status": 200,
+    "url": "https://meteoalert.meteoinfo.ru/belarus/cap-feed/en/atom.xml",
+    "wire_bytes": 3953
+   },
+   {
+    "body_bytes": 4297,
+    "doc_bytes": 447,
+    "docs_measured": 2,
+    "entries": 4,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 4,
+    "status": 200,
+    "url": "https://meteoalert.meteoinfo.ru/belarus/cap-feed/ru/atom.xml",
+    "wire_bytes": 4297
+   }
+  ],
+  "bz-nms-en": [
+   {
+    "body_bytes": 19265,
+    "doc_bytes": 4304,
+    "docs_measured": 2,
+    "entries": 35,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 35,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/bz-nms-en/rss.xml",
+    "wire_bytes": 19265
+   },
+   {
+    "body_bytes": 1153,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/bz-nms-es/rss.xml",
+    "wire_bytes": 1153
+   }
+  ],
+  "cd-mettelsat-en": [
+   {
+    "body_bytes": 1261,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/cd-mettelsat-en/rss.xml",
+    "wire_bytes": 1261
+   },
+   {
+    "body_bytes": 1297,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/cd-mettelsat-fr/rss.xml",
+    "wire_bytes": 1297
+   }
+  ],
+  "cf-dmn-fr": [
+   {
+    "body_bytes": 1170,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/cf-dmn-fr/rss.xml",
+    "wire_bytes": 1170
+   }
+  ],
+  "cg-anac-en": [
+   {
+    "body_bytes": 1131,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/cg-anac-en/rss.xml",
+    "wire_bytes": 1131
+   },
+   {
+    "body_bytes": 1171,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/cg-anac-fr/rss.xml",
+    "wire_bytes": 1171
+   }
+  ],
+  "ci-sodexam-fr": [
+   {
+    "body_bytes": 1386,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ci-sodexam-fr/rss.xml",
+    "wire_bytes": 1386
+   }
+  ],
+  "cl-meteo-es": [
+   {
+    "error": "ReadTimeout",
+    "status": null,
+    "url": "https://archivos.meteochile.gob.cl/portaldmc/rss/rss.php"
+   }
+  ],
+  "cm-meteo-en": [
+   {
+    "body_bytes": 1151,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/cm-meteo-en/rss.xml",
+    "wire_bytes": 1151
+   },
+   {
+    "body_bytes": 4290,
+    "doc_bytes": 4994,
+    "docs_measured": 2,
+    "entries": 4,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 2,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/cm-meteo-fr/rss.xml",
+    "wire_bytes": 4290
+   },
+   {
+    "body_bytes": 1190,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/cm-meteo-ha/rss.xml",
+    "wire_bytes": 1190
+   }
+  ],
+  "cn-cma-xx": [
+   {
+    "body_bytes": 1068438,
+    "doc_bytes": 2595,
+    "docs_measured": 2,
+    "entries": 1000,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 1000,
+    "status": 200,
+    "url": "https://alert-feed-worldweather-org.s3.amazonaws.com/cn-cma-xx/rss.xml",
+    "wire_bytes": 1068438
+   }
+  ],
+  "co-ungrd-es": [
+   {
+    "body_bytes": 26020,
+    "doc_bytes": 2740,
+    "docs_measured": 2,
+    "entries": 22,
+    "error": null,
+    "etag": false,
+    "last_modified": false,
+    "recent": 17,
+    "status": 200,
+    "url": "https://www.gestiondelriesgo.gov.co/rss/AtomAlert.aspx",
+    "wire_bytes": 4046
+   }
+  ],
+  "cr-imn-en": [
+   {
+    "body_bytes": 1136,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/cr-imn-en/rss.xml",
+    "wire_bytes": 1136
+   },
+   {
+    "body_bytes": 20801,
+    "doc_bytes": 59953,
+    "docs_measured": 2,
+    "entries": 14,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 12,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/cr-imn-es/rss.xml",
+    "wire_bytes": 20801
+   }
+  ],
+  "cw-meteo-en": [
+   {
+    "body_bytes": 1221,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/cw-meteo-en/rss.xml",
+    "wire_bytes": 1221
+   },
+   {
+    "body_bytes": 1304,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/cw-meteo-nl/rss.xml",
+    "wire_bytes": 1304
+   },
+   {
+    "body_bytes": 1181,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/cw-meteo-es/rss.xml",
+    "wire_bytes": 1181
+   },
+   {
+    "body_bytes": 1239,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/cw-meteo-pap/rss.xml",
+    "wire_bytes": 1239
+   }
+  ],
+  "dj-meteo-en": [
+   {
+    "body_bytes": 1154,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/dj-meteo-en/rss.xml",
+    "wire_bytes": 1154
+   },
+   {
+    "body_bytes": 1171,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/dj-meteo-fr/rss.xml",
+    "wire_bytes": 1171
+   }
+  ],
+  "dz-onm-fr": [
+   {
+    "body_bytes": 39781,
+    "doc_bytes": 5360,
+    "docs_measured": 2,
+    "entries": 41,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 41,
+    "status": 200,
+    "url": "https://ametvigilance.meteo.dz/rss/rss_meteo_dz.xml",
+    "wire_bytes": 39781
+   }
+  ],
+  "ec-inamhi-es": [
+   {
+    "body_bytes": 27338,
+    "doc_bytes": 8052,
+    "docs_measured": 2,
+    "entries": 27,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 27,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ec-inamhi-es/rss.xml",
+    "wire_bytes": 27338
+   }
+  ],
+  "eg-ema-en": [
+   {
+    "body_bytes": 1128,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/eg-ema-en/rss.xml",
+    "wire_bytes": 1128
+   },
+   {
+    "body_bytes": 1232,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/eg-ema-ar/rss.xml",
+    "wire_bytes": 1232
+   }
+  ],
+  "es-aemet-es": [
+   {
+    "body_bytes": 18650,
+    "doc_bytes": 4452,
+    "docs_measured": 3,
+    "entries": 34,
+    "error": null,
+    "etag": false,
+    "last_modified": true,
+    "recent": 34,
+    "status": 200,
+    "url": "https://www.aemet.es/documentos_d/eltiempo/prediccion/avisos/rss/CAP_AFAE_wah_RSS.xml",
+    "wire_bytes": 18650
+   }
+  ],
+  "et-emi-en": [
+   {
+    "body_bytes": 1138,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/et-emi-en/rss.xml",
+    "wire_bytes": 1138
+   },
+   {
+    "body_bytes": 1259,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/et-emi-am/rss.xml",
+    "wire_bytes": 1259
+   },
+   {
+    "body_bytes": 1209,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/et-emi-so/rss.xml",
+    "wire_bytes": 1209
+   },
+   {
+    "body_bytes": 1210,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/et-emi-om/rss.xml",
+    "wire_bytes": 1210
+   }
+  ],
+  "ga-dgm-fr": [
+   {
+    "body_bytes": 1163,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ga-dgm-fr/rss.xml",
+    "wire_bytes": 1163
+   }
+  ],
+  "gh-gmet-en": [
+   {
+    "body_bytes": 28180,
+    "doc_bytes": 5362,
+    "docs_measured": 2,
+    "entries": 32,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/gh-gmet-en/rss.xml",
+    "wire_bytes": 28180
+   },
+   {
+    "body_bytes": 1167,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/gh-gmet-ha/rss.xml",
+    "wire_bytes": 1167
+   }
+  ],
+  "gm-dwr-en": [
+   {
+    "body_bytes": 1138,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/gm-dwr-en/rss.xml",
+    "wire_bytes": 1138
+   }
+  ],
+  "gn-dnm-en": [
+   {
+    "body_bytes": 1160,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/gn-dnm-en/rss.xml",
+    "wire_bytes": 1160
+   },
+   {
+    "body_bytes": 1174,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/gn-dnm-es/rss.xml",
+    "wire_bytes": 1174
+   },
+   {
+    "body_bytes": 2569,
+    "doc_bytes": 5310,
+    "docs_measured": 2,
+    "entries": 2,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/gn-dnm-fr/rss.xml",
+    "wire_bytes": 2569
+   },
+   {
+    "body_bytes": 1163,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/gn-dnm-pt/rss.xml",
+    "wire_bytes": 1163
+   }
+  ],
+  "gw-inm-en": [
+   {
+    "body_bytes": 2740,
+    "doc_bytes": 4600,
+    "docs_measured": 2,
+    "entries": 2,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/gw-inm-fr/rss.xml",
+    "wire_bytes": 2740
+   },
+   {
+    "body_bytes": 1954,
+    "doc_bytes": 4646,
+    "docs_measured": 1,
+    "entries": 1,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/gw-inm-pt/rss.xml",
+    "wire_bytes": 1954
+   }
+  ],
+  "gy-hms-en": [
+   {
+    "body_bytes": 40652,
+    "doc_bytes": 3530,
+    "docs_measured": 2,
+    "entries": 57,
+    "error": null,
+    "etag": false,
+    "last_modified": true,
+    "recent": 1,
+    "status": 200,
+    "url": "https://hydromet.gov.gy/cap/en/alerts/rss.xml",
+    "wire_bytes": 5456
+   }
+  ],
+  "hk-hko-xx": [
+   {
+    "error": "ConnectError",
+    "status": null,
+    "url": "https://alerts.weather.gov.hk/V1/cap_atom.xml"
+   }
+  ],
+  "id-inatews-id": [
+   {
+    "error": null,
+    "status": 403,
+    "url": "https://signature.bmkg.go.id/alert/public/rss.xml",
+    "wire_bytes": 3226
+   },
+   {
+    "error": null,
+    "status": 403,
+    "url": "https://signature.bmkg.go.id/alert/public/en/rss.xml",
+    "wire_bytes": 3232
+   }
+  ],
+  "in-imd-en": [
+   {
+    "body_bytes": 1140,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/in-imd-en/rss.xml",
+    "wire_bytes": 1140
+   }
+  ],
+  "in-ndma-xx": [
+   {
+    "body_bytes": 77931,
+    "doc_bytes": 2950,
+    "docs_measured": 2,
+    "entries": 100,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 100,
+    "status": 200,
+    "url": "https://sachet.ndma.gov.in/cap_public_website/rss/rss_india.xml",
+    "wire_bytes": 77931
+   }
+  ],
+  "iq-imos-en": [
+   {
+    "body_bytes": 1190,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/iq-imos-en/rss.xml",
+    "wire_bytes": 1190
+   },
+   {
+    "body_bytes": 1320,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/iq-imos-ar/rss.xml",
+    "wire_bytes": 1320
+   }
+  ],
+  "ir-irimo-en": [
+   {
+    "body_bytes": 2673,
+    "doc_bytes": 4308,
+    "docs_measured": 2,
+    "entries": 3,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 3,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ir-irimo-en/rss.xml",
+    "wire_bytes": 2673
+   },
+   {
+    "body_bytes": 9472,
+    "doc_bytes": 5761,
+    "docs_measured": 2,
+    "entries": 10,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 9,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ir-irimo-fa/rss.xml",
+    "wire_bytes": 9472
+   }
+  ],
+  "is-vedur-is": [
+   {
+    "error": null,
+    "status": 204,
+    "url": "https://api.vedur.is/cap/v1/capbroker/active/category/Met/",
+    "wire_bytes": 0
+   }
+  ],
+  "jm-jms-en": [
+   {
+    "body_bytes": 1552,
+    "doc_bytes": 1552,
+    "docs_measured": 1,
+    "entries": 1,
+    "error": null,
+    "etag": false,
+    "last_modified": false,
+    "recent": 1,
+    "status": 200,
+    "url": "https://alert.metservice.gov.jm/capfeed.php",
+    "wire_bytes": 689
+   }
+  ],
+  "jo-meteo-en": [
+   {
+    "body_bytes": 2123,
+    "doc_bytes": 4308,
+    "docs_measured": 2,
+    "entries": 2,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 2,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/jo-meteo-en/rss.xml",
+    "wire_bytes": 2123
+   },
+   {
+    "body_bytes": 2328,
+    "doc_bytes": 5180,
+    "docs_measured": 2,
+    "entries": 2,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 2,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/jo-meteo-ar/rss.xml",
+    "wire_bytes": 2328
+   }
+  ],
+  "ke-kmd-en": [
+   {
+    "body_bytes": 1129,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ke-kmd-en/rss.xml",
+    "wire_bytes": 1129
+   },
+   {
+    "body_bytes": 1180,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ke-kmd-sw/rss.xml",
+    "wire_bytes": 1180
+   }
+  ],
+  "km-anacm-fr": [
+   {
+    "body_bytes": 1238,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/km-anacm-fr/rss.xml",
+    "wire_bytes": 1238
+   }
+  ],
+  "kw-dom-en": [
+   {
+    "body_bytes": 1606,
+    "doc_bytes": 3668,
+    "docs_measured": 1,
+    "entries": 1,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://www.met.gov.kw/rss_eng/kuwait_cap.xml",
+    "wire_bytes": 1606
+   }
+  ],
+  "kz-kazhydromet-ru": [
+   {
+    "body_bytes": 281819,
+    "doc_bytes": 1659,
+    "docs_measured": 2,
+    "entries": 294,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 294,
+    "status": 200,
+    "url": "https://meteoalert.meteoinfo.ru/kazakhstan/cap-feed/ru/atom.xml",
+    "wire_bytes": 281819
+   },
+   {
+    "body_bytes": 253985,
+    "doc_bytes": 1553,
+    "docs_measured": 2,
+    "entries": 294,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 294,
+    "status": 200,
+    "url": "https://meteoalert.meteoinfo.ru/kazakhstan/cap-feed/en/atom.xml",
+    "wire_bytes": 253985
+   }
+  ],
+  "ls-lms-en": [
+   {
+    "body_bytes": 1130,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ls-lms-en/rss.xml",
+    "wire_bytes": 1130
+   },
+   {
+    "body_bytes": 1199,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ls-lms-st/rss.xml",
+    "wire_bytes": 1199
+   }
+  ],
+  "ly-nmc-en": [
+   {
+    "body_bytes": 1171,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ly-nmc-en/rss.xml",
+    "wire_bytes": 1171
+   },
+   {
+    "body_bytes": 6402,
+    "doc_bytes": 5406,
+    "docs_measured": 2,
+    "entries": 4,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 4,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ly-nmc-ar/rss.xml",
+    "wire_bytes": 6402
+   }
+  ],
+  "mg-meteo-en": [
+   {
+    "body_bytes": 15061,
+    "doc_bytes": 5654,
+    "docs_measured": 2,
+    "entries": 28,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 16,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/mg-meteo-en/rss.xml",
+    "wire_bytes": 15061
+   },
+   {
+    "body_bytes": 1259,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/mg-meteo-fr/rss.xml",
+    "wire_bytes": 1259
+   }
+  ],
+  "ml-meteo-en": [
+   {
+    "body_bytes": 1170,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ml-meteo-en/rss.xml",
+    "wire_bytes": 1170
+   },
+   {
+    "body_bytes": 1166,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ml-meteo-fr/rss.xml",
+    "wire_bytes": 1166
+   }
+  ],
+  "mm-dmh-en": [
+   {
+    "body_bytes": 773,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": false,
+    "last_modified": false,
+    "recent": 0,
+    "status": 200,
+    "url": "https://feeds-dmh.zamg.ac.at/feeds/dmh-warnings",
+    "wire_bytes": 773
+   }
+  ],
+  "mn-namem-en": [
+   {
+    "body_bytes": 1250,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/mn-namem-en/rss.xml",
+    "wire_bytes": 1250
+   },
+   {
+    "body_bytes": 1383,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/mn-namem-mn/rss.xml",
+    "wire_bytes": 1383
+   }
+  ],
+  "mo-smg-xx": [
+   {
+    "body_bytes": 2669,
+    "doc_bytes": 7227,
+    "docs_measured": 2,
+    "entries": 5,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://rss.smg.gov.mo/cap_rss.xml",
+    "wire_bytes": 826
+   }
+  ],
+  "mr-onm-en": [
+   {
+    "body_bytes": 1144,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/mr-onm-en/rss.xml",
+    "wire_bytes": 1144
+   },
+   {
+    "body_bytes": 1295,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/mr-onm-ar/rss.xml",
+    "wire_bytes": 1295
+   },
+   {
+    "body_bytes": 1144,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/mr-onm-fr/rss.xml",
+    "wire_bytes": 1144
+   }
+  ],
+  "mu-mms-en": [
+   {
+    "body_bytes": 1170,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/mu-mms-en/rss.xml",
+    "wire_bytes": 1170
+   }
+  ],
+  "mv-met-en": [
+   {
+    "body_bytes": 7977,
+    "doc_bytes": 1187,
+    "docs_measured": 2,
+    "entries": 20,
+    "error": null,
+    "etag": true,
+    "last_modified": false,
+    "recent": 9,
+    "status": 200,
+    "url": "https://cap.meteorology.gov.mv/rss/alerts/",
+    "wire_bytes": 1382
+   }
+  ],
+  "mw-met-en": [
+   {
+    "body_bytes": 1137,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/mw-met-en/rss.xml",
+    "wire_bytes": 1137
+   }
+  ],
+  "mx-smn-es": [
+   {
+    "body_bytes": 255134,
+    "doc_bytes": 2140,
+    "docs_measured": 2,
+    "entries": 392,
+    "error": null,
+    "etag": false,
+    "last_modified": false,
+    "recent": 80,
+    "status": 200,
+    "url": "https://smn.conagua.gob.mx/tools/PHP/feedsmn/cap.php",
+    "wire_bytes": 12899
+   }
+  ],
+  "mz-inam-en": [
+   {
+    "body_bytes": 1158,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/mz-inam-en/rss.xml",
+    "wire_bytes": 1158
+   },
+   {
+    "body_bytes": 33648,
+    "doc_bytes": 5190,
+    "docs_measured": 2,
+    "entries": 50,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/mz-inam-pt/rss.xml",
+    "wire_bytes": 33648
+   }
+  ],
+  "ne-meteo-en": [
+   {
+    "body_bytes": 1159,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ne-meteo-en/rss.xml",
+    "wire_bytes": 1159
+   },
+   {
+    "body_bytes": 1175,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ne-meteo-fr/rss.xml",
+    "wire_bytes": 1175
+   },
+   {
+    "body_bytes": 1187,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ne-meteo-ha/rss.xml",
+    "wire_bytes": 1187
+   }
+  ],
+  "ng-nimet-en": [
+   {
+    "body_bytes": 3685,
+    "doc_bytes": 4514,
+    "docs_measured": 2,
+    "entries": 4,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 4,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ng-nimet-en/rss.xml",
+    "wire_bytes": 3685
+   },
+   {
+    "body_bytes": 1181,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ng-nimet-ha/rss.xml",
+    "wire_bytes": 1181
+   }
+  ],
+  "no-met-en": [
+   {
+    "body_bytes": 9162,
+    "doc_bytes": 6458,
+    "docs_measured": 2,
+    "entries": 9,
+    "error": null,
+    "etag": false,
+    "last_modified": true,
+    "recent": 9,
+    "status": 200,
+    "url": "https://alert.met.no/feed?lang=en",
+    "wire_bytes": 2144
+   },
+   {
+    "body_bytes": 9286,
+    "doc_bytes": 6458,
+    "docs_measured": 2,
+    "entries": 9,
+    "error": null,
+    "etag": false,
+    "last_modified": true,
+    "recent": 9,
+    "status": 200,
+    "url": "https://alert.met.no/feed?lang=no",
+    "wire_bytes": 2183
+   }
+  ],
+  "no-nve-xx": [
+   {
+    "body_bytes": 2649,
+    "doc_bytes": 16970,
+    "docs_measured": 3,
+    "entries": 3,
+    "error": null,
+    "etag": false,
+    "last_modified": false,
+    "recent": 3,
+    "status": 200,
+    "url": "https://cap.nve.no/",
+    "wire_bytes": 2649
+   }
+  ],
+  "om-met-en": [
+   {
+    "body_bytes": 1144,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/om-met-en/rss.xml",
+    "wire_bytes": 1144
+   },
+   {
+    "body_bytes": 1268,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/om-met-ar/rss.xml",
+    "wire_bytes": 1268
+   }
+  ],
+  "pg-ms-en": [
+   {
+    "error": "ConnectTimeout",
+    "status": null,
+    "url": "https://smartalert.pngmet.gov.pg/capfeed.php"
+   }
+  ],
+  "ph-pagasa-en": [
+   {
+    "body_bytes": 18906,
+    "doc_bytes": 10148,
+    "docs_measured": 2,
+    "entries": 51,
+    "error": null,
+    "etag": false,
+    "last_modified": false,
+    "recent": 51,
+    "status": 200,
+    "url": "https://publicalert.pagasa.dost.gov.ph/feeds/",
+    "wire_bytes": 18906
+   }
+  ],
+  "py-dmh-es": [
+   {
+    "body_bytes": 7647,
+    "doc_bytes": 5129,
+    "docs_measured": 2,
+    "entries": 10,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 6,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/py-dmh-es/rss.xml",
+    "wire_bytes": 7647
+   }
+  ],
+  "qa-caa-en": [
+   {
+    "body_bytes": 1603,
+    "doc_bytes": 4386,
+    "docs_measured": 1,
+    "entries": 1,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 1,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/qa-caa-en/rss.xml",
+    "wire_bytes": 1603
+   },
+   {
+    "body_bytes": 1819,
+    "doc_bytes": 4612,
+    "docs_measured": 1,
+    "entries": 1,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 1,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/qa-caa-ar/rss.xml",
+    "wire_bytes": 1819
+   }
+  ],
+  "ru-roshydromet-en": [
+   {
+    "body_bytes": 181407,
+    "doc_bytes": 2602,
+    "docs_measured": 2,
+    "entries": 257,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 257,
+    "status": 200,
+    "url": "https://meteoinfo.ru/hmc-output/cap/cap-feed/en/atom.xml",
+    "wire_bytes": 6765
+   },
+   {
+    "body_bytes": 204126,
+    "doc_bytes": 2652,
+    "docs_measured": 2,
+    "entries": 257,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 257,
+    "status": 200,
+    "url": "https://meteoinfo.ru/hmc-output/cap/cap-feed/ru/atom.xml",
+    "wire_bytes": 7764
+   }
+  ],
+  "sa-ncm-en": [
+   {
+    "error": null,
+    "status": 404,
+    "url": "https://ncm.gov.sa/Ar/alert/Pages/feedalerts.aspx",
+    "wire_bytes": 251159
+   },
+   {
+    "error": null,
+    "status": 404,
+    "url": "https://ncm.gov.sa/Ar/alert/Pages/feedalerts.aspx?language=ar",
+    "wire_bytes": 251159
+   }
+  ],
+  "sb-sims-en": [
+   {
+    "body_bytes": 14001,
+    "doc_bytes": 4498,
+    "docs_measured": 2,
+    "entries": 22,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 22,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/sb-met-en/rss.xml",
+    "wire_bytes": 14001
+   }
+  ],
+  "sc-meteo-en": [
+   {
+    "body_bytes": 1342,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/sc-meteo-en/rss.xml",
+    "wire_bytes": 1342
+   }
+  ],
+  "sd-sma-en": [
+   {
+    "body_bytes": 1126,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/sd-sma-en/rss.xml",
+    "wire_bytes": 1126
+   },
+   {
+    "body_bytes": 1265,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/sd-sma-ar/rss.xml",
+    "wire_bytes": 1265
+   },
+   {
+    "body_bytes": 1135,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/sd-sma-ha/rss.xml",
+    "wire_bytes": 1135
+   }
+  ],
+  "sg-mss-en": [
+   {
+    "body_bytes": 699,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "http://www.weather.gov.sg/files/rss/rsscapalert/rsscapalert.xml",
+    "wire_bytes": 699
+   }
+  ],
+  "sl-slmet-en": [
+   {
+    "body_bytes": 1166,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/sl-slmet-en/rss.xml",
+    "wire_bytes": 1166
+   }
+  ],
+  "sn-anacim-fr": [
+   {
+    "body_bytes": 1244,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/sn-anacim-fr/rss.xml",
+    "wire_bytes": 1244
+   }
+  ],
+  "sr-meteo-en": [
+   {
+    "body_bytes": 1143,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/sr-meteo-en/rss.xml",
+    "wire_bytes": 1143
+   },
+   {
+    "body_bytes": 1182,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/sr-meteo-nl/rss.xml",
+    "wire_bytes": 1182
+   }
+  ],
+  "st-meteo-en": [
+   {
+    "body_bytes": 1163,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/st-meteo-en/rss.xml",
+    "wire_bytes": 1163
+   },
+   {
+    "body_bytes": 1156,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/st-meteo-pt/rss.xml",
+    "wire_bytes": 1156
+   }
+  ],
+  "sz-met-en": [
+   {
+    "body_bytes": 1129,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/sz-met-en/rss.xml",
+    "wire_bytes": 1129
+   }
+  ],
+  "td-anam-en": [
+   {
+    "body_bytes": 1131,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/td-anam-en/rss.xml",
+    "wire_bytes": 1131
+   },
+   {
+    "body_bytes": 1161,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/td-anam-fr/rss.xml",
+    "wire_bytes": 1161
+   },
+   {
+    "body_bytes": 1164,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/td-anam-ha/rss.xml",
+    "wire_bytes": 1164
+   }
+  ],
+  "tg-dgmn-en": [
+   {
+    "body_bytes": 1198,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/tg-dgmn-en/rss.xml",
+    "wire_bytes": 1198
+   },
+   {
+    "body_bytes": 1208,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/tg-dgmn-fr/rss.xml",
+    "wire_bytes": 1208
+   }
+  ],
+  "th-tmd-th": [
+   {
+    "body_bytes": 10592,
+    "doc_bytes": 84339,
+    "docs_measured": 3,
+    "entries": 10,
+    "error": null,
+    "etag": false,
+    "last_modified": false,
+    "recent": 10,
+    "status": 200,
+    "url": "https://www.tmd.go.th/en/api/xml/CAP",
+    "wire_bytes": 1513
+   },
+   {
+    "body_bytes": 20196,
+    "doc_bytes": 86753,
+    "docs_measured": 3,
+    "entries": 10,
+    "error": null,
+    "etag": false,
+    "last_modified": false,
+    "recent": 10,
+    "status": 200,
+    "url": "https://www.tmd.go.th/api/xml/CAP",
+    "wire_bytes": 2444
+   }
+  ],
+  "tl-dnmg-en": [
+   {
+    "body_bytes": 1192,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/tl-dnmg-en/rss.xml",
+    "wire_bytes": 1192
+   },
+   {
+    "body_bytes": 1173,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/tl-dnmg-pt/rss.xml",
+    "wire_bytes": 1173
+   },
+   {
+    "body_bytes": 1169,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/tl-dnmg-tet/rss.xml",
+    "wire_bytes": 1169
+   }
+  ],
+  "tn-meteo-en": [
+   {
+    "body_bytes": 1163,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/tn-meteo-en/rss.xml",
+    "wire_bytes": 1163
+   },
+   {
+    "body_bytes": 1251,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/tn-meteo-ar/rss.xml",
+    "wire_bytes": 1251
+   },
+   {
+    "body_bytes": 1163,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/tn-meteo-fr/rss.xml",
+    "wire_bytes": 1163
+   }
+  ],
+  "to-tms-en": [
+   {
+    "error": "ConnectError",
+    "status": null,
+    "url": "https://alerts.met.gov.to/capfeed.php"
+   }
+  ],
+  "tt-ttms-en": [
+   {
+    "body_bytes": 641035,
+    "doc_bytes": 1891,
+    "docs_measured": 2,
+    "entries": 848,
+    "error": null,
+    "etag": false,
+    "last_modified": false,
+    "recent": 0,
+    "status": 200,
+    "url": "https://metproducts.gov.tt/ttms/public/api/feed?type=rss",
+    "wire_bytes": 67246
+   }
+  ],
+  "tz-tma-en": [
+   {
+    "body_bytes": 1164,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/tz-tma-en/rss.xml",
+    "wire_bytes": 1164
+   },
+   {
+    "body_bytes": 1197,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/tz-tma-sw/rss.xml",
+    "wire_bytes": 1197
+   }
+  ],
+  "ug-unma-en": [
+   {
+    "body_bytes": 1162,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ug-unma-en/rss.xml",
+    "wire_bytes": 1162
+   },
+   {
+    "body_bytes": 1204,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ug-unma-sw/rss.xml",
+    "wire_bytes": 1204
+   },
+   {
+    "body_bytes": 1240,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ug-unma-lg/rss.xml",
+    "wire_bytes": 1240
+   }
+  ],
+  "uk-bviddm-en": [
+   {
+    "body_bytes": 1168,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/uk-bviddm-en/rss.xml",
+    "wire_bytes": 1168
+   }
+  ],
+  "uy-inumet-es": [
+   {
+    "body_bytes": 5429,
+    "doc_bytes": 6334,
+    "docs_measured": 3,
+    "entries": 8,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 8,
+    "status": 200,
+    "url": "https://www.inumet.gub.uy/reportes/riesgo/rss.xml",
+    "wire_bytes": 854
+   }
+  ],
+  "vc-ms-en": [
+   {
+    "error": "ConnectTimeout",
+    "status": null,
+    "url": "https://vct-primary.capews.com/capews/public/atom?type=cap"
+   }
+  ],
+  "vu-vms-xx": [
+   {
+    "error": "ConnectTimeout",
+    "status": null,
+    "url": "https://smartalert.vmgd.gov.vu/capfeed.php"
+   }
+  ],
+  "ws-smd-en": [
+   {
+    "error": "ConnectTimeout",
+    "status": null,
+    "url": "http://alert.samet.gov.ws/capfeed.php"
+   }
+  ],
+  "ye-yms-en": [
+   {
+    "body_bytes": 1157,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ye-yms-en/rss.xml",
+    "wire_bytes": 1157
+   },
+   {
+    "body_bytes": 1248,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/ye-yms-ar/rss.xml",
+    "wire_bytes": 1248
+   }
+  ],
+  "za-saws-en": [
+   {
+    "error": "ConnectError",
+    "status": null,
+    "url": "https://caps.weathersa.co.za/Home/RssFeed"
+   }
+  ],
+  "zm-zmd-en": [
+   {
+    "body_bytes": 5748,
+    "doc_bytes": 4329,
+    "docs_measured": 2,
+    "entries": 7,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/zm-zmd-en/rss.xml",
+    "wire_bytes": 5748
+   }
+  ],
+  "zw-msd-en": [
+   {
+    "body_bytes": 1138,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/zw-msd-en/rss.xml",
+    "wire_bytes": 1138
+   },
+   {
+    "body_bytes": 1160,
+    "doc_bytes": 4500,
+    "docs_measured": 0,
+    "entries": 0,
+    "error": null,
+    "etag": true,
+    "last_modified": true,
+    "recent": 0,
+    "status": 200,
+    "url": "https://cap-sources.s3.amazonaws.com/zw-msd-sn/rss.xml",
+    "wire_bytes": 1160
+   }
+  ]
+ }
+}

@@ -1,0 +1,84 @@
+<?xml version="1.0"?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2"><identifier>f80ed31f-fd01-4058-846d-713e9f0f88ec</identifier><sender>PAGASA-DOST</sender><sent>2026-10-20T16:53:52+08:00</sent><status>Actual</status><msgType>Update</msgType><scope>Public</scope><references>PAGASA-DOST,3dbb9909-7cb8-4c5f-9786-c7ff29f6d096,2026-10-20T16:47:22+08:00</references><info><category>Met</category><event>Tropical Cyclone Warning</event><responseType>Prepare</responseType><urgency>Future</urgency><severity>Minor</severity><certainty>Likely</certainty><expires>2026-10-21T04:53:26+08:00</expires><senderName>PAGASA-DOST</senderName><headline>Tropical Cyclone Warning : Super Typhoon Rosal (CHAMPI) Signal #1</headline><description>A tropical cyclone will affect the locality.&#xD;
+Winds of 39-61 kph or intermittent rains may be expected within 36 hours.
+
+ROSAL SLIGHTLY INTENSIFIES WHILE MOVING WEST NORTHWESTWARD OVER THE PHILIPPINE SEA EAST OF CENTRAL LUZON.&#xD;
+&#xD;
+Location of eye/center : The center of the eye of Super Typhoon ROSAL was estimated based on all available data at  at 1,270 km East of Central Luzon (16.6, 134.0).&#xD;
+Strength : Maximum winds of 195 kph near the centerand gustiness of up to 240 kph.&#xD;
+Forecast movement : Forecast to move West Northwestward at 25 kph&#xD;
+&#xD;
+Forecast position : &#xD;
+Oct 21, 2026 02:00 AM - 1,045 km East of Northern Luzon&#xD;
+Oct 21, 2026 02:00 PM - 800 km East of Aparri, Cagayan&#xD;
+Oct 22, 2026 02:00 AM - 560 km East of Basco, Batanes&#xD;
+Oct 22, 2026 02:00 PM - 425 km East of Basco, Batanes&#xD;
+Oct 23, 2026 02:00 AM - 375 km East Northeast of Itbayat, Batanes&#xD;
+Oct 23, 2026 02:00 PM - 390 km Northeast of Itbayat, Batanes&#xD;
+Oct 24, 2026 02:00 PM - 730 km North Northeast of Itbayat, Batanes (OUTSIDE PAR)&#xD;
+&#xD;
+HAZARDS AFFECTING LAND AREAS&#xD;
+Heavy Rainfall Outlook&#xD;
+Refer to Weather Advisory No. 1 issued at 05:00 PM today for the heavy rainfall outlook due to the TC ROSAL.&#xD;
+Severe Winds&#xD;
+The wind signals warn the public of the general wind threat over an area due to the tropical cyclone. Local winds may be slightly stronger/enhanced in coastal and upland/mountainous areas exposed to winds. Winds are less strong in areas sheltered from the prevailing wind direction.&#xD;
+Minimal to minor impacts from strong winds are possible within any of the areas under Wind Signal No. 1.&#xD;
+The highest Wind Signal that may be raised during the passage of ROSAL is Wind Signal No. 2 or 3.&#xD;
+The Northeasterly Windflow and the periphery of ROSAL will bring strong to gale-force gusts over the following areas (especially in coastal and upland areas exposed to winds):&#xD;
+Today: Batanes, Ilocos Norte, Cagayan, Isabela, Polillo Islands, Camarines Norte, Camarines Sur, Catanduanes, Northern Samar, Eastern Samar, most of Caraga, Camiguin, Misamis Oriental, Sarangani, Davao del Sur, and Davao Occidental.&#xD;
+Tomorrow (21 October): Ilocos Region, Cordillera Administrative Region, Cagayan Valley, Polillo Islands, Bicol Region, Romblon, Eastern Visayas, Iloilo, Guimaras, Negros Occidental, Siquijor, Bohol, Northern Mindanao, Caraga, Davao Region, Sarangani, and Zamboanga del Norte.&#xD;
+Thursday (22 October): Most of the country.&#xD;
+&#xD;
+HAZARDS AFFECTING COASTAL WATERS&#xD;
+A Gale Warning is in effect over the seaboard of Extreme Northern Luzon and the eastern seaboards of Northern and Southern Luzon. For more details, refer to Gale Warning No. 1 issued at 5:00 PM today&#xD;
+24-Hour Sea Condition Outlook &#xD;
+Up to very rough seas over the following coastal waters:&#xD;
+Up to 4.5 m: The northern and eastern seaboards of Catanduanes; the seaboard of Isabela; the northeastern seaboard of Mainland Cagayan; the southeastern seaboard of Batanes; the northeastern seaboard of Babuyan Islands.&#xD;
+Sea travel is risky for all types or tonnage of vessels. All mariners must remain in port or, if underway, seek shelter or safe harbor as soon as possible until winds and waves subside. &#xD;
+Up to rough seas over the following coastal waters: &#xD;
+Up to 4.0 m: the northern and eastern seaboards of Batanes, the remaining eastern seaboards of Babuyan Islands, and mainland Cagayan; the northern seaboards of Camarines Norte and Camarines Sur; the northern and eastern seaboards of Northern Samar and Eastern Samar; the eastern seaboards of Albay and Sorsogon.&#xD;
+Up to 3.5 m: The northern and eastern seaboards of Polillo Islands; the northern seaboard of Aurora; the remaining seaboard of Batanes.&#xD;
+Up to 3.0 m: The seaboards of northern Quezon; the eastern seaboards of Dinagat Islands and Siargao-Bucas Grande Island Group; the remaining seaboards of Cagayan, Aurora and Camarines Norte.&#xD;
+Mariners of small seacrafts, including all types of motorbancas, are advised not to venture out to sea under these conditions, especially if inexperienced of operating ill-equipped vessels.&#xD;
+Up to moderate to rough seas over the following coastal waters:&#xD;
+Up to 2.5 m: The seaboard of Surigao del Sur, Surigao del Norte, and Davao Occidental; the eastern seaboard of Davao Oriental; the northern and eastern seaboards of Quezon; the remaining seaboard of Catanduanes. &#xD;
+Up to 2.0 m: The seaboards of Ilocos Norte, and Ilocos Sur; the southern seaboard of Davao Oriental; the remaining northern and eastern seaboards of Camarines Sur; the remaining seaboards of Polillo Islands, Dinagat Islands, and Siargao-Bucas Grande Island Group.&#xD;
+Mariners of motorbancas and similarly sized vessels are advised to take precautionary measures while venturing out to sea and, if possible, avoid navigation under these conditions.&#xD;
+Other coastal waters have forecast wave heights of less than 2.0 m.&#xD;
+&#xD;
+TRACK AND INTENSITY OUTLOOK&#xD;
+It must be emphasized that heavy rainfall and severe winds may still be experienced in localities outside the landfall point and the forecast confidence cone. Refer to &#x201C;Other Hazards affecting Land Areas&#x201D; for more details. Furthermore, the track may still shift within the limit of the forecast confidence cone.&#xD;
+Super Typhoon ROSAL will move generally west northwestward until tomorrow (21 October) before moving generally northwestward until Friday (23 October) morning. On the forecast track, ROSAL will be closest to Extreme Northern Luzon between Thursday (22 October) and Friday. This tropical cyclone will begin to turn north northwestward to northward by Friday afternoon until it exits the Philippine Area of Responsibility (PAR) by Friday evening or Saturday (24 October) early morning.&#xD;
+ROSAL is forecast to maintain its strength as Super Typhoon and further intensification remains possible while it moves over the Philippine Sea. It is forecast to gradually weaken into a Typhoon on Thursday evening or Friday early morning.&#xD;
+&#xD;
+</description><instruction>Considering these developments, the public and disaster risk reduction and management offices concerned are advised to take all necessary measures to protect life and property. Persons living in areas identified to be highly or very highly susceptible to these hazards are advised to follow evacuation and other instructions from local officials. For heavy rainfall warnings, thunderstorm/rainfall advisories, and other severe weather information specific to your area, please monitor products issued by your local PAGASA Regional Services Division.&#xD;
+</instruction><web>https://www.pagasa.dost.gov.ph/learnings/legend#tropical-cyclone-warning-icons</web><contact>PAGASA DOST</contact><parameter><valueName>layer:Google:Region:0.1</valueName><value>Luzon</value></parameter><parameter><valueName>Public Storm Warning Signal Level</valueName><value>1</value></parameter><area><areaDesc>Batanes, Cagayan, Isabela, Catanduanes</areaDesc><geocode><valueName>SAME</valueName><value>020900000</value></geocode><geocode><valueName>SAME</valueName><value>021500000</value></geocode><geocode><valueName>SAME</valueName><value>023100000</value></geocode><geocode><valueName>SAME</valueName><value>052000000</value></geocode></area></info><Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo><CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/><SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><Reference URI=""><Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/></Transforms><DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><DigestValue>k+iV03yB/5fGvo8PLZfO1xoOIWo=</DigestValue></Reference></SignedInfo><SignatureValue>Iy7Rv4Kpt1BfXuUQw5pkSrWKLgJ48rb9WDTAv7Skn1bE8jlEBQwHvzuX801rmPIR
+4+x4760sVyOl/SVdkzNAdMiwYNHadE3hD9zMaJLBnbxaMLuQL47oDM7Pg8iKQDJP
+z0pv5OSSDSvI461vibkG9jO/H9JnFb53O0htg1av13R7/efkoIxwBwMRw+FCEyjB
+BXA1tN9uhMbLwoxAkNYaVxHbXGiWb+/YgaCq2xFIdUhyHyektKgzVdYd1v2j9QE/
+ffiQNFl5HErfQQg/fq2vZdaIG62dSPre9OWwSdNsOTZ2pl+2p/t3d3ZDdJER5Mx3
+5+UW1WkuHvwjoO0KNUOdf4dsNEcmOnFEiXXPSVJ46iP9BkpJ3V4upNj8R8oAxTA9
+hIo/hxl6FfZt9Ps1x+vLO9DZFS92v2iKXNexDHf2l8Od7gUM9tvVGW2YImLsXnDU
+0xqxxbsSVaOSDvLwqTxGQyHKbo0eNw7tM/dsLDbYSomzE8K+s1x2NFNfCfXOFvv7
+zo98Pr6RnMahOVPhycALMZHCpnKEhooppuEmpM2uG8PUl2TkMSYMiw/AFBN6qHwY
+2qI75cOjkUlehv9h8gAL9HAVU4dyDr7yg25D8OkDEHJkM4xM6sS668V4ved1OtKj
+WyKlqPjIVMRmkaKyft8EFiq8/0Ko7cfh4HesHRMrOuQ=</SignatureValue><KeyInfo><KeyValue>
+<RSAKeyValue>
+<Modulus>
+1pm7X28TTIESx7uWklHbVIlO0Y+fUBZ7LynhaRQ9w1rMsMhF0dNEvUdYBKVF1xPz
+SGD0IrbU6Uemw8Xb/sOy263ZOkSxqWIh3UEluOW7s6J3Hgv8UMDZkWDgj3+m2qWT
+UTgbNO3drHGvlRBg6liD15iNusSdSMw/kqmHxe/9tnStpsHo/u57rsH3/ROTvuz2
+yHD2t7I7zo0Kv7mfAAHodU4QoL8/7c3u29szxRu13M4SRkiLKwbgrwlsMCvXhkys
+oEKlX8/SnXDL8iSPExAiP7xVpfbmh8TNiGvtbjH7Ro2EYjUsEcv9qC7G5jLu7Klt
+8TkTobHqES26/F5/u42Ra3rIDunTxczbIHF1qoumAzdsJmFCBc9D1IKTTWKR3D2J
+eAZfpuvMeOEcpRxBayYf2jOBx8iD8gag5cIZWl2/62IfUxTk92A00M5QrzTocNkg
+0U5K1gN5WmhObUN/3fa/Ob5uriELGzRdzXJ+3QE8FpPmSPJZFA//UWmpJqsboO7p
+AhbB8efPIV42nxjwQEbJdkxUOlfAyPMRGcp4RhmaAnX7KmB33j4klYeNktH+OeV8
+S9q/nMJoA/d76K1hCbo9PJTa/UxwZJYh0LEs1YnHP/5wgydZJcyNjmcu7P5ur90L
+qyr2FB0fZYAmWi6SEaA0F7yi2Y0uqV4FP7dfcbfOf+E=
+</Modulus>
+<Exponent>
+AQAB
+</Exponent>
+</RSAKeyValue>
+</KeyValue></KeyInfo></Signature></alert>

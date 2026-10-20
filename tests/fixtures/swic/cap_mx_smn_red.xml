@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+    <identifier>avisossmn-LLuvias-446</identifier>
+    <sender>smn.conagua.gob.mx</sender>
+    <sent>2026-10-18T06:30:00-06:00</sent>
+    <status>Actual</status>
+    <msgType>Alert</msgType>
+    <scope>Public</scope>
+    <code>01</code>
+    <info>
+        <language>es-MX</language>
+        <category>Met</category>
+        <event>Aviso de lluvias</event>
+        <responseType>Execute</responseType>
+        <urgency>Future</urgency>
+        <severity>Extreme</severity>
+        <certainty>Possible</certainty>
+        <effective>2026-10-18T06:30:00-06:00</effective>
+        <expires>2026-10-19T06:00:00-06:00</expires>
+        <senderName>Servicio Meteorológico Nacional</senderName>
+        <headline>Frente frío núm. 2</headline>
+        <description>Durante este día se esperan lluvias extraordinarias (mayores a 250 mm) acompañadas de actividad eléctrica.</description>
+        <instruction>Extremar precauciones a la población en general en las zonas de los estados mencionados y atender las recomendaciones emitidas por las autoridades del Sistema Nacional de Protección Civil, en cada entidad.</instruction>
+        <web>https://smn.conagua.gob.mx/</web>
+        <contact>webmaster.smn@conagua.gob.mx</contact>
+        <parameter>
+            <valueName>Elaboró</valueName>
+            <value>Jesús Carachure Bautista</value>
+        </parameter>
+        <parameter>
+            <valueName>Revisó</valueName>
+            <value>Rafael Trejo Vázquez</value>
+        </parameter>
+        <parameter>
+            <valueName>layer:Google:Region:0.1</valueName>
+            <value>Golfo de México, Pacifico Sur, Mesa de Norte</value>
+        </parameter>
+        <area>
+            <areaDesc>CHIS, OAX, TAB, VER</areaDesc>
+            <polygon>18.52649,-94.86694 17.36637,-95.46021 17.05153,-95.02075 17.00951,-93.79028 17.41879,-92.73560 18.44314,-93.25745 18.35453,-93.62000 18.16151,-94.14185 18.10931,-94.53735 18.30760,-94.65820 18.52649,-94.86694</polygon>
+        </area>
+    </info>
+</alert>

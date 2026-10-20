@@ -1,0 +1,45 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml-stylesheet type="text/xsl" href="https://www.gestiondelriesgo.gov.co/rss/alert-style.xsl"?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>IDEAM20261009T000000INC05380AR</identifier>
+  <sender>servicio@ideam.gov.co</sender>
+  <sent>2026-10-09T00:00:00-05:00</sent>
+  <status>Test</status>
+  <msgType>Update</msgType>
+  <scope>Public</scope>
+  <info>
+    <language>es</language>
+    <category>Met</category>
+    <event>incendio (forestal)</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Moderate</severity>
+    <certainty>Observed</certainty>
+    <expires>2026-11-10T00:00:00-05:00</expires>
+    <senderName>Servicio de Pronósticos y Alertas del IDEAM</senderName>
+    <headline>Pronóstico de amenaza alta por incendios de la cobertura vegetal en La Estrella - Antioquia</headline>
+    <description>Esta alerta se basa en el monitoreo de condiciones meteorológicas como bajas precipitaciones, temperaturas máximas previas, temperatura máxima pronosticada y persistencia de estas condiciones. Su objetivo es advertir sobre pronóstico de la amenaza por incendios de la cobertura vegetal.. Reportado por el IDEAM.</description>
+    <instruction>1. Si estás en una zona de riesgo frente al incendio en curso, evacúa y ubícate en un lugar seguro. 2. Permanece en zona segura hasta cuando las autoridades lo indiquen. 3. Da aviso a los organismos operativos sobre inicio de incendios. 4. Mantén herramientas que puedan apoyar las labores de extinción de fuegos y los números de emergencias. 5. Las autoridades te avisarán si el fuego ya se ha extinguido. 6. Realiza labores de recuperación de las zonas afectadas por el incendio. 7. Limita el acceso de animales a las áreas quemadas. 8. Siembra semillas de rápido crecimiento.</instruction>
+    <web>https://www.gestiondelriesgo.gov.co/sigpad/alertas_detalle.aspx?ide=834249</web>
+    <parameter>
+      <valueName>fechaInicio</valueName>
+      <value>09/10/2026 00:00:00</value>
+    </parameter>
+    <parameter>
+      <valueName>fechaFin</valueName>
+      <value>10/11/2026 00:00:00</value>
+    </parameter>
+    <parameter>
+      <valueName>nivel</valueName>
+      <value>Alerta Roja</value>
+    </parameter>
+    <area>
+      <areaDesc>La Estrella - Antioquia</areaDesc>
+      <polygon>6.17490,-75.64860 6.16711,-75.68207 6.11880,-75.67312 6.11659,-75.60596 6.15349,-75.62471 6.17490,-75.64860</polygon>
+      <geocode>
+        <valueName>DIVIPOLA</valueName>
+        <value>5380</value>
+      </geocode>
+    </area>
+  </info>
+</alert>

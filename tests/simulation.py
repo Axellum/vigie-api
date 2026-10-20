@@ -42,6 +42,8 @@ from app.collectors.metservice import MetServiceCollector
 from app.collectors.nhc import NHCCollector
 from app.collectors.seismic import EMSCCollector, USGSCollector
 from app.collectors.space_weather import NOAASWPCCollector
+from app.collectors.swic import SwicCollector
+from app.collectors.swic_registry import SwicRegistryCollector
 from app.collectors.tsunami import TsunamiCollector
 from app.collectors.vigicrues import VigicruesCollector
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector, RainViewerCollector
@@ -51,6 +53,7 @@ from app.services.scheduler import BackgroundAlertScheduler
 from app.services.storage_wal import DEFAULT_WATCHLIST_SEED
 from tests import samples, storm_samples
 from tests.helpers import SimClock, http_date
+from tests.swic_upstream import SwicWorld
 
 DAY_S = 86_400
 SCHEDULER_PERIOD_S = 90
@@ -156,6 +159,8 @@ class Upstream:
         self.methods: Counter[tuple[str, str]] = Counter()  # (source, HTTP method)
         # The times (seconds on the simulated clock) at which Vigicrues publishes: by default 07:55:15 and 13:55:15 UTC every day.
         self.vigicrues_publications: list[float] = self._daily_publications()
+        # The WMO registry and the feeds of its services (hosts of their own, so routed by what the registry lists, not by ``HOST_TO_SOURCE``).
+        self.swic = SwicWorld(clock)
 
     def client(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(transport=httpx.MockTransport(self._handler))
@@ -231,6 +236,12 @@ class Upstream:
         return httpx.Response(404, text="Not found")
 
     async def _handler(self, request: httpx.Request) -> httpx.Response:
+        if self.swic.knows(request):
+            source = self.swic.source_of(request)
+            self.calls[source] += 1
+            self.weight[source] += 1.0
+            self.methods[(source, request.method)] += 1
+            return await self.swic.respond(request)
         source = source_of(request)
         if source is None:
             return httpx.Response(404, json={"error": f"unknown simulated host {request.url.host}"})
@@ -433,7 +444,13 @@ class DayResult:
 class Simulation:
     """Plays one simulated day: clients and the scheduler of the application against the simulated upstream."""
 
-    def __init__(self, clock: SimClock, scenario: Optional[Scenario] = None, zones: Optional[list[dict[str, Any]]] = None) -> None:
+    def __init__(
+        self,
+        clock: SimClock,
+        scenario: Optional[Scenario] = None,
+        zones: Optional[list[dict[str, Any]]] = None,
+        wmo_sources: Optional[str] = None,
+    ) -> None:
         # ``clock`` must be installed as the time source of the collectors (the ``sim_clock`` fixture).
         self.clock = clock
         self.scenario = scenario or Scenario()
@@ -461,6 +478,9 @@ class Simulation:
             vigicrues=VigicruesCollector(http_client=http),
             nhc=NHCCollector(http_client=http),
             tsunami=TsunamiCollector(http_client=http),
+            swic=SwicCollector(http_client=http),
+            swic_registry=SwicRegistryCollector(http_client=http),
+            wmo_sources=wmo_sources,
             storage=FakeStorage(zones),  # type: ignore[arg-type]
         )
         self.scheduler = BackgroundAlertScheduler(

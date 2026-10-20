@@ -1,0 +1,61 @@
+<?xml version ="1.0" encoding = "UTF-8"?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+	<identifier>urn:oid:2.49.0.0.414.0.27607221601</identifier>
+	<sender>forecast.info@dgca.gov.kw</sender>
+	<sent>2026-10-03T10:22:54+03:00</sent>
+	<status>Actual</status>
+	<msgType>Alert</msgType>
+	<scope>Public</scope>
+	<info>
+	<language>en-US</language>
+		<category>Met</category>
+		<event>Fog</event>
+		<responseType>Prepare</responseType>
+		<urgency>Expected</urgency>
+		<severity>Moderate</severity>
+		<certainty>Possible</certainty>
+		<effective>2026-10-03T10:22:54+03:00</effective>
+		<onset>2026-10-03T23:00:00+03:00</onset>
+		<expires>2026-10-04T08:00:00+03:00</expires>
+		<senderName>DEPARTMENT OF METEOROLOGY - KUWAIT</senderName>
+		<headline>Fog</headline>
+		<description>Visibility is expected to be less than 1000m over some areas .</description>
+		<instruction>Take appropriate action</instruction>
+		<web>https://www.met.gov.kw/warnings/warning.php?lang=eng</web>
+		<contact>forecast.info@dgca.gov.kw</contact>
+		<area>
+			<areaDesc>
+				STATE OF KUWAIT
+			</areaDesc>
+			<polygon>
+				29.9930454,47.99843 30.0295234,48.0774161 30.0204051,48.1774651 29.8584171,48.4038919 29.6985097,48.4156725 29.5566243,48.4288359  29.4603951,48.45253 29.3961915,48.4498973 29.3296521,48.3761823 29.3778401,48.3287941 29.4122462,48.2524465 29.4718557,48.1892622 29.499356,48.1076492 29.4214175,47.965477 29.3938977,48.0944858 29.3250615,48.1208077 29.1389741,48.1576621 29.0285386,48.2050549  28.9410277,48.2392796 28.8811071,48.3182634 28.8073134,48.3287941 28.7473175,48.4235705 28.6480179,48.4341012 	28.5322918,48.4697137 28.5234591,47.7113314 28.6551816,47.6034378 28.832794,47.5902887 28.9940426,47.4744969 29.1022149,46.5693916 29.4808574,46.8982281 29.7211696,47.0060198 29.9883057,47.1349443 30.1023016,47.3639309 30.1024008,47.7088038 29.9907651,47.9957971 29.9930454,47.99843
+			</polygon>
+		</area>
+	</info>
+	<info>
+	<language>ar-KW</language>
+		<category>Met</category>
+		<event>ضباب</event>
+		<responseType>Prepare</responseType>
+		<urgency>Expected</urgency>
+		<severity>Moderate</severity>
+		<certainty>Possible</certainty>
+		<effective>2026-10-03T10:22:54+03:00</effective>
+		<onset>2026-10-03T23:00:00+03:00</onset>
+		<expires>2026-10-04T08:00:00+03:00</expires>
+		<senderName>إدارة الأرصاد الجوية - الكويت</senderName>
+		<headline>ضباب</headline>
+		<description>من المتوقع انخفاض الرؤية الأفقية بسبب الضباب قد تصل إلى أقل من 1000م على بعض المناطق .</description>
+		<instruction>اتخاذ التدابير اللازمة</instruction>
+		<web>https://www.met.gov.kw/warnings/warning.php?lang=arb</web>
+		<contact>forecast.info@dgca.gov.kw</contact>
+		<area>
+			<areaDesc>
+				دولة الكويت
+			</areaDesc>
+			<polygon>
+				29.9930454,47.99843 30.0295234,48.0774161 30.0204051,48.1774651 29.8584171,48.4038919 29.6985097,48.4156725 29.5566243,48.4288359  29.4603951,48.45253 29.3961915,48.4498973 29.3296521,48.3761823 29.3778401,48.3287941 29.4122462,48.2524465 29.4718557,48.1892622 29.499356,48.1076492 29.4214175,47.965477 29.3938977,48.0944858 29.3250615,48.1208077 29.1389741,48.1576621 29.0285386,48.2050549  28.9410277,48.2392796 28.8811071,48.3182634 28.8073134,48.3287941 28.7473175,48.4235705 28.6480179,48.4341012 	28.5322918,48.4697137 28.5234591,47.7113314 28.6551816,47.6034378 28.832794,47.5902887 28.9940426,47.4744969 29.1022149,46.5693916 29.4808574,46.8982281 29.7211696,47.0060198 29.9883057,47.1349443 30.1023016,47.3639309 30.1024008,47.7088038 29.9907651,47.9957971 29.9930454,47.99843
+			</polygon>
+		</area>
+	</info>
+</alert>

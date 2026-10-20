@@ -102,7 +102,7 @@ def test_the_countries_are_the_wanted_ones_and_france_is_the_metropole(tmp_path:
     source = tmp_path / "countries.geojson"
     source.write_text(json.dumps(natural_earth_countries()), encoding="utf-8")
     features = tool.build_countries(source)
-    assert [f["properties"]["country"] for f in features] == tool.COUNTRIES and len(features) == 42
+    assert [f["properties"]["country"] for f in features] == tool.COUNTRIES and len(features) == len(tool.COUNTRIES)
     france = next(f for f in features if f["properties"]["country"] == "FR")
     assert france["geometry"]["type"] == "Polygon"  # the overseas part (centroid at -61 degrees) is dropped
     assert france["properties"]["name"] == "Country FR"
@@ -188,7 +188,7 @@ def test_run_builds_both_files_without_the_network(tmp_path: Path, monkeypatch: 
     assert sorted(path.name for path in out.iterdir()) == ["countries.geojson.gz", "geocodes-nuts.geojson.gz"]
     assert len(asked) == 3 and all(url.startswith("https://") for url in asked)
     assert "Natural Earth" in json.loads(gzip.decompress((out / "countries.geojson.gz").read_bytes()))["note"]
-    assert len(CountryIndex.from_file(out / "countries.geojson.gz").countries()) == 42
+    assert len(CountryIndex.from_file(out / "countries.geojson.gz").countries()) == len(tool.COUNTRIES)
     assert GeometryIndex.from_disk(out).has("NUTS3", "FR713")
 
 

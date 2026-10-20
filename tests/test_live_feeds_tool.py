@@ -15,7 +15,7 @@ from typing import Any, Optional
 import httpx
 import pytest
 
-from tests import samples, storm_samples
+from tests import samples, storm_samples, swic_samples
 from tests import vigilance_samples as national
 from tests.helpers import SimClock
 from tests.test_dwd import archive, cap_document
@@ -152,6 +152,7 @@ def good_answers() -> dict[str, Callable[[httpx.Request], httpx.Response]]:
         "www.vigicrues.gouv.fr": vigicrues_host(full_vigicrues_flow()),
         "www.tsunami.gov": tsunami_host(),
         "www.nhc.noaa.gov": nhc_host(),
+        **swic_samples.wmo_hosts(),
     }
 
 
@@ -556,3 +557,80 @@ async def test_vigicrues_the_publication_image_must_still_follow_the_flow() -> N
         result = await national_run("www.vigicrues.gouv.fr", host, "vigicrues_flow")
         assert result["vigicrues_flow"].outcome == "FAIL" and expected in result["vigicrues_flow"].detail, label
         assert "every hour" in result["vigicrues_flow"].detail, label
+
+
+# ---------------------------------------------------------------- the WMO registry and its services
+
+
+@pytest.fixture(autouse=True)
+def _no_pause_between_wmo_services(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(tool, "WMO_SAMPLE_PAUSE_S", 0.0)
+
+
+@pytest.mark.asyncio
+async def test_the_wmo_registry_passes_and_says_what_the_snapshot_does_not_know() -> None:
+    results = await run(only=["wmo_swic_registry"])
+    assert results["wmo_swic_registry"].outcome == "ok"
+    assert results["wmo_swic_registry"].detail.startswith("140 services (0 the bundled snapshot does not know, 0 it knows that are gone)")
+    newcomer = {"sourceId": "zz-new-en", "authorityCountry": "ES", "capAlertFeed": "https://example.org/rss.xml", "byLanguage": [{"name": "New"}]}
+    changed = await run(swic_samples.wmo_hosts(registry=swic_samples.registry_json(extra=[newcomer])), only=["wmo_swic_registry"])
+    assert changed["wmo_swic_registry"].outcome == "ok" and "1 the bundled snapshot does not know" in changed["wmo_swic_registry"].detail
+    assert "zz-new-en" in changed["wmo_swic_registry"].detail
+
+
+@pytest.mark.asyncio
+async def test_the_wmo_registry_fails_when_it_is_truncated_or_a_verified_service_moved_or_a_country_has_no_border() -> None:
+    few = await run(swic_samples.wmo_hosts(registry=swic_samples.registry_json(drop={s.source_id for s in swic_samples.bundled()[20:]})), only=["wmo_swic_registry"])
+    assert few["wmo_swic_registry"].outcome == "FAIL" and "truncated" in few["wmo_swic_registry"].detail
+    moved = await run(
+        swic_samples.wmo_hosts(registry=swic_samples.registry_json(change={"mx-smn-es": {"capAlertFeed": "https://example.org/new.xml"}})),
+        only=["wmo_swic_registry"],
+    )
+    assert moved["wmo_swic_registry"].outcome == "FAIL" and "mx-smn-es" in moved["wmo_swic_registry"].detail
+    japan = {"sourceId": "jp-jma-en", "authorityCountry": "JP", "capAlertFeed": "https://example.org/jp.xml", "byLanguage": [{"name": "JMA"}]}
+    no_border = await run(swic_samples.wmo_hosts(registry=swic_samples.registry_json(extra=[japan])), only=["wmo_swic_registry"])
+    assert no_border["wmo_swic_registry"].outcome == "FAIL" and "JP" in no_border["wmo_swic_registry"].detail
+    assert "--countries-only" in no_border["wmo_swic_registry"].detail
+    not_a_registry = await run({"severeweather.wmo.int": lambda r: httpx.Response(200, json={"error": "maintenance"})}, only=["wmo_swic_registry"])
+    assert not_a_registry["wmo_swic_registry"].outcome == "FAIL"
+    busy = await run({"severeweather.wmo.int": lambda r: httpx.Response(503)}, only=["wmo_swic_registry"])
+    assert busy["wmo_swic_registry"].outcome == "unreachable"
+
+
+@pytest.mark.asyncio
+async def test_the_verified_wmo_services_and_the_sample_are_read(sim_clock: SimClock) -> None:
+    sim_clock.advance(swic_samples.at(swic_samples.RECORDED_AT))
+    results = await run(only=["wmo_swic"])
+    result = results["wmo_swic"]
+    assert result.outcome == "ok", result.detail
+    for sid in ("ar-smn-es", "bb-dem-xx", "dz-onm-fr", "es-aemet-es", "jm-jms-en", "mx-smn-es", "ph-pagasa-en", "ru-roshydromet-en", "in-ndma-xx"):
+        assert sid in result.detail, sid
+    assert "Minor" in result.detail  # the Philippines' tropical cyclone signal: a level word in no table, said, not a failure
+
+
+@pytest.mark.asyncio
+async def test_a_wmo_service_fails_when_its_licence_line_is_gone_or_nothing_it_lists_is_cap(sim_clock: SimClock) -> None:
+    sim_clock.advance(swic_samples.at(swic_samples.RECORDED_AT))
+    url = swic_samples.index_url("index_ar_smn.xml")
+    server = swic_samples.FixtureServer(*swic_samples.MANIFEST["indexes"])
+    server.bodies[url] = server.bodies[url].replace(b"CC BY 4.0", b"All rights reserved")
+    no_licence = await run(swic_samples.wmo_hosts(server), only=["wmo_swic"])
+    assert no_licence["wmo_swic"].outcome == "FAIL" and "ar-smn-es" in no_licence["wmo_swic"].detail and "licence line" in no_licence["wmo_swic"].detail
+    broken = swic_samples.FixtureServer(*swic_samples.MANIFEST["indexes"])
+    for document in broken.documents:
+        if "conagua" in document:
+            broken.documents[document] = b"<html><body>maintenance</body></html>"
+    not_cap = await run(swic_samples.wmo_hosts(broken), only=["wmo_swic"])
+    assert not_cap["wmo_swic"].outcome == "FAIL" and "mx-smn-es" in not_cap["wmo_swic"].detail
+    assert tool.exit_code(list(not_cap.values())) == 1
+
+
+@pytest.mark.asyncio
+async def test_wmo_services_that_do_not_answer_are_reported_not_failed() -> None:
+    def down(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectTimeout("simulated", request=request)
+
+    hosts = {host: down for host in swic_samples.wmo_hosts()}
+    results = await run(hosts, only=["wmo_swic"])
+    assert results["wmo_swic"].outcome == "unreachable"
+    assert tool.exit_code(list(results.values())) == 0

@@ -217,16 +217,16 @@ class BaseCollector(ABC, Generic[T]):
             stored_at=now_mono, value=data, fresh_until=now_mono + lifetime, validators=validators
         )
 
-    def _record_failure(self, error_msg: str) -> None:
-        """Count a failure and open the circuit once the threshold is reached."""
+    def _record_failure(self, error_msg: str, cache_key: str = "global") -> None:
+        """Count a failure and open the circuit once the threshold is reached (``cache_key``: for a collector with a circuit per key)."""
         self.consecutive_failures += 1
         self.last_error = error_msg[:240]
         if self.consecutive_failures >= self.failure_threshold:
             self.circuit_state = CircuitState.OPEN
             self.opened_at_monotonic = clock.monotonic()
 
-    def _can_attempt_network(self) -> bool:
-        """Tell whether the circuit breaker allows a network call."""
+    def _can_attempt_network(self, cache_key: str = "global") -> bool:
+        """Tell whether the circuit breaker allows a network call (``cache_key``: for a collector with a circuit per key)."""
         if self.circuit_state == CircuitState.CLOSED:
             return True
         if self.circuit_state == CircuitState.OPEN:
@@ -270,7 +270,7 @@ class BaseCollector(ABC, Generic[T]):
             if fresh is not None:
                 return Fetched(fresh)
 
-        if not self._can_attempt_network():
+        if not self._can_attempt_network(cache_key):
             stale = self._get_stale_cache(cache_key) if allow_stale else None
             if stale is not None:
                 return Fetched(stale, stale=True)
@@ -340,7 +340,7 @@ class BaseCollector(ABC, Generic[T]):
             self.budget_refusals += 1
             raise
         except Exception as exc:
-            self._record_failure(f"{type(exc).__name__}: {exc}")
+            self._record_failure(f"{type(exc).__name__}: {exc}", cache_key)
             raise
 
         elapsed_ms = (clock.monotonic() - start_mono) * 1000.0
@@ -366,6 +366,50 @@ class BaseCollector(ABC, Generic[T]):
         """
         self._spend({} if params is None else params)
         return await client.get(url, params=params, headers=headers)
+
+    async def _get_capped(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        *,
+        max_bytes: int,
+        headers: Optional[Mapping[str, str]] = None,
+    ) -> httpx.Response:
+        """Send a GET request to a host the provider's own feed named, and refuse an answer over ``max_bytes``.
+
+        For the providers that follow addresses taken from a feed (the WMO registry, the CAP documents): the body is read in
+        pieces and the read stops at ``max_bytes``, so a host that sends an endless or a huge answer costs no more than that
+        in memory, and the body of an error answer (4xx, 5xx) is not read at all. Counted like ``_get``. ``ValueError`` when the
+        answer is larger. The returned response holds the decoded body; what really came over the network (compressed) is in
+        ``response.extensions["wire_bytes"]``.
+        """
+        self._spend({})
+        async with client.stream("GET", url, headers=headers) as response:
+            gone = {n: v for n, v in response.headers.items() if n.lower() not in ("content-encoding", "content-length", "transfer-encoding")}
+            if response.status_code >= 400:  # an error page is not read (a feed of the registry answers 404 with 251 KB of HTML)
+                return httpx.Response(response.status_code, headers=gone, request=response.request, extensions={"wire_bytes": 0})
+            declared = response.headers.get("Content-Length", "")
+            if declared.isdigit() and int(declared) > max_bytes and not response.headers.get("Content-Encoding"):
+                raise ValueError(f"the answer is {int(declared)} bytes, more than the {max_bytes} allowed")
+            chunks: list[bytes] = []
+            size = 0
+            async for chunk in response.aiter_bytes():
+                size += len(chunk)
+                if size > max_bytes:
+                    raise ValueError(f"the answer is larger than the {max_bytes} bytes allowed")
+                chunks.append(chunk)
+            kept = {
+                name: value
+                for name, value in response.headers.items()
+                if name.lower() not in ("content-encoding", "content-length", "transfer-encoding")
+            }
+            return httpx.Response(
+                response.status_code,
+                headers=kept,
+                content=b"".join(chunks),
+                request=response.request,
+                extensions={"wire_bytes": response.num_bytes_downloaded},
+            )
 
     async def _head(
         self,

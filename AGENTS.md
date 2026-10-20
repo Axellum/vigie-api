@@ -75,6 +75,10 @@ owner (no `&&`).
     ([ADR 0003](docs/decisions/0003-national-source-preferred-rivers-are-lines.md)). A new national source is a collector,
     a credit, a row in `SOURCES.md`, recorded answers in `tests/fixtures/<source>/` with a README, a check in
     `tools/check_live_feeds.py`, and a line in `docs/data-sources.md` for its cache and its request count.
+    A service of the WMO registry is **not** a collector: it is a record in `app/collectors/swic_terms.py` (its terms read at an
+    address, the credit, `verified` or not). It is `verified` only when its own terms page or an open licence in its own feed was
+    read; a bare "public domain" line is not enough, Hong Kong and China are never read, and `VIGIE_WMO_SOURCES` defaults to
+    `verified` ([ADR 0006](docs/decisions/0006-wmo-registry-services.md)). A row of `SOURCES.md` goes with each record.
 14. **The Home Assistant integration** (`custom_components/vigie`, `tests_ha/`) is code of this repository, in English like
     the rest, with the same rule: a value nobody supplied is unknown, never `none` or a default
     ([ADR 0004](docs/decisions/0004-home-assistant-integration-same-repository.md)). It reads `GET /v1/vigilances`: changing
