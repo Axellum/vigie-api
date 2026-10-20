@@ -110,6 +110,9 @@ All notable changes to this project are documented here. The format follows
   source, with what is **not verified** (checked on 2026-10-20). `docs/data-sources.md` keeps how each
   source is used (what is read, TTL, call volume, budget) and no longer repeats the terms. A test checks
   that `SOURCES.md` quotes the credit texts of the code and has a row for every collector.
+- **Secret scan of the whole history.** `.github/workflows/secret-scan.yml` runs gitleaks 8.30.1 (the
+  release binary, SHA-256 verified, no third-party action) over every commit of every branch on each pull
+  request and push to `main`.
 - `LICENSE` (MIT, code only: the data belongs to each provider under its own terms).
 - `VIGIE_ENABLE_RAINVIEWER` (default on, unchanged): `0` stops asking RainViewer, whose free API is for
   personal and educational use only. `/v1/point` then leaves the radar fields unknown and `/v1/providers`
