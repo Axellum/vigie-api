@@ -24,8 +24,8 @@ All notable changes to this project are documented here. The format follows
   Assistant 2026.10.2 and needs Python 3.14.2 or newer, in an environment of its own), and
   `tests/test_home_assistant_contract.py` in the API's CI, which checks that the answers they use (a real recorded one,
   the builders, the fake instance) are answers of the API's own models.
-- **`.github/workflows/home-assistant.yml`**: the integration's tests, hassfest and the HACS validation, only when the
-  integration changes and weekly. `ci.yml` is unchanged. The two actions that have no moving version tag are pinned to a
+- **`.github/workflows/home-assistant.yml`**: the integration's tests, hassfest and the HACS validation (skipped while the
+  repository is private: the action refuses it), only when the integration changes and weekly. `ci.yml` is unchanged. The two actions that have no moving version tag are pinned to a
   commit (`test_every_action_is_pinned_to_a_version_or_a_commit`).
 - **`tools/fake_instance.py`**: a fake instance (standard library only) that serves `/v1/health` and `/v1/vigilances`
   with warnings added and removed by hand, all labelled `SIMULATION`, to try the integration's entities and events.

@@ -219,8 +219,9 @@ python -m venv .venv-ha                # the integration's tests: their own envi
 
 `tests_ha/requirements.txt` pins `pytest-homeassistant-custom-component` to the version that tracks one Home Assistant
 release (now 0.13.373 for 2026.10.2, which needs Python 3.14.2 or newer; this is why the CI has its own job). The
-workflow `.github/workflows/home-assistant.yml` runs the tests, **hassfest** and the **HACS validation**
-(`brands` and `topics` are ignored: the repository is private and has no topics, and no brand image is published). Home
+workflow `.github/workflows/home-assistant.yml` runs the tests, **hassfest** and the **HACS validation**. The HACS action
+refuses a private repository ("can only validate public repositories"), so that job is skipped until the repository is
+public; `brands` and `topics` are then ignored (no brand image is published, the repository has no topics). Home
 Assistant is not built for Windows: its test plugin needs the Unix modules `fcntl` and `resource`, and pytest-socket
 refuses the socket pair that the Windows event loop opens. For a run on Windows only, `tests_ha/windows/` holds three
 tiny stubs for them:

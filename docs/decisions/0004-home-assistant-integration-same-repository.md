@@ -48,8 +48,8 @@ get its data, how are the entities honest about what is unknown, and how does it
 
 - The integration is installed by copying a folder today (HACS adds public repositories only); HACS becomes possible when
   the repository is public, with a release (HACS takes the latest GitHub release as the version).
-- `brands` and `topics` of the HACS validation cannot pass yet (private repository, no topics, no brand image) and are
-  ignored in the workflow.
+- The HACS validation action refuses a private repository, so its job is skipped until the repository is public, and
+  not verified until then. Its `brands` and `topics` checks cannot pass yet (no brand image, no topics) and are ignored.
 - In France the API drops a MeteoAlarm "flooding" warning that a river section says at the same level or higher, so a
   client that compares reads can see an `ended` for it next to a `new` for the section. The API's own push avoids it
   because it knows which warning it dropped; the client does not.
