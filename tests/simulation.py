@@ -19,6 +19,7 @@ import math
 import random
 from collections import Counter
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Awaitable, Callable, Optional
 
 import httpx
@@ -30,6 +31,7 @@ from app.collectors.flood_air import (
     USGSVolcanoCollector,
 )
 from app.collectors.marine import OpenMeteoMarineCollector
+from app.collectors.meteoalarm import MeteoAlarmCapCollector, MeteoAlarmCollector
 from app.collectors.seismic import EMSCCollector, USGSCollector
 from app.collectors.space_weather import NOAASWPCCollector
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector, RainViewerCollector
@@ -57,7 +59,11 @@ HOST_TO_SOURCE: dict[str, str] = {
     "api.weather.gov": "noaa_nws",
     "volcanoes.usgs.gov": "usgs_volcano_gvp",
     "services.swpc.noaa.gov": "noaa_swpc",
+    # feeds.meteoalarm.org serves the Atom feeds and the CAP documents: see ``source_of``.
 }
+
+METEOALARM_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "meteoalarm"
+
 OPEN_METEO_SOURCES = ("open_meteo_hd", "open_meteo_aqi", "open_meteo_flood", "open_meteo_marine")
 
 # Defaults of the Open-Meteo API when a request does not name the parameter.
@@ -81,6 +87,13 @@ def open_meteo_weight(source: str, params: dict[str, str]) -> float:
     return locations * max(1.0, variables / 10.0) * max(1.0, days / 14.0)
 
 
+def source_of(request: httpx.Request) -> Optional[str]:
+    """The provider id a simulated request is for (MeteoAlarm has two: its feeds and its CAP documents)."""
+    if request.url.host == "feeds.meteoalarm.org":
+        return "meteoalarm_cap" if request.url.path.startswith("/api/v1/warnings/") else "meteoalarm_atom"
+    return HOST_TO_SOURCE.get(request.url.host)
+
+
 class Upstream:
     """Simulated providers behind an ``httpx.MockTransport``; counts every request it receives."""
 
@@ -98,7 +111,7 @@ class Upstream:
         return httpx.AsyncClient(transport=httpx.MockTransport(self._handler))
 
     async def _handler(self, request: httpx.Request) -> httpx.Response:
-        source = HOST_TO_SOURCE.get(request.url.host)
+        source = source_of(request)
         if source is None:
             return httpx.Response(404, json={"error": f"unknown simulated host {request.url.host}"})
         params = dict(request.url.params)
@@ -115,6 +128,12 @@ class Upstream:
         # The answer takes a few event-loop turns: concurrent requests overlap, as on a real network.
         for _ in range(self.latency_ticks):
             await asyncio.sleep(0)
+        if source == "meteoalarm_atom":
+            slug = request.url.path.rsplit("-", 1)[-1]
+            name = slug if (METEOALARM_FIXTURES / f"atom_{slug}.xml").exists() else "empty"
+            return httpx.Response(200, content=(METEOALARM_FIXTURES / f"atom_{name}.xml").read_bytes())
+        if source == "meteoalarm_cap":
+            return httpx.Response(200, content=(METEOALARM_FIXTURES / "cap_france_b77d3bc0.xml").read_bytes())
         return httpx.Response(200, json=self._payload(source, params))
 
     def _payload(self, source: str, params: dict[str, str]) -> Any:
@@ -287,6 +306,8 @@ class Simulation:
             flood=OpenMeteoFloodCollector(http_client=http),
             air_quality=OpenMeteoAirQualityCollector(http_client=http),
             swpc=NOAASWPCCollector(http_client=http),
+            meteoalarm=MeteoAlarmCollector(http_client=http),
+            meteoalarm_cap=MeteoAlarmCapCollector(http_client=http),
             storage=FakeStorage(),  # type: ignore[arg-type]
         )
         self.scheduler = BackgroundAlertScheduler(

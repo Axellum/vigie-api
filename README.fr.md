@@ -6,8 +6,9 @@ Un projet personnel, fait avec l'aide de l'IA et partagé au cas où il servirai
 tel quel, sans aucune promesse de support, de disponibilité ni d'exactitude.
 
 Il rassemble des dangers naturels dans le monde (séismes, tsunamis, volcans, cyclones, tornades,
-inondations, incendies, orages géomagnétiques) et de la météo (conditions actuelles, pluie à 15 minutes,
-prévisions, mer, débit des rivières, qualité de l'air) à partir de sources publiques, puis les sert :
+inondations, incendies, orages géomagnétiques), de la météo (conditions actuelles, pluie à 15 minutes,
+prévisions, mer, débit des rivières, qualité de l'air) et les vigilances officielles des services nationaux
+(MeteoAlarm en Europe, le National Weather Service aux États-Unis) à partir de sources publiques, puis les sert :
 
 - aux écrans ESP32-P4 du projet Vigie (Waveshare 7B, M5Stack Tab5), par une trame texte compacte :
   [`docs/embedded-frame.md`](docs/embedded-frame.md) ;
@@ -51,18 +52,88 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
 | `GET /v1/point?lat=&lon=` | Météo en un point GPS, mer (`marine=true`), débit des rivières, qualité de l'air, météo spatiale, dangers proches. |
 | `GET /v1/geojson/hazards` | Dangers actifs en GeoJSON (RFC 7946). |
 | `GET /v1/cap/alerts` | Dangers actifs en OASIS CAP 1.2. |
+| `GET /v1/vigilances?lat=&lon=` ou `?country=FR` | Vigilances météo officielles qui couvrent un point, ou toutes celles d'un pays (MeteoAlarm, NWS), avec les mots de l'émetteur intacts. Voir plus bas. |
+| `GET /v1/vigilances.geojson` | Les mêmes vigilances en GeoJSON, la forme de chaque zone en géométrie. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Zones surveillées (la liste de suivi). Une zone doit donner son `utc_offset_s`. |
 | `GET /v1/history` | Historique des dangers, stocké dans SQLite. |
 | `GET /v1/health`, `GET /v1/providers` | État, disjoncteur et cache de chaque source, avec ses appels, son poids et son quota sur 24 heures. |
 | `GET/POST /v1/scheduler/...` | État du planificateur en arrière-plan (facultatif), lancement d'un cycle immédiat. |
 | `POST /v1/simulate` | Injecte un scénario **simulé** pour les essais (toujours étiqueté comme simulation). **Désactivé par défaut** : il répond 403 sauf si `VIGIE_ENABLE_SIMULATION=1`. |
-| `WS /v1/stream` | WebSocket avec l'état initial et les alertes poussées. |
+| `WS /v1/stream` | WebSocket avec l'état initial et les alertes poussées ; un client peut aussi suivre un point et être prévenu quand ses vigilances officielles changent. |
 | `GET /dashboard` | Page web de supervision. |
 | `GET /docs` | Documentation OpenAPI interactive. |
 
 **L'API n'a aucune authentification.** Utilisez-la sur un réseau de confiance. Ne l'exposez pas telle quelle
 sur Internet : quiconque peut l'atteindre peut ajouter ou supprimer des zones surveillées et déclencher des
 cycles de collecte. Si vous devez l'exposer, placez devant elle un proxy inverse qui authentifie.
+
+## Vigilances météo officielles
+
+`GET /v1/vigilances` donne les vigilances que publient les services météo nationaux : **MeteoAlarm** (EUMETNET)
+pour 39 pays d'Europe et le **National Weather Service** pour les États-Unis. L'API les relaie, elle n'en
+émet aucune. Les mots de l'émetteur (titre, description et consigne, dans chaque langue qu'il a écrite)
+sont rendus tels quels.
+
+```
+GET /v1/vigilances?lat=44.9334&lon=4.8924      les vigilances dont la zone contient ce point exact
+GET /v1/vigilances?country=FR&lang=fr          toutes les vigilances d'un pays, textes en français seulement
+GET /v1/vigilances.geojson?lat=..&lon=..       les mêmes en GeoJSON (la forme de chaque zone est la géométrie)
+```
+
+Réponse réelle pour un point de la Drôme, abrégée : les flux du 20/10/2026 rejoués par les tests (les mots de
+l'émetteur sont ceux de Météo-France, les noms des champs restent en anglais).
+
+```json
+{
+  "query": {"lat": 44.9334, "lon": 4.8924, "country": null},
+  "countries": ["FR"],
+  "vigilances": [{
+    "id": "meteoalarm:b77d3bc0-76a2-4886-8da8-bac8d99f57fc:6-0-1",
+    "source": "meteoalarm", "country": "FR",
+    "attribution": "Source: EUMETNET – MeteoAlarm (https://meteoalarm.org/en/live/), ... | Issued by METEO-FRANCE",
+    "identifier": "2.49.0.0.250.1.FR.20261020114209.041024",
+    "sent_utc": 1792489329, "onset_utc": 1792533600, "expires_utc": 1792620000,
+    "message_type": "Alert", "status": "new",
+    "level": "YELLOW", "level_original": "Yellow",
+    "phenomenon": "flood", "phenomenon_original": "Flooding", "event": "Moderate flooding warning",
+    "issuer": "METEO-FRANCE",
+    "texts": [{"language": "fr-FR", "headline": "Vigilance jaune inondations", "description": "...", "instruction": "..."}],
+    "area": {"description": "Drôme", "geocodes": [{"scheme": "NUTS3", "value": "FR713"}, ...], "has_polygon": false, "localization": "geocode"},
+    "link": "https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/b77d3bc0-...",
+    "derived": ["status", "level", "phenomenon"]
+  }],
+  "coverage": [{"source": "meteoalarm", "country": "FR", "status": "ok", "warnings_in_feed": 15, "warnings_not_matchable": 0}],
+  "attribution": "...", "disclaimer": "Time delays between this website and the www.meteoalarm.org website are possible. ..."
+}
+```
+
+- **Les mots de la source et les champs de l'API sont distingués.** `level` (GREEN, YELLOW, ORANGE, RED),
+  `phenomenon` (wind, rain, thunderstorm, snow-ice, heat, cold, flood, avalanche, coastal, fire, fog, other) et
+  `status` (new, update, cancel) sont ceux de l'API et sont nommés dans `derived` ; les tables sont dans
+  [`docs/data-sources.md`](docs/data-sources.md). Un mot qu'aucune table ne couvre donne `null`. `level_original`,
+  `phenomenon_original`, `event` et `texts` sont ceux de la source.
+- **Affichez le crédit et l'avis.** Chaque vigilance a son `attribution`, et la réponse a le `disclaimer` que les
+  conditions de MeteoAlarm obligent un redistributeur à publier. Ce n'est pas un service d'alerte officiel.
+- **Une vigilance qui ne peut pas être rattachée à un point le dit.** Un point est rattaché par le polygone de la
+  vigilance, ou par la forme du code de sa zone. Les vigilances de la France, de la Belgique et des pays qui
+  envoient des polygones (par exemple la Suisse et la Norvège) sont rattachées. Celles qui ne nomment leur zone que
+  par des codes MeteoAlarm `EMMA_ID` (Allemagne, Italie, Espagne, Autriche, Pologne...) sont listées par `country=`
+  mais **ne sont pas rattachées à un point** : les formes de ces codes n'ont pas de licence connue et ne sont pas
+  incluses ([`SOURCES.md`](SOURCES.md), en anglais). Pour un point, `coverage[].warnings_not_matchable` les compte, de sorte
+  qu'une liste vide ne se lit pas comme « rien à craindre ». C'est pareil pour les alertes NWS qui nomment des zones
+  au lieu d'un polygone. Un exploitant peut fabriquer les formes `EMMA_ID` pour sa propre instance
+  (`tools/build_geometries.py --emma`, puis `VIGIE_EMMA_GEOMETRIES`).
+- **Envoi.** Sur `WS /v1/stream`, envoyez `{"action": "follow", "lat": 44.9334, "lon": 4.8924}` : la réponse est un
+  `vigilance_state` (ce que donnerait la route), puis, avec `VIGIE_SCHEDULER=1`, un `vigilance_push` chaque fois qu'une
+  vigilance de ce point est `appeared` (apparue), `upgraded` (montée d'un niveau : `previous_level` dit depuis lequel)
+  ou `ended` (terminée). `{"action": "unfollow", ...}` l'arrête. Les zones surveillées sont suivies elles aussi par le
+  planificateur et leurs changements vont à tous les clients. Rien n'est envoyé pour ce qui existait déjà quand un
+  point est suivi pour la première fois.
+- **Peu de requêtes.** Seuls les flux des pays nécessaires sont interrogés (le pays d'un point se trouve hors ligne),
+  chacun gardé 180 s ; un document CAP, qui contient les mots de l'émetteur, n'est demandé qu'une fois et seulement
+  pour une vigilance qu'une réponse renvoie ; le NWS n'a besoin d'aucune requête propre. Voir « Appels aux sources »
+  plus bas.
+- La trame embarquée des écrans **ne change pas**.
 
 ## Lancer
 
@@ -106,6 +177,7 @@ Tous les réglages sont des variables d'environnement facultatives.
 | `VIGIE_GRID_AIR_QUALITY_DEG` | `0.1` | Idem pour Open-Meteo Air Quality (environ 11 km). |
 | `VIGIE_GRID_FLOOD_DEG` | `0.1` | Idem pour Open-Meteo Flood (GloFAS). |
 | `VIGIE_GRID_MARINE_DEG` | `0.1` | Idem pour Open-Meteo Marine. |
+| `VIGIE_EMMA_GEOMETRIES` | aucune | Chemin d'un GeoJSON compressé des formes MeteoAlarm `EMMA_ID` que vous avez fabriqué vous-même (`python tools/build_geometries.py --emma` ; par défaut `app/data/local/emma_id.geojson.gz` est lu s'il existe). Il permet de rattacher à un point les vigilances qui ne nomment leur zone que par des codes `EMMA_ID`. Non incluses dans le dépôt : voir [`SOURCES.md`](SOURCES.md). |
 | `VIGIE_BUDGET_FRACTION` | `0.9` | Part du quota publié de chaque source (Open-Meteo 10 000 appels par jour, MET Norway, RainViewer) que l'API laisse passer. Au-delà, le cache est servi, marqué périmé. |
 
 Aucune source ne demande de clé d'API. Une valeur de grille hors de 0,0001 à 10 degrés est ignorée (la
@@ -137,6 +209,8 @@ que reçoit chaque source :
 | RainViewer | 662 | 144 |
 | NOAA SWPC | 403 | 286 |
 | Volcans USGS | 212 | 144 |
+| Flux MeteoAlarm (France et Islande : les pays de deux des cinq zones) | sans objet | 640 |
+| Documents CAP de MeteoAlarm | sans objet | 0 |
 
 « Avant » est `main` au commit 1864e25 (même simulation, mesurée une fois) ; « après » est ce code. L'heure
 la plus chargée d'Open-Meteo pèse 2 305 avant et 412 après (quota de 5 000), la minute la plus chargée 497 et
@@ -144,6 +218,12 @@ la plus chargée d'Open-Meteo pèse 2 305 avant et 412 après (quota de 5 000), 
 « après » à 8 667 : la charge des clients change à peine le « après ». Les 55 cases distinctes de ce scénario
 consomment 84 % du quota gratuit ; au-delà, le budget arrête les requêtes et sert le cache, marqué périmé.
 À rejouer soi-même : `python -m tests.simulation` (une vingtaine de secondes).
+
+Les vigilances officielles ajoutent un flux MeteoAlarm par pays nécessaire, soit 320 requêtes par jour quand le
+planificateur le garde à jour (un cache de 180 s, redemandé au cycle de 90 s suivant), et rien pour le NWS : sa
+réponse est celle des dangers, ce que confirme la même journée simulée (705 appels avec ou sans les vigilances).
+`tests/test_vigilance_sobriety.py` joue 500 clients sur 50 positions de quatre pays pendant 6 heures : 6 000
+réponses coûtent 320 requêtes de flux (80 par pays) et 4 documents CAP.
 
 ### Lancer sous Windows (un PC qui alimente l'écran)
 
@@ -199,6 +279,7 @@ python -m pytest              # aucun test ne touche le réseau
 python -m ruff check .        # analyse statique
 python tools/capture_frame.py frame.txt     # écrit une VRAIE trame (utilise les vraies sources)
 python tools/check_live_feeds.py            # interroge chaque vraie source une fois, vérifie que les analyseurs la lisent encore
+python tools/build_geometries.py            # reconstruit app/data (frontières et formes NUTS) depuis Natural Earth et Wikidata
 ```
 
 `tools/capture_frame.py` démarre l'application dans le processus, récupère
@@ -211,8 +292,9 @@ CI (`.github/workflows/`) :
   tâche qui construit l'image Docker, la lance et interroge `/v1/health` et `/v1/embedded/frame`.
 - `secret-scan.yml` : gitleaks sur tout l'historique git, à chaque pull request et envoi sur `main`.
 - `live-feeds.yml` : chaque lundi et à la demande, jamais dans une pull request, `tools/check_live_feeds.py`
-  interroge chaque vraie source une fois. Une exécution rouge veut dire qu'une source a changé de format ou
-  retiré un point d'accès.
+  interroge chaque vraie source une fois (MeteoAlarm et les vigilances du NWS compris). Une exécution rouge
+  veut dire qu'une source a changé de format, retiré un point d'accès, ou envoyé un mot de niveau ou de
+  phénomène que les tables ne connaissent pas.
 - `publish-image.yml` : pousse l'image Docker vers `ghcr.io/axellum/vigie-api` quand une étiquette `v*` est
   poussée.
 
@@ -222,6 +304,7 @@ CI (`.github/workflows/`) :
 | --- | --- |
 | Séismes | USGS, EMSC / SeismicPortal, GDACS |
 | Catastrophes | GDACS, NOAA NWS, USGS Volcano Hazards Program |
+| Vigilances météo officielles | MeteoAlarm (EUMETNET, 39 pays d'Europe), NOAA NWS (États-Unis) |
 | Météo spatiale | NOAA SWPC |
 | Météo | Open-Meteo (principale), MET Norway (secours), RainViewer (radar) |
 | Mer, débit des rivières, qualité de l'air | Open-Meteo Marine, Flood (GloFAS), Air Quality (CAMS) |

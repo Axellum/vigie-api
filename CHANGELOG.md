@@ -102,6 +102,29 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Official weather warnings** (`GET /v1/vigilances?lat=&lon=`, `?country=FR`, `GET /v1/vigilances.geojson`). The warnings of
+  the national services, with the issuer's words untouched: MeteoAlarm (EUMETNET) for 39 European countries (the Atom
+  feed of a country, and the CAP document of a warning for its texts in every language) and the NOAA NWS alerts, read
+  from the answer the hazards already ask for (no second request). One `Vigilance` model for both: identifier, times,
+  status, level (GREEN, YELLOW, ORANGE, RED), phenomenon (wind, rain, thunderstorm, snow-ice, heat, cold, flood,
+  avalanche, coastal, fire, fog, other), area, link. The three fields the API derives (`status`, `level`,
+  `phenomenon`) are named in `derived` and sit beside the source's own words (`level_original`,
+  `phenomenon_original`, `event`, `texts`); a word no table covers is `null`. Every warning carries its credit, and the
+  answer carries the notice MeteoAlarm obliges redistributors to publish. The tables, the licences and what is not
+  verified are in `docs/data-sources.md` and `SOURCES.md`; the embedded frame does not change.
+- **Localization of a warning to a point** with shapely: the polygon of the source, or the shape of the code of its
+  area. Two small files are bundled (`app/data/`, 242 KiB): the borders of the 40 countries (Natural Earth, public
+  domain) to find the country of a point offline, and the French departments and Belgian provinces (Natural Earth,
+  public domain, with NUTS codes from Wikidata, CC0). `tools/build_geometries.py` rebuilds them. The MeteoAlarm
+  `EMMA_ID` shapes and the Eurostat NUTS shapes are **not** bundled (no licence stated, and non-commercial use only):
+  the warnings that name their area with those codes are listed by country but not matched to a point, and the answer
+  says so (`coverage`, `area.localization`). `VIGIE_EMMA_GEOMETRIES` lets an operator add his own file.
+- **Push of the changes of the official warnings** on `WS /v1/stream`: `{"action": "follow", "lat": .., "lon": ..}`
+  answers with the current warnings (`vigilance_state`), then the scheduler pushes `vigilance_push` messages when a
+  warning appears, goes up or ends for the followed point. The watched zones are followed too.
+- **`meteoalarm_atom` and `meteoalarm_cap` collectors** in `GET /v1/providers`, counted like the others (no published
+  quota). Only the feeds of the needed countries are asked, cached 180 s; a CAP document once, only for a warning an
+  answer returns. The weekly live-feeds check covers MeteoAlarm and the NWS warnings.
 - **Credit of the source in every response.** Each block of data carries an `attribution` field with the
   text its source asks for: hazard alerts (`/v1/snapshot`, `/v1/point`, `/v1/history`, GeoJSON features and
   `metadata`, CAP parameters and description, WebSocket pushes), the zones of the snapshot, and the

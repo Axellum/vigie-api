@@ -1,0 +1,416 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:cap="urn:oasis:names:tc:emergency:cap:1.2">
+  <link rel="hub" href="https://pubsubhubbub.appspot.com/"/>
+  <link type="application/atom+xml" rel="self" href="https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-iceland"/>
+  <link type="text/html" rel="alternate" href="https://meteoalarm.org"/>
+  <rights>Copyright © 2026 MeteoAlarm.Org. Licensed under terms equivalent to CC BY 4.0, with additional requirements for redistributing outlined in our Terms and Conditions.</rights>
+  <generator>MeteoAlarm Producer Server</generator>
+  <logo>https://feeds.meteoalarm.org/images/logo.svg</logo>
+  <author>
+    <name>meteoalarm.org</name>
+    <uri>https://meteoalarm.org</uri>
+    <email>meteoalarm@geosphere.at</email>
+  </author>
+  <id>tag:meteoalarm.org,2021-02-19:IS</id>
+  <title>MeteoAlarm - Alerting Europe for Extreme Weather</title>
+  <updated>2026-10-20T10:05:45.418080Z</updated>
+  <entry>
+    <cap:geocode>
+      <valueName>EMMA_ID</valueName>
+      <value>IS005</value>
+    </cap:geocode>
+    <link title="Westfjords" href="https://meteoalarm.org?geocode=EMMA_ID:IS005" hreflang="en"/>
+    <cap:areaDesc>Westfjords</cap:areaDesc>
+    <cap:event>Weather Warning: Wind</cap:event>
+    <cap:sent>2026-10-18T18:21:34+00:00</cap:sent>
+    <cap:expires>2026-10-19T02:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-18T18:21:34+00:00</cap:effective>
+    <cap:onset>2026-10-18T18:00:00+00:00</cap:onset>
+    <cap:certainty>Observed</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Update</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.352.0.IS.261018182134.11072</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/f12478d5-3879-4338-b5ec-ba7c6f1f89cd"/>
+    <link title="Iceland" rel="related" href="https://meteoalarm.org?region=IS" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-18T18:21:34Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/f12478d5-3879-4338-b5ec-ba7c6f1f89cd?index_info=1&amp;index_area=0&amp;index_geocode=0</id>
+    <title>Yellow Wind Warning issued for Iceland - Westfjords</title>
+    <updated>2026-10-18T18:21:34Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>EMMA_ID</valueName>
+      <value>IS011</value>
+    </cap:geocode>
+    <link title="Central highlands - Uninhabited part of Iceland" href="https://meteoalarm.org?geocode=EMMA_ID:IS011" hreflang="en"/>
+    <cap:areaDesc>Central highlands - Uninhabited part of Iceland</cap:areaDesc>
+    <cap:event>Weather Warning: Wind</cap:event>
+    <cap:sent>2026-10-18T15:33:54+00:00</cap:sent>
+    <cap:expires>2026-10-19T00:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-18T15:33:54+00:00</cap:effective>
+    <cap:onset>2026-10-18T12:00:00+00:00</cap:onset>
+    <cap:certainty>Observed</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Update</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.352.0.IS.261018153354.11071</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/9c454e4a-5829-413f-a5d2-b0d50bc456e7"/>
+    <link title="Iceland" rel="related" href="https://meteoalarm.org?region=IS" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-18T15:33:54Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/9c454e4a-5829-413f-a5d2-b0d50bc456e7?index_info=1&amp;index_area=0&amp;index_geocode=0</id>
+    <title>Yellow Wind Warning issued for Iceland - Central highlands - Uninhabited part of Iceland</title>
+    <updated>2026-10-18T15:33:54Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>EMMA_ID</valueName>
+      <value>IS010</value>
+    </cap:geocode>
+    <link title="Southeast Iceland" href="https://meteoalarm.org?geocode=EMMA_ID:IS010" hreflang="en"/>
+    <cap:areaDesc>Southeast Iceland</cap:areaDesc>
+    <cap:event>Weather Warning: Wind</cap:event>
+    <cap:sent>2026-10-18T15:33:38+00:00</cap:sent>
+    <cap:expires>2026-10-18T23:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-18T15:33:38+00:00</cap:effective>
+    <cap:onset>2026-10-18T15:00:00+00:00</cap:onset>
+    <cap:certainty>Observed</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Update</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.352.0.IS.261018153338.11070</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/3170a7ff-6a15-4917-a2ed-82776b5301e5"/>
+    <link title="Iceland" rel="related" href="https://meteoalarm.org?region=IS" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-18T15:33:38Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/3170a7ff-6a15-4917-a2ed-82776b5301e5?index_info=1&amp;index_area=0&amp;index_geocode=0</id>
+    <title>Yellow Wind Warning issued for Iceland - Southeast Iceland</title>
+    <updated>2026-10-18T15:33:38Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>EMMA_ID</valueName>
+      <value>IS009</value>
+    </cap:geocode>
+    <link title="Eastfjords" href="https://meteoalarm.org?geocode=EMMA_ID:IS009" hreflang="en"/>
+    <cap:areaDesc>Eastfjords</cap:areaDesc>
+    <cap:event>Weather Warning: Wind</cap:event>
+    <cap:sent>2026-10-18T15:33:11+00:00</cap:sent>
+    <cap:expires>2026-10-19T03:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-18T15:33:11+00:00</cap:effective>
+    <cap:onset>2026-10-18T13:00:00+00:00</cap:onset>
+    <cap:certainty>Observed</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Update</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.352.0.IS.261018153311.11068</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/8ed43318-b502-48f7-ac80-516f8e88414c"/>
+    <link title="Iceland" rel="related" href="https://meteoalarm.org?region=IS" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-18T15:33:11Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/8ed43318-b502-48f7-ac80-516f8e88414c?index_info=1&amp;index_area=0&amp;index_geocode=0</id>
+    <title>Yellow Wind Warning issued for Iceland - Eastfjords</title>
+    <updated>2026-10-18T15:33:11Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>EMMA_ID</valueName>
+      <value>IS008</value>
+    </cap:geocode>
+    <link title="East Iceland" href="https://meteoalarm.org?geocode=EMMA_ID:IS008" hreflang="en"/>
+    <cap:areaDesc>East Iceland</cap:areaDesc>
+    <cap:event>Weather Warning: Wind</cap:event>
+    <cap:sent>2026-10-18T15:32:55+00:00</cap:sent>
+    <cap:expires>2026-10-19T00:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-18T15:32:55+00:00</cap:effective>
+    <cap:onset>2026-10-18T15:00:00+00:00</cap:onset>
+    <cap:certainty>Observed</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Update</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.352.0.IS.261018153255.11067</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/1104c482-6b8e-4943-aa65-5c8f1e514b09"/>
+    <link title="Iceland" rel="related" href="https://meteoalarm.org?region=IS" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-18T15:32:55Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/1104c482-6b8e-4943-aa65-5c8f1e514b09?index_info=1&amp;index_area=0&amp;index_geocode=0</id>
+    <title>Yellow Wind Warning issued for Iceland - East Iceland</title>
+    <updated>2026-10-18T15:32:55Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>EMMA_ID</valueName>
+      <value>IS007</value>
+    </cap:geocode>
+    <link title="Northeast Iceland" href="https://meteoalarm.org?geocode=EMMA_ID:IS007" hreflang="en"/>
+    <cap:areaDesc>Northeast Iceland</cap:areaDesc>
+    <cap:event>Weather Warning: Wind</cap:event>
+    <cap:sent>2026-10-18T07:45:40+00:00</cap:sent>
+    <cap:expires>2026-10-19T00:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-18T07:45:40+00:00</cap:effective>
+    <cap:onset>2026-10-18T06:00:00+00:00</cap:onset>
+    <cap:certainty>Observed</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Update</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.352.0.IS.261018074540.11060</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/0a1c2234-4d93-4dcf-9845-3a7d89398d42"/>
+    <link title="Iceland" rel="related" href="https://meteoalarm.org?region=IS" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-18T07:45:40Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/0a1c2234-4d93-4dcf-9845-3a7d89398d42?index_info=1&amp;index_area=0&amp;index_geocode=0</id>
+    <title>Yellow Wind Warning issued for Iceland - Northeast Iceland</title>
+    <updated>2026-10-18T07:45:40Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>EMMA_ID</valueName>
+      <value>IS006</value>
+    </cap:geocode>
+    <link title="Northwest Iceland" href="https://meteoalarm.org?geocode=EMMA_ID:IS006" hreflang="en"/>
+    <cap:areaDesc>Northwest Iceland</cap:areaDesc>
+    <cap:event>Weather Warning: Wind</cap:event>
+    <cap:sent>2026-10-18T07:45:20+00:00</cap:sent>
+    <cap:expires>2026-10-19T01:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-18T07:45:20+00:00</cap:effective>
+    <cap:onset>2026-10-18T05:00:00+00:00</cap:onset>
+    <cap:certainty>Observed</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Update</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.352.0.IS.261018074520.11059</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/e6b02eb1-9647-40c1-ba53-5dfc21b2989a"/>
+    <link title="Iceland" rel="related" href="https://meteoalarm.org?region=IS" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-18T07:45:20Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/e6b02eb1-9647-40c1-ba53-5dfc21b2989a?index_info=1&amp;index_area=0&amp;index_geocode=0</id>
+    <title>Yellow Wind Warning issued for Iceland - Northwest Iceland</title>
+    <updated>2026-10-18T07:45:20Z</updated>
+  </entry>
+  <entry>
+    <cap:polygon>65.81,-24.11 66.06,-23.86 66.3,-23.27 66.56,-23.1 66.52,-22.87 66.47,-22.58 65.99,-22 65.7,-22 65.69,-22.54 65.65,-23.01 65.6,-23.39 65.59,-23.65 65.71,-24.01 65.81,-24.11</cap:polygon>
+    <link title="Westfjords" href="https://meteoalarm.org?polygon=f12478d5-3879-4338-b5ec-ba7c6f1f89cd,1,0,0" hreflang="en"/>
+    <cap:areaDesc>Westfjords</cap:areaDesc>
+    <cap:event>Weather Warning: Wind</cap:event>
+    <cap:sent>2026-10-18T18:21:34+00:00</cap:sent>
+    <cap:expires>2026-10-19T02:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-18T18:21:34+00:00</cap:effective>
+    <cap:onset>2026-10-18T18:00:00+00:00</cap:onset>
+    <cap:certainty>Observed</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Update</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.352.0.IS.261018182134.11072</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/f12478d5-3879-4338-b5ec-ba7c6f1f89cd"/>
+    <link title="Iceland" rel="related" href="https://meteoalarm.org?region=IS" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-18T18:21:34Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/f12478d5-3879-4338-b5ec-ba7c6f1f89cd?index_info=1&amp;index_area=0&amp;index_polygon=0</id>
+    <title>Yellow Wind Warning issued for Iceland - Westfjords</title>
+    <updated>2026-10-18T18:21:34Z</updated>
+  </entry>
+  <entry>
+    <cap:polygon>63.55,-19.43 63.88,-19.56 64,-19.74 64.21,-19.72 64.37,-20.18 64.39,-20.61 64.56,-20.97 64.64,-20.99 64.8,-20.61 65,-20.2 65.09,-19.86 65.25,-18.6 65.42,-17.12 65.55,-16.82 65.53,-16.45 65.54,-15.65 64.79,-14.59 64.59,-14.77 64.4,-15.8 64.3,-16.71 64.26,-17.82 64.19,-18.04 63.54,-18.77 63.53,-19.1 63.55,-19.43</cap:polygon>
+    <link title="Central highlands - Uninhabited part of Iceland" href="https://meteoalarm.org?polygon=9c454e4a-5829-413f-a5d2-b0d50bc456e7,1,0,0" hreflang="en"/>
+    <cap:areaDesc>Central highlands - Uninhabited part of Iceland</cap:areaDesc>
+    <cap:event>Weather Warning: Wind</cap:event>
+    <cap:sent>2026-10-18T15:33:54+00:00</cap:sent>
+    <cap:expires>2026-10-19T00:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-18T15:33:54+00:00</cap:effective>
+    <cap:onset>2026-10-18T12:00:00+00:00</cap:onset>
+    <cap:certainty>Observed</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Update</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.352.0.IS.261018153354.11071</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/9c454e4a-5829-413f-a5d2-b0d50bc456e7"/>
+    <link title="Iceland" rel="related" href="https://meteoalarm.org?region=IS" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-18T15:33:54Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/9c454e4a-5829-413f-a5d2-b0d50bc456e7?index_info=1&amp;index_area=0&amp;index_polygon=0</id>
+    <title>Yellow Wind Warning issued for Iceland - Central highlands - Uninhabited part of Iceland</title>
+    <updated>2026-10-18T15:33:54Z</updated>
+  </entry>
+  <entry>
+    <cap:polygon>64.47,-14.35 64.21,-14.95 64.17,-15.66 63.98,-16.24 63.76,-16.61 63.7,-17.61 63.41,-18.1 63.37,-18.74 63.38,-19.1 63.53,-19.1 63.54,-18.77 64.19,-18.04 64.26,-17.82 64.3,-16.71 64.4,-15.8 64.59,-14.77 64.47,-14.35</cap:polygon>
+    <link title="Southeast Iceland" href="https://meteoalarm.org?polygon=3170a7ff-6a15-4917-a2ed-82776b5301e5,1,0,0" hreflang="en"/>
+    <cap:areaDesc>Southeast Iceland</cap:areaDesc>
+    <cap:event>Weather Warning: Wind</cap:event>
+    <cap:sent>2026-10-18T15:33:38+00:00</cap:sent>
+    <cap:expires>2026-10-18T23:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-18T15:33:38+00:00</cap:effective>
+    <cap:onset>2026-10-18T15:00:00+00:00</cap:onset>
+    <cap:certainty>Observed</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Update</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.352.0.IS.261018153338.11070</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/3170a7ff-6a15-4917-a2ed-82776b5301e5"/>
+    <link title="Iceland" rel="related" href="https://meteoalarm.org?region=IS" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-18T15:33:38Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/3170a7ff-6a15-4917-a2ed-82776b5301e5?index_info=1&amp;index_area=0&amp;index_polygon=0</id>
+    <title>Yellow Wind Warning issued for Iceland - Southeast Iceland</title>
+    <updated>2026-10-18T15:33:38Z</updated>
+  </entry>
+  <entry>
+    <cap:polygon>65.49,-13.55 65.34,-13.62 65.11,-13.44 64.84,-13.72 64.47,-14.35 64.59,-14.77 64.79,-14.59 65.4,-14.02 65.49,-13.55</cap:polygon>
+    <link title="Eastfjords" href="https://meteoalarm.org?polygon=8ed43318-b502-48f7-ac80-516f8e88414c,1,0,0" hreflang="en"/>
+    <cap:areaDesc>Eastfjords</cap:areaDesc>
+    <cap:event>Weather Warning: Wind</cap:event>
+    <cap:sent>2026-10-18T15:33:11+00:00</cap:sent>
+    <cap:expires>2026-10-19T03:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-18T15:33:11+00:00</cap:effective>
+    <cap:onset>2026-10-18T13:00:00+00:00</cap:onset>
+    <cap:certainty>Observed</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Update</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.352.0.IS.261018153311.11068</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/8ed43318-b502-48f7-ac80-516f8e88414c"/>
+    <link title="Iceland" rel="related" href="https://meteoalarm.org?region=IS" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-18T15:33:11Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/8ed43318-b502-48f7-ac80-516f8e88414c?index_info=1&amp;index_area=0&amp;index_polygon=0</id>
+    <title>Yellow Wind Warning issued for Iceland - Eastfjords</title>
+    <updated>2026-10-18T15:33:11Z</updated>
+  </entry>
+  <entry>
+    <cap:polygon>66.4,-14.45 66.13,-14.97 66.07,-14.66 65.95,-14.56 65.79,-14.72 65.81,-14.29 65.49,-13.55 65.4,-14.02 64.79,-14.59 65.54,-15.66 65.83,-15.74 66.21,-15.17 66.41,-14.69 66.4,-14.45</cap:polygon>
+    <link title="East Iceland" href="https://meteoalarm.org?polygon=1104c482-6b8e-4943-aa65-5c8f1e514b09,1,0,0" hreflang="en"/>
+    <cap:areaDesc>East Iceland</cap:areaDesc>
+    <cap:event>Weather Warning: Wind</cap:event>
+    <cap:sent>2026-10-18T15:32:55+00:00</cap:sent>
+    <cap:expires>2026-10-19T00:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-18T15:32:55+00:00</cap:effective>
+    <cap:onset>2026-10-18T15:00:00+00:00</cap:onset>
+    <cap:certainty>Observed</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Update</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.352.0.IS.261018153255.11067</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/1104c482-6b8e-4943-aa65-5c8f1e514b09"/>
+    <link title="Iceland" rel="related" href="https://meteoalarm.org?region=IS" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-18T15:32:55Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/1104c482-6b8e-4943-aa65-5c8f1e514b09?index_info=1&amp;index_area=0&amp;index_polygon=0</id>
+    <title>Yellow Wind Warning issued for Iceland - East Iceland</title>
+    <updated>2026-10-18T15:32:55Z</updated>
+  </entry>
+  <entry>
+    <cap:polygon>66.24,-18.81 66.23,-18.69 66.24,-18.29 66.1,-17.51 66.25,-17.1 66.18,-16.86 66.26,-16.49 66.55,-16.61 66.57,-15.97 66.34,-15.51 66.41,-14.69 66.21,-15.17 65.83,-15.74 65.54,-15.66 65.53,-16.45 65.55,-16.82 65.42,-17.12 65.25,-18.6 65.59,-18.8 65.83,-18.81 66.24,-18.81</cap:polygon>
+    <link title="Northeast Iceland" href="https://meteoalarm.org?polygon=0a1c2234-4d93-4dcf-9845-3a7d89398d42,1,0,0" hreflang="en"/>
+    <cap:areaDesc>Northeast Iceland</cap:areaDesc>
+    <cap:event>Weather Warning: Wind</cap:event>
+    <cap:sent>2026-10-18T07:45:40+00:00</cap:sent>
+    <cap:expires>2026-10-19T00:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-18T07:45:40+00:00</cap:effective>
+    <cap:onset>2026-10-18T06:00:00+00:00</cap:onset>
+    <cap:certainty>Observed</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Update</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.352.0.IS.261018074540.11060</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/0a1c2234-4d93-4dcf-9845-3a7d89398d42"/>
+    <link title="Iceland" rel="related" href="https://meteoalarm.org?region=IS" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-18T07:45:40Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/0a1c2234-4d93-4dcf-9845-3a7d89398d42?index_info=1&amp;index_area=0&amp;index_polygon=0</id>
+    <title>Yellow Wind Warning issued for Iceland - Northeast Iceland</title>
+    <updated>2026-10-18T07:45:40Z</updated>
+  </entry>
+  <entry>
+    <cap:polygon>66.51,-22.43 66.04,-21.24 65.6,-21.25 65.51,-21.04 65.77,-20.65 66.12,-20.47 66.22,-19.04 66.24,-18.81 65.83,-18.81 65.59,-18.8 65.25,-18.6 65.09,-19.86 65,-20.2 64.8,-20.61 64.92,-21.5 65.42,-21.57 65.7,-22 65.99,-22 66.47,-22.58 66.51,-22.43</cap:polygon>
+    <link title="Northwest Iceland" href="https://meteoalarm.org?polygon=e6b02eb1-9647-40c1-ba53-5dfc21b2989a,1,0,0" hreflang="en"/>
+    <cap:areaDesc>Northwest Iceland</cap:areaDesc>
+    <cap:event>Weather Warning: Wind</cap:event>
+    <cap:sent>2026-10-18T07:45:20+00:00</cap:sent>
+    <cap:expires>2026-10-19T01:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-18T07:45:20+00:00</cap:effective>
+    <cap:onset>2026-10-18T05:00:00+00:00</cap:onset>
+    <cap:certainty>Observed</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Update</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.352.0.IS.261018074520.11059</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/e6b02eb1-9647-40c1-ba53-5dfc21b2989a"/>
+    <link title="Iceland" rel="related" href="https://meteoalarm.org?region=IS" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-18T07:45:20Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-iceland/e6b02eb1-9647-40c1-ba53-5dfc21b2989a?index_info=1&amp;index_area=0&amp;index_polygon=0</id>
+    <title>Yellow Wind Warning issued for Iceland - Northwest Iceland</title>
+    <updated>2026-10-18T07:45:20Z</updated>
+  </entry>
+</feed>

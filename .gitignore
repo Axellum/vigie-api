@@ -14,3 +14,9 @@ __pycache__/
 *.db-wal
 *.log
 logs/
+
+# Local worktrees and their virtual environment
+.wt/
+
+# Optional local file of MeteoAlarm EMMA_ID shapes (tools/build_geometries.py --emma): not redistributable
+app/data/local/

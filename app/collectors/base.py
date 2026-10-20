@@ -17,7 +17,7 @@ import os
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import timezone
+from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any, Generic, Optional, TypeVar
 
@@ -55,6 +55,19 @@ def optional_float(value: Any) -> Optional[float]:
     except (TypeError, ValueError):
         return None
     return number if math.isfinite(number) else None
+
+
+def parse_iso_utc(value: Any) -> Optional[int]:
+    """Parse an ISO 8601 date-time to UTC epoch seconds (a value with no offset is taken as UTC); ``None`` if it is not one."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return int(parsed.timestamp())
 
 
 def http_date_to_epoch(value: Optional[str]) -> Optional[float]:

@@ -41,6 +41,71 @@ polled for a position is also asked for a grid cell, not for the exact point (se
 | **MET Norway Locationforecast 2.0**, compact ([terms of service](https://api.met.no/doc/TermsOfService), [licence](https://api.met.no/doc/License)) | **Fallback** when Open-Meteo fails: current conditions and hourly series. It has no gust, no apparent temperature, no UV and no 15-minute nowcast: those stay unknown. | Until the `Expires` of each answer (the terms: "don't repeat requests until the time indicated in the `Expires` response header"); 300 s only if an answer has none (**not verified**). |
 | **RainViewer**, `weather-maps.json` ([documentation](https://www.rainviewer.com/api/weather-maps-api.html), [changes of 2026](https://rainviewer.com/api/transition-faq.html)) | Latest observed radar frame timestamp and the tile URL template, sent in `/v1/point` only (past frames only; not used by the embedded frame). The API never downloads tiles. Not asked at all when `VIGIE_ENABLE_RAINVIEWER=0` (its free API is for personal use: see [`SOURCES.md`](../SOURCES.md)). | 10 minutes: the [documentation](https://www.rainviewer.com/api/weather-maps-api.html) says the file holds the past 2 hours of radar data with 10-minute intervals. |
 
+## Official weather warnings
+
+The warnings of the national services, relayed by `GET /v1/vigilances` with their words untouched (the model
+and its rules: [`architecture.md`](architecture.md)). Licence, credit and what is not verified: the section
+"Official weather warnings" of [`SOURCES.md`](../SOURCES.md).
+
+| Source | What is read | Cache (TTL) |
+| --- | --- | --- |
+| **MeteoAlarm Atom feeds** (EUMETNET), `feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-<country>` ([index of the 39 feeds](https://feeds.meteoalarm.org/)) | One feed per country, asked only for the countries that are needed (below). One entry is one warning for one area: level and type (in the title), times, identifier, message type, event, codes or polygon of the area, link to the CAP document. Entries that are tests or exercises, or have no identifier, are skipped. A feed is from about 1 KB (no warning) to 730 KB (France 146 KB with 34 departments warned, Switzerland 726 KB, on 2026-10-20), without compression. | 180 s. MeteoAlarm publishes **no update rhythm and no cache lifetime** for the feeds (they send `Cache-Control: max-age=0, private, must-revalidate`, no `ETag`, no `Last-Modified`, no `304`): **not verified**. The value comes from the terms of redistribution, which want the delay between the website and the redistributor to be under five minutes on average and ten at most: a 3-minute cache serves a warning at most 3 minutes old. |
+| **MeteoAlarm CAP documents**, `feeds.meteoalarm.org/api/v1/warnings/feeds-<country>/<id>` | The words of the issuer: headline, description and instruction in each language (up to 8 for Germany), the name of the issuing service, the web page. One document holds all the areas of one message. | 6 hours: a document is never modified (an update is a new document, with a new address), so this only bounds the memory. A document the server does not have (HTTP 404: every Italian one on 2026-10-20) is remembered 15 minutes, then asked again. |
+| **NOAA National Weather Service**, `api.weather.gov/alerts/active?status=actual&severity=Extreme,Severe` | **The answer of the hazards**, read a second way: the same alerts as warnings (CAP fields, UGC and SAME codes, polygon when there is one, the forecast office's headline, description and instruction). | 120 s, as the hazards. **No request of its own** (see below). |
+
+### Which feeds are asked
+
+A MeteoAlarm feed is asked **only for a country that is needed**; 39 feeds exist, one request of a client never asks for them all.
+
+- The country of a position is found **offline** (borders bundled in `app/data/`, see [`SOURCES.md`](../SOURCES.md)), without asking any service.
+- A request for a position asks the feed of its country (two near a border); a request by `country=` asks that one.
+- The scheduler (`VIGIE_SCHEDULER=1`) keeps fresh, every 90 s cycle, the feeds of: the countries of the watched zones, of the positions that clients follow on the WebSocket, and of the 8 countries asked for in the last hour. A feed older than its 180 s is asked again at the next cycle, that is every 270 s: **320 requests a day** per feed.
+- A CAP document is asked only for a warning that an answer returns, once, and at most 40 new ones per request (the strongest warnings first); the rest come with the next request. The scheduler asks for none until a warning changes for a followed position.
+
+Measured by `tests/test_vigilance_sobriety.py` (simulated providers serving the feeds recorded on 2026-10-20; run it with `pytest -s`):
+
+| Scenario | MeteoAlarm requests |
+| --- | ---: |
+| A day of the scheduler on the 5 default zones (Paris: France; Reykjavik: Iceland; Tokyo and Pointe-à-Pitre: no source; San Francisco: the NWS answer of the hazards) | **640** feed requests (320 France + 320 Iceland), 0 CAP documents |
+| 500 clients on 50 positions of four countries asking every 30 minutes for 6 hours (6,000 answers) | **320** feed requests (80 for each of four countries in 6 hours, i.e. 320 a day each), 4 CAP documents |
+| The simulated day of 1,000 clients of `tests/test_call_sobriety.py`, with the warnings on | **640** feed requests, and NOAA NWS still **705** (the same as without the warnings: the second reading of the answer costs no request) |
+
+### Levels, phenomena and status: the tables
+
+The API derives three fields; they are in `derived` on every warning and the source's own words stay beside them. A word that is in no table gives `null`: it is never guessed. `tools/check_live_feeds.py` fails (weekly) when a feed of France carries a word that is not in a table.
+
+**Level** (`level`, from `level_original`).
+
+| MeteoAlarm word (CAP profile v2.0, `awareness_level`) | NWS word (CAP `severity`) | `level` |
+| --- | --- | --- |
+| Green (1, Minor): not published in the feeds, but can come in an update that ends a warning | Minor | `GREEN` |
+| Yellow (2, Moderate) | Moderate | `YELLOW` |
+| Orange (3, Severe) | Severe | `ORANGE` |
+| Red (4, Extreme) | Extreme | `RED` |
+| any other word | Unknown or any other word | `null` |
+
+**Phenomenon** (`phenomenon`, from `phenomenon_original`).
+
+| `phenomenon` | MeteoAlarm type (CAP profile v2.0, `awareness_type`) | NWS event (the first rule whose words are all in the event name, in this order) |
+| --- | --- | --- |
+| `wind` | Wind (1) | tornado, hurricane, typhoon, tropical storm, high wind, extreme wind, wind, gale, storm warning |
+| `rain` | Rain (10) | rain |
+| `thunderstorm` | Thunderstorm (3) | thunderstorm |
+| `snow-ice` | Snow-ice (2) | blizzard, winter storm, winter weather, ice storm, snow, freezing rain, sleet |
+| `heat` | High-temperature (5) | heat |
+| `cold` | Low-temperature (6) | wind chill, extreme cold, freeze, frost |
+| `flood` | Flooding (12), Rain-flood (13) | flood (a "flash flood" is a flood) |
+| `avalanche` | Avalanches (9) | avalanche |
+| `coastal` | CoastalEvent (7), Marine-Hazard (14) | storm surge, coastal flood, lakeshore flood, tsunami, high surf, rip current, beach hazards |
+| `fire` | Forest-fire (8) | red flag, fire weather, fire |
+| `fog` | Fog (4) | freezing fog, fog |
+| `other` | Drought (15) | an event no rule covers (a dust storm, a small craft advisory...) |
+| `null` | a type that is not in the profile | no event name |
+
+A "rain-flood" (pluvial flooding) is grouped with the floods and a "marine hazard" with the coastal events: these two choices are ours, the profile does not group the types. The MeteoAlarm word is the one of the entry's title; the CAP elements give the same level and type as `parameter`s.
+
+**Status** (`status`, from `message_type`, the CAP `msgType`): `Alert` is `new`, `Update` is `update`, `Cancel` is `cancel`. A cancelled warning, and one whose end (the later of `ends_utc` and `expires_utc`) is past, is not returned: the feeds keep listing expired warnings (the four orange floods of the French feed of 2026-10-20 had ended 12 hours before it was read).
+
 ## Call volume
 
 A refresh happens only when someone asks after the TTL, so the calls per day of a cell are
@@ -49,7 +114,8 @@ at most 96 "now" requests of the forecast (15 minutes) and 24 daily ones (1 hour
 calls (1 hour), 24 marine calls (1 hour) and 4 river discharge calls (6 hours). A GPS position adds
 those calls (marine and river discharge when requested); two positions in the same cell share them.
 The hazard feeds add one call per feed per TTL (at most 1,440 a day for USGS and EMSC, which have the
-shortest TTL; the scheduler alone refreshes them every 90 s, 960 a day). The README gives the calls
+shortest TTL; the scheduler alone refreshes them every 90 s, 960 a day). The official warnings add one call per MeteoAlarm feed per 180 s, only for the countries that are needed
+(320 a day per feed when the scheduler keeps it fresh; none for the NWS, whose answer is the hazards' own). The README gives the calls
 a day measured by a simulation of 1,000 clients on 50 points, before and after the TTLs, grids and
 budget.
 
@@ -89,7 +155,7 @@ hours and reported by `GET /v1/providers` (`calls_24h`, `weight_24h`, `quota`). 
 `app/collectors/budget.py` (`QUOTAS`), and listed with their source page in [`SOURCES.md`](../SOURCES.md):
 Open-Meteo (one quota for its four APIs: forecast, air quality, river discharge, marine), MET Norway and
 RainViewer have one. NOAA NWS has a limit that "is not public information", and USGS, EMSC, GDACS,
-USGS Volcano and NOAA SWPC publish none: no budget for them (**not verified**), their calls are only counted.
+USGS Volcano, NOAA SWPC and MeteoAlarm publish none: no budget for them (**not verified**), their calls are only counted.
 
 The budget lets through 90 % of each limit (`VIGIE_BUDGET_FRACTION`): a margin for another program on
 the same IP address and for the difference between this count and the provider's. A request that

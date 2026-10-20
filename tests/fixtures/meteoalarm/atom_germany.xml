@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:cap="urn:oasis:names:tc:emergency:cap:1.2">
+  <link rel="hub" href="https://pubsubhubbub.appspot.com/"/>
+  <link type="application/atom+xml" rel="self" href="https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-germany"/>
+  <link type="text/html" rel="alternate" href="https://meteoalarm.org"/>
+  <rights>Copyright © 2026 MeteoAlarm.Org. Licensed under terms equivalent to CC BY 4.0, with additional requirements for redistributing outlined in our Terms and Conditions.</rights>
+  <generator>MeteoAlarm Producer Server</generator>
+  <logo>https://feeds.meteoalarm.org/images/logo.svg</logo>
+  <author>
+    <name>meteoalarm.org</name>
+    <uri>https://meteoalarm.org</uri>
+    <email>meteoalarm@geosphere.at</email>
+  </author>
+  <id>tag:meteoalarm.org,2021-02-19:DE</id>
+  <title>MeteoAlarm - Alerting Europe for Extreme Weather</title>
+  <updated>2026-10-20T10:05:27.900251Z</updated>
+  <entry>
+    <cap:geocode>
+      <valueName>EMMA_ID</valueName>
+      <value>DE806</value>
+    </cap:geocode>
+    <link title="Östlich Fehmarn bis Rügen" href="https://meteoalarm.org?geocode=EMMA_ID:DE806" hreflang="en"/>
+    <cap:areaDesc>Östlich Fehmarn bis Rügen</cap:areaDesc>
+    <cap:event>near gale</cap:event>
+    <cap:sent>2026-10-20T01:35:00+00:00</cap:sent>
+    <cap:expires>2026-10-20T01:35:00+00:00</cap:expires>
+    <cap:onset>2026-10-19T21:35:30+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Minor</cap:severity>
+    <cap:urgency>Immediate</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Update</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.276.0.DWD.PVW.1792460100000.91e19548-41ed-404a-8690-5e4827c5cf09.MUL</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-germany/3995d825-1be5-46e8-9194-8c7dd7a84376"/>
+    <link title="Germany" rel="related" href="https://meteoalarm.org?region=DE" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-20T01:35:00Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-germany/3995d825-1be5-46e8-9194-8c7dd7a84376?index_info=1&amp;index_area=1&amp;index_geocode=0</id>
+    <title>Yellow Coastalevent Warning issued for Germany - Östlich Fehmarn bis Rügen</title>
+    <updated>2026-10-20T01:35:00Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>EMMA_ID</valueName>
+      <value>DE808</value>
+    </cap:geocode>
+    <link title="Flensburg bis Fehmarn" href="https://meteoalarm.org?geocode=EMMA_ID:DE808" hreflang="en"/>
+    <cap:areaDesc>Flensburg bis Fehmarn</cap:areaDesc>
+    <cap:event>near gale</cap:event>
+    <cap:sent>2026-10-20T01:35:00+00:00</cap:sent>
+    <cap:expires>2026-10-20T01:35:00+00:00</cap:expires>
+    <cap:onset>2026-10-19T21:35:30+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Minor</cap:severity>
+    <cap:urgency>Immediate</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Update</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.276.0.DWD.PVW.1792460100000.91e19548-41ed-404a-8690-5e4827c5cf09.MUL</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-germany/3995d825-1be5-46e8-9194-8c7dd7a84376"/>
+    <link title="Germany" rel="related" href="https://meteoalarm.org?region=DE" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-20T01:35:00Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-germany/3995d825-1be5-46e8-9194-8c7dd7a84376?index_info=1&amp;index_area=0&amp;index_geocode=0</id>
+    <title>Yellow Coastalevent Warning issued for Germany - Flensburg bis Fehmarn</title>
+    <updated>2026-10-20T01:35:00Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>EMMA_ID</valueName>
+      <value>DE294</value>
+    </cap:geocode>
+    <link title="Kreis Northeim" href="https://meteoalarm.org?geocode=EMMA_ID:DE294" hreflang="en"/>
+    <cap:areaDesc>Kreis Northeim</cap:areaDesc>
+    <cap:event>frost</cap:event>
+    <cap:sent>2026-10-19T19:34:00+00:00</cap:sent>
+    <cap:expires>2026-10-20T06:00:00+00:00</cap:expires>
+    <cap:onset>2026-10-20T00:00:00+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Minor</cap:severity>
+    <cap:urgency>Immediate</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.276.0.DWD.PVW.1792438440000.4c261b48-b886-4217-a82d-102b91efce7e.MUL</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-germany/413811b3-e68f-4e40-9c37-bcdb01b2fd9a"/>
+    <link title="Germany" rel="related" href="https://meteoalarm.org?region=DE" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-19T19:34:00Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-germany/413811b3-e68f-4e40-9c37-bcdb01b2fd9a?index_info=1&amp;index_area=2&amp;index_geocode=0</id>
+    <title>Yellow Low-temperature Warning issued for Germany - Kreis Northeim</title>
+    <updated>2026-10-19T19:34:00Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>EMMA_ID</valueName>
+      <value>DE326</value>
+    </cap:geocode>
+    <link title="Kreis Göttingen" href="https://meteoalarm.org?geocode=EMMA_ID:DE326" hreflang="en"/>
+    <cap:areaDesc>Kreis Göttingen</cap:areaDesc>
+    <cap:event>frost</cap:event>
+    <cap:sent>2026-10-19T19:34:00+00:00</cap:sent>
+    <cap:expires>2026-10-20T06:00:00+00:00</cap:expires>
+    <cap:onset>2026-10-20T00:00:00+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Minor</cap:severity>
+    <cap:urgency>Immediate</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.276.0.DWD.PVW.1792438440000.4c261b48-b886-4217-a82d-102b91efce7e.MUL</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-germany/413811b3-e68f-4e40-9c37-bcdb01b2fd9a"/>
+    <link title="Germany" rel="related" href="https://meteoalarm.org?region=DE" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-19T19:34:00Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-germany/413811b3-e68f-4e40-9c37-bcdb01b2fd9a?index_info=1&amp;index_area=1&amp;index_geocode=1</id>
+    <title>Yellow Low-temperature Warning issued for Germany - Kreis Göttingen</title>
+    <updated>2026-10-19T19:34:00Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>EMMA_ID</valueName>
+      <value>DE151</value>
+    </cap:geocode>
+    <link title="Kreis Göttingen" href="https://meteoalarm.org?geocode=EMMA_ID:DE151" hreflang="en"/>
+    <cap:areaDesc>Kreis Göttingen</cap:areaDesc>
+    <cap:event>frost</cap:event>
+    <cap:sent>2026-10-19T19:34:00+00:00</cap:sent>
+    <cap:expires>2026-10-20T06:00:00+00:00</cap:expires>
+    <cap:onset>2026-10-20T00:00:00+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Minor</cap:severity>
+    <cap:urgency>Immediate</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.276.0.DWD.PVW.1792438440000.4c261b48-b886-4217-a82d-102b91efce7e.MUL</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-germany/413811b3-e68f-4e40-9c37-bcdb01b2fd9a"/>
+    <link title="Germany" rel="related" href="https://meteoalarm.org?region=DE" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-19T19:34:00Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-germany/413811b3-e68f-4e40-9c37-bcdb01b2fd9a?index_info=1&amp;index_area=1&amp;index_geocode=0</id>
+    <title>Yellow Low-temperature Warning issued for Germany - Kreis Göttingen</title>
+    <updated>2026-10-19T19:34:00Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>EMMA_ID</valueName>
+      <value>DE328</value>
+    </cap:geocode>
+    <link title="Kreis Goslar" href="https://meteoalarm.org?geocode=EMMA_ID:DE328" hreflang="en"/>
+    <cap:areaDesc>Kreis Goslar</cap:areaDesc>
+    <cap:event>frost</cap:event>
+    <cap:sent>2026-10-19T19:34:00+00:00</cap:sent>
+    <cap:expires>2026-10-20T06:00:00+00:00</cap:expires>
+    <cap:onset>2026-10-20T00:00:00+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Minor</cap:severity>
+    <cap:urgency>Immediate</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.276.0.DWD.PVW.1792438440000.4c261b48-b886-4217-a82d-102b91efce7e.MUL</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-germany/413811b3-e68f-4e40-9c37-bcdb01b2fd9a"/>
+    <link title="Germany" rel="related" href="https://meteoalarm.org?region=DE" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-19T19:34:00Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-germany/413811b3-e68f-4e40-9c37-bcdb01b2fd9a?index_info=1&amp;index_area=0&amp;index_geocode=0</id>
+    <title>Yellow Low-temperature Warning issued for Germany - Kreis Goslar</title>
+    <updated>2026-10-19T19:34:00Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>EMMA_ID</valueName>
+      <value>DE073</value>
+    </cap:geocode>
+    <link title="Kreis Ostholstein - Binnenland" href="https://meteoalarm.org?geocode=EMMA_ID:DE073" hreflang="en"/>
+    <cap:areaDesc>Kreis Ostholstein - Binnenland</cap:areaDesc>
+    <cap:event>wind gusts</cap:event>
+    <cap:sent>2026-10-18T20:32:00+00:00</cap:sent>
+    <cap:expires>2026-10-19T00:00:00+00:00</cap:expires>
+    <cap:onset>2026-10-17T17:00:00+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Minor</cap:severity>
+    <cap:urgency>Immediate</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Update</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.276.0.DWD.PVW.1792355520000.aff84eec-2e82-408a-aeab-dd7294baf4a3.MUL</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-germany/581d4ba4-01c3-4924-ae9c-43fcd1e7c68a"/>
+    <link title="Germany" rel="related" href="https://meteoalarm.org?region=DE" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-18T20:32:00Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-germany/581d4ba4-01c3-4924-ae9c-43fcd1e7c68a?index_info=1&amp;index_area=0&amp;index_geocode=0</id>
+    <title>Yellow Wind Warning issued for Germany - Kreis Ostholstein - Binnenland</title>
+    <updated>2026-10-18T20:32:00Z</updated>
+  </entry>
+</feed>

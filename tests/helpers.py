@@ -20,6 +20,7 @@ from app.collectors.flood_air import (
     USGSVolcanoCollector,
 )
 from app.collectors.marine import OpenMeteoMarineCollector
+from app.collectors.meteoalarm import MeteoAlarmCapCollector, MeteoAlarmCollector
 from app.collectors.seismic import EMSCCollector, USGSCollector
 from app.collectors.space_weather import NOAASWPCCollector
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector, RainViewerCollector
@@ -146,6 +147,8 @@ def make_service(db_path: Path, **collectors: Any) -> AggregatorService:
         "flood": OpenMeteoFloodCollector(http_client=down),
         "air_quality": OpenMeteoAirQualityCollector(http_client=down),
         "swpc": NOAASWPCCollector(http_client=down),
+        "meteoalarm": MeteoAlarmCollector(http_client=down),
+        "meteoalarm_cap": MeteoAlarmCapCollector(http_client=down),
     }
     defaults.update(collectors)
     return AggregatorService(storage=SQLiteWALStorage(db_path=db_path), **defaults)

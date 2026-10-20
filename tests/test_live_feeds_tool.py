@@ -8,6 +8,7 @@ a good answer passes, a valid empty answer is not a failure, and an answer the p
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -48,7 +49,7 @@ GOOD_NWS = {
         {
             "id": "urn:1",
             "properties": {"event": "Tornado Warning", "severity": "Extreme", "areaDesc": "A County",
-                           "sent": "2026-10-18T13:00:00+00:00"},
+                           "status": "Actual", "messageType": "Alert", "sent": "2026-10-18T13:00:00+00:00"},
             "geometry": {"type": "Point", "coordinates": [-97.5, 35.5]},
         }
     ]
@@ -60,11 +61,19 @@ GOOD_KP = [{"time_tag": "2026-10-20T00:00:00", "Kp": 2.33}]
 GOOD_FLOOD = {"daily": {"river_discharge": [10.0], "river_discharge_mean": [9.0], "river_discharge_max": [12.0]}}
 GOOD_AIR = {"current": {"european_aqi": 31, "pm10": 14.0}}
 GOOD_RADAR = {"host": "https://tilecache.example", "radar": {"past": [{"time": 1792330000, "path": "/v2/radar/1792330000"}]}}
+FIXTURES = Path(__file__).parent / "fixtures" / "meteoalarm"
 METNO_HEADERS = {
     "Expires": "Tue, 20 Oct 2026 12:00:00 GMT",
     "Date": "Tue, 20 Oct 2026 11:30:00 GMT",
     "Last-Modified": "Tue, 20 Oct 2026 11:25:00 GMT",
 }
+
+
+def meteoalarm_answer(request: httpx.Request) -> httpx.Response:
+    """The recorded Atom feed of France, and its recorded CAP document for any document asked."""
+    if request.url.path.startswith("/api/v1/warnings/"):
+        return httpx.Response(200, content=(FIXTURES / "cap_france_b77d3bc0.xml").read_bytes())
+    return httpx.Response(200, content=(FIXTURES / "atom_france.xml").read_bytes())
 
 
 def good_answers() -> dict[str, Callable[[httpx.Request], httpx.Response]]:
@@ -83,6 +92,7 @@ def good_answers() -> dict[str, Callable[[httpx.Request], httpx.Response]]:
         "air-quality-api.open-meteo.com": lambda r: httpx.Response(200, json=GOOD_AIR),
         "api.met.no": lambda r: httpx.Response(200, json=samples.metno_payload(), headers=METNO_HEADERS),
         "api.rainviewer.com": lambda r: httpx.Response(200, json=GOOD_RADAR),
+        "feeds.meteoalarm.org": meteoalarm_answer,
     }
 
 
@@ -146,6 +156,7 @@ async def test_a_changed_format_is_a_failure_for_each_kind_of_source() -> None:
             "flood-api.open-meteo.com": lambda r: httpx.Response(200, json={"daily": {}}),
             "air-quality-api.open-meteo.com": lambda r: httpx.Response(200, json={"current": {}}),
             "api.rainviewer.com": lambda r: httpx.Response(200, json={"host": "h", "radar": {"nowcast": [{"time": 1, "path": "/p"}]}}),
+            "feeds.meteoalarm.org": lambda r: httpx.Response(200, text="<html><body>maintenance</body></html>"),
         }
     )
     failed = {name for name, r in results.items() if r.outcome == "FAIL"}
@@ -159,6 +170,8 @@ async def test_a_changed_format_is_a_failure_for_each_kind_of_source() -> None:
         "open_meteo_flood",
         "open_meteo_aqi",
         "rainviewer_radar",
+        "meteoalarm_atom",
+        "meteoalarm_cap",
     }
 
 
@@ -200,3 +213,65 @@ def test_the_table_is_markdown() -> None:
     table = tool.render([tool.Result("usgs_eq", "ok", "25 of 25 events parsed")])
     assert table.splitlines()[0] == "| Source | Outcome | Detail |"
     assert "| `usgs_eq` | ok | 25 of 25 events parsed |" in table
+
+
+EMPTY_FEED = (FIXTURES / "atom_empty.xml").read_bytes()
+
+
+@pytest.mark.asyncio
+async def test_a_meteoalarm_feed_with_no_warning_is_not_a_failure() -> None:
+    results = await run({"feeds.meteoalarm.org": lambda r: httpx.Response(200, content=EMPTY_FEED)})
+    assert results["meteoalarm_atom"].outcome == "empty"
+    assert results["meteoalarm_cap"].outcome == "empty"
+    assert tool.exit_code(list(results.values())) == 0
+
+
+@pytest.mark.asyncio
+async def test_a_level_or_phenomenon_the_tables_do_not_know_is_a_failure() -> None:
+    """A new awareness word must make the weekly run red, so that the tables of the collector are extended."""
+    feed = (FIXTURES / "atom_france.xml").read_text(encoding="utf-8").replace("Yellow Flooding Warning", "Mauve Tsunamis Warning")
+    results = await run({"feeds.meteoalarm.org": lambda r: httpx.Response(200, content=feed.encode())})
+    assert results["meteoalarm_atom"].outcome == "FAIL"
+    assert "Mauve" in results["meteoalarm_atom"].detail and "Tsunamis" in results["meteoalarm_atom"].detail
+
+
+@pytest.mark.asyncio
+async def test_a_french_code_without_a_shape_is_a_failure() -> None:
+    feed = (FIXTURES / "atom_france.xml").read_text(encoding="utf-8").replace("<value>FR252</value>", "<value>FR999</value>")
+    assert feed != (FIXTURES / "atom_france.xml").read_text(encoding="utf-8"), "the fixture no longer has FR252"
+    results = await run({"feeds.meteoalarm.org": lambda r: httpx.Response(200, content=feed.encode())})
+    assert results["meteoalarm_atom"].outcome == "FAIL"
+    assert "FR999" in results["meteoalarm_atom"].detail
+
+
+@pytest.mark.asyncio
+async def test_a_missing_french_cap_document_is_a_failure_but_not_a_server_error() -> None:
+    def answer(request: httpx.Request) -> httpx.Response:
+        if request.url.path.startswith("/api/v1/warnings/"):
+            return httpx.Response(404)
+        return meteoalarm_answer(request)
+
+    results = await run({"feeds.meteoalarm.org": answer})
+    assert results["meteoalarm_atom"].outcome == "ok"
+    assert results["meteoalarm_cap"].outcome == "FAIL" and "HTTP 404" in results["meteoalarm_cap"].detail
+
+    def busy(request: httpx.Request) -> httpx.Response:
+        if request.url.path.startswith("/api/v1/warnings/"):
+            return httpx.Response(503)
+        return meteoalarm_answer(request)
+
+    results = await run({"feeds.meteoalarm.org": busy})
+    assert results["meteoalarm_cap"].outcome == "unreachable"
+
+
+@pytest.mark.asyncio
+async def test_the_french_feed_is_asked_once_for_both_meteoalarm_checks() -> None:
+    paths: list[str] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        return meteoalarm_answer(request)
+
+    await run({"feeds.meteoalarm.org": answer}, only=["meteoalarm_atom", "meteoalarm_cap"])
+    assert len([p for p in paths if p.startswith("/feeds/")]) == 1
+    assert len([p for p in paths if p.startswith("/api/v1/warnings/")]) == 1

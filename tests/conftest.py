@@ -29,6 +29,8 @@ for _name in ("VIGIE_SCHEDULER", "VIGIE_CAP_SENDER", "VIGIE_CONTACT", "VIGIE_ENA
 
 from app import clock as app_clock  # noqa: E402
 from app.attribution import AIR_QUALITY, FLOOD, SPACE_WEATHER, credit_text  # noqa: E402
+from app.collectors.base import Fetched  # noqa: E402
+from app.collectors.meteoalarm import MeteoAlarmFeed  # noqa: E402
 from app.main import aggregator, app  # noqa: E402
 from app.models.schemas import (  # noqa: E402
     AirQualityStatus,
@@ -100,6 +102,13 @@ def world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:
     monkeypatch.setattr(aggregator.gdacs, "fetch", AsyncMock(return_value=[]))
     monkeypatch.setattr(aggregator.noaa_nws, "fetch", AsyncMock(return_value=[]))
     monkeypatch.setattr(aggregator.volcano, "fetch", AsyncMock(return_value=[]))
+    # No official warnings unless a test puts some (the sources of the vigilances are the same providers).
+    monkeypatch.setattr(aggregator.noaa_nws, "fetch_vigilances", AsyncMock(return_value=Fetched([])))
+    monkeypatch.setattr(
+        aggregator.meteoalarm,
+        "fetch_country",
+        AsyncMock(side_effect=lambda country, **_: Fetched(MeteoAlarmFeed(country=country, updated_utc=None, vigilances=()))),
+    )
     monkeypatch.setattr(aggregator.open_meteo, "fetch_point", AsyncMock(return_value=weather))
     monkeypatch.setattr(aggregator.met_norway, "fetch_point", AsyncMock(side_effect=RuntimeError("down")))
     monkeypatch.setattr(

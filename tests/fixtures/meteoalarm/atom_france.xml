@@ -1,0 +1,587 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:cap="urn:oasis:names:tc:emergency:cap:1.2">
+  <link rel="hub" href="https://pubsubhubbub.appspot.com/"/>
+  <link type="application/atom+xml" rel="self" href="https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-france"/>
+  <link type="text/html" rel="alternate" href="https://meteoalarm.org"/>
+  <rights>Copyright © 2026 MeteoAlarm.Org. Licensed under terms equivalent to CC BY 4.0, with additional requirements for redistributing outlined in our Terms and Conditions.</rights>
+  <generator>MeteoAlarm Producer Server</generator>
+  <logo>https://feeds.meteoalarm.org/images/logo.svg</logo>
+  <author>
+    <name>meteoalarm.org</name>
+    <uri>https://meteoalarm.org</uri>
+    <email>meteoalarm@geosphere.at</email>
+  </author>
+  <id>tag:meteoalarm.org,2021-02-19:FR</id>
+  <title>MeteoAlarm - Alerting Europe for Extreme Weather</title>
+  <updated>2026-10-20T10:05:44.372990Z</updated>
+  <entry>
+    <cap:geocode>
+      <valueName>NUTS3</valueName>
+      <value>FR713</value>
+    </cap:geocode>
+    <link title="Drôme" href="https://meteoalarm.org?geocode=EMMA_ID:FR031" hreflang="en"/>
+    <cap:areaDesc>Drôme</cap:areaDesc>
+    <cap:event>Moderate flooding warning</cap:event>
+    <cap:sent>2026-10-20T09:42:09+00:00</cap:sent>
+    <cap:expires>2026-10-21T22:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-20T22:00:00+00:00</cap:effective>
+    <cap:onset>2026-10-20T22:00:00+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.250.1.FR.20261020114209.041024</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/b77d3bc0-76a2-4886-8da8-bac8d99f57fc"/>
+    <link title="France" rel="related" href="https://meteoalarm.org?region=FR" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-20T09:42:09Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/b77d3bc0-76a2-4886-8da8-bac8d99f57fc?index_info=1&amp;index_area=6&amp;index_geocode=0</id>
+    <title>Yellow Flooding Warning issued for France - Drôme</title>
+    <updated>2026-10-20T09:42:09Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>NUTS3</valueName>
+      <value>FR826</value>
+    </cap:geocode>
+    <link title="Vaucluse" href="https://meteoalarm.org?geocode=EMMA_ID:FR030" hreflang="en"/>
+    <cap:areaDesc>Vaucluse</cap:areaDesc>
+    <cap:event>Moderate flooding warning</cap:event>
+    <cap:sent>2026-10-20T09:42:09+00:00</cap:sent>
+    <cap:expires>2026-10-21T22:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-20T22:00:00+00:00</cap:effective>
+    <cap:onset>2026-10-20T22:00:00+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.250.1.FR.20261020114209.041024</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/b77d3bc0-76a2-4886-8da8-bac8d99f57fc"/>
+    <link title="France" rel="related" href="https://meteoalarm.org?region=FR" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-20T09:42:09Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/b77d3bc0-76a2-4886-8da8-bac8d99f57fc?index_info=1&amp;index_area=5&amp;index_geocode=0</id>
+    <title>Yellow Flooding Warning issued for France - Vaucluse</title>
+    <updated>2026-10-20T09:42:09Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>NUTS3</valueName>
+      <value>FR813</value>
+    </cap:geocode>
+    <link title="Hérault" href="https://meteoalarm.org?geocode=EMMA_ID:FR020" hreflang="en"/>
+    <cap:areaDesc>Hérault</cap:areaDesc>
+    <cap:event>Moderate flooding warning</cap:event>
+    <cap:sent>2026-10-20T09:42:09+00:00</cap:sent>
+    <cap:expires>2026-10-21T22:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-20T22:00:00+00:00</cap:effective>
+    <cap:onset>2026-10-20T22:00:00+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.250.1.FR.20261020114209.041024</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/b77d3bc0-76a2-4886-8da8-bac8d99f57fc"/>
+    <link title="France" rel="related" href="https://meteoalarm.org?region=FR" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-20T09:42:09Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/b77d3bc0-76a2-4886-8da8-bac8d99f57fc?index_info=1&amp;index_area=4&amp;index_geocode=0</id>
+    <title>Yellow Flooding Warning issued for France - Hérault</title>
+    <updated>2026-10-20T09:42:09Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>NUTS3</valueName>
+      <value>FR832</value>
+    </cap:geocode>
+    <link title="Haute-Corse" href="https://meteoalarm.org?geocode=EMMA_ID:FR089" hreflang="en"/>
+    <cap:areaDesc>Haute-Corse</cap:areaDesc>
+    <cap:event>Moderate flooding warning</cap:event>
+    <cap:sent>2026-10-20T09:42:09+00:00</cap:sent>
+    <cap:expires>2026-10-21T22:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-20T22:00:00+00:00</cap:effective>
+    <cap:onset>2026-10-20T22:00:00+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.250.1.FR.20261020114209.041024</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/b77d3bc0-76a2-4886-8da8-bac8d99f57fc"/>
+    <link title="France" rel="related" href="https://meteoalarm.org?region=FR" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-20T09:42:09Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/b77d3bc0-76a2-4886-8da8-bac8d99f57fc?index_info=1&amp;index_area=3&amp;index_geocode=0</id>
+    <title>Yellow Flooding Warning issued for France - Haute-Corse</title>
+    <updated>2026-10-20T09:42:09Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>NUTS3</valueName>
+      <value>FR824</value>
+    </cap:geocode>
+    <link title="Bouches-du-Rhône" href="https://meteoalarm.org?geocode=EMMA_ID:FR027" hreflang="en"/>
+    <cap:areaDesc>Bouches-du-Rhône</cap:areaDesc>
+    <cap:event>Moderate flooding warning</cap:event>
+    <cap:sent>2026-10-20T09:42:09+00:00</cap:sent>
+    <cap:expires>2026-10-21T22:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-20T22:00:00+00:00</cap:effective>
+    <cap:onset>2026-10-20T22:00:00+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.250.1.FR.20261020114209.041024</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/b77d3bc0-76a2-4886-8da8-bac8d99f57fc"/>
+    <link title="France" rel="related" href="https://meteoalarm.org?region=FR" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-20T09:42:09Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/b77d3bc0-76a2-4886-8da8-bac8d99f57fc?index_info=1&amp;index_area=2&amp;index_geocode=0</id>
+    <title>Yellow Flooding Warning issued for France - Bouches-du-Rhône</title>
+    <updated>2026-10-20T09:42:09Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>NUTS3</valueName>
+      <value>FR825</value>
+    </cap:geocode>
+    <link title="Var" href="https://meteoalarm.org?geocode=EMMA_ID:FR028" hreflang="en"/>
+    <cap:areaDesc>Var</cap:areaDesc>
+    <cap:event>Moderate flooding warning</cap:event>
+    <cap:sent>2026-10-20T09:42:09+00:00</cap:sent>
+    <cap:expires>2026-10-21T22:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-20T22:00:00+00:00</cap:effective>
+    <cap:onset>2026-10-20T22:00:00+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.250.1.FR.20261020114209.041024</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/b77d3bc0-76a2-4886-8da8-bac8d99f57fc"/>
+    <link title="France" rel="related" href="https://meteoalarm.org?region=FR" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-20T09:42:09Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/b77d3bc0-76a2-4886-8da8-bac8d99f57fc?index_info=1&amp;index_area=1&amp;index_geocode=0</id>
+    <title>Yellow Flooding Warning issued for France - Var</title>
+    <updated>2026-10-20T09:42:09Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>NUTS3</valueName>
+      <value>FR712</value>
+    </cap:geocode>
+    <link title="Ardèche" href="https://meteoalarm.org?geocode=EMMA_ID:FR026" hreflang="en"/>
+    <cap:areaDesc>Ardèche</cap:areaDesc>
+    <cap:event>Moderate flooding warning</cap:event>
+    <cap:sent>2026-10-20T09:42:09+00:00</cap:sent>
+    <cap:expires>2026-10-21T22:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-20T22:00:00+00:00</cap:effective>
+    <cap:onset>2026-10-20T22:00:00+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.250.1.FR.20261020114209.041024</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/b77d3bc0-76a2-4886-8da8-bac8d99f57fc"/>
+    <link title="France" rel="related" href="https://meteoalarm.org?region=FR" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-20T09:42:09Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/b77d3bc0-76a2-4886-8da8-bac8d99f57fc?index_info=1&amp;index_area=0&amp;index_geocode=0</id>
+    <title>Yellow Flooding Warning issued for France - Ardèche</title>
+    <updated>2026-10-20T09:42:09Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>NUTS3</valueName>
+      <value>FR812</value>
+    </cap:geocode>
+    <link title="Gard" href="https://meteoalarm.org?geocode=EMMA_ID:FR022" hreflang="en"/>
+    <cap:areaDesc>Gard</cap:areaDesc>
+    <cap:event>Severe flooding warning</cap:event>
+    <cap:sent>2026-10-20T09:42:04+00:00</cap:sent>
+    <cap:expires>2026-10-21T22:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-20T22:00:00+00:00</cap:effective>
+    <cap:onset>2026-10-20T22:00:00+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Severe</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.250.1.FR.20261020114204.838034</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/94650342-5772-4271-8e4e-8328dc7e24bc"/>
+    <link title="France" rel="related" href="https://meteoalarm.org?region=FR" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-20T09:42:04Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/94650342-5772-4271-8e4e-8328dc7e24bc?index_info=1&amp;index_area=0&amp;index_geocode=0</id>
+    <title>Orange Flooding Warning issued for France - Gard</title>
+    <updated>2026-10-20T09:42:04Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>NUTS3</valueName>
+      <value>FR252</value>
+    </cap:geocode>
+    <link title="Manche" href="https://meteoalarm.org?geocode=EMMA_ID:FR051" hreflang="en"/>
+    <cap:areaDesc>Manche</cap:areaDesc>
+    <cap:event>Moderate thunderstorm warning</cap:event>
+    <cap:sent>2026-10-20T09:42:01+00:00</cap:sent>
+    <cap:expires>2026-10-21T22:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-20T22:00:00+00:00</cap:effective>
+    <cap:onset>2026-10-20T22:00:00+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.250.0.FR.20261020114201.153023</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/fa317beb-9801-49b3-9352-ac84e204dc7c"/>
+    <link title="France" rel="related" href="https://meteoalarm.org?region=FR" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-20T09:42:01Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/fa317beb-9801-49b3-9352-ac84e204dc7c?index_info=1&amp;index_area=2&amp;index_geocode=0</id>
+    <title>Yellow Thunderstorm Warning issued for France - Manche</title>
+    <updated>2026-10-20T09:42:01Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>NUTS3</valueName>
+      <value>FR832</value>
+    </cap:geocode>
+    <link title="Haute-Corse" href="https://meteoalarm.org?geocode=EMMA_ID:FR089" hreflang="en"/>
+    <cap:areaDesc>Haute-Corse</cap:areaDesc>
+    <cap:event>Moderate thunderstorm warning</cap:event>
+    <cap:sent>2026-10-20T09:42:01+00:00</cap:sent>
+    <cap:expires>2026-10-21T22:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-20T22:00:00+00:00</cap:effective>
+    <cap:onset>2026-10-20T22:00:00+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.250.0.FR.20261020114201.153023</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/fa317beb-9801-49b3-9352-ac84e204dc7c"/>
+    <link title="France" rel="related" href="https://meteoalarm.org?region=FR" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-20T09:42:01Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/fa317beb-9801-49b3-9352-ac84e204dc7c?index_info=1&amp;index_area=1&amp;index_geocode=0</id>
+    <title>Yellow Thunderstorm Warning issued for France - Haute-Corse</title>
+    <updated>2026-10-20T09:42:01Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>NUTS3</valueName>
+      <value>FR831</value>
+    </cap:geocode>
+    <link title="Corse-du-Sud" href="https://meteoalarm.org?geocode=EMMA_ID:FR090" hreflang="en"/>
+    <cap:areaDesc>Corse-du-Sud</cap:areaDesc>
+    <cap:event>Moderate thunderstorm warning</cap:event>
+    <cap:sent>2026-10-20T09:42:01+00:00</cap:sent>
+    <cap:expires>2026-10-21T22:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-20T22:00:00+00:00</cap:effective>
+    <cap:onset>2026-10-20T22:00:00+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.250.0.FR.20261020114201.153023</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/fa317beb-9801-49b3-9352-ac84e204dc7c"/>
+    <link title="France" rel="related" href="https://meteoalarm.org?region=FR" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-20T09:42:01Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/fa317beb-9801-49b3-9352-ac84e204dc7c?index_info=1&amp;index_area=0&amp;index_geocode=0</id>
+    <title>Yellow Thunderstorm Warning issued for France - Corse-du-Sud</title>
+    <updated>2026-10-20T09:42:01Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>NUTS3</valueName>
+      <value>FR832</value>
+    </cap:geocode>
+    <link title="Haute-Corse" href="https://meteoalarm.org?geocode=EMMA_ID:FR089" hreflang="en"/>
+    <cap:areaDesc>Haute-Corse</cap:areaDesc>
+    <cap:event>Moderate rain-flood warning</cap:event>
+    <cap:sent>2026-10-20T09:41:58+00:00</cap:sent>
+    <cap:expires>2026-10-21T22:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-20T22:00:00+00:00</cap:effective>
+    <cap:onset>2026-10-20T22:00:00+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.250.0.FR.20261020114158.280022</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/9c9d41da-ff93-4009-a2da-05b80e3b9df5"/>
+    <link title="France" rel="related" href="https://meteoalarm.org?region=FR" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-20T09:41:58Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/9c9d41da-ff93-4009-a2da-05b80e3b9df5?index_info=1&amp;index_area=1&amp;index_geocode=0</id>
+    <title>Yellow Rain-flood Warning issued for France - Haute-Corse</title>
+    <updated>2026-10-20T09:41:58Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>NUTS3</valueName>
+      <value>FR831</value>
+    </cap:geocode>
+    <link title="Corse-du-Sud" href="https://meteoalarm.org?geocode=EMMA_ID:FR090" hreflang="en"/>
+    <cap:areaDesc>Corse-du-Sud</cap:areaDesc>
+    <cap:event>Moderate rain-flood warning</cap:event>
+    <cap:sent>2026-10-20T09:41:58+00:00</cap:sent>
+    <cap:expires>2026-10-21T22:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-20T22:00:00+00:00</cap:effective>
+    <cap:onset>2026-10-20T22:00:00+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Moderate</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.250.0.FR.20261020114158.280022</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/9c9d41da-ff93-4009-a2da-05b80e3b9df5"/>
+    <link title="France" rel="related" href="https://meteoalarm.org?region=FR" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-20T09:41:58Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/9c9d41da-ff93-4009-a2da-05b80e3b9df5?index_info=1&amp;index_area=0&amp;index_geocode=0</id>
+    <title>Yellow Rain-flood Warning issued for France - Corse-du-Sud</title>
+    <updated>2026-10-20T09:41:58Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>NUTS3</valueName>
+      <value>FR831</value>
+    </cap:geocode>
+    <link title="Corse-du-Sud" href="https://meteoalarm.org?geocode=EMMA_ID:FR090" hreflang="en"/>
+    <cap:areaDesc>Corse-du-Sud</cap:areaDesc>
+    <cap:event>Severe rain-flood warning</cap:event>
+    <cap:sent>2026-10-20T09:41:09+00:00</cap:sent>
+    <cap:expires>2026-10-20T22:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-20T09:30:00+00:00</cap:effective>
+    <cap:onset>2026-10-20T09:40:57+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Severe</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.250.0.FR.20261020114109.571032</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/6f94b746-947d-42fe-bbfa-cdea14ed8d53"/>
+    <link title="France" rel="related" href="https://meteoalarm.org?region=FR" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-20T09:41:09Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/6f94b746-947d-42fe-bbfa-cdea14ed8d53?index_info=1&amp;index_area=0&amp;index_geocode=0</id>
+    <title>Orange Rain-flood Warning issued for France - Corse-du-Sud</title>
+    <updated>2026-10-20T09:41:09Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>NUTS3</valueName>
+      <value>FR832</value>
+    </cap:geocode>
+    <link title="Haute-Corse" href="https://meteoalarm.org?geocode=EMMA_ID:FR089" hreflang="en"/>
+    <cap:areaDesc>Haute-Corse</cap:areaDesc>
+    <cap:event>Extreme rain-flood warning</cap:event>
+    <cap:sent>2026-10-20T09:41:06+00:00</cap:sent>
+    <cap:expires>2026-10-20T22:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-20T09:30:00+00:00</cap:effective>
+    <cap:onset>2026-10-20T09:40:57+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Extreme</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.250.0.FR.20261020114106.274042</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/c1deca4d-f4af-44f4-8806-7ddbea17e47f"/>
+    <link title="France" rel="related" href="https://meteoalarm.org?region=FR" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-20T09:41:06Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/c1deca4d-f4af-44f4-8806-7ddbea17e47f?index_info=1&amp;index_area=0&amp;index_geocode=0</id>
+    <title>Red Rain-flood Warning issued for France - Haute-Corse</title>
+    <updated>2026-10-20T09:41:06Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>NUTS3</valueName>
+      <value>FR813</value>
+    </cap:geocode>
+    <link title="Hérault" href="https://meteoalarm.org?geocode=EMMA_ID:FR020" hreflang="en"/>
+    <cap:areaDesc>Hérault</cap:areaDesc>
+    <cap:event>Severe flooding warning</cap:event>
+    <cap:sent>2026-10-19T20:02:24+00:00</cap:sent>
+    <cap:expires>2026-10-19T22:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-19T20:00:00+00:00</cap:effective>
+    <cap:onset>2026-10-19T20:01:58+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Severe</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.250.1.FR.20261019220224.478034</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/d519a26b-b1b8-4f89-a85c-f5a6197fea7c"/>
+    <link title="France" rel="related" href="https://meteoalarm.org?region=FR" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-19T20:02:24Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/d519a26b-b1b8-4f89-a85c-f5a6197fea7c?index_info=1&amp;index_area=3&amp;index_geocode=0</id>
+    <title>Orange Flooding Warning issued for France - Hérault</title>
+    <updated>2026-10-19T20:02:24Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>NUTS3</valueName>
+      <value>FR622</value>
+    </cap:geocode>
+    <link title="Aveyron" href="https://meteoalarm.org?geocode=EMMA_ID:FR021" hreflang="en"/>
+    <cap:areaDesc>Aveyron</cap:areaDesc>
+    <cap:event>Severe flooding warning</cap:event>
+    <cap:sent>2026-10-19T20:02:24+00:00</cap:sent>
+    <cap:expires>2026-10-19T22:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-19T20:00:00+00:00</cap:effective>
+    <cap:onset>2026-10-19T20:01:58+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Severe</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.250.1.FR.20261019220224.478034</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/d519a26b-b1b8-4f89-a85c-f5a6197fea7c"/>
+    <link title="France" rel="related" href="https://meteoalarm.org?region=FR" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-19T20:02:24Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/d519a26b-b1b8-4f89-a85c-f5a6197fea7c?index_info=1&amp;index_area=2&amp;index_geocode=0</id>
+    <title>Orange Flooding Warning issued for France - Aveyron</title>
+    <updated>2026-10-19T20:02:24Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>NUTS3</valueName>
+      <value>FR812</value>
+    </cap:geocode>
+    <link title="Gard" href="https://meteoalarm.org?geocode=EMMA_ID:FR022" hreflang="en"/>
+    <cap:areaDesc>Gard</cap:areaDesc>
+    <cap:event>Severe flooding warning</cap:event>
+    <cap:sent>2026-10-19T20:02:24+00:00</cap:sent>
+    <cap:expires>2026-10-19T22:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-19T20:00:00+00:00</cap:effective>
+    <cap:onset>2026-10-19T20:01:58+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Severe</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.250.1.FR.20261019220224.478034</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/d519a26b-b1b8-4f89-a85c-f5a6197fea7c"/>
+    <link title="France" rel="related" href="https://meteoalarm.org?region=FR" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-19T20:02:24Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/d519a26b-b1b8-4f89-a85c-f5a6197fea7c?index_info=1&amp;index_area=1&amp;index_geocode=0</id>
+    <title>Orange Flooding Warning issued for France - Gard</title>
+    <updated>2026-10-19T20:02:24Z</updated>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>NUTS3</valueName>
+      <value>FR814</value>
+    </cap:geocode>
+    <link title="Lozère" href="https://meteoalarm.org?geocode=EMMA_ID:FR023" hreflang="en"/>
+    <cap:areaDesc>Lozère</cap:areaDesc>
+    <cap:event>Severe flooding warning</cap:event>
+    <cap:sent>2026-10-19T20:02:24+00:00</cap:sent>
+    <cap:expires>2026-10-19T22:00:00+00:00</cap:expires>
+    <cap:effective>2026-10-19T20:00:00+00:00</cap:effective>
+    <cap:onset>2026-10-19T20:01:58+00:00</cap:onset>
+    <cap:certainty>Likely</cap:certainty>
+    <cap:severity>Severe</cap:severity>
+    <cap:urgency>Future</cap:urgency>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.250.1.FR.20261019220224.478034</cap:identifier>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/d519a26b-b1b8-4f89-a85c-f5a6197fea7c"/>
+    <link title="France" rel="related" href="https://meteoalarm.org?region=FR" hreflang="en"/>
+    <author>
+      <name>meteoalarm.org</name>
+      <uri>https://meteoalarm.org</uri>
+    </author>
+    <published>2026-10-19T20:02:24Z</published>
+    <id>https://feeds.meteoalarm.org/api/v1/warnings/feeds-france/d519a26b-b1b8-4f89-a85c-f5a6197fea7c?index_info=1&amp;index_area=0&amp;index_geocode=0</id>
+    <title>Orange Flooding Warning issued for France - Lozère</title>
+    <updated>2026-10-19T20:02:24Z</updated>
+  </entry>
+</feed>
