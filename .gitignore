@@ -1,4 +1,4 @@
-# Environnements Python et caches
+# Python environments and caches
 .venv/
 __pycache__/
 *.pyc
@@ -7,9 +7,10 @@ __pycache__/
 .hypothesis/
 *.egg-info/
 
-# Variables d'environnement et bases locales
+# Environment variables, local databases and logs
 .env
 *.db
 *.db-shm
 *.db-wal
 *.log
+logs/
