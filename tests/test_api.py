@@ -168,6 +168,7 @@ def test_point_endpoint_reports_unknown_as_null(world: World, monkeypatch: pytes
         "solar_storm_level": None,
         "gps_degraded": None,
         "hf_radio_blackout_risk": None,
+        "attribution": None,  # nothing to credit when nothing is known
     }
 
 

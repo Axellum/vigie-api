@@ -23,12 +23,14 @@ no 15-minute nowcast in its compact product, so those stay unknown).
 from __future__ import annotations
 
 import asyncio
+import os
 from collections.abc import Mapping
 from datetime import date, datetime, timedelta
 from typing import Any, Optional
 
 import httpx
 
+from app.attribution import MET_NORWAY_WEATHER, OPEN_METEO_WEATHER, credit_text
 from app.collectors.base import (
     BaseCollector,
     CacheEntry,
@@ -119,6 +121,15 @@ def _rounded(value: Any, digits: int = 1) -> Optional[float]:
     """Round a provider number that may legitimately be negative (temperatures), or ``None``."""
     number = optional_float(value)
     return None if number is None else round(number, digits)
+
+
+def rainviewer_enabled_from_env() -> bool:
+    """Whether the RainViewer radar is asked: on unless ``VIGIE_ENABLE_RAINVIEWER`` is ``0`` / ``false`` / ``no`` / ``off``.
+
+    The free RainViewer API is for personal and educational use only. An instance that relays the data to
+    others (a public instance) should turn it off; ``/v1/point`` then leaves the radar fields unknown.
+    """
+    return os.environ.get("VIGIE_ENABLE_RAINVIEWER", "1").strip().lower() not in {"0", "false", "no", "off"}
 
 
 def as_stale_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
@@ -257,6 +268,7 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
         utc_offset = now.get("utc_offset_s")
         return {
             "provider_name": "Open-Meteo",
+            "attribution": credit_text(*OPEN_METEO_WEATHER),
             "utc_offset_s": utc_offset if utc_offset is not None else daily.get("utc_offset_s"),
             "current": now["current"],
             "rain_next_60m": now["rain_next_60m"],
@@ -532,6 +544,7 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
 
         return {
             "provider_name": "MET Norway (fallback)",
+            "attribution": credit_text(*MET_NORWAY_WEATHER),
             "utc_offset_s": None,
             "current": current_weather,
             "rain_next_60m": None,

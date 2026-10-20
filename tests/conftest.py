@@ -28,6 +28,7 @@ for _name in ("VIGIE_SCHEDULER", "VIGIE_CAP_SENDER", "VIGIE_CONTACT", "VIGIE_ENA
     os.environ.pop(_name, None)
 
 from app import clock as app_clock  # noqa: E402
+from app.attribution import AIR_QUALITY, FLOOD, SPACE_WEATHER, credit_text  # noqa: E402
 from app.main import aggregator, app  # noqa: E402
 from app.models.schemas import (  # noqa: E402
     AirQualityStatus,
@@ -106,7 +107,13 @@ def world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:
         "fetch_air_quality",
         AsyncMock(
             return_value=AirQualityStatus(
-                european_aqi=31, us_aqi=42, pm2_5_ugm3=8.0, pm10_ugm3=14.0, uv_index=3.0, dust_ugm3=1.0
+                european_aqi=31,
+                us_aqi=42,
+                pm2_5_ugm3=8.0,
+                pm10_ugm3=14.0,
+                uv_index=3.0,
+                dust_ugm3=1.0,
+                attribution=credit_text(*AIR_QUALITY),  # what the collector's parser sets
             )
         ),
     )
@@ -120,6 +127,7 @@ def world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:
                 river_discharge_max_m3s=46.0,
                 anomaly_ratio=1.15,
                 flood_alert_level=SeverityLevel.GREEN,
+                attribution=credit_text(*FLOOD),
             )
         ),
     )
@@ -129,7 +137,11 @@ def world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:
         "fetch",
         AsyncMock(
             return_value=SpaceWeatherStatus(
-                solar_kp=2.3, solar_storm_level="G0", gps_degraded=False, hf_radio_blackout_risk=False
+                solar_kp=2.3,
+                solar_storm_level="G0",
+                gps_degraded=False,
+                hf_radio_blackout_risk=False,
+                attribution=credit_text(*SPACE_WEATHER),
             )
         ),
     )

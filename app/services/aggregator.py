@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Awaitable, Optional, TypeVar
 
+from app.attribution import RADAR, SIMULATION_CREDIT, credit_text, merge_credits
 from app.collectors.budget import share_budgets
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector
 from app.collectors.flood_air import (
@@ -40,6 +41,7 @@ from app.collectors.weather import (
     OpenMeteoCollector,
     RainViewerCollector,
     as_stale_bundle,
+    rainviewer_enabled_from_env,
 )
 from app.models.schemas import (
     SEVERITY_RANK,
@@ -126,8 +128,11 @@ class AggregatorService:
         swpc: Optional[NOAASWPCCollector] = None,
         storage: Optional[SQLiteWALStorage] = None,
         db_path: Optional[str | Path] = None,
+        rainviewer_enabled: Optional[bool] = None,
     ) -> None:
         self.started_at_utc = int(time.time())
+        # RainViewer is on unless VIGIE_ENABLE_RAINVIEWER turns it off (see ``rainviewer_enabled_from_env``).
+        self.rainviewer_enabled = rainviewer_enabled_from_env() if rainviewer_enabled is None else rainviewer_enabled
         self.usgs = usgs or USGSCollector()
         self.emsc = emsc or EMSCCollector()
         self.gdacs = gdacs or GDACSCollector()
@@ -184,8 +189,8 @@ class AggregatorService:
         return HistoryResponse(count=len(items), items=items)
 
     def get_all_collectors(self) -> list[Any]:
-        """Return the ordered list of every managed collector."""
-        return [
+        """Return the ordered list of every managed collector (without RainViewer when it is turned off)."""
+        collectors: list[Any] = [
             self.usgs,
             self.emsc,
             self.gdacs,
@@ -199,6 +204,7 @@ class AggregatorService:
             self.air_quality,
             self.swpc,
         ]
+        return collectors if self.rainviewer_enabled else [c for c in collectors if c is not self.rainviewer]
 
     def get_providers_health(self) -> list[ProviderHealth]:
         """Return the detailed health of each collector."""
@@ -315,6 +321,7 @@ class AggregatorService:
                 solar_storm_level="G2",
                 gps_degraded=True,
                 hf_radio_blackout_risk=True,
+                attribution=SIMULATION_CREDIT,
             )
         return status
 
@@ -334,6 +341,7 @@ class AggregatorService:
                 uv_index=status.uv_index if status else None,
                 dust_ugm3=max(status.dust_ugm3 or 0.0, 240.0) if status else 240.0,
                 ash_or_dust_warning=True,
+                attribution=SIMULATION_CREDIT,
             )
         return status
 
@@ -378,7 +386,7 @@ class AggregatorService:
             self.get_space_weather_safe(),
             self.get_flood_risk_safe(lat, lon),
             self.get_air_quality_safe(lat, lon),
-            _or_none(self.rainviewer.fetch()),
+            _or_none(self.rainviewer.fetch()) if self.rainviewer_enabled else _none_coro(),
             _or_none(self.marine.fetch_marine(lat, lon)) if include_marine else _none_coro(),
         )
         radar_meta = radar_meta or {}
@@ -395,6 +403,7 @@ class AggregatorService:
                 ocean_current_direction_deg=105,
                 sea_state_label="HIGH",
                 navigation_warning=True,
+                attribution=SIMULATION_CREDIT,
             )
 
         enriched_nearby: list[HazardAlert] = []
@@ -427,6 +436,13 @@ class AggregatorService:
             max_mm_h=None if rain_steps is None else round(max(rain_steps) * 4.0, 2),
             radar_tile_url_template=radar_meta.get("radar_tile_url_template"),
             radar_timestamp_utc=radar_meta.get("radar_timestamp_utc"),
+            # the rain steps come from the weather provider (Open-Meteo), the radar fields from RainViewer
+            attribution=merge_credits(
+                weather_bundle.get("attribution") if weather_bundle and rain_steps is not None else None,
+                credit_text(*RADAR)
+                if radar_meta.get("radar_tile_url_template") or radar_meta.get("radar_timestamp_utc") is not None
+                else None,
+            ),
         )
 
         if marine_conditions and marine_conditions.navigation_warning:
@@ -462,6 +478,11 @@ class AggregatorService:
             utc_offset_s=weather_bundle.get("utc_offset_s") if weather_bundle else None,
             weather_provider=str(weather_bundle["provider_name"]) if weather_bundle else None,
             fallback_used=bool(weather_bundle) and fallback_used,
+            weather_attribution=(
+                merge_credits(weather_bundle.get("attribution"), aqi_status.attribution if aqi_status else None)
+                if weather_bundle
+                else None
+            ),
             local_alert_level=local_level,
             current=current_weather,
             daily=list(weather_bundle.get("daily_10d") or [])[:days_count] if weather_bundle else [],
@@ -545,6 +566,10 @@ class AggregatorService:
                     current=self._with_air_quality(w_bundle["current"], aqi_results[idx]),
                     rain_next_60m=w_bundle.get("rain_next_60m"),
                     daily_10d=list(w_bundle.get("daily_10d") or [])[:days_per_zone],
+                    # the weather provider, and the air quality provider when its index was added to `current`
+                    attribution=merge_credits(
+                        w_bundle.get("attribution"), aqi_results[idx].attribution if aqi_results[idx] else None
+                    ),
                 )
             zones_out.append(zone_weather)
 
@@ -576,6 +601,7 @@ class AggregatorService:
             solar_storm_level=space_status.solar_storm_level,
             gps_degraded=space_status.gps_degraded,
             hf_radio_blackout_risk=space_status.hf_radio_blackout_risk,
+            space_weather_attribution=space_status.attribution if space_status.solar_kp is not None else None,
             weather_fallback_active=any_fallback,
             zones_without_weather=without_weather,
         )
@@ -658,6 +684,7 @@ class AggregatorService:
                         "distance_to_zone_km": h.distance_to_zone_km,
                         "bearing_deg": h.bearing_deg,
                         "bearing_cardinal": h.bearing_cardinal,
+                        "attribution": h.attribution,
                     },
                 )
             )
@@ -670,6 +697,7 @@ class AggregatorService:
                 "generated_utc": int(time.time()),
                 "count": len(features),
                 "simulation_active": self.simulation_active,
+                "attribution": merge_credits(*(h.attribution for h in hazards)),
             },
             features=features,
         )
@@ -717,6 +745,8 @@ class AggregatorService:
                     f"Position relative to {h.nearest_zone_name or 'the target'}: "
                     f"{h.distance_to_zone_km} km, bearing {h.bearing_deg} deg ({h.bearing_cardinal})."
                 )
+            if h.attribution:
+                desc_parts.append(f"Attribution: {h.attribution}")  # last, no full stop that could read as part of a URL
 
             cap_alerts.append(
                 CAPAlert(
@@ -744,6 +774,7 @@ class AggregatorService:
                                 "sources": h.sources,
                                 "bearing_deg": h.bearing_deg,
                                 "bearing_cardinal": h.bearing_cardinal,
+                                "attribution": h.attribution,
                             },
                             # The affected radius is not known: the area is the event position (radius 0).
                             area=[

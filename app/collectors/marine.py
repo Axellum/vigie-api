@@ -18,6 +18,7 @@ from typing import Any, Literal, Optional
 
 import httpx
 
+from app.attribution import MARINE, credit_text
 from app.collectors.base import BaseCollector, optional_float
 from app.collectors.grid import DEFAULT_MARINE_GRID_DEG, coord_str, grid_step_from_env, snap_to_grid
 from app.collectors.weights import open_meteo_weight
@@ -133,4 +134,5 @@ class OpenMeteoMarineCollector(BaseCollector[MarineConditions]):
             ocean_current_direction_deg=_direction(curr.get("ocean_current_direction")),
             sea_state_label=None if wave_h is None else classify_sea_state_douglas(wave_h),
             navigation_warning=nav_warning,
+            attribution=credit_text(*MARINE),
         )

@@ -94,6 +94,21 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Credit of the source in every response.** Each block of data carries an `attribution` field with the
+  text its source asks for: hazard alerts (`/v1/snapshot`, `/v1/point`, `/v1/history`, GeoJSON features and
+  `metadata`, CAP parameters and description, WebSocket pushes), the zones of the snapshot, and the
+  `rain_nowcast`, `marine`, `flood_risk`, `air_quality` and `space_weather` blocks of `/v1/point`;
+  `weather_attribution` (`/v1/point`) and `global_status.space_weather_attribution` (snapshot) credit the
+  fields of a response that mixes blocks. The texts are declared once, in `app/attribution.py`, and the
+  dashboard ends with them. A GDACS alert is credited with "Global Disaster Alert and Coordination System,
+  GDACS" and the notice that its alerts are automatic and do not replace official warnings; the
+  dashboard and the OpenAPI description carry the notice too. A block with no data has `attribution: null`;
+  a simulated alert or block is credited to no provider. The compact frame is unchanged: it has no credit
+  field. The compact snapshot is larger by about 2.5 KB with 15 hazards and 5 zones (measured on live data:
+  12.3 KB before, 14.8 KB after).
+- `VIGIE_ENABLE_RAINVIEWER` (default on, unchanged): `0` stops asking RainViewer, whose free API is for
+  personal and educational use only. `/v1/point` then leaves the radar fields unknown and `/v1/providers`
+  lists 11 providers.
 - `tests/test_call_sobriety.py` and `tests/simulation.py`: a simulated day (1,000 clients on 50
   points, the scheduler on, a simulated upstream and clock, no network) that counts the requests
   each provider receives and checks the Open-Meteo quota; `python -m tests.simulation` prints the

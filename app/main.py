@@ -126,7 +126,10 @@ app = FastAPI(
         "and weather (Open-Meteo, MET Norway fallback, RainViewer radar, marine, river discharge, "
         "air quality) for the Vigie displays. A value no provider supplied is reported as unknown "
         "(null, or an empty field in the embedded frame); nothing is ever made up. "
-        "Standards: IETF RFC 7946 GeoJSON, OASIS CAP 1.2."
+        "Standards: IETF RFC 7946 GeoJSON, OASIS CAP 1.2. "
+        "The code is MIT-licensed; the data belongs to each provider under its own terms (SOURCES.md), and every "
+        "block of data carries an `attribution` field with the credit its source asks for. "
+        "This is not an official warning service: GDACS alerts are automatic and do not replace official warnings."
     ),
 )
 
