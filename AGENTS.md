@@ -5,7 +5,7 @@ Guide for AI coding agents (and humans in a hurry) working on the Vigie API.
 ## What this is
 
 A FastAPI backend that aggregates world hazards and weather and serves them to the Vigie ESP32-P4
-displays (separate repository, `alerte_mondiale_7b`) through a text frame. Read
+displays (separate repository, `vigie-display`) through a text frame. Read
 [`README.md`](README.md) and [`docs/architecture.md`](docs/architecture.md) first.
 
 ## Commands

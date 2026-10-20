@@ -68,7 +68,7 @@ this URL does not change.
 1. **Start the API**, from any folder, in a normal (not administrator) PowerShell:
 
    ```
-   powershell -NoProfile -ExecutionPolicy Bypass -File H:\AuxFilsDesIdees\alerte_mondiale_api\scripts\run.ps1
+   powershell -NoProfile -ExecutionPolicy Bypass -File H:\AuxFilsDesIdees\vigie_api\scripts\run.ps1
    ```
 
    The script creates `.venv` in the repository on the first run, installs `requirements.txt`
@@ -98,8 +98,8 @@ this URL does not change.
    - *General*: name `Vigie API`; "Run only when user is logged on".
    - *Triggers*: New, "At log on", specific user: you.
    - *Actions*: New, "Start a program". Program: `powershell.exe`. Arguments:
-     `-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "H:\AuxFilsDesIdees\alerte_mondiale_api\scripts\run.ps1" -LogFile "H:\AuxFilsDesIdees\alerte_mondiale_api\logs\vigie-api.log"`.
-     Start in: `H:\AuxFilsDesIdees\alerte_mondiale_api`.
+     `-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "H:\AuxFilsDesIdees\vigie_api\scripts\run.ps1" -LogFile "H:\AuxFilsDesIdees\vigie_api\logs\vigie-api.log"`.
+     Start in: `H:\AuxFilsDesIdees\vigie_api`.
    - *Settings*: "If the task fails, restart every" 1 minute, 3 attempts; untick "Stop the task if
      it runs longer than". The `H:` drive must be available at logon. If the repository folder is
      renamed, update the paths above. The server output goes to `logs\vigie-api.log`
