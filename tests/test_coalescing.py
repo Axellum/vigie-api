@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import asyncio
 import gc
-import time
 from typing import Any
 
 import httpx
 import pytest
 
+from app import clock as app_clock
 from app.collectors.base import BaseCollector, CollectorUnavailableError
 from app.models.schemas import CircuitState
-from tests.helpers import Provider
+from tests.helpers import Provider, expired_entry
 
 
 class Echo(BaseCollector[dict[str, Any]]):
@@ -82,7 +82,7 @@ async def test_an_error_reaches_every_waiter_and_is_counted_once() -> None:
 async def test_each_waiter_applies_its_own_stale_policy() -> None:
     provider = failing_provider()
     collector = Echo(provider)
-    collector._cache["same"] = (time.monotonic() - 10_000.0, {"value": "old"})  # expired long ago
+    collector._cache["same"] = expired_entry({"value": "old"})
 
     results = await asyncio.gather(
         collector.fetch("same", allow_stale_on_error=True),
@@ -171,7 +171,7 @@ async def test_one_probe_when_the_circuit_is_half_open() -> None:
     provider = Provider({"value": 1})
     collector = Echo(provider, recovery_timeout_seconds=30)
     collector.circuit_state = CircuitState.OPEN
-    collector.opened_at_monotonic = time.monotonic() - 60.0  # the recovery delay has passed
+    collector.opened_at_monotonic = app_clock.monotonic() - 60.0  # the recovery delay has passed
 
     results = await asyncio.gather(*(collector.fetch("same") for _ in range(20)))
 

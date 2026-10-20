@@ -53,7 +53,8 @@ class OpenMeteoFloodCollector(BaseCollector[FloodRiskStatus]):
             provider_id="open_meteo_flood",
             name="Open-Meteo Flood API (Copernicus GloFAS)",
             domain="disasters",
-            ttl_seconds=600,
+            # 6 hours: the GloFAS forecast is updated once a day. https://open-meteo.com/en/docs/flood-api
+            ttl_seconds=21600,
             http_client=http_client,
         )
         self.grid_deg = (
@@ -131,7 +132,9 @@ class OpenMeteoAirQualityCollector(BaseCollector[AirQualityStatus]):
             provider_id="open_meteo_aqi",
             name="Open-Meteo Air Quality, Dust & UV API",
             domain="weather",
-            ttl_seconds=600,
+            # 1 hour: the CAMS forecast has hourly values (Europe) or 3-hourly ones (global) and is updated
+            # every 12 to 24 hours. https://open-meteo.com/en/docs/air-quality-api
+            ttl_seconds=3600,
             http_client=http_client,
         )
         self.grid_deg = (
@@ -241,7 +244,7 @@ class USGSVolcanoCollector(BaseCollector[list[HazardAlert]]):
             provider_id="usgs_volcano_gvp",
             name="USGS Volcano Hazards Program (elevated alerts)",
             domain="disasters",
-            ttl_seconds=600,
+            ttl_seconds=600,  # update rhythm not verified (the endpoint documents none and sends no cache header)
             http_client=http_client,
         )
 

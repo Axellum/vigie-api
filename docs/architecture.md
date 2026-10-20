@@ -86,6 +86,11 @@ The number of calls to the providers must not grow with the number of clients. W
   the longest length any route returns (10 days) and cached once per cell. The compact profiles
   (5 days: the frame, `compact=true`) slice the answer; the number of days is not part of any cache
   key. A watched zone read by a frame and by a web page used to cost two calls.
+- **TTLs from the sources' own rhythm.** Each source is cached for the time it takes to change, not
+  for a round 5 minutes: the table with the evidence, the source URL and what could not be verified
+  is [`data-sources.md`](data-sources.md). MET Norway is asked as its terms require: a conditional
+  request (`If-Modified-Since` with the previous `Last-Modified`), and its answer is kept until the
+  `Expires` header; a `304 Not Modified` keeps the cached value.
 - **One upstream request for simultaneous callers.** `BaseCollector.fetch` runs the request of a
   cache key in one shared task: N clients asking for the same key at the same time send one request
   and all receive its answer or its error (each caller then applies its own stale policy). The

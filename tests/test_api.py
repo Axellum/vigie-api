@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import time
 from unittest.mock import AsyncMock
 
 import pytest
@@ -17,6 +16,7 @@ from app.services.embedded_frame import verify_embedded_frame_crc
 from app.services.scheduler import detect_new_or_upgraded_hazards
 from tests import samples
 from tests.conftest import World
+from tests.helpers import expired_entry
 
 # ============================================================================
 # Weather fallback
@@ -51,7 +51,7 @@ async def test_weather_uses_the_stale_cache_and_says_so() -> None:
     metno_collector = MetNorwayCollector()
     cached = samples.parsed_open_meteo()
     # cached long ago (monotonic clock), so the entry is stale whatever the machine uptime
-    om_collector._cache[om_collector.cache_key_for(48.8566, 2.3522)] = (time.monotonic() - 10_000.0, cached)
+    om_collector._cache[om_collector.cache_key_for(48.8566, 2.3522)] = expired_entry(cached)
     om_collector._collect = AsyncMock(side_effect=RuntimeError("down"))  # type: ignore[method-assign]
     metno_collector._collect = AsyncMock(side_effect=RuntimeError("down"))  # type: ignore[method-assign]
     service = AggregatorService(open_meteo=om_collector, met_norway=metno_collector)

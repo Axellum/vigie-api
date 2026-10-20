@@ -65,7 +65,9 @@ class OpenMeteoMarineCollector(BaseCollector[MarineConditions]):
             provider_id="open_meteo_marine",
             name="Open-Meteo Marine & Oceanography API",
             domain="marine",
-            ttl_seconds=300,
+            # 1 hour: the wave and current models have hourly values (some 3-hourly) and are updated every
+            # 6 to 24 hours. https://open-meteo.com/en/docs/marine-weather-api
+            ttl_seconds=3600,
             http_client=http_client,
         )
         self.grid_deg = (

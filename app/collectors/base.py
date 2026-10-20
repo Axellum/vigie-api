@@ -1,4 +1,4 @@
-"""Base class of the external collectors: circuit breaker, TTL cache and metrics.
+"""Base class of the external collectors: circuit breaker, TTL cache, request coalescing and metrics.
 
 Guarantees invariant 1 of ``AGENTS.md``: a collector that times out or fails
 (USGS, EMSC, GDACS, NOAA, Open-Meteo, MET Norway...) never blocks the asyncio
@@ -11,12 +11,15 @@ from __future__ import annotations
 import asyncio
 import math
 import os
-import time
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from datetime import timezone
+from email.utils import parsedate_to_datetime
 from typing import Any, Generic, Optional, TypeVar
 
 import httpx
 
+from app import clock
 from app.models.schemas import CircuitState, ProviderHealth
 
 T = TypeVar("T")
@@ -43,8 +46,60 @@ def optional_float(value: Any) -> Optional[float]:
     return number if math.isfinite(number) else None
 
 
+def http_date_to_epoch(value: Optional[str]) -> Optional[float]:
+    """Convert an HTTP date (``Expires``, ``Date``, ``Last-Modified``) to epoch seconds, or ``None``."""
+    if not value:
+        return None
+    try:
+        parsed = parsedate_to_datetime(value)
+    except (TypeError, ValueError):
+        return None
+    if parsed is None:
+        return None
+    return parsed.timestamp() if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc).timestamp()
+
+
+def response_lifetime_s(response: httpx.Response) -> Optional[float]:
+    """How long the provider says the answer stays valid, from its ``Expires`` header.
+
+    The lifetime is ``Expires - Date`` (both are the provider's own clock, so a wrong clock on this
+    machine changes nothing); without a ``Date`` header it is ``Expires`` minus the local wall clock.
+    ``None`` when there is no usable ``Expires`` or when it is already past.
+    """
+    expires = http_date_to_epoch(response.headers.get("Expires"))
+    if expires is None:
+        return None
+    reference = http_date_to_epoch(response.headers.get("Date"))
+    lifetime = expires - (reference if reference is not None else clock.wall())
+    return lifetime if lifetime > 0 else None
+
+
 class CollectorUnavailableError(RuntimeError):
     """Raised when a collector fails and no cached fallback value is available."""
+
+
+@dataclass
+class CacheEntry(Generic[T]):
+    """One cached answer."""
+
+    stored_at: float  # monotonic time of the last refresh (its age is reported in the health)
+    value: T
+    fresh_until: float  # monotonic time until which the value is served without a new request
+    validators: Optional[dict[str, str]] = None  # HTTP validators for a conditional request (``Last-Modified``)
+
+
+@dataclass(frozen=True)
+class Collected(Generic[T]):
+    """What ``_collect`` returns when the provider says more than the value.
+
+    ``fresh_for_s`` is the lifetime the provider announced (``response_lifetime_s``): the cache keeps
+    the value that long instead of the TTL of the collector. ``validators`` are kept to make the next
+    request conditional.
+    """
+
+    value: T
+    fresh_for_s: Optional[float] = None
+    validators: Optional[dict[str, str]] = None
 
 
 class BaseCollector(ABC, Generic[T]):
@@ -81,7 +136,7 @@ class BaseCollector(ABC, Generic[T]):
         self.latency_ms: float = 0.0
 
         # In-memory cache keyed by an arbitrary string (e.g. "global" or "48.86,2.35")
-        self._cache: dict[str, tuple[float, T]] = {}
+        self._cache: dict[str, CacheEntry[T]] = {}
         # The upstream request being sent for each cache key (see ``_coalesced_upstream``)
         self._inflight: dict[str, asyncio.Task[T]] = {}
 
@@ -90,29 +145,38 @@ class BaseCollector(ABC, Generic[T]):
         entry = self._cache.get(cache_key)
         if entry is None:
             return None
-        ts_mono, data = entry
-        if (time.monotonic() - ts_mono) <= self.ttl_seconds:
-            return data
+        if clock.monotonic() <= entry.fresh_until:
+            return entry.value
         return None
 
     def _get_stale_cache(self, cache_key: str) -> Optional[T]:
         """Return the last known value even if its TTL has expired (degraded mode)."""
         entry = self._cache.get(cache_key)
-        return entry[1] if entry is not None else None
+        return entry.value if entry is not None else None
 
-    def _record_success(self, elapsed_ms: float, cache_key: str, data: T) -> None:
+    def _record_success(
+        self,
+        elapsed_ms: float,
+        cache_key: str,
+        data: T,
+        ttl_seconds: Optional[float] = None,
+        validators: Optional[dict[str, str]] = None,
+    ) -> None:
         """Record a network success, close the circuit and refresh the cache."""
-        now_mono = time.monotonic()
+        now_mono = clock.monotonic()
         self.circuit_state = CircuitState.CLOSED
         self.consecutive_failures = 0
         self.opened_at_monotonic = None
-        self.last_success_utc = int(time.time())
+        self.last_success_utc = int(clock.wall())
         self.last_error = None
         if self.latency_ms == 0.0:
             self.latency_ms = round(elapsed_ms, 2)
         else:
             self.latency_ms = round(0.7 * self.latency_ms + 0.3 * elapsed_ms, 2)
-        self._cache[cache_key] = (now_mono, data)
+        lifetime = self.ttl_seconds if ttl_seconds is None else ttl_seconds
+        self._cache[cache_key] = CacheEntry(
+            stored_at=now_mono, value=data, fresh_until=now_mono + lifetime, validators=validators
+        )
 
     def _record_failure(self, error_msg: str) -> None:
         """Count a failure and open the circuit once the threshold is reached."""
@@ -120,7 +184,7 @@ class BaseCollector(ABC, Generic[T]):
         self.last_error = error_msg[:240]
         if self.consecutive_failures >= self.failure_threshold:
             self.circuit_state = CircuitState.OPEN
-            self.opened_at_monotonic = time.monotonic()
+            self.opened_at_monotonic = clock.monotonic()
 
     def _can_attempt_network(self) -> bool:
         """Tell whether the circuit breaker allows a network call."""
@@ -129,7 +193,7 @@ class BaseCollector(ABC, Generic[T]):
         if self.circuit_state == CircuitState.OPEN:
             if (
                 self.opened_at_monotonic is not None
-                and (time.monotonic() - self.opened_at_monotonic) >= self.recovery_timeout_seconds
+                and (clock.monotonic() - self.opened_at_monotonic) >= self.recovery_timeout_seconds
             ):
                 self.circuit_state = CircuitState.HALF_OPEN
                 return True
@@ -145,8 +209,13 @@ class BaseCollector(ABC, Generic[T]):
         with ``allow_stale_on_error=True`` (default) and a cached value, the cached value is returned
         on failure. Otherwise ``CollectorUnavailableError`` is raised so that the orchestrator can
         switch to its fallback.
+
+        ``ttl_seconds`` (optional) replaces the TTL of the collector for the entry this call stores;
+        a ``_collect`` that returns ``Collected(fresh_for_s=...)`` replaces it with what the provider said.
         """
         allow_stale: bool = bool(kwargs.pop("allow_stale_on_error", True))
+        ttl = kwargs.pop("ttl_seconds", None)
+        ttl_seconds: float = self.ttl_seconds if ttl is None else float(ttl)
 
         if not force_refresh:
             fresh = self._get_cached_if_fresh(cache_key)
@@ -162,7 +231,7 @@ class BaseCollector(ABC, Generic[T]):
             )
 
         try:
-            return await self._coalesced_upstream(cache_key, kwargs)
+            return await self._coalesced_upstream(cache_key, ttl_seconds, kwargs)
         except Exception as exc:
             stale = self._get_stale_cache(cache_key) if allow_stale else None
             if stale is not None:
@@ -171,7 +240,7 @@ class BaseCollector(ABC, Generic[T]):
                 f"Collector {self.name} failed: {type(exc).__name__}: {exc}"
             ) from exc
 
-    async def _coalesced_upstream(self, cache_key: str, kwargs: dict[str, Any]) -> T:
+    async def _coalesced_upstream(self, cache_key: str, ttl_seconds: float, kwargs: dict[str, Any]) -> T:
         """Return the answer of the upstream request for ``cache_key``, starting it only if none is running.
 
         The request runs in its own task, shared by every caller: a caller that is cancelled (a client
@@ -185,7 +254,7 @@ class BaseCollector(ABC, Generic[T]):
             self._inflight.pop(cache_key, None)
             task = None
         if task is None:
-            task = loop.create_task(self._upstream(cache_key, kwargs))
+            task = loop.create_task(self._upstream(cache_key, ttl_seconds, kwargs))
             self._inflight[cache_key] = task
             task.add_done_callback(lambda done, key=cache_key: self._upstream_done(key, done))
         return await asyncio.shield(task)
@@ -197,36 +266,50 @@ class BaseCollector(ABC, Generic[T]):
         if not task.cancelled():
             task.exception()
 
-    async def _upstream(self, cache_key: str, kwargs: dict[str, Any]) -> T:
-        """Send the upstream request once, record its outcome in the circuit breaker and the cache."""
-        start_mono = time.monotonic()
+    async def _upstream(self, cache_key: str, ttl_seconds: float, kwargs: dict[str, Any]) -> T:
+        """Send the upstream request once, record its outcome in the circuit breaker and the cache.
+
+        ``_collect`` receives the entry already cached under this key (``previous``, possibly expired)
+        so that a provider that supports it can be asked whether anything changed.
+        """
+        start_mono = clock.monotonic()
+        previous = self._cache.get(cache_key)
         try:
             if self._external_client is not None:
-                result = await self._collect(self._external_client, **kwargs)
+                result = await self._collect(self._external_client, previous=previous, **kwargs)
             else:
                 headers = {"User-Agent": build_user_agent(), "Accept": "application/json"}
                 async with httpx.AsyncClient(
                     timeout=self.timeout_seconds, headers=headers, follow_redirects=True
                 ) as client:
-                    result = await self._collect(client, **kwargs)
+                    result = await self._collect(client, previous=previous, **kwargs)
         except Exception as exc:
             self._record_failure(f"{type(exc).__name__}: {exc}")
             raise
 
-        elapsed_ms = (time.monotonic() - start_mono) * 1000.0
-        self._record_success(elapsed_ms, cache_key, result)
+        elapsed_ms = (clock.monotonic() - start_mono) * 1000.0
+        if isinstance(result, Collected):
+            lifetime = ttl_seconds if result.fresh_for_s is None else result.fresh_for_s
+            self._record_success(elapsed_ms, cache_key, result.value, lifetime, result.validators)
+            return result.value
+        self._record_success(elapsed_ms, cache_key, result, ttl_seconds)
         return result
 
     @abstractmethod
-    async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> T:
-        """Provider-specific collection implemented by each concrete collector."""
+    async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> T | Collected[T]:
+        """Provider-specific collection implemented by each concrete collector.
+
+        Returns the value, or ``Collected`` when the provider also tells how long the value stays valid
+        or gives validators. ``previous`` (a ``CacheEntry`` or ``None``) is always among the keyword
+        arguments.
+        """
 
     def get_health(self) -> ProviderHealth:
         """Return the instantaneous health of the collector."""
         newest_age_s: Optional[int] = None
         if self._cache:
-            now_mono = time.monotonic()
-            min_age = min(now_mono - ts for ts, _ in self._cache.values())
+            now_mono = clock.monotonic()
+            min_age = min(now_mono - entry.stored_at for entry in self._cache.values())
             newest_age_s = max(0, int(min_age))
 
         healthy = self.circuit_state != CircuitState.OPEN or newest_age_s is not None

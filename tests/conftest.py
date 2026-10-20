@@ -27,6 +27,7 @@ os.environ["VIGIE_DB_PATH"] = str(_TEST_DIR / "vigie-tests.db")
 for _name in ("VIGIE_SCHEDULER", "VIGIE_CAP_SENDER", "VIGIE_CONTACT"):
     os.environ.pop(_name, None)
 
+from app import clock as app_clock  # noqa: E402
 from app.main import aggregator, app  # noqa: E402
 from app.models.schemas import (  # noqa: E402
     AirQualityStatus,
@@ -39,6 +40,7 @@ from app.models.schemas import (  # noqa: E402
 from app.services.aggregator import AggregatorService  # noqa: E402
 from app.services.storage_wal import SQLiteWALStorage  # noqa: E402
 from tests import samples  # noqa: E402
+from tests.helpers import SimClock  # noqa: E402
 
 _REAL_SEND = httpx.AsyncClient.send
 
@@ -57,6 +59,15 @@ def _no_network(monkeypatch: pytest.MonkeyPatch) -> None:
         raise httpx.ConnectError("network access is disabled in tests", request=request)
 
     monkeypatch.setattr(httpx.AsyncClient, "send", _guard)
+
+
+@pytest.fixture()
+def sim_clock(monkeypatch: pytest.MonkeyPatch) -> SimClock:
+    """A simulated clock installed as the time source of the collectors (cache lifetimes, HTTP dates)."""
+    clock = SimClock()
+    monkeypatch.setattr(app_clock, "_monotonic", clock.monotonic)
+    monkeypatch.setattr(app_clock, "_wall", clock.time)
+    return clock
 
 
 @dataclass

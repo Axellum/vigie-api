@@ -47,6 +47,8 @@ class USGSCollector(BaseCollector[list[HazardAlert]]):
             provider_id="usgs_eq",
             name="USGS Earthquake Hazards Program",
             domain="seismic",
+            # 60 s: the feed is updated every minute (and sends Cache-Control: max-age=60).
+            # https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php
             ttl_seconds=60,
             http_client=http_client,
         )
@@ -129,7 +131,7 @@ class EMSCCollector(BaseCollector[list[HazardAlert]]):
             provider_id="emsc_seismic",
             name="EMSC / SeismicPortal (Euro-Med & Global)",
             domain="seismic",
-            ttl_seconds=60,
+            ttl_seconds=60,  # update rhythm not verified (the service documents none; it sends max-age=15)
             http_client=http_client,
         )
 

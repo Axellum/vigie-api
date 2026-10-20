@@ -27,7 +27,7 @@ from typing import Any, Optional
 
 import httpx
 
-from app.collectors.base import BaseCollector, optional_float
+from app.collectors.base import BaseCollector, CacheEntry, Collected, optional_float, response_lifetime_s
 from app.collectors.grid import (
     DEFAULT_FORECAST_GRID_DEG,
     coord_str,
@@ -123,7 +123,9 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
             provider_id="open_meteo_hd",
             name="Open-Meteo High-Def (AROME / HRRR / IFS / ICON)",
             domain="weather",
-            ttl_seconds=300,
+            # 15 minutes: the temporal resolution of the ``current`` and ``minutely_15`` data (the models
+            # themselves are updated every hour at best). https://open-meteo.com/en/docs
+            ttl_seconds=900,
             is_fallback=False,
             http_client=http_client,
         )
@@ -265,6 +267,8 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
             provider_id="met_norway_fallback",
             name="MET Norway Locationforecast 2.0 (Global Fallback)",
             domain="weather",
+            # Only used when the answer carries no ``Expires`` header: the cache keeps the value until the
+            # ``Expires`` of each answer (terms: https://api.met.no/doc/TermsOfService). Not verified.
             ttl_seconds=300,
             is_fallback=True,
             http_client=http_client,
@@ -296,16 +300,39 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
             allow_stale_on_error=allow_stale_on_error,
         )
 
-    async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> dict[str, Any]:
+    async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> Collected[dict[str, Any]]:
+        """Ask MET Norway as its terms require: a conditional request, and the answer valid until ``Expires``.
+
+        When a previous answer is cached, the request carries ``If-Modified-Since`` with exactly its
+        ``Last-Modified``. ``304 Not Modified`` keeps the cached value (it is not parsed again); in both
+        cases the value stays valid until the ``Expires`` of the new answer.
+        """
         lat = float(kwargs["lat"])
         lon = float(kwargs["lon"])
+        previous: Optional[CacheEntry[dict[str, Any]]] = kwargs.get("previous")
+
+        headers: dict[str, str] = {}
+        if previous is not None and previous.validators and previous.validators.get("Last-Modified"):
+            headers["If-Modified-Since"] = previous.validators["Last-Modified"]
 
         resp = await client.get(
             self.BASE_URL,
             params={"lat": coord_str(lat), "lon": coord_str(lon)},
+            headers=headers,
         )
+        lifetime = response_lifetime_s(resp)
+        if resp.status_code == 304:
+            if previous is None:
+                raise ValueError("MET Norway answered 304 Not Modified to a request that was not conditional")
+            return Collected(previous.value, fresh_for_s=lifetime, validators=previous.validators)
         resp.raise_for_status()
-        return self.parse_response(resp.json(), utc_offset_s=kwargs.get("utc_offset_s"))
+
+        last_modified = resp.headers.get("Last-Modified")
+        return Collected(
+            self.parse_response(resp.json(), utc_offset_s=kwargs.get("utc_offset_s")),
+            fresh_for_s=lifetime,
+            validators={"Last-Modified": last_modified} if last_modified else None,
+        )
 
     @staticmethod
     def parse_response(
@@ -420,7 +447,8 @@ class RainViewerCollector(BaseCollector[dict[str, Any]]):
             provider_id="rainviewer_radar",
             name="RainViewer Global Weather Radar API",
             domain="weather",
-            ttl_seconds=180,
+            # 10 minutes: the radar frames are 10 minutes apart. https://www.rainviewer.com/api/weather-maps-api.html
+            ttl_seconds=600,
             http_client=http_client,
         )
 

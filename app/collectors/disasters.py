@@ -61,7 +61,7 @@ class GDACSCollector(BaseCollector[list[HazardAlert]]):
             provider_id="gdacs_global",
             name="GDACS (UN / European Commission JRC)",
             domain="disasters",
-            ttl_seconds=180,
+            ttl_seconds=180,  # update rhythm not verified (https://data.gdacs.org/About/termofuse.aspx documents none)
             http_client=http_client,
         )
 
@@ -156,6 +156,8 @@ class NOAANWSCollector(BaseCollector[list[HazardAlert]]):
             provider_id="noaa_nws",
             name="NOAA National Weather Service (CAP Alerts)",
             domain="disasters",
+            # The API sends Cache-Control: max-age=5 but documents no update rhythm
+            # (https://www.weather.gov/documentation/services-web-api): kept at 120 s, not verified.
             ttl_seconds=120,
             http_client=http_client,
         )

@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from datetime import datetime, timezone
+from email.utils import format_datetime
 from pathlib import Path
 from typing import Any, Optional
 
 import httpx
 
+from app import clock as app_clock
+from app.collectors.base import CacheEntry
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector
 from app.collectors.flood_air import (
     OpenMeteoAirQualityCollector,
@@ -21,6 +25,38 @@ from app.collectors.space_weather import NOAASWPCCollector
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector, RainViewerCollector
 from app.services.aggregator import AggregatorService
 from app.services.storage_wal import SQLiteWALStorage
+
+
+class SimClock:
+    """Simulated clock: ``monotonic()`` and ``time()`` move only when the test says so.
+
+    The ``sim_clock`` fixture of ``conftest.py`` installs one as the time source of the collectors.
+    """
+
+    EPOCH = 1_792_000_000.0  # a fixed wall-clock start (October 2026)
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def time(self) -> float:
+        return self.EPOCH + self.now
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds
+
+
+def http_date(epoch: float) -> str:
+    """An epoch time as an HTTP date (``Expires: Tue, 20 Oct 2026 08:40:14 GMT``)."""
+    return format_datetime(datetime.fromtimestamp(epoch, tz=timezone.utc), usegmt=True)
+
+
+def expired_entry(value: Any) -> CacheEntry[Any]:
+    """A cache entry stored long ago and no longer fresh: the value is only good as a stale fallback."""
+    now = app_clock.monotonic()
+    return CacheEntry(stored_at=now - 10_000.0, value=value, fresh_until=now - 9_000.0)
 
 
 class Provider:

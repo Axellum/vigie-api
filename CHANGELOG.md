@@ -17,6 +17,11 @@ All notable changes to this project are documented here. The format follows
   cached once per position; the compact profiles slice it. A frame (5 days) and a full page
   (10 days) used to cost one Open-Meteo call each per position. `fetch_weather_with_fallback` no
   longer takes `days`.
+- **Call sobriety, TTLs from the sources' rhythm.** Open-Meteo forecast 5 to 15 minutes, air quality
+  10 to 60 minutes, marine 5 to 60 minutes, river discharge 10 minutes to 6 hours, RainViewer 3 to
+  10 minutes (the evidence and what is **not verified** are in `docs/data-sources.md`).
+  MET Norway is now asked as its terms require: `If-Modified-Since` with the previous
+  `Last-Modified`, `304 Not Modified` handled, the answer kept until its `Expires` header.
 - **Call sobriety, request coalescing.** Simultaneous requests for the same cache key now send one
   upstream request (they used to send one each, and each failure counted in the circuit breaker).
 - **Embedded frame contract** ([`docs/embedded-frame.md`](docs/embedded-frame.md)), same column

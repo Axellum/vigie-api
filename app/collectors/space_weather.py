@@ -44,6 +44,9 @@ class NOAASWPCCollector(BaseCollector[SpaceWeatherStatus]):
             provider_id="noaa_swpc",
             name="NOAA Space Weather Prediction Center (Planetary Kp)",
             domain="space",
+            # The page says the chart is updated every minute and the file sends max-age=60
+            # (https://www.spaceweather.gov/products/planetary-k-index); the index itself has 3-hour
+            # intervals, so 5 minutes loses nothing.
             ttl_seconds=300,
             http_client=http_client,
         )
