@@ -15,6 +15,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from app.collectors.base import CircuitState
+from app.main import aggregator
 from app.models.places import WatchedPoint
 from app.models.schemas import HazardAlert, HazardCategory, SeverityLevel, SimulationRequest, SimulationScenario
 from app.models.watch import WatchedSource
@@ -33,6 +35,15 @@ from tests import places_samples as real
 from tests.conftest import World
 
 pytestmark = pytest.mark.usefixtures("watched_points_write_on")  # the points are written through the routes
+
+
+@pytest.fixture(autouse=True)
+def _every_hazard_collector_starts_healthy() -> None:
+    """The collectors are the application's own, shared by every test: a test that let one fail (the network is refused in the tests)
+    leaves it with failures behind it, and "every source answered" would then be false here for a reason that is not the test's."""
+    for collector in aggregator.hazard_collectors():
+        collector.consecutive_failures = 0
+        collector.circuit_state = CircuitState.CLOSED
 
 DAY = 86400
 NOW = 1_792_500_000  # a fixed "now" for the pure tests
