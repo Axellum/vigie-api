@@ -175,6 +175,15 @@ finement.
   d'aucune requête propre. Voir « Appels aux sources » plus bas.
 - La trame embarquée des écrans **ne change pas**.
 
+## Home Assistant
+
+`custom_components/vigie` est une intégration Home Assistant qui lit ces vigilances pour un lieu et donne un capteur
+de niveau maximal, un capteur binaire « vigilance active » et une entité événement (`new`, `upgraded`, `ended`) pour
+déclencher des automatisations. Il lui faut une instance de cette API que Home Assistant peut joindre, et rien d'autre.
+Installation, options, la règle « inconnu n'est pas aucune », un exemple d'automatisation et les limites :
+[`docs/home-assistant.md`](docs/home-assistant.md) (en anglais). Elle est fournie telle quelle, comme le reste du
+projet, et n'est pas non plus un service d'alerte officiel.
+
 ## Lancer
 
 Python 3.12 ou plus récent (la CI couvre 3.12 et 3.13).
@@ -338,6 +347,7 @@ cloné ce dépôt.
 python -m pytest              # aucun test ne touche le réseau
 python -m ruff check .        # analyse statique
 python tools/capture_frame.py frame.txt     # écrit une VRAIE trame (utilise les vraies sources)
+python tools/fake_instance.py               # une fausse instance dont vous choisissez les vigilances (pour essayer l'intégration Home Assistant)
 python tools/check_live_feeds.py            # interroge chaque vraie source une fois, vérifie que les analyseurs la lisent encore
 python tools/build_geometries.py            # reconstruit app/data (frontières et formes NUTS) depuis Natural Earth et Wikidata
 ```
@@ -356,6 +366,9 @@ CI (`.github/workflows/`) :
 compris). Une exécution rouge
   veut dire qu'une source a changé de format, retiré un point d'accès, ou envoyé un mot de niveau ou de
   phénomène que les tables ne connaissent pas.
+- `home-assistant.yml` : l'intégration Home Assistant (`custom_components/vigie`), seulement quand elle change, et
+  chaque semaine : ses tests (`tests_ha/`, dans un environnement à part : Python 3.14 et la version de Home Assistant
+  qu'ils fixent), hassfest et la validation HACS.
 - `publish-image.yml` : pousse l'image Docker vers `ghcr.io/axellum/vigie-api` quand une étiquette `v*` est
   poussée.
 
@@ -382,5 +395,6 @@ La documentation du dépôt est en anglais.
 - [`docs/architecture.md`](docs/architecture.md) : composants, flux de données, limites.
 - [`docs/embedded-frame.md`](docs/embedded-frame.md) : le contrat de la trame (source unique de vérité).
 - [`docs/data-sources.md`](docs/data-sources.md) : comment chaque source est utilisée, cache et volume d'appels.
+- [`docs/home-assistant.md`](docs/home-assistant.md) : l'intégration Home Assistant.
 - [`docs/decisions/`](docs/decisions) : décisions d'architecture.
 - [`CHANGELOG.md`](CHANGELOG.md), [`AGENTS.md`](AGENTS.md) (guide pour les agents de code IA).

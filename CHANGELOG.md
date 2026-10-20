@@ -5,6 +5,32 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A Home Assistant integration** (`custom_components/vigie`, `hacs.json`), configured in the interface: the address of
+  an instance (checked by `/v1/health`), the place (the home zone by default), several places allowed, and options for
+  the poll interval (5 minutes, 1 to 60) and the river radius (5 km, 1 to 50). It gives a **maximum level** sensor
+  (`none`, `yellow`, `orange`, `red`, with the warnings, the level of each phenomenon and the state of the sources in
+  bounded attributes), a **warning active** binary sensor and a **vigilance** event entity that fires `new`, `upgraded`
+  and `ended` by comparing each read with the one before (a warning is recognised by its source, phenomenon and area, not
+  by its identifier, which MeteoAlarm changes at every update). **Unknown is never `none`**: no source for the place,
+  every source unavailable, a warning of unreadable level, or warnings that cannot be placed on a map give an unknown
+  state; an unreachable instance makes the entities unavailable. When the instance runs its scheduler, `WS /v1/stream`
+  is followed too and a push makes the integration read again at once; the poll stays as the fallback and the whole
+  mechanism otherwise. English and French, diagnostics with the coordinates redacted. See
+  [`docs/home-assistant.md`](docs/home-assistant.md) and [ADR 0004](docs/decisions/0004-home-assistant-integration-same-repository.md).
+  Not yet tried on a running Home Assistant.
+- **`tests_ha/`**: 130 tests of the integration (`pytest-homeassistant-custom-component` 0.13.373, which pins Home
+  Assistant 2026.10.2 and needs Python 3.14.2 or newer, in an environment of its own), and
+  `tests/test_home_assistant_contract.py` in the API's CI, which checks that the answers they use (a real recorded one,
+  the builders, the fake instance) are answers of the API's own models.
+- **`.github/workflows/home-assistant.yml`**: the integration's tests, hassfest and the HACS validation, only when the
+  integration changes and weekly. `ci.yml` is unchanged. The two actions that have no moving version tag are pinned to a
+  commit (`test_every_action_is_pinned_to_a_version_or_a_commit`).
+- **`tools/fake_instance.py`**: a fake instance (standard library only) that serves `/v1/health` and `/v1/vigilances`
+  with warnings added and removed by hand, all labelled `SIMULATION`, to try the integration's entities and events.
+  `POST /v1/simulate` cannot do it: it injects hazards, not official warnings.
+
 ### Changed
 
 - **Vigicrues is read at its publications, not on a timer: 310 MB a day become 9 MB.** The flow is 2.2 MB, not

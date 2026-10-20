@@ -17,6 +17,8 @@ scripts\run.ps1                           # run the API on Windows (port 8080)
 python tools/capture_frame.py out.txt     # write a REAL frame from the live providers
 python tools/check_live_feeds.py          # ask each real provider once (the weekly live-feeds workflow does it)
 python tools/build_geometries.py          # rebuild app/data (borders, NUTS shapes) from Natural Earth and Wikidata
+python tools/fake_instance.py             # a fake instance with warnings you add by hand (to try the Home Assistant integration)
+python -m pytest tests_ha                 # the Home Assistant integration's tests: its own venv, Python 3.14.2+ (docs/home-assistant.md)
 ```
 
 Python 3.12 or newer. Use PowerShell 5.1-compatible commands when you give a command to the
@@ -73,3 +75,9 @@ owner (no `&&`).
     ([ADR 0003](docs/decisions/0003-national-source-preferred-rivers-are-lines.md)). A new national source is a collector,
     a credit, a row in `SOURCES.md`, recorded answers in `tests/fixtures/<source>/` with a README, a check in
     `tools/check_live_feeds.py`, and a line in `docs/data-sources.md` for its cache and its request count.
+14. **The Home Assistant integration** (`custom_components/vigie`, `tests_ha/`) is code of this repository, in English like
+    the rest, with the same rule: a value nobody supplied is unknown, never `none` or a default
+    ([ADR 0004](docs/decisions/0004-home-assistant-integration-same-repository.md)). It reads `GET /v1/vigilances`: changing
+    a field of that answer means updating what it reads, `tests_ha/payloads.py` and the recorded answer in
+    `tests_ha/fixtures/` in the same change (`tests/test_home_assistant_contract.py` fails otherwise). `python -m pytest`
+    never collects `tests_ha/` and never installs Home Assistant; the integration has its own CI workflow.
