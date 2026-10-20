@@ -118,6 +118,14 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "nasa_firms",
+            "NASA FIRMS (LANCE, ESDIS)",
+            "We acknowledge the use of data and/or imagery from NASA's Fire Information for Resource Management System (FIRMS) "
+            "(https://earthdata.nasa.gov/firms), part of NASA's Land, Atmosphere Near real-time Capability for Earth observations "
+            "(LANCE) (https://earthdata.nasa.gov/lance) and NASA's Earth Science Data and Information System (ESDIS).",
+            "provider",
+        ),
+        Credit(
             "meteoalarm",
             "MeteoAlarm (EUMETNET)",
             "Source: EUMETNET – MeteoAlarm (https://meteoalarm.org/en/live/), warnings of the national meteorological "
@@ -164,6 +172,16 @@ METEOALARM_DISCLAIMER = (
     "please refer to www.meteoalarm.org."
 )
 
+# What NASA asks of whoever provides FIRMS data to a third party, besides the credit above: its disclaimer. Word for word, the sentence that the FIRMS
+# page puts under "Disclaimer", then the second paragraph of the full LANCE disclaimer (read on 2026-10-20: https://www.earthdata.nasa.gov/data/tools/firms
+# and https://www.earthdata.nasa.gov/data/projects/lance/disclaimer). The full disclaimer goes on with the limits of liability and ends with the remark
+# that the designations imply no opinion on any frontier: not reproduced. Every answer that carries fire detections has it.
+FIRMS_DISCLAIMER = (
+    "The information presented through LANCE, GIBS, Worldview, and FIRMS are provided “as is” and users bear all responsibility and "
+    "liability for their use of data. Due to the spatial resolution and other characteristics of these data, their use for tactical "
+    "decision-making or informing about conditions at a local scale are not advised."
+)
+
 # The ``source`` / ``sources`` names a hazard alert carries -> the credit of that source.
 HAZARD_SOURCE_CREDITS: dict[str, str] = {
     "USGS": "usgs",
@@ -184,6 +202,7 @@ FLOOD = ("open_meteo", "glofas")
 MARINE = ("open_meteo", "dwd_icon_wave")
 SPACE_WEATHER = ("noaa_swpc",)
 RADAR = ("rainviewer",)
+FIRES = ("nasa_firms",)
 
 
 def credit_text(*keys: str) -> str:

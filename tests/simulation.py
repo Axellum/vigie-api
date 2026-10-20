@@ -31,6 +31,7 @@ import httpx
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector
 from app.collectors.dwd import DWDCollector
 from app.collectors.eccc import ECCCCollector
+from app.collectors.firms import FIRMSCollector
 from app.collectors.flood_air import (
     OpenMeteoAirQualityCollector,
     OpenMeteoFloodCollector,
@@ -52,6 +53,8 @@ from app.services.aggregator import AggregatorService
 from app.services.scheduler import BackgroundAlertScheduler
 from app.services.storage_wal import DEFAULT_WATCHLIST_SEED
 from tests import samples, storm_samples
+from tests.firms_samples import KEY as FIRMS_KEY
+from tests.firms_samples import csv_for as firms_csv
 from tests.helpers import SimClock, http_date
 from tests.swic_upstream import SwicWorld
 
@@ -78,6 +81,7 @@ HOST_TO_SOURCE: dict[str, str] = {
     "www.vigicrues.gouv.fr": "vigicrues_flow",
     "www.tsunami.gov": "tsunami_warning_centers",
     "www.nhc.noaa.gov": "nhc_storms",
+    "firms.modaps.eosdis.nasa.gov": "nasa_firms",
     # feeds.meteoalarm.org serves the Atom feeds and the CAP documents: see ``source_of``.
 }
 
@@ -108,6 +112,34 @@ METSERVICE_LAST_MODIFIED = "Tue, 20 Oct 2026 11:55:21 GMT"
 # bytes of head); that file is not compressed.
 TSUNAMI_304_HEAD_BYTES = 239
 NHC_304_HEAD_BYTES = 484
+
+# NASA FIRMS, measured on 2026-10-20 (docs/data-sources.md): a world read of one day costs 36 transactions of the key (5,000 per 10 minutes),
+# is never compressed and has no validator, so every read is a full read. The size of a read is the size of the file at that moment: the full
+# files of 2026-10-19 weigh 4,969,942 bytes (NOAA-20, 59,246 rows) and 4,662,308 bytes (NOAA-21, 55,517 rows), and the share of a day's
+# detections that are in the file at an hour of that day is taken from the share of the same day's detections acquired before that hour
+# (cumulative, at the hours 0 to 24). Checked on four reads of 2026-10-20: NOAA-20 at 18:10 (4,622,753 bytes read, 4,333,126 by the model,
+# -6.3 %) and at 18:42 (4,748,580; 4,439,152; -6.5 %), NOAA-21 at 18:33 and at 18:42 (3,944,231 both times; 3,923,495 and 3,962,448;
+# -0.5 % and +0.5 %). The model can only be as good as one day's shape: it is an estimate, and the tests also give the upper bound
+# (every read at the size of a full day).
+FIRMS_WORLD_DAY_TRANSACTIONS = 36.0
+FIRMS_DAY_BYTES = {"VIIRS_NOAA20_NRT": 4_969_942, "VIIRS_NOAA21_NRT": 4_662_308}
+FIRMS_ARRIVAL = {
+    "VIIRS_NOAA20_NRT": (0.0, 0.0161, 0.0177, 0.0202, 0.0304, 0.1355, 0.1446, 0.172, 0.1779, 0.2085, 0.2297, 0.2367, 0.6653, 0.6654, 0.7154, 0.7177,
+                         0.7873, 0.8179, 0.8652, 0.9052, 0.9111, 0.9304, 0.9332, 0.9936, 1.0),
+    "VIIRS_NOAA21_NRT": (0.0, 0.0017, 0.0101, 0.0119, 0.0745, 0.0896, 0.1626, 0.1685, 0.1905, 0.1918, 0.2067, 0.3969, 0.3978, 0.66, 0.6731, 0.6853,
+                         0.6912, 0.7587, 0.8109, 0.8666, 0.8885, 0.8927, 0.912, 0.9158, 1.0),
+}
+
+
+def firms_read_bytes(product: str, date: str, now: float) -> int:
+    """The bytes of a world read of ``product`` for ``date`` made at the epoch time ``now`` (the file as it is at that moment)."""
+    day_start = datetime.fromisoformat(f"{date}T00:00:00+00:00").timestamp()
+    hours = min(24.0, max(0.0, (now - day_start) / 3600.0))
+    low = min(23, int(hours))
+    curve = FIRMS_ARRIVAL[product]
+    share = curve[low] + (curve[low + 1] - curve[low]) * (hours - low)
+    return int(share * FIRMS_DAY_BYTES[product])
+
 
 OPEN_METEO_SOURCES = ("open_meteo_hd", "open_meteo_aqi", "open_meteo_flood", "open_meteo_marine")
 
@@ -157,6 +189,8 @@ class Upstream:
         # Bytes the providers send back (the body; plus the head for a HEAD). The Vigicrues flow is counted at its real weight.
         self.bytes: Counter[str] = Counter()
         self.methods: Counter[tuple[str, str]] = Counter()  # (source, HTTP method)
+        self.firms_reads: list[tuple[float, str, str]] = []  # (simulated second, product, date) of each FIRMS request
+        self.firms_down = False  # FIRMS answers 503 to everything
         # The times (seconds on the simulated clock) at which Vigicrues publishes: by default 07:55:15 and 13:55:15 UTC every day.
         self.vigicrues_publications: list[float] = self._daily_publications()
         # The WMO registry and the feeds of its services (hosts of their own, so routed by what the registry lists, not by ``HOST_TO_SOURCE``).
@@ -235,6 +269,16 @@ class Upstream:
             return httpx.Response(200, content=bundle, headers={"Content-Type": "application/zip"})
         return httpx.Response(404, text="Not found")
 
+    def _firms(self, request: httpx.Request) -> httpx.Response:
+        """A world read of one day: the recorded rows with the date asked, counted at the size the file has at that moment."""
+        parts = request.url.path.split("/")  # '', 'api', 'area', 'csv', key, product, 'world', '1', date
+        product, date = parts[5], parts[8]
+        self.firms_reads.append((self.clock.now, product, date))
+        if self.firms_down:
+            return httpx.Response(503, text="Service Unavailable")
+        self.bytes["nasa_firms"] += firms_read_bytes(product, date, self.clock.time())
+        return httpx.Response(200, content=firms_csv(product, date), headers={"Content-Type": "text/plain;charset=UTF-8"})
+
     async def _handler(self, request: httpx.Request) -> httpx.Response:
         if self.swic.knows(request):
             source = self.swic.source_of(request)
@@ -252,6 +296,8 @@ class Upstream:
             weight = open_meteo_weight(source, params)
             self.per_hour[int(self.clock.now // 3600)] += weight
             self.per_minute[int(self.clock.now // 60)] += weight
+        elif source == "nasa_firms":
+            weight = FIRMS_WORLD_DAY_TRANSACTIONS
         else:
             weight = 1.0
         self.weight[source] += weight
@@ -292,6 +338,8 @@ class Upstream:
             return self._tsunami(request)
         if source == "nhc_storms":
             return self._nhc(request)
+        if source == "nasa_firms":
+            return self._firms(request)
         return httpx.Response(200, json=self._payload(source, params))
 
     def _payload(self, source: str, params: dict[str, str]) -> Any:
@@ -450,6 +498,7 @@ class Simulation:
         scenario: Optional[Scenario] = None,
         zones: Optional[list[dict[str, Any]]] = None,
         wmo_sources: Optional[str] = None,
+        firms_refresh_s: Optional[int] = None,
     ) -> None:
         # ``clock`` must be installed as the time source of the collectors (the ``sim_clock`` fixture).
         self.clock = clock
@@ -481,6 +530,7 @@ class Simulation:
             swic=SwicCollector(http_client=http),
             swic_registry=SwicRegistryCollector(http_client=http),
             wmo_sources=wmo_sources,
+            firms=FIRMSCollector(FIRMS_KEY, http_client=http, **({} if firms_refresh_s is None else {"refresh_s": firms_refresh_s})),
             storage=FakeStorage(zones),  # type: ignore[arg-type]
         )
         self.scheduler = BackgroundAlertScheduler(
@@ -540,6 +590,7 @@ class Simulation:
             self.clock.now = float(second)
             await asyncio.gather(*(action() for action in events[second]))
         self.clock.now = float(duration_s)
+        await self.aggregator.fires.drain()  # the refresh of the fires that a last client started
         await self.http.aclose()
         self.result.calls = Counter(self.upstream.calls)
         self.result.weight = Counter(self.upstream.weight)

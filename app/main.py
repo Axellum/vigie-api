@@ -21,6 +21,8 @@ Endpoints:
 - ``GET    /v1/geojson/hazards``   : IETF RFC 7946 GeoJSON (``FeatureCollection``): one point per hazard.
 - ``GET    /v1/geojson/hazards/{id}/forecast`` : the forecast of a hazard that has one (``has_forecast``): the cone and track
                                      of a tropical cyclone, the arrival times of a tsunami, as GeoJSON.
+- ``GET    /v1/fires``             : the active fires (NASA FIRMS hotspots) of a ``bbox`` and of the last hours, as GeoJSON.
+- ``GET    /v1/fires/grid``        : the same detections counted per cell, for small zooms. Both are off without ``VIGIE_FIRMS_MAP_KEY``.
 - ``GET    /v1/cap/alerts``        : OASIS CAP 1.2 (Common Alerting Protocol).
 - ``GET    /v1/vigilances``        : Official national weather warnings (MeteoAlarm, DWD, ECCC, MetService, NWS, the Vigicrues
                                      river floods of France, and the national services of the WMO registry) for a point
@@ -40,13 +42,14 @@ import json
 import os
 import time
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Optional
+from typing import Any, AsyncIterator, Literal, Optional
 
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app import __version__
+from app.models.fires import FiresCollection, FiresGrid
 from app.models.forecast import HazardForecast
 from app.models.schemas import (
     CAPFeedResponse,
@@ -66,6 +69,20 @@ from app.models.schemas import (
 from app.models.vigilance import VigilanceCountry, VigilanceGeoJSONCollection, VigilancesResponse
 from app.routers.dashboard import router as dashboard_router
 from app.services.aggregator import AggregatorService
+from app.services.fires import (
+    CELL_SIZES,
+    CELLS_DEFAULT,
+    CELLS_MAX,
+    FEATURES_DEFAULT,
+    FEATURES_MAX,
+    NEARBY_RADIUS_DEFAULT_KM,
+    NEARBY_RADIUS_MAX_KM,
+    WINDOW_DEFAULT_H,
+    WINDOW_MAX_H,
+    FiresOff,
+    FiresUnavailable,
+    parse_bbox,
+)
 from app.services.geoindex import DEFAULT_RIVER_RADIUS_KM, MAX_RIVER_RADIUS_KM
 from app.services.scheduler import BackgroundAlertScheduler
 from app.services.vigilance import FOLLOW_DECIMALS, TSUNAMI_SOURCE, parse_languages
@@ -163,6 +180,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Start the background scheduler when enabled and stop it cleanly on shutdown."""
     if scheduler_enabled():
         scheduler.start()
+    aggregator.fires.warm_up()  # the first read of the fires (only when the instance has a FIRMS key) starts now, not at the first visitor
     try:
         yield
     finally:
@@ -214,6 +232,7 @@ async def get_health() -> dict[str, Any]:
         "simulation_active": aggregator.simulation_active,
         "active_scenario": aggregator.active_scenario.value,
         "scheduler": scheduler.get_status(),
+        "disabled_sources": aggregator.disabled_sources(),
         "supported_devices": [d.value for d in DeviceType],
         "providers_summary": {
             "total": len(providers),
@@ -287,8 +306,14 @@ async def get_point_weather_and_hazards(
     ),
     max_hazards: Optional[int] = Query(default=None, ge=1, le=100, description="Maximum number of hazards returned"),
     compact: bool = Query(default=True, description="Compact profile (under 16 KiB)"),
+    fire_radius_km: float = Query(
+        default=NEARBY_RADIUS_DEFAULT_KM,
+        gt=0.0,
+        le=NEARBY_RADIUS_MAX_KM,
+        description="Radius (km) of the `fires_nearby` summary of active fires (NASA FIRMS; null when the instance has no key)",
+    ),
 ) -> PointResponse:
-    """Weather at one position (15-minute rain, marine, river discharge, air, space weather) plus nearby hazards."""
+    """Weather at one position (15-minute rain, marine, river discharge, air, space weather), nearby hazards and the fires detected nearby."""
     return await aggregator.build_point_response(
         lat=lat,
         lon=lon,
@@ -299,6 +324,7 @@ async def get_point_weather_and_hazards(
         device_type=device_type,
         max_hazards=max_hazards,
         compact=compact,
+        fire_radius_km=fire_radius_km,
     )
 
 
@@ -368,6 +394,90 @@ async def get_hazard_forecast(hazard_id: str) -> HazardForecast:
     if forecast is None:
         raise HTTPException(status_code=404, detail=f"No active hazard '{hazard_id}'")
     return forecast
+
+
+CELL_SIZES_TEXT = ", ".join(f"{size:g}" for size in CELL_SIZES)
+FIRES_DESCRIPTION = (
+    "Active fires seen by the VIIRS instruments of NOAA-20 and NOAA-21, from NASA FIRMS (the near real-time product, 375 m pixels). "
+    "A detection is a satellite pixel that looks like a fire: it is not an alert and not a confirmed fire, and no detection is not the "
+    "absence of fire (a satellite passes a place a few times a day, clouds hide the ground, small fires are missed). The data is "
+    "published about 3 hours after the observation (the United States and Canada, within minutes). The instance reads FIRMS only when it "
+    "has a key (`VIGIE_FIRMS_MAP_KEY`); otherwise these routes answer 404 and `GET /v1/health` lists the source in `disabled_sources`. "
+    "`bbox` is `west,south,east,north` in degrees; a west greater than the east crosses the antimeridian, and a span of 360 degrees or "
+    "more is the whole globe. The credit (`attribution`) and the disclaimer NASA asks for are in the metadata of every answer."
+)
+FIRES_ERRORS: dict[int | str, dict[str, Any]] = {
+    404: {"description": "This instance has no FIRMS key: the source is off."},
+    422: {"description": "The box or a parameter is not valid."},
+    503: {"description": "FIRMS has not been read yet and could not be read now."},
+}
+FIRES_HEADERS = {"Cache-Control": "public, max-age=60"}
+FIRMS_UNAVAILABLE = "NASA FIRMS has not been read yet and could not be read now; try again later"
+
+
+def _fires_box(bbox: str) -> Any:
+    try:
+        return parse_bbox(bbox)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+
+
+@app.get(
+    "/v1/fires",
+    response_model=None,
+    tags=["Fires"],
+    description=FIRES_DESCRIPTION
+    + " Each feature is one detection with the fields of the FIRMS file; at most `limit` are returned, the strongest (highest fire radiative "
+    "power) first, and `metadata.truncated` says when there are more: ask a smaller box, or `GET /v1/fires/grid` at small zooms.",
+    responses={200: {"model": FiresCollection, "description": "A GeoJSON FeatureCollection of detections"}, **FIRES_ERRORS},
+)
+async def get_fires(
+    bbox: str = Query(..., description="`west,south,east,north` in degrees, e.g. `-6,35,10,45`"),
+    hours: float = Query(default=WINDOW_DEFAULT_H, gt=0.0, le=WINDOW_MAX_H, description="Detections acquired in the last `hours` hours (the start rounded down to 5 minutes)"),
+    min_confidence: Literal["low", "nominal", "high"] = Query(default="low", description="Keep the detections of this FIRMS confidence class or above (`low` keeps all)"),
+    min_frp: float = Query(default=0.0, ge=0.0, description="Keep the detections whose fire radiative power is at least this (megawatts); one with no power does not pass"),
+    limit: int = Query(default=FEATURES_DEFAULT, ge=1, le=FEATURES_MAX, description="Most features returned"),
+) -> JSONResponse:
+    """The active fires of a box, as GeoJSON points."""
+    box = _fires_box(bbox)
+    try:
+        content = await aggregator.fires.features(box, hours, min_confidence, min_frp, limit)
+    except FiresOff as exc:
+        raise HTTPException(status_code=404, detail=exc.reason) from None
+    except FiresUnavailable:
+        raise HTTPException(status_code=503, detail=FIRMS_UNAVAILABLE) from None
+    return JSONResponse(content, headers=FIRES_HEADERS)
+
+
+@app.get(
+    "/v1/fires/grid",
+    response_model=None,
+    tags=["Fires"],
+    description=FIRES_DESCRIPTION
+    + f" The detections are counted per cell of `cell_deg` degrees ({CELL_SIZES_TEXT}), aligned on multiples "
+    "of it from -90 and -180; each feature is the centre of a cell with its `count`, `max_frp_mw` and `latest_utc`. At most `limit` cells "
+    "are returned, the busiest first. Use it at small zooms, and `GET /v1/fires` once a box holds few enough detections.",
+    responses={200: {"model": FiresGrid, "description": "A GeoJSON FeatureCollection of cell centres"}, **FIRES_ERRORS},
+)
+async def get_fires_grid(
+    bbox: str = Query(default="-180,-90,180,90", description="`west,south,east,north` in degrees; the whole globe by default"),
+    cell_deg: float = Query(default=1.0, description=f"Side of a cell in degrees: one of {CELL_SIZES_TEXT}"),
+    hours: float = Query(default=WINDOW_DEFAULT_H, gt=0.0, le=WINDOW_MAX_H, description="Detections acquired in the last `hours` hours (the start rounded down to 5 minutes)"),
+    min_confidence: Literal["low", "nominal", "high"] = Query(default="low", description="Keep the detections of this FIRMS confidence class or above (`low` keeps all)"),
+    min_frp: float = Query(default=0.0, ge=0.0, description="Keep the detections whose fire radiative power is at least this (megawatts)"),
+    limit: int = Query(default=CELLS_DEFAULT, ge=1, le=CELLS_MAX, description="Most cells returned"),
+) -> JSONResponse:
+    """The active fires counted per cell, as GeoJSON points."""
+    if cell_deg not in CELL_SIZES:
+        raise HTTPException(status_code=422, detail=f"cell_deg must be one of {CELL_SIZES_TEXT}")
+    box = _fires_box(bbox)
+    try:
+        content = await aggregator.fires.grid(box, hours, cell_deg, min_confidence, min_frp, limit)
+    except FiresOff as exc:
+        raise HTTPException(status_code=404, detail=exc.reason) from None
+    except FiresUnavailable:
+        raise HTTPException(status_code=503, detail=FIRMS_UNAVAILABLE) from None
+    return JSONResponse(content, headers=FIRES_HEADERS)
 
 
 @app.get("/v1/cap/alerts", response_model=CAPFeedResponse, tags=["Standards"])

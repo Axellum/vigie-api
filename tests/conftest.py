@@ -69,6 +69,12 @@ def sim_clock(monkeypatch: pytest.MonkeyPatch) -> SimClock:
     clock = SimClock()
     monkeypatch.setattr(app_clock, "_monotonic", clock.monotonic)
     monkeypatch.setattr(app_clock, "_wall", clock.time)
+
+    async def in_place(function: Any, *args: Any) -> Any:
+        """A thread takes real time that a simulated day does not wait for: the work is done in place."""
+        return function(*args)
+
+    monkeypatch.setattr(app_clock, "_blocking", in_place)
     return clock
 
 

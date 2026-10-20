@@ -1,0 +1,11 @@
+HTTP/2 200 
+server: nginx
+date: Tue, 20 Oct 2026 18:10:43 GMT
+content-type: text/plain;charset=UTF-8
+x-frame-options: SAMEORIGIN
+cache-control: no-cache
+access-control-allow-origin: *
+x-frame-options: SAMEORIGIN
+x-content-type-options: nosniff
+request-id: 15a06c539c7b793265ccca7ef55c77e8
+strict-transport-security: max-age=31536000; includeSubDomains

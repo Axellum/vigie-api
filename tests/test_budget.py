@@ -127,6 +127,7 @@ def test_quotas_are_declared_in_one_place_with_their_source() -> None:
         "rainviewer_radar",
         "eccc_alerts",
         "wmo_swic",  # not published: a ceiling of our own (see budget.py)
+        "nasa_firms",  # 5,000 transactions per 10 minutes per key, a world read counting 36
     }
     assert all(quota.source_url.startswith("https://") for quota in QUOTAS.values())
     assert len({id(QUOTAS[name]) for name in QUOTAS if name.startswith("open_meteo")}) == 1  # one shared quota

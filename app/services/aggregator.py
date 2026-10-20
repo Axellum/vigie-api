@@ -30,6 +30,8 @@ from app.collectors.budget import share_budgets
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector
 from app.collectors.dwd import DWDCollector
 from app.collectors.eccc import ECCCCollector
+from app.collectors.firms import FIRMSCollector
+from app.collectors.firms import load_settings as load_firms_settings
 from app.collectors.flood_air import (
     OpenMeteoAirQualityCollector,
     OpenMeteoFloodCollector,
@@ -86,6 +88,7 @@ from app.models.schemas import (
     ZoneWeather,
 )
 from app.services.embedded_frame import serialize_embedded_frame
+from app.services.fires import NEARBY_RADIUS_DEFAULT_KM, FireService
 from app.services.forecasts import empty as empty_forecast
 from app.services.forecasts import has_storm_forecast, has_tsunami_forecast, storm_forecast, tsunami_forecast
 from app.services.geodesy import (
@@ -155,6 +158,7 @@ class AggregatorService:
         swic: Optional[SwicCollector] = None,
         swic_registry: Optional[SwicRegistryCollector] = None,
         wmo_sources: Optional[str] = None,
+        firms: Optional[FIRMSCollector] = None,
         countries: Optional[CountryIndex] = None,
         geometries: Optional[GeometryIndex] = None,
     ) -> None:
@@ -187,6 +191,13 @@ class AggregatorService:
         self.tsunami = tsunami or TsunamiCollector()
         self.swic = swic or SwicCollector()
         self.swic_registry = swic_registry or SwicRegistryCollector()
+        # NASA FIRMS (active fires) is read only when ``VIGIE_FIRMS_MAP_KEY`` holds a key (or a collector is given): without one there
+        # is no collector, ``GET /v1/health`` lists the source as disabled and the fire routes say so.
+        firms_settings = load_firms_settings()
+        if firms is None and firms_settings.key is not None:
+            firms = FIRMSCollector(firms_settings.key, firms_settings.sources, firms_settings.refresh_s)
+        self.firms = firms
+        self.fires = FireService(self.firms, None if self.firms is not None else firms_settings.off_reason)
         share_budgets(self.get_all_collectors())  # the four Open-Meteo APIs share one quota
 
         self.storage = storage or SQLiteWALStorage(db_path=db_path)
@@ -284,7 +295,22 @@ class AggregatorService:
             )
             if not enabled
         ]
+        if self.firms is not None:
+            collectors.append(self.firms)
         return [c for c in collectors if c not in off]
+
+    def disabled_sources(self) -> list[dict[str, str]]:
+        """The optional sources that are off on this instance and why (``GET /v1/health``); a source that is off is not in the providers."""
+        if self.firms is not None:
+            return []
+        return [
+            {
+                "provider_id": "nasa_firms",
+                "name": "NASA FIRMS (active fires)",
+                "domain": "fires",
+                "reason": self.fires.off_reason,
+            }
+        ]
 
     def get_providers_health(self) -> list[ProviderHealth]:
         """Return the detailed health of each collector."""
@@ -448,6 +474,7 @@ class AggregatorService:
         device_type: DeviceType = DeviceType.TAB5,
         max_hazards: Optional[int] = None,
         compact: bool = True,
+        fire_radius_km: float = NEARBY_RADIUS_DEFAULT_KM,
     ) -> PointResponse:
         """Build the ``/v1/point`` response for a GPS device (boat, M5Stack Tab5, vehicle)."""
         include_marine = bool(marine or device_type == DeviceType.MARINE)
@@ -462,6 +489,7 @@ class AggregatorService:
             aqi_status,
             radar_meta,
             marine_conditions,
+            fires_nearby,
         ) = await asyncio.gather(
             self.fetch_weather_with_fallback(lat, lon),
             self.collect_and_fuse_hazards(),
@@ -470,6 +498,7 @@ class AggregatorService:
             self.get_air_quality_safe(lat, lon),
             _or_none(self.rainviewer.fetch()) if self.rainviewer_enabled else _none_coro(),
             _or_none(self.marine.fetch_marine(lat, lon)) if include_marine else _none_coro(),
+            _or_none(self.fires.nearby(lat, lon, fire_radius_km)),
         )
         radar_meta = radar_meta or {}
 
@@ -569,6 +598,8 @@ class AggregatorService:
             air_quality=aqi_status,
             space_weather=space_status,
             nearby_hazards=enriched_nearby,
+            # Informative only: the fires never enter ``local_alert_level`` (a hotspot is a satellite pixel, not a warning).
+            fires_nearby=fires_nearby,
         )
 
     async def build_snapshot(
