@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+import httpx
 import pytest
 
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector
@@ -22,6 +23,7 @@ from app.collectors.space_weather import NOAASWPCCollector
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector, RainViewerCollector
 from app.models.schemas import HazardCategory, SeverityLevel
 from tests import samples
+from tests.helpers import Provider
 
 # ============================================================================
 # Seismic
@@ -130,6 +132,54 @@ def test_gdacs_parser() -> None:
     assert parsed[0].value_primary == 250.0
     assert parsed[1].category == HazardCategory.FLOOD
     assert parsed[1].value_primary is None
+
+
+def _gdacs_feature(event_id: str, iscurrent: str) -> dict[str, object]:
+    return {
+        "properties": {
+            "eventtype": "EQ",
+            "eventid": event_id,
+            "alertlevel": "Orange",
+            "name": f"Earthquake {event_id}",
+            "fromdate": "2026-10-18T10:00:00",
+            "iscurrent": iscurrent,
+            "severitydata": {"severity": 6.4, "severityunit": "M"},
+        },
+        "geometry": {"type": "Point", "coordinates": [120.0, 15.0]},
+    }
+
+
+def test_gdacs_parser_keeps_current_events_only() -> None:
+    data = {"features": [_gdacs_feature("1", "true"), _gdacs_feature("2", "false")]}
+    assert [h.id for h in GDACSCollector.parse_geojson(data)] == ["gdacs_eq_1"]
+
+
+def test_gdacs_search_query() -> None:
+    now = datetime(2026, 10, 20, 9, 0, tzinfo=timezone.utc).timestamp()
+    assert GDACSCollector.search_params(now) == {
+        "eventlist": "EQ;TC;FL;VO;WF",
+        "alertlevel": "Orange;Red",
+        "fromDate": "2026-09-20",
+        "pageSize": "100",
+        "pageNumber": "1",
+    }
+
+
+async def test_gdacs_collector_uses_the_search_endpoint() -> None:
+    provider = Provider({"type": "FeatureCollection", "features": [_gdacs_feature("7", "true")]})
+    alerts = await GDACSCollector(http_client=provider.client()).fetch()
+    assert provider.count == 1
+    request = provider.requests[0]
+    assert request.url.path == "/gdacsapi/api/events/geteventlist/SEARCH"
+    assert request.url.params["eventlist"] == "EQ;TC;FL;VO;WF"
+    assert [h.id for h in alerts] == ["gdacs_eq_7"]
+
+
+async def test_gdacs_no_matching_event_is_an_empty_answer_not_a_failure() -> None:
+    provider = Provider(answer=lambda request: httpx.Response(204))
+    collector = GDACSCollector(http_client=provider.client())
+    assert await collector.fetch() == []
+    assert collector.consecutive_failures == 0 and collector.last_error is None
 
 
 def test_noaa_parser_has_no_made_up_value() -> None:

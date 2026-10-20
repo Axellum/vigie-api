@@ -66,6 +66,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **GDACS sent nothing.** Its `MAP` endpoint now needs one request per event type and answered
+  HTTP 400 ("Eventtype is required.") to the request without one, so no cyclone, flood or wildfire
+  reached the API. The collector now uses the documented search endpoint: one request for every
+  type, the orange and red events of the last 30 days that GDACS still marks current (green events,
+  low humanitarian impact, are no longer collected); an empty answer (HTTP 204) means no event.
 - No fabricated data. Removed the invented offline weather ("MET Norway / Offline Safety Cache"
   computed from the latitude), the air quality index fixed at `22` / `20`, the Kp index defaulting
   to `2.0` (the live NOAA file was never read correctly), the default temperature, humidity,
