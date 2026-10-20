@@ -42,6 +42,11 @@ sys.path.insert(0, str(REPO_ROOT))
 from app import clock  # noqa: E402
 from app.collectors.base import build_user_agent  # noqa: E402
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector  # noqa: E402
+from app.collectors.dwd import DWDCollector  # noqa: E402
+from app.collectors.eccc import ITEMS_URL, ECCCCollector, parse_items  # noqa: E402
+from app.collectors.eccc import LEVELS as ECCC_LEVELS  # noqa: E402
+from app.collectors.eccc import STATUSES as ECCC_STATUSES  # noqa: E402
+from app.collectors.eccc import is_ended as eccc_is_ended  # noqa: E402
 from app.collectors.flood_air import (  # noqa: E402
     OpenMeteoAirQualityCollector,
     OpenMeteoFloodCollector,
@@ -59,8 +64,12 @@ from app.collectors.meteoalarm import (  # noqa: E402
     parse_cap,
     parse_feed,
 )
+from app.collectors.metservice import COLOUR_PARAMETER as METSERVICE_COLOUR  # noqa: E402
+from app.collectors.metservice import EVENTS as METSERVICE_EVENTS  # noqa: E402
+from app.collectors.metservice import MetServiceCollector  # noqa: E402
 from app.collectors.seismic import EMSCCollector, USGSCollector  # noqa: E402
 from app.collectors.space_weather import NOAASWPCCollector  # noqa: E402
+from app.collectors.vigicrues import VigicruesCollector  # noqa: E402
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector, RainViewerCollector  # noqa: E402
 from app.services.geoindex import default_geometries, localization_of  # noqa: E402
 
@@ -293,6 +302,118 @@ async def check_meteoalarm_cap(client: httpx.AsyncClient) -> Result:
     return Result("meteoalarm_cap", "ok", f"words in {len(document.texts)} language(s) ({languages}), issued by {document.issuer}")
 
 
+# A flow of fewer sections than this is a truncated or a changed answer (the real one has about 337).
+VIGICRUES_MIN_SECTIONS = 100
+
+# The kinds of ECCC alert that carry a colour (a statement or an ended alert does not).
+ECCC_COLOURED_KINDS = {"warning", "advisory", "watch"}
+
+
+async def check_dwd(client: httpx.AsyncClient) -> Result:
+    """DWD status of Germany: the warnings must be read, with a level and a phenomenon from the tables and a polygon."""
+    status = (await DWDCollector()._collect(client)).value
+    if not status.vigilances:
+        if status.skipped:
+            return Result("dwd_cap", "FAIL", f"{status.skipped} documents in the status, none read as a warning")
+        return Result("dwd_cap", "empty", "the status lists no warning")
+    unknown_level = sorted({str(v.level_original) for v in status.vigilances if v.level is None})
+    unknown_type = sorted(
+        {
+            next((p.value for p in v.texts[0].parameters if p.name == "eventCode:II"), "?")
+            for v in status.vigilances
+            if v.phenomenon is None and v.texts
+        }
+    )
+    if unknown_level or unknown_type:
+        words = ", ".join([f"severity {w}" for w in unknown_level] + [f"event number {w}" for w in unknown_type])
+        return Result("dwd_cap", "FAIL", f"words not in the tables of app/collectors/dwd.py: {words}")
+    without_polygon = [v for v in status.vigilances if not v.area.has_polygon]
+    if without_polygon:
+        return Result("dwd_cap", "FAIL", f"{len(without_polygon)} areas without a polygon (the district product always has them)")
+    documents = len({v.identifier for v in status.vigilances})
+    return Result("dwd_cap", "ok", f"{len(status.vigilances)} areas of {documents} documents read, all with a polygon")
+
+
+async def check_eccc(client: httpx.AsyncClient) -> Result:
+    """ECCC alerts (GeoMet): a warning, advisory or watch must get a level; the words of status must be in the table."""
+    resp = await ECCCCollector()._get(
+        client,
+        ITEMS_URL,
+        params={"f": "json", "limit": "1000"},
+        headers={"Accept": "application/geo+json, application/json;q=0.9"},
+    )
+    resp.raise_for_status()
+    payload = resp.json()
+    features = _features(payload)
+    if not features:
+        return Result("eccc_alerts", "empty", "no alert is in force in Canada")
+    alerts = parse_items(payload)
+    if not alerts.vigilances:
+        return Result("eccc_alerts", "FAIL", f"{len(features)} alerts in the answer, none understood")
+    props = [f.get("properties") or {} for f in features if isinstance(f, dict)]
+    in_force = [p for p in props if not eccc_is_ended(p)]
+    colours = sorted(
+        {
+            str(p.get("risk_colour_en"))
+            for p in in_force
+            if str(p.get("alert_type") or "").lower() in ECCC_COLOURED_KINDS
+            and str(p.get("risk_colour_en") or "").strip().lower() not in ECCC_LEVELS
+        }
+    )
+    if colours:
+        return Result("eccc_alerts", "FAIL", f"colours not in the table of app/collectors/eccc.py: {', '.join(colours)}")
+    statuses = sorted({str(p.get("status_en")) for p in in_force if str(p.get("status_en") or "").strip().lower() not in ECCC_STATUSES})
+    if statuses:
+        return Result("eccc_alerts", "FAIL", f"status words not in the table of app/collectors/eccc.py: {', '.join(statuses)}")
+    without_polygon = [v for v in alerts.vigilances if not v.area.has_polygon]
+    if without_polygon:
+        return Result("eccc_alerts", "FAIL", f"{len(without_polygon)} alerts without a polygon")
+    return Result("eccc_alerts", "ok", f"{len(alerts.vigilances)} of {len(features)} alerts read, all with a polygon")
+
+
+async def check_metservice(client: httpx.AsyncClient) -> Result:
+    """MetService CAP feed: an empty feed is a valid answer; an item must be read the way the issuer's guide says."""
+    feed = (await MetServiceCollector()._collect(client)).value
+    if feed.items == 0:
+        return Result("metservice_cap", "empty", "the feed lists no warning (no real item has been read yet)")
+    if feed.unreadable:
+        return Result("metservice_cap", "FAIL", f"{feed.unreadable} of {feed.items} items could not be read as a CAP alert")
+    colourless, unknown_event, no_level, no_polygon = set(), set(), set(), 0
+    for warning in feed.vigilances:
+        parameters = {p.name for text in warning.texts for p in text.parameters}
+        if METSERVICE_COLOUR not in parameters:
+            colourless.add(str(warning.event))
+        if (warning.event or "").lower() not in METSERVICE_EVENTS:
+            unknown_event.add(str(warning.event))
+        if warning.level is None:
+            no_level.add(f"{warning.event}/{warning.level_original}")
+        if not warning.area.has_polygon:
+            no_polygon += 1
+    if no_level:
+        words = ", ".join(sorted(no_level))
+        return Result("metservice_cap", "FAIL", f"event/colour that give no level (derive_level in app/collectors/metservice.py): {words}")
+    if colourless or unknown_event or no_polygon:
+        found = [f"no {METSERVICE_COLOUR} on {sorted(colourless)}"] if colourless else []
+        found += [f"event words the guide does not list: {sorted(unknown_event)}"] if unknown_event else []
+        found += [f"{no_polygon} warnings without a polygon"] if no_polygon else []
+        return Result("metservice_cap", "FAIL", "not as the MetService CAP Feed User Guide says: " + "; ".join(found))
+    return Result("metservice_cap", "ok", f"{len(feed.vigilances)} warnings from {feed.items} items read")
+
+
+async def check_vigicrues(client: httpx.AsyncClient) -> Result:
+    """Vigicrues flow: the whole flow must be there and every section above green must be read."""
+    flow = (await VigicruesCollector()._collect(client)).value
+    if flow.sections < VIGICRUES_MIN_SECTIONS:
+        return Result("vigicrues_flow", "FAIL", f"only {flow.sections} sections in the flow (it has had about 337)")
+    if flow.skipped:
+        return Result("vigicrues_flow", "FAIL", f"{flow.skipped} sections above green could not be read")
+    if not flow.vigilances:
+        return Result("vigicrues_flow", "empty", f"all {flow.sections} sections are green")
+    counts = {name: sum(1 for v in flow.vigilances if v.level is not None and v.level.value == name) for name in ("YELLOW", "ORANGE", "RED")}
+    detail = ", ".join(f"{n} {name.lower()}" for name, n in counts.items() if n)
+    return Result("vigicrues_flow", "ok", f"{len(flow.vigilances)} of {flow.sections} sections above green ({detail})")
+
+
 CHECKS: dict[str, Check] = {
     "usgs_eq": check_usgs,
     "emsc_seismic": check_emsc,
@@ -308,6 +429,10 @@ CHECKS: dict[str, Check] = {
     "rainviewer_radar": check_rainviewer,
     "meteoalarm_atom": check_meteoalarm_atom,
     "meteoalarm_cap": check_meteoalarm_cap,
+    "dwd_cap": check_dwd,
+    "eccc_alerts": check_eccc,
+    "metservice_cap": check_metservice,
+    "vigicrues_flow": check_vigicrues,
 }
 
 
