@@ -118,6 +118,28 @@ def test_dockerignore_keeps_secrets_databases_and_the_history_out_of_the_image()
     assert {".git", ".venv", ".env", "*.db", "*.log", "logs"} <= lines
 
 
+def excluded_from_the_image(path: str) -> bool:
+    """Whether ``.dockerignore`` leaves ``path`` out of the build context (Docker's rule: ``*`` stops at a ``/``, a pattern names the path from the root or a parent folder)."""
+    patterns = [
+        line.strip() for line in (ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines() if line.strip() and not line.startswith("#")
+    ]
+    parts = path.split("/")
+    candidates = ["/".join(parts[: i + 1]) for i in range(len(parts))]  # the file and each folder above it
+    for pattern in patterns:
+        regex = re.escape(pattern.strip("/")).replace(r"\*\*", ".*").replace(r"\*", "[^/]*")
+        if any(re.fullmatch(regex, candidate) for candidate in candidates):
+            return True
+    return False
+
+
+def test_the_image_carries_the_fault_file_and_the_notice_that_goes_with_it() -> None:
+    """The share-alike notice travels with the file (``*.md`` of ``.dockerignore`` is the repository root's only), and the operator's own shapes do not."""
+    assert not excluded_from_the_image("app/data/gem-active-faults.geojson.gz")
+    assert not excluded_from_the_image("app/data/gem-active-faults.NOTICE.md")
+    assert not excluded_from_the_image("app/data/README.md")
+    assert excluded_from_the_image("README.md") and excluded_from_the_image("app/data/local/emma.geojson")
+
+
 # ============================================================================
 # The Home Assistant integration
 # ============================================================================
