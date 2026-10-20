@@ -29,7 +29,8 @@ All notable changes to this project are documented here. The format follows
   is followed too and a push makes the integration read again at once; the poll stays as the fallback and the whole
   mechanism otherwise. English and French, diagnostics with the coordinates redacted. See
   [`docs/home-assistant.md`](docs/home-assistant.md) and [ADR 0004](docs/decisions/0004-home-assistant-integration-same-repository.md).
-  Not yet tried on a running Home Assistant.
+  Tried on a running Home Assistant 2026.10.2 on 2026-10-20: the entities against a real instance, `new`, `upgraded` and
+  `ended` from the fake instance, and the entities unavailable when the instance stops answering.
 - **`tests_ha/`**: 132 tests of the integration (`pytest-homeassistant-custom-component` 0.13.373, which pins Home
   Assistant 2026.10.2 and needs Python 3.14.2 or newer, in an environment of its own), and
   `tests/test_home_assistant_contract.py` in the API's CI, which checks that the answers they use (a real recorded one,
