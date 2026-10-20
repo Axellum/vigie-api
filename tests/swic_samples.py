@@ -199,3 +199,36 @@ def service_serving_everything(mode: str = "all", server: "FixtureServer | None"
         swic_registry=SwicRegistryCollector(http_client=client),
         swic_mode=mode,
     )
+
+
+def registry_json(extra: "list[dict] | None" = None, drop: "set[str] | None" = None, change: "dict[str, dict] | None" = None) -> bytes:
+    """The bundled snapshot of the registry as the WMO's answer, with services added (``extra``), dropped or changed (``change``)."""
+    import gzip
+
+    from app.collectors.swic_registry import SNAPSHOT_PATH
+
+    payload = json.loads(gzip.decompress(SNAPSHOT_PATH.read_bytes()))
+    sources = [entry for entry in payload["sources"] if entry["source"]["sourceId"] not in (drop or set())]
+    for entry in sources:
+        if entry["source"]["sourceId"] in (change or {}):
+            entry["source"].update((change or {})[entry["source"]["sourceId"]])
+    payload["sources"] = sources + [{"source": record} for record in extra or []]
+    return json.dumps(payload).encode()
+
+
+def wmo_hosts(server: "FixtureServer | None" = None, registry: "bytes | None" = None) -> dict:  # type: ignore[type-arg]
+    """Every host the WMO checks of the live-feeds tool talk to, answered by one ``FixtureServer`` (the registry included)."""
+    from urllib.parse import urlsplit
+
+    from app.collectors.swic_registry import REGISTRY_URL
+
+    served = server or FixtureServer(*MANIFEST["indexes"])
+    served.answers[REGISTRY_URL] = registry if registry is not None else registry_json()
+    urls = [*served.bodies, *served.documents, REGISTRY_URL]
+    return {urlsplit(url).hostname: served.handler for url in urls}
+
+
+def bundled() -> list:  # type: ignore[type-arg]
+    from app.collectors.swic_registry import bundled_registry
+
+    return list(bundled_registry())

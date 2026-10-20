@@ -40,6 +40,14 @@
       "url": "https://ssl.smn.gob.ar/CAP/AR.php",
       "wire_bytes": 62673
     },
+    "index_bb_dem.xml": {
+      "entries_in_the_real_feed": 0,
+      "etag": null,
+      "kept_entries": 0,
+      "last_modified": null,
+      "url": "https://brb-primary.capews.com/capews/public/atom?type=cap",
+      "wire_bytes": 688
+    },
     "index_by_belhydromet.xml": {
       "entries_in_the_real_feed": 4,
       "etag": "\"f71-65e406ab976b4\"",

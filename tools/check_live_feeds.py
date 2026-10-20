@@ -71,11 +71,15 @@ from app.collectors.metservice import MetServiceCollector  # noqa: E402
 from app.collectors.nhc import NHCCollector  # noqa: E402
 from app.collectors.seismic import EMSCCollector, USGSCollector  # noqa: E402
 from app.collectors.space_weather import NOAASWPCCollector  # noqa: E402
+from app.collectors.swic import SwicCollector  # noqa: E402
+from app.collectors.swic_registry import SwicRegistryCollector, bundled_registry  # noqa: E402
+from app.collectors.swic_terms import TERMS as WMO_TERMS  # noqa: E402
+from app.collectors.swic_terms import is_eligible, terms_of  # noqa: E402
 from app.collectors.tsunami import TsunamiCollector, parse_message  # noqa: E402
 from app.collectors.vigicrues import SIGNAL_URL as VIGICRUES_SIGNAL_URL  # noqa: E402
 from app.collectors.vigicrues import VigicruesCollector  # noqa: E402
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector, RainViewerCollector  # noqa: E402
-from app.services.geoindex import default_geometries, localization_of  # noqa: E402
+from app.services.geoindex import default_countries, default_geometries, localization_of  # noqa: E402
 
 # Fixed points: Paris for the land sources, the Bay of Biscay for the sea.
 LAND = (48.8566, 2.3522)
@@ -495,6 +499,84 @@ async def check_nhc(client: httpx.AsyncClient) -> Result:
     return Result("nhc_storms", "ok", f"{len(state.storms)} active storm(s) with their cone: {names}")
 
 
+# The registry of the WMO services: fewer than this is a truncated or a changed answer (140 on 2026-10-20).
+WMO_REGISTRY_MIN_SERVICES = 100
+# Seconds between two services of the WMO sample: each is its own host.
+WMO_SAMPLE_PAUSE_S = 1.0
+# The services read every week besides the verified ones: one of each family the verified ones do not cover (one document per
+# language in two feeds, codes only with no polygon).
+WMO_SAMPLE_EXTRA = ("ru-roshydromet-en", "in-ndma-xx")
+# What is not a format change: a server that does not answer in time, a bot check, a refusal to talk to this client.
+WMO_UNREACHABLE_WORDS = ("Timeout", "ConnectError", "ReadError", "RemoteProtocolError", "Server error", "403", "429", "SSL")
+
+
+async def check_wmo_swic_registry(client: httpx.AsyncClient) -> Result:
+    """The registry of the WMO services: still a registry, still the addresses the verified services were read at, a border for each country."""
+    live = (await SwicRegistryCollector()._collect(client)).value
+    if len(live) < WMO_REGISTRY_MIN_SERVICES:
+        return Result("wmo_swic_registry", "FAIL", f"{len(live)} services (about 140 expected): the answer is truncated or changed")
+    known = {source.source_id: source for source in bundled_registry()}
+    now = {source.source_id: source for source in live}
+    new, gone = sorted(set(now) - set(known)), sorted(set(known) - set(now))
+    moved = sorted(
+        sid
+        for sid in (t.source_id for t in WMO_TERMS if t.status == "verified")
+        if sid in known and (sid not in now or now[sid].feeds != known[sid].feeds or now[sid].country != known[sid].country)
+    )
+    if moved:
+        return Result("wmo_swic_registry", "FAIL", f"the address or the country of a verified service changed, its terms were read for the old one: {', '.join(moved)}")
+    borders = set(default_countries().countries())
+    unlocated = sorted({s.country for s in live if s.country and is_eligible(s, "all") and s.country not in borders})
+    if unlocated:
+        return Result("wmo_swic_registry", "FAIL", f"countries with a service and no border (python tools/build_geometries.py --countries-only): {', '.join(unlocated)}")
+    detail = f"{len(live)} services ({len(new)} the bundled snapshot does not know, {len(gone)} it knows that are gone)"
+    if new or gone:
+        detail += f"; python tools/build_swic_snapshot.py rewrites it: new {', '.join(new[:8])}{'...' if len(new) > 8 else ''}"
+    return Result("wmo_swic_registry", "ok", detail)
+
+
+async def check_wmo_swic(client: httpx.AsyncClient) -> Result:
+    """The verified services of the WMO registry and a few others: the feeds and documents are read, the licence line is still in the feed."""
+    collector = SwicCollector()
+    by_id = {source.source_id: source for source in bundled_registry()}
+    sample = [t.source_id for t in WMO_TERMS if t.status == "verified"] + [sid for sid in WMO_SAMPLE_EXTRA if sid in by_id]
+    problems: list[str] = []
+    unreachable: list[str] = []
+    words: set[str] = set()
+    read: list[str] = []
+    listed = 0
+    for index, sid in enumerate(sample):
+        if index:
+            await asyncio.sleep(WMO_SAMPLE_PAUSE_S)
+        source = by_id[sid]
+        try:
+            feed = await collector._read(client, source)
+        except Exception as exc:
+            text = f"{type(exc).__name__}: {exc}"
+            (unreachable if any(word in text for word in WMO_UNREACHABLE_WORDS) else problems).append(f"{sid} ({text[:90]})")
+            continue
+        if feed.documents and feed.unreadable == feed.documents:
+            problems.append(f"{sid}: none of its {feed.documents} documents could be read as a CAP alert")
+        listed += feed.documents + feed.old_items
+        words.update(f"{v.level_original}" for v in feed.vigilances if v.level is None and v.level_original)
+        terms = terms_of(sid)
+        if terms is not None and terms.status == "verified" and terms.feed_marker:
+            response = await collector._get_capped(client, source.feeds[0], max_bytes=2_000_000, headers={"Accept": "application/xml, */*;q=0.5"})
+            if terms.feed_marker not in response.text.lower():
+                problems.append(f"{sid}: the licence line ({terms.feed_marker!r}) is not in its feed any more, re-read its terms before serving it")
+        read.append(f"{sid} {len(feed.vigilances)}/{feed.documents}/{feed.documents + feed.old_items}")
+    if problems:
+        return Result("wmo_swic", "FAIL", "; ".join(problems))
+    if not read:
+        return Result("wmo_swic", "unreachable", "; ".join(unreachable))
+    detail = f"{len(read)} services read ({', '.join(read)}: warnings in force/documents read/entries listed)"
+    if words:
+        detail += f"; level words in no table (null): {', '.join(sorted(words))}"
+    if unreachable:
+        detail += f"; not reachable now: {', '.join(unreachable)}"
+    return Result("wmo_swic", "ok" if listed else "empty", detail)
+
+
 CHECKS: dict[str, Check] = {
     "usgs_eq": check_usgs,
     "emsc_seismic": check_emsc,
@@ -516,6 +598,8 @@ CHECKS: dict[str, Check] = {
     "vigicrues_flow": check_vigicrues,
     "tsunami_warning_centers": check_tsunami,
     "nhc_storms": check_nhc,
+    "wmo_swic_registry": check_wmo_swic_registry,
+    "wmo_swic": check_wmo_swic,
 }
 
 
