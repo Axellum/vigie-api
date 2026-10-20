@@ -1,23 +1,35 @@
-"""Modèles Pydantic v2 pour Vigie Mondiale API (alerte_mondiale_api).
+"""Pydantic models of the Vigie API.
 
-Couvre :
-1. Le profil embarqué ultra-compact (< 12 Ko) pour l'ESP32-P4 Waveshare 7B (/v1/snapshot).
-2. Le profil GPS mobile & marine (/v1/point) avec coordonnées exactes, SOG/COG,
-   précipitations aux 15 min (Nowcast), radar RainViewer, houle/vagues/courants.
-3. Le standard international IETF RFC 7946 GeoJSON (/v1/geojson/hazards).
-4. Le standard international OASIS CAP 1.2 Common Alerting Protocol (/v1/cap/alerts).
-5. La télémétrie de santé des collecteurs et de leur Circuit Breaker (/v1/providers).
+Convention used everywhere in this module: a value that the providers did not
+supply is ``None`` (JSON ``null``) and is sent as an empty field in the
+embedded frame. No model carries a default number that stands in for missing
+data (see ``docs/decisions/0001-two-repos-no-fabricated-data-frame-format.md``).
+
+The models cover:
+
+1. The compact snapshot served to embedded displays (``/v1/snapshot``).
+2. The GPS / marine point profile (``/v1/point``).
+3. GeoJSON (IETF RFC 7946) hazards (``/v1/geojson/hazards``).
+4. OASIS CAP 1.2 alerts (``/v1/cap/alerts``).
+5. Collector health and circuit-breaker state (``/v1/providers``).
 """
 
 from __future__ import annotations
 
+import os
 from enum import Enum
 from typing import Any, Literal, Optional
+
 from pydantic import BaseModel, Field
 
 
+def cap_sender() -> str:
+    """Return the CAP ``sender`` value: ``VIGIE_CAP_SENDER`` or the neutral ``vigie-api``."""
+    return os.environ.get("VIGIE_CAP_SENDER", "").strip() or "vigie-api"
+
+
 class SeverityLevel(str, Enum):
-    """Niveaux de sévérité unifiés (DEFCON / Vigilance)."""
+    """Unified severity levels."""
 
     GREEN = "GREEN"
     YELLOW = "YELLOW"
@@ -34,7 +46,7 @@ SEVERITY_RANK: dict[SeverityLevel, int] = {
 
 
 class HazardCategory(str, Enum):
-    """Catégories normalisées de catastrophes naturelles mondiales."""
+    """Normalized categories of natural hazards."""
 
     EARTHQUAKE = "EARTHQUAKE"
     TSUNAMI = "TSUNAMI"
@@ -48,7 +60,7 @@ class HazardCategory(str, Enum):
 
 
 class CircuitState(str, Enum):
-    """États du disjoncteur (Circuit Breaker) d'un collecteur externe."""
+    """States of the circuit breaker wrapped around each external collector."""
 
     CLOSED = "CLOSED"
     OPEN = "OPEN"
@@ -56,317 +68,325 @@ class CircuitState(str, Enum):
 
 
 class ProviderHealth(BaseModel):
-    """État de santé temps réel d'un fournisseur de données externe."""
+    """Live health of one external data provider."""
 
-    provider_id: str = Field(..., description="Identifiant unique du collecteur")
-    name: str = Field(..., description="Nom lisible de l'agence ou API")
-    domain: str = Field(..., description="Domaine métier (seismic, disasters, weather, marine, space)")
-    is_fallback: bool = Field(default=False, description="Indique s'il s'agit d'un provider de secours")
-    healthy: bool = Field(..., description="Disponibilité opérationnelle (circuit fermé ou cache valide)")
-    circuit_state: CircuitState = Field(default=CircuitState.CLOSED, description="État du Circuit Breaker")
-    latency_ms: float = Field(default=0.0, description="Latence moyenne exponentielle en millisecondes")
-    consecutive_failures: int = Field(default=0, description="Nombre d'échecs consécutifs")
-    last_success_utc: Optional[int] = Field(default=None, description="Timestamp UTC du dernier succès")
-    cache_age_s: Optional[int] = Field(default=None, description="Âge des données en cache (secondes)")
-    last_error: Optional[str] = Field(default=None, description="Dernier message d'erreur éventuel")
+    provider_id: str = Field(..., description="Unique collector identifier")
+    name: str = Field(..., description="Human-readable name of the agency or API")
+    domain: str = Field(..., description="Domain (seismic, disasters, weather, marine, space)")
+    is_fallback: bool = Field(default=False, description="True for a backup provider")
+    healthy: bool = Field(..., description="Operational (circuit closed or a cached value exists)")
+    circuit_state: CircuitState = Field(default=CircuitState.CLOSED, description="Circuit breaker state")
+    latency_ms: float = Field(default=0.0, description="Exponential moving average of the latency (ms)")
+    consecutive_failures: int = Field(default=0, description="Consecutive failures")
+    last_success_utc: Optional[int] = Field(default=None, description="UTC timestamp of the last success")
+    cache_age_s: Optional[int] = Field(default=None, description="Age of the cached data (seconds)")
+    last_error: Optional[str] = Field(default=None, description="Last error message, if any")
 
 
 class GPSCoordinates(BaseModel):
-    """Coordonnées GPS et vecteur cinématique (Mode Bateau / Véhicule)."""
+    """GPS position and motion vector (boat / vehicle mode)."""
 
-    lat: float = Field(..., ge=-90.0, le=90.0, description="Latitude WGS84 en degrés décimaux")
-    lon: float = Field(..., ge=-180.0, le=180.0, description="Longitude WGS84 en degrés décimaux")
-    sog_knots: Optional[float] = Field(
-        default=None, ge=0.0, description="Speed Over Ground (vitesse fond en nœuds)"
-    )
-    cog_deg: Optional[float] = Field(
-        default=None, ge=0.0, lt=360.0, description="Course Over Ground (route fond en degrés)"
-    )
+    lat: float = Field(..., ge=-90.0, le=90.0, description="WGS84 latitude in decimal degrees")
+    lon: float = Field(..., ge=-180.0, le=180.0, description="WGS84 longitude in decimal degrees")
+    sog_knots: Optional[float] = Field(default=None, ge=0.0, description="Speed over ground (knots)")
+    cog_deg: Optional[float] = Field(default=None, ge=0.0, lt=360.0, description="Course over ground (degrees)")
 
 
 class CurrentWeather(BaseModel):
-    """Conditions météorologiques courantes normalisées."""
+    """Current weather conditions. Every field is ``None`` when the provider did not supply it."""
 
-    temp_c: float = Field(..., description="Température à 2m (°C)")
-    feels_like_c: float = Field(..., description="Température ressentie (°C)")
-    humidity_pct: int = Field(..., ge=0, le=100, description="Humidité relative (%)")
-    pressure_hpa: float = Field(..., description="Pression atmosphérique au niveau de la mer (hPa)")
-    wind_kmh: float = Field(..., ge=0.0, description="Vitesse du vent à 10m (km/h)")
-    gust_kmh: float = Field(..., ge=0.0, description="Rafales de vent à 10m (km/h)")
-    wind_deg: int = Field(..., ge=0, le=360, description="Direction du vent (degrés)")
-    rain_1h_mm: float = Field(..., ge=0.0, description="Précipitations sur l'heure courante (mm)")
-    weather_code: int = Field(..., description="Code météo OMM / WMO standard")
-    uv_index: float = Field(default=0.0, ge=0.0, description="Indice UV")
-    aqi_eu: int = Field(default=20, ge=0, description="Indice de qualité de l'air européen")
+    temp_c: Optional[float] = Field(default=None, description="Temperature at 2 m (deg C)")
+    feels_like_c: Optional[float] = Field(default=None, description="Apparent temperature (deg C)")
+    humidity_pct: Optional[int] = Field(default=None, ge=0, le=100, description="Relative humidity (%)")
+    pressure_hpa: Optional[float] = Field(default=None, description="Mean sea-level pressure (hPa)")
+    wind_kmh: Optional[float] = Field(default=None, ge=0.0, description="Wind speed at 10 m (km/h)")
+    gust_kmh: Optional[float] = Field(default=None, ge=0.0, description="Wind gusts at 10 m (km/h)")
+    wind_deg: Optional[int] = Field(default=None, ge=0, le=360, description="Wind direction (degrees)")
+    rain_1h_mm: Optional[float] = Field(
+        default=None, ge=0.0, description="Precipitation reported by the provider for the current period (mm)"
+    )
+    weather_code: Optional[int] = Field(default=None, description="WMO weather interpretation code")
+    uv_index: Optional[float] = Field(default=None, ge=0.0, description="UV index")
+    aqi_eu: Optional[int] = Field(default=None, ge=0, description="European air quality index (EAQI)")
 
 
 class DailyForecast(BaseModel):
-    """Prévision synthétique journalière (optimisée pour le contrat < 12 Ko)."""
+    """Daily forecast. Every numeric field is ``None`` when the provider did not supply it."""
 
-    d: str = Field(..., description="Jour abrégé (ex: Lun, Mar)")
-    code: int = Field(..., description="Code météo WMO dominant")
-    tmin: float = Field(..., description="Température minimale (°C)")
-    tmax: float = Field(..., description="Température maximale (°C)")
-    rain_mm: float = Field(default=0.0, ge=0.0, description="Cumul de pluie journalier (mm)")
-    wind_max: float = Field(default=0.0, ge=0.0, description="Vent maximal journalier (km/h)")
+    date: str = Field(..., description="Local calendar day, ISO 8601 (YYYY-MM-DD)")
+    code: Optional[int] = Field(default=None, description="WMO weather code of the day (most severe)")
+    tmin: Optional[float] = Field(default=None, description="Minimum temperature (deg C)")
+    tmax: Optional[float] = Field(default=None, description="Maximum temperature (deg C)")
+    rain_mm: Optional[float] = Field(default=None, ge=0.0, description="Daily precipitation total (mm)")
+    rain_probability_pct: Optional[int] = Field(
+        default=None, ge=0, le=100, description="Maximum precipitation probability of the day (%)"
+    )
+    wind_max: Optional[float] = Field(default=None, ge=0.0, description="Maximum wind speed of the day (km/h)")
+    uv_max: Optional[float] = Field(default=None, ge=0.0, description="Maximum UV index of the day")
 
 
 class RainNowcast(BaseModel):
-    """Prévision de pluie hyper-locale à 60 minutes (pas de 15 min) + Radar RainViewer."""
+    """Precipitation over the next 60 minutes (15-minute steps) and radar tile metadata."""
 
-    interval_minutes: int = Field(default=15, description="Pas temporel en minutes")
-    mm_per_step: list[float] = Field(
-        default_factory=lambda: [0.0, 0.0, 0.0, 0.0],
-        description="Précipitations (mm) par tranche de 15 minutes sur la prochaine heure",
+    interval_minutes: int = Field(default=15, description="Time step (minutes)")
+    mm_per_step: Optional[list[float]] = Field(
+        default=None,
+        description="Precipitation (mm) per 15-minute step over the next hour; null when unknown",
     )
-    rain_expected_60m: bool = Field(default=False, description="Pluie attendue dans les 60 prochaines minutes")
-    max_mm_h: float = Field(default=0.0, ge=0.0, description="Intensité maximale équivalente (mm/h)")
+    rain_expected_60m: Optional[bool] = Field(default=None, description="Rain expected within 60 minutes")
+    max_mm_h: Optional[float] = Field(default=None, ge=0.0, description="Peak equivalent intensity (mm/h)")
     radar_tile_url_template: Optional[str] = Field(
-        default=None, description="Modèle d'URL de tuiles radar RainViewer (slippy map)"
+        default=None, description="RainViewer radar tile URL template (slippy map)"
     )
     radar_timestamp_utc: Optional[int] = Field(
-        default=None, description="Horodatage UTC de la dernière image radar RainViewer"
+        default=None, description="UTC timestamp of the latest RainViewer radar frame"
     )
 
 
 class MarineConditions(BaseModel):
-    """Conditions océanographiques et marines aux coordonnées GPS exactes."""
+    """Ocean conditions at the exact GPS position. Every field is ``None`` when unknown."""
 
-    wave_height_m: float = Field(default=0.0, ge=0.0, description="Hauteur significative des vagues (m)")
-    wave_direction_deg: int = Field(default=0, ge=0, le=360, description="Direction des vagues (°)")
-    wave_period_s: float = Field(default=0.0, ge=0.0, description="Période des vagues (s)")
-    swell_wave_height_m: float = Field(default=0.0, ge=0.0, description="Hauteur de la houle primaire (m)")
-    swell_wave_direction_deg: int = Field(default=0, ge=0, le=360, description="Direction de la houle (°)")
-    swell_wave_period_s: float = Field(default=0.0, ge=0.0, description="Période de la houle (s)")
-    ocean_current_velocity_kmh: float = Field(
-        default=0.0, ge=0.0, description="Vitesse du courant océanique de surface (km/h)"
+    wave_height_m: Optional[float] = Field(default=None, ge=0.0, description="Significant wave height (m)")
+    wave_direction_deg: Optional[int] = Field(default=None, ge=0, le=360, description="Wave direction (degrees)")
+    wave_period_s: Optional[float] = Field(default=None, ge=0.0, description="Wave period (s)")
+    swell_wave_height_m: Optional[float] = Field(default=None, ge=0.0, description="Primary swell height (m)")
+    swell_wave_direction_deg: Optional[int] = Field(
+        default=None, ge=0, le=360, description="Swell direction (degrees)"
     )
-    ocean_current_direction_deg: int = Field(
-        default=0, ge=0, le=360, description="Direction du courant océanique (°)"
+    swell_wave_period_s: Optional[float] = Field(default=None, ge=0.0, description="Swell period (s)")
+    ocean_current_velocity_kmh: Optional[float] = Field(
+        default=None, ge=0.0, description="Surface ocean current speed (km/h)"
     )
-    sea_state_label: Literal["CALM", "SMOOTH", "MODERATE", "ROUGH", "VERY_ROUGH", "HIGH", "PHENOMENAL"] = Field(
-        default="CALM", description="État de la mer selon l'échelle Douglas simplifiée"
+    ocean_current_direction_deg: Optional[int] = Field(
+        default=None, ge=0, le=360, description="Ocean current direction (degrees)"
     )
+    sea_state_label: Optional[
+        Literal["CALM", "SMOOTH", "MODERATE", "ROUGH", "VERY_ROUGH", "HIGH", "PHENOMENAL"]
+    ] = Field(default=None, description="Sea state (simplified Douglas scale), from the wave height")
     navigation_warning: bool = Field(
-        default=False, description="Alerte de navigation active (vagues >= 3.5m ou courant violent)"
+        default=False, description="True when a known value is dangerous (waves or swell >= 3.5 m, current >= 6 km/h)"
     )
 
 
 class SpaceWeatherStatus(BaseModel):
-    """État de la météo spatiale (NOAA SWPC) pour la fiabilité GPS et radio HF en mer."""
+    """Space weather (NOAA SWPC). Every field is ``None`` when SWPC could not be read."""
 
-    solar_kp: float = Field(default=2.0, ge=0.0, le=9.0, description="Indice géomagnétique planétaire Kp")
-    solar_storm_level: Literal["G0", "G1", "G2", "G3", "G4", "G5"] = Field(
-        default="G0", description="Échelle NOAA de tempête géomagnétique"
+    solar_kp: Optional[float] = Field(default=None, ge=0.0, le=9.0, description="Planetary Kp index")
+    solar_storm_level: Optional[Literal["G0", "G1", "G2", "G3", "G4", "G5"]] = Field(
+        default=None, description="NOAA geomagnetic storm scale"
     )
-    gps_degraded: bool = Field(
-        default=False, description="Risque de dégradation de précision GNSS/GPS (Kp >= 6 / G2+)"
-    )
-    hf_radio_blackout_risk: bool = Field(
-        default=False, description="Risque de perturbation des communications radio HF (Kp >= 5 / G1+)"
+    gps_degraded: Optional[bool] = Field(default=None, description="GNSS accuracy likely degraded (Kp >= 6)")
+    hf_radio_blackout_risk: Optional[bool] = Field(
+        default=None, description="HF radio disturbance likely (Kp >= 5)"
     )
 
 
 class HazardAlert(BaseModel):
-    """Alerte catastrophe naturelle normalisée, enrichie et dédupliquée."""
+    """Normalized, enriched and de-duplicated natural hazard alert."""
 
-    id: str = Field(..., description="Identifiant unique de l'alerte")
-    category: HazardCategory = Field(..., description="Catégorie de catastrophe")
-    severity: SeverityLevel = Field(..., description="Niveau de sévérité (GREEN, YELLOW, ORANGE, RED)")
-    title: str = Field(..., description="Titre synthétique localisé")
-    source: str = Field(..., description="Chaîne des sources combinées (ex: USGS+EMSC+GDACS)")
-    sources: list[str] = Field(
-        default_factory=list, description="Liste explicite des agences confirmant l'événement"
+    id: str = Field(..., description="Unique alert identifier")
+    category: HazardCategory = Field(..., description="Hazard category")
+    severity: SeverityLevel = Field(..., description="Severity (GREEN, YELLOW, ORANGE, RED)")
+    title: str = Field(..., description="Short title as given by the source")
+    source: str = Field(..., description="Combined sources (e.g. USGS+EMSC+GDACS)")
+    sources: list[str] = Field(default_factory=list, description="Agencies that report the event")
+    timestamp_utc: int = Field(..., description="Event time, UTC epoch seconds")
+    lat: float = Field(..., ge=-90.0, le=90.0, description="Latitude of the epicentre / phenomenon")
+    lon: float = Field(..., ge=-180.0, le=180.0, description="Longitude of the epicentre / phenomenon")
+    value_primary: Optional[float] = Field(
+        default=None,
+        description="Main physical value (magnitude, wind km/h, VEI...); null when the source gives none",
     )
-    timestamp_utc: int = Field(..., description="Horodatage UTC de l'événement (secondes epoch)")
-    lat: float = Field(..., ge=-90.0, le=90.0, description="Latitude de l'épicentre / phénomène")
-    lon: float = Field(..., ge=-180.0, le=180.0, description="Longitude de l'épicentre / phénomène")
-    value_primary: float = Field(..., description="Valeur physique principale (Magnitude, Vent km/h, Kp...)")
-    value_unit: str = Field(..., description="Unité de la valeur principale (Mw, km/h, m, Kp, VEI)")
-    depth_km: Optional[float] = Field(default=None, description="Profondeur hypocentrale pour un séisme (km)")
-    tsunami_warning: bool = Field(default=False, description="Alerte ou potentiel tsunami associé")
+    value_unit: Optional[str] = Field(default=None, description="Unit of the main value (Mw, km/h, m, VEI)")
+    depth_km: Optional[float] = Field(default=None, description="Hypocentre depth for an earthquake (km)")
+    tsunami_warning: bool = Field(default=False, description="Tsunami warning or potential")
     tsunami_eta_minutes: Optional[int] = Field(
-        default=None, description="Temps d'arrivée estimé de l'onde tsunami à la cible (minutes)"
+        default=None, description="Estimated tsunami arrival time at the target (minutes)"
     )
-    nearest_zone_id: Optional[str] = Field(default=None, description="Identifiant de la zone surveillée la plus proche")
-    nearest_zone_name: Optional[str] = Field(default=None, description="Nom de la zone surveillée la plus proche")
-    distance_to_zone_km: Optional[float] = Field(
-        default=None, description="Distance orthodromique Haversine jusqu'à la cible (km)"
-    )
+    nearest_zone_id: Optional[str] = Field(default=None, description="Nearest watched zone identifier")
+    nearest_zone_name: Optional[str] = Field(default=None, description="Nearest watched zone name")
+    distance_to_zone_km: Optional[float] = Field(default=None, description="Great-circle distance to the target (km)")
     bearing_deg: Optional[float] = Field(
-        default=None, description="Relèvement initial depuis la cible vers la catastrophe (0-360°)"
+        default=None, description="Initial bearing from the target to the hazard (0-360 degrees)"
     )
     bearing_cardinal: Optional[str] = Field(
-        default=None, description="Direction cardinale depuis la cible vers la catastrophe (N, NE, E...)"
+        default=None, description="Cardinal direction from the target to the hazard (N, NE, E...)"
     )
 
 
 class ZoneWeather(BaseModel):
-    """État météo et niveau d'alerte d'une zone géographique surveillée."""
+    """Weather and alert level of one watched zone."""
 
-    id: str = Field(..., description="Identifiant court de la zone (ex: z0)")
-    name: str = Field(..., description="Nom de la ville ou zone maritime")
+    id: str = Field(..., description="Short zone identifier (e.g. z0)")
+    name: str = Field(..., description="City or sea area name")
     lat: float = Field(..., ge=-90.0, le=90.0)
     lon: float = Field(..., ge=-180.0, le=180.0)
-    utc_offset_s: int = Field(default=0, description="Décalage horaire par rapport à UTC (secondes)")
-    alert_radius_km: float = Field(default=500.0, description="Rayon de surveillance géodésique (km)")
+    utc_offset_s: Optional[int] = Field(default=None, description="UTC offset of the zone (seconds)")
+    alert_radius_km: float = Field(default=500.0, description="Watch radius (km)")
     local_alert_level: SeverityLevel = Field(
-        default=SeverityLevel.GREEN, description="Niveau d'alerte maximal impactant cette zone"
+        default=SeverityLevel.GREEN, description="Highest severity of the hazards inside the watch radius"
     )
-    weather_source: str = Field(default="Open-Meteo", description="Fournisseur ayant servi la météo de la zone")
-    current: CurrentWeather
-    rain_next_60m: list[float] = Field(
-        default_factory=lambda: [0.0, 0.0, 0.0, 0.0],
-        description="Pluie prévue par pas de 15 min sur la prochaine heure (mm)",
+    weather_source: Optional[str] = Field(default=None, description="Provider of the zone weather; null when none")
+    current: Optional[CurrentWeather] = Field(
+        default=None, description="Current weather; null when no provider answered"
     )
-    daily_10d: list[DailyForecast] = Field(
-        default_factory=list, description="Prévisions quotidiennes sur 10 jours"
+    rain_next_60m: Optional[list[float]] = Field(
+        default=None, description="Precipitation per 15-minute step over the next hour (mm); null when unknown"
     )
+    daily_10d: list[DailyForecast] = Field(default_factory=list, description="Daily forecasts")
 
 
 class GlobalStatus(BaseModel):
-    """Synthèse mondiale DEFCON et météo spatiale."""
+    """Global hazard summary and space weather."""
 
-    max_severity: SeverityLevel = Field(default=SeverityLevel.GREEN)
-    active_red_count: int = Field(default=0, ge=0)
-    active_orange_count: int = Field(default=0, ge=0)
-    active_yellow_count: int = Field(default=0, ge=0)
-    solar_kp: float = Field(default=2.0, ge=0.0, le=9.0)
-    solar_storm_level: str = Field(default="G0")
-    gps_degraded: bool = Field(default=False)
-    hf_radio_blackout_risk: bool = Field(default=False)
+    max_severity: Optional[SeverityLevel] = Field(
+        default=None, description="Highest severity among active hazards; null when no hazard source answered"
+    )
+    active_red_count: Optional[int] = Field(default=None, ge=0)
+    active_orange_count: Optional[int] = Field(default=None, ge=0)
+    active_yellow_count: Optional[int] = Field(default=None, ge=0)
+    hazard_sources_ok: int = Field(default=0, ge=0, description="Hazard sources that answered this cycle")
+    hazard_sources_total: int = Field(default=0, ge=0, description="Hazard sources polled")
+    solar_kp: Optional[float] = Field(default=None, ge=0.0, le=9.0)
+    solar_storm_level: Optional[str] = Field(default=None)
+    gps_degraded: Optional[bool] = Field(default=None)
+    hf_radio_blackout_risk: Optional[bool] = Field(default=None)
     weather_fallback_active: bool = Field(
-        default=False, description="Indique si le filet de sécurité MET Norway a pris le relais"
+        default=False, description="True when a zone weather came from MET Norway or from a stale cache"
+    )
+    zones_without_weather: int = Field(
+        default=0, ge=0, description="Watched zones for which no weather provider answered"
     )
 
 
 class DeviceType(str, Enum):
-    """Profils matériels de la gamme d'écrans et clients Vigie Mondiale."""
+    """Hardware profiles of the Vigie clients."""
 
-    WAVESHARE_7B = "waveshare-7b"  # Terminal 7" 1024x600 ESP32-P4 fixe/bureau
-    TAB5 = "tab5"                  # M5Stack Tab5 5" 1280x720 ESP32-P4 sur batterie + GPS Grove
-    MARINE = "marine"              # Terminal navigation bateau avec GPS/NMEA + houle/courants
-    WEB = "web"                    # Client Web / Salle de crise / Mur d'écrans
-    GENERIC = "generic"            # Autres formats d'écrans embarqués
+    WAVESHARE_7B = "waveshare-7b"  # 7-inch 1024x600 ESP32-P4 desktop display
+    TAB5 = "tab5"                  # M5Stack Tab5 5-inch 1280x720 ESP32-P4, battery, Grove GPS
+    MARINE = "marine"              # Boat navigation terminal with GPS/NMEA, swell and currents
+    WEB = "web"                    # Web client / wall of screens
+    GENERIC = "generic"            # Other embedded displays
 
 
 class SnapshotResponse(BaseModel):
-    """Payload ultra-compact (< 12 Ko) multi-écrans (Waveshare 7B, M5Stack Tab5, Marine, Web)."""
+    """Compact multi-display payload (target: under 12 KiB)."""
 
     version: str = Field(default="1.1")
-    server_utc: int = Field(..., description="Timestamp UTC du serveur")
+    server_utc: int = Field(..., description="Server UTC timestamp")
     device_type: DeviceType = Field(
         default=DeviceType.WAVESHARE_7B,
-        description="Profil matériel servi (waveshare-7b, tab5, marine, web, generic)",
+        description="Hardware profile served (waveshare-7b, tab5, marine, web, generic)",
     )
-    compact: bool = Field(
-        default=True,
-        description="Indique si le profil compact (< 12 Ko sans allocation dynamique) est appliqué",
-    )
-    simulation_active: bool = Field(default=False, description="Indique si un scénario simulé est actif")
+    compact: bool = Field(default=True, description="True when the compact profile (under 12 KiB) is applied")
+    simulation_active: bool = Field(default=False, description="True while a simulated scenario is active")
     global_status: GlobalStatus
     zones: list[ZoneWeather]
     hazards: list[HazardAlert]
 
 
 class FloodRiskStatus(BaseModel):
-    """Risque hydrologique et crue fluviale (GloFAS Copernicus via Open-Meteo Flood API)."""
+    """River discharge and flood indicator (Copernicus GloFAS through the Open-Meteo Flood API)."""
 
-    river_discharge_m3s: float = Field(default=0.0, ge=0.0, description="Débit fluvial actuel (m³/s)")
-    river_discharge_mean_m3s: float = Field(default=0.0, ge=0.0, description="Débit moyen historique (m³/s)")
-    river_discharge_max_m3s: float = Field(default=0.0, ge=0.0, description="Débit maximal prévu sur 10j (m³/s)")
-    anomaly_ratio: float = Field(default=1.0, ge=0.0, description="Ratio débit_max / débit_moyen")
-    flood_alert_level: SeverityLevel = Field(
-        default=SeverityLevel.GREEN, description="Niveau d'alerte crue/inondation"
+    river_discharge_m3s: float = Field(..., ge=0.0, description="Current river discharge (m3/s)")
+    river_discharge_mean_m3s: Optional[float] = Field(
+        default=None, ge=0.0, description="Mean of the forecast ensemble discharge over the period (m3/s)"
+    )
+    river_discharge_max_m3s: float = Field(..., ge=0.0, description="Maximum forecast discharge (m3/s)")
+    anomaly_ratio: Optional[float] = Field(
+        default=None, ge=0.0, description="Ratio of the maximum to the mean forecast discharge"
+    )
+    flood_alert_level: Optional[SeverityLevel] = Field(
+        default=None, description="Heuristic flood level from the ratio and the discharge; null when unknown"
     )
 
 
 class AirQualityStatus(BaseModel):
-    """Qualité de l'air, indice UV et panaches de poussières/cendres (Open-Meteo Air Quality API)."""
+    """Air quality, UV and dust / ash (Open-Meteo Air Quality API). Every field is ``None`` when unknown."""
 
-    european_aqi: int = Field(default=20, ge=0, description="Indice européen de qualité de l'air (EAQI)")
-    us_aqi: int = Field(default=25, ge=0, description="Indice américain de qualité de l'air (US AQI)")
-    pm2_5_ugm3: float = Field(default=5.0, ge=0.0, description="Particules fines PM2.5 (µg/m³)")
-    pm10_ugm3: float = Field(default=12.0, ge=0.0, description="Particules PM10 (µg/m³)")
-    uv_index: float = Field(default=3.0, ge=0.0, description="Indice UV")
-    dust_ugm3: float = Field(
-        default=0.0, ge=0.0, description="Concentration de poussières désertiques / cendres volcaniques (µg/m³)"
+    european_aqi: Optional[int] = Field(default=None, ge=0, description="European air quality index (EAQI)")
+    us_aqi: Optional[int] = Field(default=None, ge=0, description="US air quality index")
+    pm2_5_ugm3: Optional[float] = Field(default=None, ge=0.0, description="PM2.5 particles (ug/m3)")
+    pm10_ugm3: Optional[float] = Field(default=None, ge=0.0, description="PM10 particles (ug/m3)")
+    uv_index: Optional[float] = Field(default=None, ge=0.0, description="UV index")
+    dust_ugm3: Optional[float] = Field(
+        default=None, ge=0.0, description="Desert dust / volcanic ash concentration (ug/m3)"
     )
     ash_or_dust_warning: bool = Field(
-        default=False, description="Alerte panache de poussières/cendres (dust >= 100 µg/m³ ou PM10 >= 120 µg/m³)"
+        default=False, description="True when a known value is high (dust >= 100, PM10 >= 120 or EAQI >= 100)"
     )
 
 
 class MonitoredZoneConfig(BaseModel):
-    """Configuration persistante d'une zone géographique surveillée (Watchlist SQLite WAL)."""
+    """Persistent configuration of a watched zone (SQLite watchlist)."""
 
-    id: str = Field(..., description="Identifiant unique de la zone (ex: z0, z5)")
-    name: str = Field(..., min_length=1, max_length=64, description="Nom lisible de la zone ou du port")
-    lat: float = Field(..., ge=-90.0, le=90.0, description="Latitude WGS84")
-    lon: float = Field(..., ge=-180.0, le=180.0, description="Longitude WGS84")
-    utc_offset_s: int = Field(default=0, description="Décalage horaire par rapport à UTC (secondes)")
-    alert_radius_km: float = Field(default=500.0, gt=0.0, le=5000.0, description="Rayon d'alerte géodésique (km)")
-    is_marine: bool = Field(default=False, description="Zone maritime / côtière avec surveillance houle")
+    id: str = Field(..., description="Unique zone identifier (e.g. z0, z5)")
+    name: str = Field(..., min_length=1, max_length=64, description="Readable name of the zone or port")
+    lat: float = Field(..., ge=-90.0, le=90.0, description="WGS84 latitude")
+    lon: float = Field(..., ge=-180.0, le=180.0, description="WGS84 longitude")
+    utc_offset_s: int = Field(
+        ..., description="Configured UTC offset (seconds), used when the weather provider gives none"
+    )
+    alert_radius_km: float = Field(default=500.0, gt=0.0, le=5000.0, description="Geodesic alert radius (km)")
+    is_marine: bool = Field(default=False, description="Maritime or coastal zone")
 
 
 class MonitoredZoneUpsertRequest(BaseModel):
-    """Requête d'ajout ou de modification d'une zone surveillée (`POST /v1/zones`)."""
+    """Request to add or update a watched zone (``POST /v1/zones``)."""
 
-    id: Optional[str] = Field(default=None, description="Identifiant optionnel (auto-généré si absent)")
-    name: str = Field(..., min_length=1, max_length=64, description="Nom de la ville, île ou zone maritime")
-    lat: float = Field(..., ge=-90.0, le=90.0, description="Latitude WGS84")
-    lon: float = Field(..., ge=-180.0, le=180.0, description="Longitude WGS84")
-    utc_offset_s: int = Field(default=0, description="Décalage horaire UTC (secondes)")
-    alert_radius_km: float = Field(default=500.0, gt=0.0, le=5000.0, description="Rayon de surveillance (km)")
-    is_marine: bool = Field(default=False, description="Indique s'il s'agit d'une zone maritime")
+    id: Optional[str] = Field(default=None, description="Optional identifier (generated when absent)")
+    name: str = Field(..., min_length=1, max_length=64, description="Name of the city, island or sea area")
+    lat: float = Field(..., ge=-90.0, le=90.0, description="WGS84 latitude")
+    lon: float = Field(..., ge=-180.0, le=180.0, description="WGS84 longitude")
+    utc_offset_s: int = Field(..., description="UTC offset (seconds) used when the weather provider gives none")
+    alert_radius_km: float = Field(default=500.0, gt=0.0, le=5000.0, description="Watch radius (km)")
+    is_marine: bool = Field(default=False, description="Maritime zone")
 
 
 class HistoryResponse(BaseModel):
-    """Réponse paginée de l'historique SQLite WAL des catastrophes mondiales (`GET /v1/history`)."""
+    """Paged hazard history from SQLite (``GET /v1/history``)."""
 
     count: int
     items: list[HazardAlert]
 
 
 class PointResponse(BaseModel):
-    """Payload complet pour une coordonnée GPS exacte / Bateau / Tab5 GPS Grove (/v1/point)."""
+    """Full payload for one exact position: boat, vehicle or Tab5 with Grove GPS (``/v1/point``)."""
 
     version: str = Field(default="1.1")
     server_utc: int
     device_type: DeviceType = Field(
         default=DeviceType.TAB5,
-        description="Profil matériel servi (tab5 avec GPS Grove, marine, waveshare-7b, web)",
+        description="Hardware profile served (tab5 with Grove GPS, marine, waveshare-7b, web)",
     )
-    compact: bool = Field(default=True, description="Indique si le filtrage compact embarqué est actif")
+    compact: bool = Field(default=True, description="True when compact filtering is applied")
     coordinates: GPSCoordinates
-    weather_provider: str = Field(..., description="Provider météo utilisé (Open-Meteo ou MET Norway Fallback)")
-    fallback_used: bool = Field(default=False, description="True si le fallback MET Norway a été utilisé")
+    utc_offset_s: Optional[int] = Field(default=None, description="UTC offset at the position (seconds), if known")
+    weather_provider: Optional[str] = Field(default=None, description="Weather provider used; null when none answered")
+    fallback_used: bool = Field(default=False, description="True when the weather came from a fallback source")
     local_alert_level: SeverityLevel = Field(default=SeverityLevel.GREEN)
-    current: CurrentWeather
+    current: Optional[CurrentWeather] = Field(default=None, description="Current weather; null when unknown")
+    daily: list[DailyForecast] = Field(default_factory=list, description="Daily forecasts at the position")
     rain_nowcast: RainNowcast
     marine: Optional[MarineConditions] = Field(
-        default=None, description="Conditions marines (présent si marine=true ou device_type=marine)"
+        default=None, description="Marine conditions (present when requested and available)"
     )
-    flood_risk: Optional[FloodRiskStatus] = Field(
-        default=None, description="Risque hydrologique et débit fluvial GloFAS Copernicus"
-    )
-    air_quality: Optional[AirQualityStatus] = Field(
-        default=None, description="Qualité de l'air, UV et poussières/cendres"
-    )
+    flood_risk: Optional[FloodRiskStatus] = Field(default=None, description="River discharge (GloFAS); null when unknown")
+    air_quality: Optional[AirQualityStatus] = Field(default=None, description="Air quality, UV and dust; null when unknown")
     space_weather: SpaceWeatherStatus
     nearby_hazards: list[HazardAlert] = Field(
         default_factory=list,
-        description="Catastrophes mondiales filtrées et enrichies par rapport à ce point GPS",
+        description="Global hazards filtered and enriched relative to this position",
     )
 
 
 # ============================================================================
-# Standard IETF RFC 7946 GeoJSON (/v1/geojson/hazards)
+# IETF RFC 7946 GeoJSON (/v1/geojson/hazards)
 # ============================================================================
 
 
 class GeoJSONPointGeometry(BaseModel):
-    """Géométrie Point conforme RFC 7946 §3.1.2 ([lon, lat] ou [lon, lat, elev])."""
+    """Point geometry per RFC 7946 section 3.1.2 ([lon, lat] or [lon, lat, elevation])."""
 
     type: Literal["Point"] = "Point"
     coordinates: list[float] = Field(
@@ -375,7 +395,7 @@ class GeoJSONPointGeometry(BaseModel):
 
 
 class GeoJSONFeature(BaseModel):
-    """Objet Feature conforme RFC 7946 §3.2."""
+    """Feature object per RFC 7946 section 3.2."""
 
     type: Literal["Feature"] = "Feature"
     id: str
@@ -384,53 +404,53 @@ class GeoJSONFeature(BaseModel):
 
 
 class GeoJSONFeatureCollection(BaseModel):
-    """Collection de Features conforme IETF RFC 7946 §3.3."""
+    """FeatureCollection per RFC 7946 section 3.3."""
 
     type: Literal["FeatureCollection"] = "FeatureCollection"
     bbox: Optional[list[float]] = Field(
-        default=None, description="Bounding Box [min_lon, min_lat, max_lon, max_lat]"
+        default=None, description="Bounding box [min_lon, min_lat, max_lon, max_lat]"
     )
     metadata: dict[str, Any] = Field(default_factory=dict)
     features: list[GeoJSONFeature] = Field(default_factory=list)
 
 
 # ============================================================================
-# Standard OASIS CAP 1.2 — Common Alerting Protocol (/v1/cap/alerts)
+# OASIS CAP 1.2 - Common Alerting Protocol (/v1/cap/alerts)
 # ============================================================================
 
 
 class CAPArea(BaseModel):
-    """Élément <area> du standard OASIS CAP 1.2."""
+    """``<area>`` element of OASIS CAP 1.2."""
 
-    areaDesc: str = Field(..., description="Description textuelle de la zone géographique affectée")
-    circle: str = Field(..., description="Cercle au format 'lat,lon radius_km' (spécification CAP 1.2)")
+    areaDesc: str = Field(..., description="Text description of the affected area")
+    circle: str = Field(..., description="Circle as 'lat,lon radius_km' (CAP 1.2); radius 0 is a point")
 
 
 class CAPInfo(BaseModel):
-    """Élément <info> du standard OASIS CAP 1.2."""
+    """``<info>`` element of OASIS CAP 1.2."""
 
-    language: str = Field(default="fr-FR")
+    language: str = Field(default="en-US")
     category: Literal["Geo", "Met", "Safety", "Security", "Rescue", "Fire", "Health", "Env", "Transport", "Infra", "CBRNE", "Other"]
-    event: str = Field(..., description="Type d'événement (ex: Earthquake, Tsunami Warning, Tropical Cyclone)")
+    event: str = Field(..., description="Event type (e.g. EARTHQUAKE, TSUNAMI, HURRICANE)")
     urgency: Literal["Immediate", "Expected", "Future", "Past", "Unknown"]
     severity: Literal["Extreme", "Severe", "Moderate", "Minor", "Unknown"]
     certainty: Literal["Observed", "Likely", "Possible", "Unlikely", "Unknown"]
-    effective: str = Field(..., description="Date/heure ISO 8601 d'effet")
-    headline: str = Field(..., description="Titre court de l'alerte")
-    description: str = Field(..., description="Description détaillée incluant valeurs physiques et sources")
-    instruction: str = Field(..., description="Consignes de sécurité recommandées")
-    web: str = Field(default="https://github.com/Axellum/alerte-mondiale-api")
+    effective: str = Field(..., description="ISO 8601 effective date and time")
+    headline: str = Field(..., description="Short alert title")
+    description: str = Field(..., description="Detailed description with physical values and sources")
+    instruction: str = Field(..., description="Recommended safety instructions")
+    web: Optional[str] = Field(default=None, description="Optional URL with more information")
     parameters: dict[str, Any] = Field(default_factory=dict)
     area: list[CAPArea] = Field(default_factory=list)
 
 
 class CAPAlert(BaseModel):
-    """Message d'alerte conforme au profil OASIS CAP 1.2."""
+    """Alert message following the OASIS CAP 1.2 profile."""
 
     xmlns: str = Field(default="urn:oasis:names:tc:emergency:cap:1.2")
     identifier: str
-    sender: str = Field(default="vigie-mondiale-api@auxfilsdesidees.fr")
-    sent: str = Field(..., description="Horodatage ISO 8601 avec fuseau (+00:00)")
+    sender: str = Field(default_factory=cap_sender, description="Sender id: VIGIE_CAP_SENDER or 'vigie-api'")
+    sent: str = Field(..., description="ISO 8601 timestamp with time zone (+00:00)")
     status: Literal["Actual", "Exercise", "System", "Test", "Draft"] = "Actual"
     msgType: Literal["Alert", "Update", "Cancel", "Ack", "Error"] = "Alert"
     scope: Literal["Public", "Restricted", "Private"] = "Public"
@@ -438,7 +458,7 @@ class CAPAlert(BaseModel):
 
 
 class CAPFeedResponse(BaseModel):
-    """Enveloppe JSON de diffusion d'alertes OASIS CAP 1.2."""
+    """JSON envelope of an OASIS CAP 1.2 alert feed."""
 
     protocol: str = Field(default="OASIS CAP 1.2")
     generated_at: str
@@ -447,12 +467,12 @@ class CAPFeedResponse(BaseModel):
 
 
 # ============================================================================
-# Mode Simulation de Crises (/v1/simulate)
+# Crisis simulation (/v1/simulate)
 # ============================================================================
 
 
 class SimulationScenario(str, Enum):
-    """Scénarios de crise réalistes préconfigurés."""
+    """Preconfigured test scenarios. Their data is simulated and always labelled as such."""
 
     MEGA_TSUNAMI_JAPAN = "mega_tsunami_japan"
     CAT5_HURRICANE_CARIBBEAN = "cat5_hurricane_caribbean"
@@ -462,22 +482,22 @@ class SimulationScenario(str, Enum):
 
 
 class SimulationRequest(BaseModel):
-    """Requête d'activation d'un scénario de crise ou d'injection personnalisée."""
+    """Request to start a simulated scenario."""
 
     scenario: SimulationScenario = Field(
         default=SimulationScenario.MEGA_TSUNAMI_JAPAN,
-        description="Nom du scénario de crise à injecter (ou 'clear' pour revenir au mode réel)",
+        description="Scenario to inject, or 'clear' to return to real data",
     )
     target_lat: Optional[float] = Field(
-        default=None, ge=-90.0, le=90.0, description="Latitude optionnelle pour centrer le scénario près d'un bateau/zone"
+        default=None, ge=-90.0, le=90.0, description="Optional latitude to centre the scenario near a boat or zone"
     )
     target_lon: Optional[float] = Field(
-        default=None, ge=-180.0, le=180.0, description="Longitude optionnelle pour centrer le scénario"
+        default=None, ge=-180.0, le=180.0, description="Optional longitude to centre the scenario"
     )
 
 
 class SimulationResponse(BaseModel):
-    """Réponse après injection d'un scénario de simulation."""
+    """Response after starting or clearing a simulated scenario."""
 
     status: str
     scenario: SimulationScenario

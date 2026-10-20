@@ -1,10 +1,14 @@
-"""Collecteur météo marine & océanographie : Open-Meteo Marine API.
+"""Marine weather and oceanography collector: Open-Meteo Marine API.
 
-Fournit aux coordonnées GPS exactes d'un navire (`lat, lon`) :
-- Hauteur significative des vagues (`wave_height`), direction (`wave_direction`) et période (`wave_period`).
-- Houle primaire (`swell_wave_height`, `swell_wave_direction`, `swell_wave_period`).
-- Courants marins de surface (`ocean_current_velocity`, `ocean_current_direction`).
-- Classification de l'état de la mer (Échelle Douglas) et alerte de navigation.
+Provides, at the exact GPS position of a vessel (``lat, lon``):
+
+- Significant wave height, direction and period.
+- Primary swell height, direction and period.
+- Surface ocean current speed and direction.
+- Sea state classification (Douglas scale) and a navigation warning.
+
+A variable the API does not supply stays ``None``. The Marine API returns nothing for
+inland points: the collector then raises, and the caller reports "no marine data".
 """
 
 from __future__ import annotations
@@ -13,14 +17,14 @@ from typing import Any, Literal, Optional
 
 import httpx
 
-from app.collectors.base import BaseCollector
+from app.collectors.base import BaseCollector, optional_float
 from app.models.schemas import MarineConditions
 
 SeaStateLabel = Literal["CALM", "SMOOTH", "MODERATE", "ROUGH", "VERY_ROUGH", "HIGH", "PHENOMENAL"]
 
 
 def classify_sea_state_douglas(wave_height_m: float) -> SeaStateLabel:
-    """Classifie l'état de la mer selon l'échelle océanographique internationale de Douglas."""
+    """Classify the sea state with the international Douglas scale."""
     if wave_height_m < 0.1:
         return "CALM"
     if wave_height_m < 0.5:
@@ -36,8 +40,20 @@ def classify_sea_state_douglas(wave_height_m: float) -> SeaStateLabel:
     return "PHENOMENAL"
 
 
+def _direction(value: Any) -> Optional[int]:
+    """Round a direction in degrees to ``[0, 359]``, or ``None`` when missing."""
+    number = optional_float(value)
+    return None if number is None else int(round(number)) % 360
+
+
+def _rounded(value: Any, digits: int) -> Optional[float]:
+    """Round a non-negative provider number, or ``None`` when missing."""
+    number = optional_float(value)
+    return None if number is None else round(max(0.0, number), digits)
+
+
 class OpenMeteoMarineCollector(BaseCollector[MarineConditions]):
-    """Collecteur asynchrone Open-Meteo Marine API pour le mode Bateau / GPS."""
+    """Asynchronous Open-Meteo Marine API collector for the boat / GPS mode."""
 
     BASE_URL = "https://marine-api.open-meteo.com/v1/marine"
 
@@ -51,7 +67,7 @@ class OpenMeteoMarineCollector(BaseCollector[MarineConditions]):
         )
 
     async def fetch_marine(self, lat: float, lon: float) -> MarineConditions:
-        """Récupère les conditions marines aux coordonnées (`lat, lon`)."""
+        """Fetch the marine conditions at ``lat, lon``."""
         lat_r = round(float(lat), 2)
         lon_r = round(float(lon), 2)
         cache_key = f"marine:{lat_r:.2f},{lon_r:.2f}"
@@ -75,32 +91,32 @@ class OpenMeteoMarineCollector(BaseCollector[MarineConditions]):
 
     @staticmethod
     def parse_response(payload: dict[str, Any]) -> MarineConditions:
-        """Normalise la réponse JSON d'Open-Meteo Marine."""
+        """Normalize an Open-Meteo Marine response. Missing variables become ``None``.
+
+        Raises ``ValueError`` when the response carries no marine value at all.
+        """
         curr = payload.get("current") or {}
 
-        wave_h = round(float(curr.get("wave_height") or 0.0), 2)
-        wave_dir = int(round(float(curr.get("wave_direction") or 0))) % 361
-        wave_per = round(float(curr.get("wave_period") or 0.0), 1)
+        wave_h = _rounded(curr.get("wave_height"), 2)
+        swell_h = _rounded(curr.get("swell_wave_height"), 2)
+        curr_vel = _rounded(curr.get("ocean_current_velocity"), 2)
+        if wave_h is None and swell_h is None and curr_vel is None:
+            raise ValueError("Open-Meteo Marine response has no marine value")
 
-        swell_h = round(float(curr.get("swell_wave_height") or 0.0), 2)
-        swell_dir = int(round(float(curr.get("swell_wave_direction") or 0))) % 361
-        swell_per = round(float(curr.get("swell_wave_period") or 0.0), 1)
-
-        curr_vel = round(float(curr.get("ocean_current_velocity") or 0.0), 2)
-        curr_dir = int(round(float(curr.get("ocean_current_direction") or 0))) % 361
-
-        sea_state = classify_sea_state_douglas(wave_h)
-        nav_warning = bool(wave_h >= 3.5 or swell_h >= 3.5 or curr_vel >= 6.0)
-
+        nav_warning = bool(
+            (wave_h is not None and wave_h >= 3.5)
+            or (swell_h is not None and swell_h >= 3.5)
+            or (curr_vel is not None and curr_vel >= 6.0)
+        )
         return MarineConditions(
             wave_height_m=wave_h,
-            wave_direction_deg=wave_dir,
-            wave_period_s=wave_per,
+            wave_direction_deg=_direction(curr.get("wave_direction")),
+            wave_period_s=_rounded(curr.get("wave_period"), 1),
             swell_wave_height_m=swell_h,
-            swell_wave_direction_deg=swell_dir,
-            swell_wave_period_s=swell_per,
+            swell_wave_direction_deg=_direction(curr.get("swell_wave_direction")),
+            swell_wave_period_s=_rounded(curr.get("swell_wave_period"), 1),
             ocean_current_velocity_kmh=curr_vel,
-            ocean_current_direction_deg=curr_dir,
-            sea_state_label=sea_state,
+            ocean_current_direction_deg=_direction(curr.get("ocean_current_direction")),
+            sea_state_label=None if wave_h is None else classify_sea_state_douglas(wave_h),
             navigation_warning=nav_warning,
         )

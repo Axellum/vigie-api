@@ -1,1 +1,1 @@
-"""Routeurs FastAPI pour Vigie Mondiale API."""
+"""FastAPI routers of the Vigie API."""

@@ -1,11 +1,15 @@
-"""Collecteurs sismologiques temps réel : USGS (GeoJSON) et EMSC / SeismicPortal (REST JSON).
+"""Real-time seismology collectors: USGS (GeoJSON) and EMSC / SeismicPortal (REST JSON).
 
-Les deux sources sont complémentaires :
-- `USGSCollector` : Référence mondiale pour les magnitudes Mw, le niveau d'alerte PAGER
-  et le flag `tsunami` océanique.
-- `EMSCCollector` : Centre Sismologique Euro-Méditerranéen (SeismicPortal), particulièrement
-  rapide en Europe, Méditerranée, Moyen-Orient et Asie.
-Les doublons inter-providers sont ensuite fusionnés par `deduplicate_hazards()` dans `geodesy.py`.
+The two sources complement each other:
+
+- ``USGSCollector``: world reference for moment magnitudes, the PAGER alert level and the
+  oceanic ``tsunami`` flag.
+- ``EMSCCollector``: Euro-Mediterranean Seismological Centre (SeismicPortal), particularly
+  fast in Europe, the Mediterranean, the Middle East and Asia.
+
+Duplicates between providers are merged afterwards by ``deduplicate_hazards()`` in ``geodesy.py``.
+An event without a magnitude or without an event time is skipped: nothing is dated "now" or
+given a default depth.
 """
 
 from __future__ import annotations
@@ -15,14 +19,14 @@ from typing import Any, Optional
 
 import httpx
 
-from app.collectors.base import BaseCollector
+from app.collectors.base import BaseCollector, optional_float
 from app.models.schemas import HazardAlert, HazardCategory, SeverityLevel
 
 
 def _severity_from_magnitude_and_pager(
     mag: float, pager_alert: Optional[str], tsunami_flag: bool
 ) -> SeverityLevel:
-    """Calcule la sévérité unifiée à partir de la magnitude, du niveau PAGER USGS et du flag tsunami."""
+    """Compute the unified severity from the magnitude, the USGS PAGER level and the tsunami flag."""
     pager = (pager_alert or "").strip().lower()
     if pager == "red" or mag >= 7.0 or (tsunami_flag and mag >= 6.5):
         return SeverityLevel.RED
@@ -34,7 +38,7 @@ def _severity_from_magnitude_and_pager(
 
 
 class USGSCollector(BaseCollector[list[HazardAlert]]):
-    """Collecteur asynchrone des séismes mondiaux USGS (GeoJSON M4.5+ 24h)."""
+    """Asynchronous collector of world earthquakes from USGS (GeoJSON, M4.5+, last 24 hours)."""
 
     FEED_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson"
 
@@ -55,7 +59,7 @@ class USGSCollector(BaseCollector[list[HazardAlert]]):
 
     @staticmethod
     def parse_geojson(payload: dict[str, Any]) -> list[HazardAlert]:
-        """Transforme un flux GeoJSON USGS en liste de `HazardAlert` normalisées."""
+        """Turn a USGS GeoJSON feed into normalized ``HazardAlert`` objects."""
         alerts: list[HazardAlert] = []
         features = payload.get("features") or []
 
@@ -69,21 +73,24 @@ class USGSCollector(BaseCollector[list[HazardAlert]]):
 
                 lon = float(coords[0])
                 lat = float(coords[1])
-                depth_km = round(float(coords[2]), 1) if len(coords) >= 3 and coords[2] is not None else 10.0
+                depth = optional_float(coords[2]) if len(coords) >= 3 else None
+                depth_km = None if depth is None else round(depth, 1)
 
                 mag_raw = props.get("mag")
                 if mag_raw is None:
                     continue
                 mag = round(float(mag_raw), 1)
 
-                ts_ms = props.get("time") or 0
-                ts_utc = int(float(ts_ms) / 1000.0) if ts_ms else int(datetime.now(timezone.utc).timestamp())
+                ts_ms = optional_float(props.get("time"))
+                if ts_ms is None or ts_ms <= 0:
+                    continue
+                ts_utc = int(ts_ms / 1000.0)
 
                 tsunami_flag = bool(int(props.get("tsunami") or 0) == 1)
                 pager_alert = props.get("alert")
                 severity = _severity_from_magnitude_and_pager(mag, pager_alert, tsunami_flag)
 
-                place = str(props.get("place") or "Épicentre mondial")
+                place = str(props.get("place") or "Unknown location")
                 feat_id = str(feat.get("id") or f"{lat:.2f}_{lon:.2f}_{ts_utc}")
 
                 alerts.append(
@@ -98,7 +105,7 @@ class USGSCollector(BaseCollector[list[HazardAlert]]):
                         lat=round(lat, 4),
                         lon=round(lon, 4),
                         value_primary=mag,
-                        value_unit="Mw",
+                        value_unit=str(props.get("magType") or "M"),
                         depth_km=depth_km,
                         tsunami_warning=tsunami_flag,
                     )
@@ -110,7 +117,7 @@ class USGSCollector(BaseCollector[list[HazardAlert]]):
 
 
 class EMSCCollector(BaseCollector[list[HazardAlert]]):
-    """Collecteur asynchrone EMSC / SeismicPortal (Centre Sismologique Euro-Méditerranéen)."""
+    """Asynchronous collector of EMSC / SeismicPortal (Euro-Mediterranean Seismological Centre)."""
 
     FEED_URL = (
         "https://www.seismicportal.eu/fdsnws/event/1/query"
@@ -134,7 +141,7 @@ class EMSCCollector(BaseCollector[list[HazardAlert]]):
 
     @staticmethod
     def parse_geojson(payload: dict[str, Any]) -> list[HazardAlert]:
-        """Transforme un flux GeoJSON EMSC / SeismicPortal en liste de `HazardAlert`."""
+        """Turn an EMSC / SeismicPortal GeoJSON feed into ``HazardAlert`` objects."""
         alerts: list[HazardAlert] = []
         features = payload.get("features") or []
 
@@ -148,24 +155,28 @@ class EMSCCollector(BaseCollector[list[HazardAlert]]):
 
                 lon = float(coords[0])
                 lat = float(coords[1])
-                raw_depth = coords[2] if len(coords) >= 3 and coords[2] is not None else props.get("depth", 10.0)
-                depth_km = round(abs(float(raw_depth)), 1)
+                raw_depth = optional_float(coords[2]) if len(coords) >= 3 else None
+                if raw_depth is None:
+                    raw_depth = optional_float(props.get("depth"))
+                depth_km = None if raw_depth is None else round(abs(raw_depth), 1)
 
                 mag_raw = props.get("mag")
                 if mag_raw is None:
                     continue
                 mag = round(float(mag_raw), 1)
 
-                time_str = props.get("time")
-                if isinstance(time_str, (int, float)):
-                    ts_utc = int(time_str)
-                elif isinstance(time_str, str) and time_str:
-                    iso_clean = time_str.replace("Z", "+00:00")
-                    ts_utc = int(datetime.fromisoformat(iso_clean).timestamp())
+                time_val = props.get("time")
+                if isinstance(time_val, (int, float)) and not isinstance(time_val, bool):
+                    ts_utc = int(time_val)
+                elif isinstance(time_val, str) and time_val:
+                    parsed = datetime.fromisoformat(time_val.replace("Z", "+00:00"))
+                    if parsed.tzinfo is None:
+                        parsed = parsed.replace(tzinfo=timezone.utc)
+                    ts_utc = int(parsed.timestamp())
                 else:
-                    ts_utc = int(datetime.now(timezone.utc).timestamp())
+                    continue
 
-                region = str(props.get("flynn_region") or props.get("place") or "Zone Euro-Med / Monde")
+                region = str(props.get("flynn_region") or props.get("place") or "Unknown region")
                 unid = str(props.get("unid") or feat.get("id") or f"{lat:.2f}_{lon:.2f}_{ts_utc}")
                 severity = _severity_from_magnitude_and_pager(mag, None, False)
 
@@ -181,7 +192,7 @@ class EMSCCollector(BaseCollector[list[HazardAlert]]):
                         lat=round(lat, 4),
                         lon=round(lon, 4),
                         value_primary=mag,
-                        value_unit=str(props.get("magtype") or "Mw"),
+                        value_unit=str(props.get("magtype") or "M"),
                         depth_km=depth_km,
                         tsunami_warning=False,
                     )

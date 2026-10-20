@@ -1,13 +1,15 @@
-"""Classe de base des collecteurs externes avec Circuit Breaker, Cache TTL et Métriques.
+"""Base class of the external collectors: circuit breaker, TTL cache and metrics.
 
-Garantit l'invariant n°1 de `AGENTS.md` :
-Un collecteur externe en timeout ou en erreur (USGS, EMSC, GDACS, NOAA, Open-Meteo, MET Norway)
-ne doit jamais bloquer la boucle d'événements `asyncio` ni faire échouer l'API.
-Il conserve le dernier état valide en cache et expose sa santé via `get_health()`.
+Guarantees invariant 1 of ``AGENTS.md``: a collector that times out or fails
+(USGS, EMSC, GDACS, NOAA, Open-Meteo, MET Norway...) never blocks the asyncio
+event loop and never makes the API fail. It keeps the last valid value in cache
+and reports its health through ``get_health()``.
 """
 
 from __future__ import annotations
 
+import math
+import os
 import time
 from abc import ABC, abstractmethod
 from typing import Any, Generic, Optional, TypeVar
@@ -18,15 +20,34 @@ from app.models.schemas import CircuitState, ProviderHealth
 
 T = TypeVar("T")
 
-DEFAULT_USER_AGENT = "VigieMondialePro/1.1 (+https://github.com/Axellum/alerte-mondiale-api; contact@auxfilsdesidees.fr)"
+
+def build_user_agent() -> str:
+    """Build the User-Agent sent to the providers.
+
+    Some providers (MET Norway, NOAA NWS) require an identifying User-Agent with a
+    way to contact the operator. Set ``VIGIE_CONTACT`` (an e-mail address or a URL).
+    """
+    contact = os.environ.get("VIGIE_CONTACT", "").strip()
+    return f"vigie-api ({contact})" if contact else "vigie-api (personal project)"
+
+
+def optional_float(value: Any) -> Optional[float]:
+    """Return ``value`` as a finite float, or ``None`` when it is missing or not a number."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
 
 
 class CollectorUnavailableError(RuntimeError):
-    """Levée lorsqu'un collecteur échoue et qu'aucune donnée de secours en cache n'est disponible."""
+    """Raised when a collector fails and no cached fallback value is available."""
 
 
 class BaseCollector(ABC, Generic[T]):
-    """Socle résilient pour tous les collecteurs HTTP asynchrones."""
+    """Resilient base for all asynchronous HTTP collectors."""
 
     def __init__(
         self,
@@ -50,7 +71,7 @@ class BaseCollector(ABC, Generic[T]):
         self.is_fallback = is_fallback
         self._external_client = http_client
 
-        # État du Circuit Breaker
+        # Circuit breaker state
         self.circuit_state: CircuitState = CircuitState.CLOSED
         self.consecutive_failures: int = 0
         self.opened_at_monotonic: Optional[float] = None
@@ -58,11 +79,11 @@ class BaseCollector(ABC, Generic[T]):
         self.last_error: Optional[str] = None
         self.latency_ms: float = 0.0
 
-        # Cache mémoire indexé par clé (ex: "global" ou "48.86,2.35")
+        # In-memory cache keyed by an arbitrary string (e.g. "global" or "48.86,2.35")
         self._cache: dict[str, tuple[float, T]] = {}
 
     def _get_cached_if_fresh(self, cache_key: str) -> Optional[T]:
-        """Retourne l'entrée en cache si son TTL n'est pas expiré."""
+        """Return the cached entry if its TTL has not expired."""
         entry = self._cache.get(cache_key)
         if entry is None:
             return None
@@ -72,12 +93,12 @@ class BaseCollector(ABC, Generic[T]):
         return None
 
     def _get_stale_cache(self, cache_key: str) -> Optional[T]:
-        """Retourne la dernière valeur connue même si son TTL est expiré (mode dégradé)."""
+        """Return the last known value even if its TTL has expired (degraded mode)."""
         entry = self._cache.get(cache_key)
         return entry[1] if entry is not None else None
 
     def _record_success(self, elapsed_ms: float, cache_key: str, data: T) -> None:
-        """Enregistre un succès réseau, ferme le disjoncteur et met à jour le cache."""
+        """Record a network success, close the circuit and refresh the cache."""
         now_mono = time.monotonic()
         self.circuit_state = CircuitState.CLOSED
         self.consecutive_failures = 0
@@ -91,7 +112,7 @@ class BaseCollector(ABC, Generic[T]):
         self._cache[cache_key] = (now_mono, data)
 
     def _record_failure(self, error_msg: str) -> None:
-        """Incrémente le compteur d'échecs et ouvre le disjoncteur si le seuil est atteint."""
+        """Count a failure and open the circuit once the threshold is reached."""
         self.consecutive_failures += 1
         self.last_error = error_msg[:240]
         if self.consecutive_failures >= self.failure_threshold:
@@ -99,7 +120,7 @@ class BaseCollector(ABC, Generic[T]):
             self.opened_at_monotonic = time.monotonic()
 
     def _can_attempt_network(self) -> bool:
-        """Vérifie si le Circuit Breaker autorise un appel réseau."""
+        """Tell whether the circuit breaker allows a network call."""
         if self.circuit_state == CircuitState.CLOSED:
             return True
         if self.circuit_state == CircuitState.OPEN:
@@ -114,10 +135,11 @@ class BaseCollector(ABC, Generic[T]):
         return True
 
     async def fetch(self, cache_key: str = "global", force_refresh: bool = False, **kwargs: Any) -> T:
-        """Exécute la collecte avec protection par cache TTL et Circuit Breaker.
+        """Run the collection behind the TTL cache and the circuit breaker.
 
-        Si `allow_stale_on_error=True` (défaut) et qu'une valeur en cache existe, la retourne.
-        Sinon lève `CollectorUnavailableError` pour permettre à l'orchestrateur d'activer le Fallback.
+        With ``allow_stale_on_error=True`` (default) and a cached value, the cached value is
+        returned on failure. Otherwise ``CollectorUnavailableError`` is raised so that the
+        orchestrator can switch to its fallback.
         """
         allow_stale: bool = bool(kwargs.pop("allow_stale_on_error", True))
 
@@ -131,7 +153,7 @@ class BaseCollector(ABC, Generic[T]):
             if stale is not None:
                 return stale
             raise CollectorUnavailableError(
-                f"Circuit Breaker OPEN pour {self.name} ({self.last_error})"
+                f"Circuit breaker OPEN for {self.name} ({self.last_error})"
             )
 
         start_mono = time.monotonic()
@@ -139,7 +161,7 @@ class BaseCollector(ABC, Generic[T]):
             if self._external_client is not None:
                 result = await self._collect(self._external_client, **kwargs)
             else:
-                headers = {"User-Agent": DEFAULT_USER_AGENT, "Accept": "application/json"}
+                headers = {"User-Agent": build_user_agent(), "Accept": "application/json"}
                 async with httpx.AsyncClient(
                     timeout=self.timeout_seconds, headers=headers, follow_redirects=True
                 ) as client:
@@ -154,15 +176,15 @@ class BaseCollector(ABC, Generic[T]):
             if stale is not None:
                 return stale
             raise CollectorUnavailableError(
-                f"Échec du collecteur {self.name}: {type(exc).__name__}: {exc}"
+                f"Collector {self.name} failed: {type(exc).__name__}: {exc}"
             ) from exc
 
     @abstractmethod
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> T:
-        """Méthode métier implémentée par chaque collecteur concret."""
+        """Provider-specific collection implemented by each concrete collector."""
 
     def get_health(self) -> ProviderHealth:
-        """Retourne l'état de santé instantané du collecteur."""
+        """Return the instantaneous health of the collector."""
         newest_age_s: Optional[int] = None
         if self._cache:
             now_mono = time.monotonic()
