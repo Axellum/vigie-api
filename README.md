@@ -1,26 +1,48 @@
 # Vigie API
 
-Backend of the Vigie displays. It aggregates world natural hazards (earthquakes, tsunamis,
-volcanoes, cyclones, tornadoes, floods, fires, geomagnetic storms) and weather (current
-conditions, 15-minute rain, forecast, marine, river discharge, air quality) and serves them to:
+*[Lire ce document en français](README.fr.md)*
+
+A personal project, made with the help of AI and shared in case it helps someone. It comes as is, with
+no promise of support, availability or accuracy.
+
+It gathers world natural hazards (earthquakes, tsunamis, volcanoes, cyclones, tornadoes, floods, fires,
+geomagnetic storms) and weather (current conditions, 15-minute rain, forecast, marine, river discharge,
+air quality) from public sources, and serves them to:
 
 - the ESP32-P4 displays of the Vigie project (Waveshare 7B, M5Stack Tab5), through a compact text
   frame: [`docs/embedded-frame.md`](docs/embedded-frame.md);
 - any other client, through JSON, GeoJSON (IETF RFC 7946) and OASIS CAP 1.2.
 
-> **No fabricated data.** When a provider does not supply a value, the API reports it as
-> unknown (`null` in JSON, an empty field in the frame). It never shows a plausible default. See
+> **This is not an official warning service.** The alerts are relayed from public feeds. They can be
+> late, incomplete or wrong, and must not be the only thing a decision rests on. **GDACS alerts are
+> automatic and do not replace official warnings.** Follow the warnings of your national authorities.
+
+> **No fabricated data.** When a provider does not supply a value, the API reports it as unknown
+> (`null` in JSON, an empty field in the frame). It never shows a plausible default. See
 > [ADR 0001](docs/decisions/0001-two-repos-no-fabricated-data-frame-format.md).
 
-This is a personal, **non-commercial** project, built with the help of AI. It is shared as is,
-without any promise of support or availability.
+## Licence, data and credits
+
+The code is under the [MIT licence](LICENSE). **The data is not covered by it**: it belongs to each
+provider and stays under that provider's own terms. [`SOURCES.md`](SOURCES.md) lists, for each source,
+the licence, the terms, the credit it asks for, its quota, and what could not be verified.
+
+- Every block of data in the JSON responses carries an `attribution` field with the credit its source
+  asks for (the compact frame has no such field). The texts are declared in
+  [`app/attribution.py`](app/attribution.py).
+- **Open-Meteo's free API may only be used for non-commercial purposes**
+  ([terms](https://open-meteo.com/en/terms)), within 10,000 calls a day, with a link to Open-Meteo wherever
+  its data is shown. This project is personal and non-commercial. **Do not use it commercially without
+  a paid Open-Meteo plan**, and check the terms of the other providers.
+- RainViewer's free API is for personal and educational use only. Turn it off on an instance that relays
+  its data to others (`VIGIE_ENABLE_RAINVIEWER=0`; the Docker image does).
 
 ## Endpoints
 
 | Endpoint | Purpose |
 | --- | --- |
 | `GET /v1/embedded/frame` | Compact text frame for the displays ([contract](docs/embedded-frame.md)). |
-| `GET /v1/snapshot` | Watched zones (weather) and world hazards, JSON under 12 KiB. |
+| `GET /v1/snapshot` | Watched zones (weather) and world hazards, compact JSON. |
 | `GET /v1/point?lat=&lon=` | Weather at one GPS position, marine (`marine=true`), river discharge, air quality, space weather, nearby hazards. |
 | `GET /v1/geojson/hazards` | Active hazards as GeoJSON (RFC 7946). |
 | `GET /v1/cap/alerts` | Active hazards as OASIS CAP 1.2. |
@@ -28,10 +50,14 @@ without any promise of support or availability.
 | `GET /v1/history` | Hazard history stored in SQLite. |
 | `GET /v1/health`, `GET /v1/providers` | Health, circuit breaker and cache state of each provider, and its calls, weight and quota over 24 hours. |
 | `GET/POST /v1/scheduler/...` | State of the optional background scheduler, run one cycle now. |
-| `POST /v1/simulate` | Inject a **simulated** scenario for testing (always labelled as a simulation). |
+| `POST /v1/simulate` | Inject a **simulated** scenario for testing (always labelled as a simulation). **Off by default**: it answers 403 unless `VIGIE_ENABLE_SIMULATION=1`. |
 | `WS /v1/stream` | WebSocket with the initial state and alert pushes. |
 | `GET /dashboard` | Web supervision page. |
 | `GET /docs` | Interactive OpenAPI documentation. |
+
+**The API has no authentication.** Run it on a trusted network. Do not expose it to the Internet as is:
+anyone who can reach it can add or delete watched zones and trigger collection cycles. Put a reverse proxy
+that authenticates in front of it if you must.
 
 ## Run
 
@@ -46,14 +72,29 @@ python -m venv .venv
 On Windows, `scripts\run.ps1` does all of this (see below). Then open
 `http://localhost:8080/dashboard` or `http://localhost:8080/v1/embedded/frame`.
 
+### With Docker
+
+```
+docker build -t vigie-api .
+docker run --rm -p 8080:8080 -v vigie-data:/data -e VIGIE_CONTACT=you@example.org vigie-api
+```
+
+The image (`python:3.13-slim`, built for linux/amd64 by the CI) runs as a non-root user, keeps its
+database in the `/data` volume and has a health check on `/v1/health`. RainViewer is off in the image; add
+`-e VIGIE_ENABLE_RAINVIEWER=1` for a personal instance. The publication workflow pushes
+`ghcr.io/axellum/vigie-api` when a version tag (`v*`) is created; until a tag exists, build the image
+yourself.
+
 ### Configuration
 
 All settings are optional environment variables.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `VIGIE_DB_PATH` | `vigie.db` in the repository root (git-ignored) | SQLite file (watchlist, history, last snapshot). |
+| `VIGIE_DB_PATH` | `vigie.db` in the repository root (git-ignored); `/data/vigie.db` in the Docker image | SQLite file (watchlist, history, last snapshot). |
 | `VIGIE_SCHEDULER` | `0` | `1` starts the background scheduler (refresh every 90 s, WebSocket push). |
+| `VIGIE_ENABLE_SIMULATION` | `0` | `1` enables `POST /v1/simulate` (and the dashboard buttons). The route has no authentication and writes the simulated alerts into the hazard history: enable it only on an instance that trusted clients alone can reach. |
+| `VIGIE_ENABLE_RAINVIEWER` | `1`; `0` in the Docker image | `0` stops asking RainViewer (the radar fields of `/v1/point` stay unknown). Its free API is for personal and educational use: set `0` on an instance that serves other people. |
 | `VIGIE_CONTACT` | none | E-mail address or URL added to the `User-Agent` sent to the providers. MET Norway and NOAA require an identifying contact: set it. |
 | `VIGIE_CAP_SENDER` | `vigie-api` | `sender` of the CAP alerts. |
 | `VIGIE_GRID_FORECAST_DEG` | `0.05` | Grid (degrees, about 5 km) the position is snapped to before the Open-Meteo forecast and MET Norway are asked. |
@@ -68,7 +109,7 @@ response still reports the exact position of the client, and the distances to th
 
 ### Calls to the providers
 
-The calls to the providers do not grow with the number of clients: they depend on the number of
+The calls to the providers should not grow with the number of clients: they depend on the number of
 distinct 5 km cells asked for and on how fast each source really changes (grids, one cache entry per
 cell, one request for simultaneous callers, TTLs from each source's rhythm, a call budget; see
 [`docs/architecture.md`](docs/architecture.md) and [`docs/data-sources.md`](docs/data-sources.md)).
@@ -98,16 +139,16 @@ and 231 (quota 600). With clients polling every 15 minutes instead, before becom
 84 % of the free quota; beyond that the budget stops the requests and serves the cache, flagged stale.
 Play it yourself: `python -m tests.simulation` (about 20 seconds).
 
-### Run on Windows (the PC that serves the display)
+### Run on Windows (a PC that serves the display)
 
-The display fetches `http://<PC address>:8080/v1/embedded/frame` (for example
-`http://192.168.0.155:8080/v1/embedded/frame`). Give the PC a fixed address in the router so
-this URL does not change.
+The display fetches `http://<PC address>:8080/v1/embedded/frame`. Give the PC a fixed address in the
+router so this URL does not change. Below, `<repository folder>` is the folder where you cloned this
+repository.
 
 1. **Start the API**, from any folder, in a normal (not administrator) PowerShell:
 
    ```
-   powershell -NoProfile -ExecutionPolicy Bypass -File H:\AuxFilsDesIdees\vigie_api\scripts\run.ps1
+   powershell -NoProfile -ExecutionPolicy Bypass -File <repository folder>\scripts\run.ps1
    ```
 
    The script creates `.venv` in the repository on the first run, installs `requirements.txt`
@@ -128,7 +169,7 @@ this URL does not change.
 3. **Check from another device** on the same network:
 
    ```
-   Invoke-WebRequest http://192.168.0.155:8080/v1/health -UseBasicParsing
+   Invoke-WebRequest http://<PC address>:8080/v1/health -UseBasicParsing
    ```
 
 4. **Start it at logon** with Task Scheduler (nothing is created by the repository). Task
@@ -137,12 +178,12 @@ this URL does not change.
    - *General*: name `Vigie API`; "Run only when user is logged on".
    - *Triggers*: New, "At log on", specific user: you.
    - *Actions*: New, "Start a program". Program: `powershell.exe`. Arguments:
-     `-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "H:\AuxFilsDesIdees\vigie_api\scripts\run.ps1" -LogFile "H:\AuxFilsDesIdees\vigie_api\logs\vigie-api.log"`.
-     Start in: `H:\AuxFilsDesIdees\vigie_api`.
+     `-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "<repository folder>\scripts\run.ps1" -LogFile "<repository folder>\logs\vigie-api.log"`.
+     Start in: `<repository folder>`.
    - *Settings*: "If the task fails, restart every" 1 minute, 3 attempts; untick "Stop the task if
-     it runs longer than". The `H:` drive must be available at logon. If the repository folder is
-     renamed, update the paths above. The server output goes to `logs\vigie-api.log`
-     (git-ignored); stop the server by ending the task in Task Scheduler.
+     it runs longer than". If the repository folder is on another drive, that drive must be available
+     at logon. If the repository folder is renamed or moved, update the paths above. The server output
+     goes to `logs\vigie-api.log` (git-ignored); stop the server by ending the task in Task Scheduler.
 
 ## Develop
 
@@ -150,36 +191,40 @@ this URL does not change.
 python -m pytest              # no test touches the network
 python -m ruff check .        # lint
 python tools/capture_frame.py frame.txt     # write a REAL frame (uses the live providers)
+python tools/check_live_feeds.py            # ask each real provider once, check the parsers still read it
 ```
 
 `tools/capture_frame.py` starts the application in-process, fetches
 `/v1/embedded/frame?device_type=waveshare-7b` from the real providers and writes it to the given
 file. It is used to produce the test fixture of the display repository.
 
-CI (`.github/workflows/ci.yml`) runs ruff and pytest on Python 3.12 and 3.13 for every push to
-`main` and every pull request.
+CI (`.github/workflows/`):
+
+- `ci.yml`, on every push to `main` and every pull request: ruff and pytest on Python 3.12 and 3.13, and a
+  job that builds the Docker image, runs it and asks `/v1/health` and `/v1/embedded/frame`.
+- `secret-scan.yml`: gitleaks over the whole git history, on every pull request and push to `main`.
+- `live-feeds.yml`: every Monday and on demand, never in a pull request, `tools/check_live_feeds.py` asks
+  each real provider once. A red run means a provider changed its format or removed an endpoint.
+- `publish-image.yml`: pushes the Docker image to `ghcr.io/axellum/vigie-api` when a `v*` tag is pushed.
 
 ## Data sources
 
-| Domain | Source | Terms |
-| --- | --- | --- |
-| Earthquakes | USGS, EMSC / SeismicPortal, GDACS | see [`docs/data-sources.md`](docs/data-sources.md) |
-| Disasters | GDACS, NOAA NWS, USGS Volcano Hazards Program | |
-| Space weather | NOAA SWPC | |
-| Weather | **Open-Meteo** (primary), MET Norway (fallback), RainViewer (radar) | |
-| Marine, river discharge, air quality | Open-Meteo Marine, Flood (Copernicus GloFAS), Air Quality (Copernicus CAMS) | |
+| Domain | Source |
+| --- | --- |
+| Earthquakes | USGS, EMSC / SeismicPortal, GDACS |
+| Disasters | GDACS, NOAA NWS, USGS Volcano Hazards Program |
+| Space weather | NOAA SWPC |
+| Weather | Open-Meteo (primary), MET Norway (fallback), RainViewer (radar) |
+| Marine, river discharge, air quality | Open-Meteo Marine, Flood (GloFAS), Air Quality (CAMS) |
 
-**Open-Meteo's free API may only be used for non-commercial purposes**
-([terms](https://open-meteo.com/en/terms), checked on 2026-10-20), with an attribution link
-wherever its data is displayed, and within 10,000 calls per day, 5,000 per hour and 600 per
-minute. This project is personal and non-commercial; **do not use it commercially without a paid
-Open-Meteo plan** (and check the other providers' terms). The licence, attribution and limits of
-every source, and what could not be verified, are in [`docs/data-sources.md`](docs/data-sources.md).
+Licence, terms, credit, quota and clauses of each source, and what is not verified: [`SOURCES.md`](SOURCES.md).
+How each one is cached and what it costs in calls: [`docs/data-sources.md`](docs/data-sources.md).
 
 ## Documentation
 
+- [`SOURCES.md`](SOURCES.md): the sources, their licences, credits and quotas.
 - [`docs/architecture.md`](docs/architecture.md): components, data flow, limits.
 - [`docs/embedded-frame.md`](docs/embedded-frame.md): the frame contract (single source of truth).
-- [`docs/data-sources.md`](docs/data-sources.md): providers, terms, cache and call volume.
+- [`docs/data-sources.md`](docs/data-sources.md): how each source is used, cache and call volume.
 - [`docs/decisions/`](docs/decisions): architecture decision records.
 - [`CHANGELOG.md`](CHANGELOG.md), [`AGENTS.md`](AGENTS.md) (guide for AI coding agents).

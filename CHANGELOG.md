@@ -7,6 +7,18 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **README rewritten in a modest tone** ("a personal project, made with AI, shared in case it helps", no
+  promise), English first, with a French version (`README.fr.md`) linked from the top. It says that the
+  code is MIT and the data is not, carries the notice that this is not an official warning service and that
+  GDACS alerts are automatic and do not replace official warnings, and adds Docker, the new settings and the
+  CI workflows. The address of a home network and the author's folder names are replaced by
+  placeholders (`<PC address>`, `<repository folder>`); the Windows start script, firewall rule and Task
+  Scheduler instructions are unchanged otherwise (`-LogFile`, `-Port`, `-NoInstall` still work).
+  `tests/test_public_text.py` keeps promises, marketing words and private details out of the public texts.
+- **The simulator is opt-in.** `POST /v1/simulate` has no authentication and writes simulated alerts into
+  the hazard history, so it now answers 403 unless the instance sets `VIGIE_ENABLE_SIMULATION=1`
+  (default off). `GET /v1/health` reports `simulation_enabled`; the dashboard hides the simulation buttons
+  when it is off. Nothing else uses the route.
 - **Call sobriety, point grids.** The position sent to Open-Meteo (forecast, air quality, flood,
   marine) and to MET Norway, and the cache key, are snapped to a grid: 0.05 degree for the forecast
   and MET Norway, 0.1 degree for air quality, flood and marine (`VIGIE_GRID_FORECAST_DEG`,
@@ -90,6 +102,45 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Credit of the source in every response.** Each block of data carries an `attribution` field with the
+  text its source asks for: hazard alerts (`/v1/snapshot`, `/v1/point`, `/v1/history`, GeoJSON features and
+  `metadata`, CAP parameters and description, WebSocket pushes), the zones of the snapshot, and the
+  `rain_nowcast`, `marine`, `flood_risk`, `air_quality` and `space_weather` blocks of `/v1/point`;
+  `weather_attribution` (`/v1/point`) and `global_status.space_weather_attribution` (snapshot) credit the
+  fields of a response that mixes blocks. The texts are declared once, in `app/attribution.py`, and the
+  dashboard ends with them. A GDACS alert is credited with "Global Disaster Alert and Coordination System,
+  GDACS" and the notice that its alerts are automatic and do not replace official warnings; the
+  dashboard and the OpenAPI description carry the notice too. A block with no data has `attribution: null`;
+  a simulated alert or block is credited to no provider. The compact frame is unchanged: it has no credit
+  field. The compact snapshot is larger by about 2.5 KB with 15 hazards and 5 zones (measured on live data:
+  12.3 KB before, 14.8 KB after): **its documented budget is raised from 12 KiB to 16 KiB**, with the credit
+  kept on every item (the display reads only the frame, whose 8 KiB budget is unchanged).
+  `tests/test_snapshot_budget.py` builds a compact snapshot from realistic samples of the five hazard sources
+  (15 hazards, 5 zones with weather and air quality) and keeps every device profile under 16 KiB. About 18
+  hazards fit; the profiles carry 15 at most (12 for `marine`), but the `web` profile, whose default limit is
+  50 hazards, is not bound by the budget.
+- **`SOURCES.md`**, the single list of the licence, terms, required credit, quota and clauses of each
+  source, with what is **not verified** (checked on 2026-10-20). `docs/data-sources.md` keeps how each
+  source is used (what is read, TTL, call volume, budget) and no longer repeats the terms. A test checks
+  that `SOURCES.md` quotes the credit texts of the code and has a row for every collector.
+- **Secret scan of the whole history.** `.github/workflows/secret-scan.yml` runs gitleaks 8.30.1 (the
+  release binary, SHA-256 verified, no third-party action) over every commit of every branch on each pull
+  request and push to `main`.
+- **Weekly live-feeds check.** `tools/check_live_feeds.py` asks each of the 12 real providers once, with the
+  real collectors, and checks that the parsers still read the answer (at least one item parsed, or a valid
+  empty answer such as GDACS's HTTP 204); `.github/workflows/live-feeds.yml` runs it every Monday and on
+  demand, never in a pull request. A format change or a removed endpoint fails the run; a provider that
+  does not answer (timeout, HTTP 403 / 429 / 5xx) is only reported. The tests stay offline
+  (`tests/test_live_feeds_tool.py` plays the tool against simulated providers).
+- **Docker.** `Dockerfile` (`python:3.13-slim`, non-root user, `/data` volume, health check on
+  `/v1/health`, `uvicorn app.main:app --host 0.0.0.0 --port 8080`; RainViewer off in the image),
+  `.dockerignore`, and a `docker` job in `ci.yml` that builds the image, runs it and asks `/v1/health`
+  and `/v1/embedded/frame` (`scripts/docker_smoke.sh`). `.github/workflows/publish-image.yml` pushes
+  `ghcr.io/axellum/vigie-api` only when a `v*` tag is pushed, after the same smoke test.
+- `LICENSE` (MIT, code only: the data belongs to each provider under its own terms).
+- `VIGIE_ENABLE_RAINVIEWER` (default on, unchanged): `0` stops asking RainViewer, whose free API is for
+  personal and educational use only. `/v1/point` then leaves the radar fields unknown and `/v1/providers`
+  lists 11 providers.
 - `tests/test_call_sobriety.py` and `tests/simulation.py`: a simulated day (1,000 clients on 50
   points, the scheduler on, a simulated upstream and clock, no network) that counts the requests
   each provider receives and checks the Open-Meteo quota; `python -m tests.simulation` prints the

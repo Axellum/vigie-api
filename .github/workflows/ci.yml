@@ -37,3 +37,17 @@ jobs:
 
       - name: Tests (pytest, no network)
         run: python -m pytest -q
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the image
+        run: docker build --tag vigie-api:ci .
+
+      - name: Run it and ask it (/v1/health, /v1/embedded/frame)
+        env:
+          VIGIE_CONTACT: ${{ github.server_url }}/${{ github.repository }}
+        run: bash scripts/docker_smoke.sh vigie-api:ci

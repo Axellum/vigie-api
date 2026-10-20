@@ -13,6 +13,7 @@ from typing import Any, Literal, Optional
 
 import httpx
 
+from app.attribution import SPACE_WEATHER, credit_text
 from app.collectors.base import BaseCollector, optional_float
 from app.models.schemas import SpaceWeatherStatus
 
@@ -99,4 +100,5 @@ class NOAASWPCCollector(BaseCollector[SpaceWeatherStatus]):
             solar_storm_level=kp_to_noaa_g_scale(kp_val),
             gps_degraded=bool(kp_val >= 6.0),
             hf_radio_blackout_risk=bool(kp_val >= 5.0),
+            attribution=credit_text(*SPACE_WEATHER),
         )

@@ -1,0 +1,25 @@
+# Only app/, LICENSE and pyproject.toml reach the image; keep the rest out of the build context.
+.git
+.github
+.wt
+.venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ruff_cache
+build
+dist
+*.egg-info
+.env
+*.db
+*.db-shm
+*.db-wal
+*.log
+logs
+tests
+tools
+docs
+scripts
+*.md
+Dockerfile
+.dockerignore

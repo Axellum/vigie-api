@@ -1,0 +1,47 @@
+name: Publish image
+
+# Pushes ghcr.io/axellum/vigie-api, and only when a version tag (v*) is pushed: never for a pull request
+# or a push to main. The image is smoke-tested before it is pushed.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/axellum/vigie-api
+
+jobs:
+  publish:
+    name: Build, test and push the image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the image
+        run: docker build --tag "${IMAGE}:candidate" .
+
+      - name: Run it and ask it
+        env:
+          VIGIE_CONTACT: ${{ github.server_url }}/${{ github.repository }}
+        run: bash scripts/docker_smoke.sh "${IMAGE}:candidate"
+
+      - name: Log in to ghcr.io
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$TOKEN" | docker login ghcr.io --username "${{ github.actor }}" --password-stdin
+
+      - name: Tag and push
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          docker tag "${IMAGE}:candidate" "${IMAGE}:${version}"
+          docker push "${IMAGE}:${version}"
+          # `latest` follows the stable versions only (no pre-release such as 1.2.0-rc.1)
+          if [[ "$version" != *-* ]]; then
+            docker tag "${IMAGE}:candidate" "${IMAGE}:latest"
+            docker push "${IMAGE}:latest"
+          fi

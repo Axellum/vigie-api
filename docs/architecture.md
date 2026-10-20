@@ -29,6 +29,7 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | `app/main.py` | FastAPI application, routes, WebSocket hub, optional scheduler (lifespan). |
 | `app/models/schemas.py` | Pydantic models. A value a provider did not supply is `None`; no model has a default number standing for missing data. |
 | `app/collectors/grid.py`, `app/collectors/weights.py`, `app/collectors/budget.py` | Point grids (snapping, settings); weight of an Open-Meteo request; published quotas and the call budget. |
+| `app/attribution.py` | The credit each source asks for: one table, read by the models, the collectors, the aggregator and the dashboard (see [`SOURCES.md`](../SOURCES.md)). |
 | `app/clock.py` | Time source of the collectors, replaceable by a test (simulated clock). |
 | `app/collectors/base.py` | `BaseCollector`: HTTP client, circuit breaker (`CLOSED`, `OPEN`, `HALF_OPEN`), TTL cache, request coalescing, health. |
 | `app/collectors/seismic.py` | USGS and EMSC earthquakes. |
@@ -43,7 +44,9 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | `app/services/scheduler.py` | Optional periodic collection and differential push of new or worsening alerts. |
 | `app/routers/dashboard.py` | Supervision page. |
 | `tools/capture_frame.py` | Captures a real frame to a file. |
+| `tools/check_live_feeds.py` | Asks each real provider once and checks the parsers still read the answer (weekly workflow). |
 | `scripts/run.ps1` | Starts the API on Windows. |
+| `Dockerfile`, `scripts/docker_smoke.sh` | The image (non-root, health check) and the script that proves it answers. |
 
 ## Unknown values
 
@@ -58,8 +61,19 @@ Nothing is padded, defaulted or copied from another field. At each layer:
   `null` in JSON and an empty field in the frame.
 - Hazards: if no hazard source answers, the global status is unknown (`max_severity = null`)
   instead of an all-clear `GREEN`.
-- Simulation: simulated alerts exist for testing. They are labelled (`(SIMULATION)` in the
-  title, `simulation_active` in the snapshot and the frame, CAP status `Exercise`).
+- Simulation: simulated alerts exist for testing (the simulator is off unless `VIGIE_ENABLE_SIMULATION=1`).
+  They are labelled (`(SIMULATION)` in the title, `simulation_active` in the snapshot and the frame,
+  CAP status `Exercise`).
+
+## Credits
+
+Each source asks for a credit line. `app/attribution.py` declares them once; the parsers of the single-source
+blocks (marine, river discharge, air quality, space weather, and the weather bundles) set `attribution` where
+the provider data is read, the aggregator sets it on the zones, the rain block and the point response, and a
+hazard computes its own from its `sources` (a merged USGS + EMSC alert carries both credits). A block with
+no data has `attribution: null`; a simulated alert or block is credited to no provider. GeoJSON and CAP
+carry the credit too. The compact frame has none: its contract is fixed. `SOURCES.md` quotes the texts and
+says whose words they are (the provider's, suggested by it, or ours) and what could not be verified.
 
 ## Data flow of `GET /v1/embedded/frame`
 
@@ -125,8 +139,11 @@ Tables: `monitored_zones` (the watchlist, seeded with five cities), `hazards_his
 - **Flood level.** `flood_alert_level` is a heuristic (ratio of the maximum to the mean forecast
   discharge with fixed thresholds), not an official flood warning.
 - **Simulation and history.** `/v1/simulate` is not authenticated, and simulated alerts are also
-  written to the SQLite hazard history (labelled `(SIMULATION)`). Do not expose the API outside
-  the local network.
+  written to the SQLite hazard history (labelled `(SIMULATION)`). That is why the route is **off by
+  default**: it answers 403 unless the instance sets `VIGIE_ENABLE_SIMULATION=1`
+  (`GET /v1/health` reports `simulation_enabled`). Enable it only where trusted clients alone can reach
+  the API. The rest of the API is not authenticated either (`POST /v1/zones`, `POST /v1/scheduler/trigger`):
+  do not expose it to the Internet without a reverse proxy that does.
 - **Duplicate title and value.** When USGS and EMSC report the same earthquake the merged alert
   keeps the USGS title and the highest magnitude, so the title can show a slightly lower
   magnitude than the value.

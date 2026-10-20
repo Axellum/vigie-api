@@ -20,6 +20,7 @@ from typing import Any, Optional
 
 import httpx
 
+from app.attribution import AIR_QUALITY, FLOOD, credit_text
 from app.collectors.base import BaseCollector, optional_float
 from app.collectors.grid import (
     DEFAULT_AIR_QUALITY_GRID_DEG,
@@ -124,6 +125,7 @@ class OpenMeteoFloodCollector(BaseCollector[FloodRiskStatus]):
             river_discharge_max_m3s=max(0.0, max_q),
             anomaly_ratio=ratio,
             flood_alert_level=level,
+            attribution=credit_text(*FLOOD),
         )
 
 
@@ -203,6 +205,7 @@ class OpenMeteoAirQualityCollector(BaseCollector[AirQualityStatus]):
             uv_index=None if uv is None else round(max(0.0, uv), 1),
             dust_ugm3=None if dust is None else round(max(0.0, dust), 1),
             ash_or_dust_warning=warning,
+            attribution=credit_text(*AIR_QUALITY),
         )
 
 

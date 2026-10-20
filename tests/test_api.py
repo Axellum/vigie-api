@@ -16,7 +16,7 @@ from app.services.embedded_frame import verify_embedded_frame_crc
 from app.services.scheduler import detect_new_or_upgraded_hazards
 from tests import samples
 from tests.conftest import World
-from tests.helpers import expired_entry
+from tests.helpers import SNAPSHOT_BUDGET_BYTES, expired_entry
 
 # ============================================================================
 # Weather fallback
@@ -168,6 +168,7 @@ def test_point_endpoint_reports_unknown_as_null(world: World, monkeypatch: pytes
         "solar_storm_level": None,
         "gps_degraded": None,
         "hf_radio_blackout_risk": None,
+        "attribution": None,  # nothing to credit when nothing is known
     }
 
 
@@ -218,7 +219,7 @@ def test_hazards_green_when_sources_answer_with_nothing(world: World) -> None:
     assert status["hazard_sources_ok"] == 5
 
 
-def test_simulation_snapshot_size_and_standards(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_simulation_snapshot_size_and_standards(world: World, simulation_on: None, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(aggregator.usgs, "fetch", AsyncMock(return_value=[samples.earthquake()]))
 
     sim = world.client.post("/v1/simulate", json={"scenario": "mega_tsunami_japan"})
@@ -231,7 +232,7 @@ def test_simulation_snapshot_size_and_standards(world: World, monkeypatch: pytes
         snap = world.client.get(f"/v1/snapshot?device_type={dev}&compact=true")
         assert snap.status_code == 200
         size = len(json.dumps(snap.json(), separators=(",", ":")).encode("utf-8"))
-        assert size < 12288, f"payload too large for {dev}: {size} bytes"
+        assert size < SNAPSHOT_BUDGET_BYTES, f"payload too large for {dev}: {size} bytes"
         assert snap.json()["simulation_active"] is True
         assert snap.json()["global_status"]["max_severity"] == "RED"
 
@@ -270,7 +271,7 @@ def test_cap_does_not_invent_a_value(world: World, monkeypatch: pytest.MonkeyPat
     assert info["parameters"]["value_primary"] is None
 
 
-def test_zones_crud_and_history(world: World) -> None:
+def test_zones_crud_and_history(world: World, simulation_on: None) -> None:
     assert len(world.client.get("/v1/zones").json()) == 5
 
     created = world.client.post(
@@ -330,7 +331,7 @@ def test_detect_new_or_upgraded_hazards() -> None:
     assert detect_new_or_upgraded_hazards({"eq_1": yellow}, [unknown]) == []
 
 
-def test_scheduler_endpoints_and_websocket_push(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_scheduler_endpoints_and_websocket_push(world: World, simulation_on: None, monkeypatch: pytest.MonkeyPatch) -> None:
     scheduler._known_hazards.clear()
     scheduler.cycles_count = 0
     broadcast_mock = AsyncMock()

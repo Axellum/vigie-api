@@ -4,17 +4,27 @@ A self-contained HTML5 / CSS / JS page (dark theme, no external dependency) that
 
 1. The health of every provider and its circuit breaker.
 2. The watched zones (``/v1/zones``) and the active hazards (``/v1/snapshot``).
-3. Buttons to start a simulated scenario (``/v1/simulate``) or to run one scheduler cycle
-   (``/v1/scheduler/trigger``).
+3. Buttons to start a simulated scenario (``/v1/simulate``, shown only when the instance enables the
+   simulator with ``VIGIE_ENABLE_SIMULATION=1``) or to run one scheduler cycle (``/v1/scheduler/trigger``).
 4. The live embedded frame (``GET /v1/embedded/frame``) for the Waveshare 7B and the Tab5.
 
 A value the API reports as unknown (``null``) is shown as "n/a", never as a number.
+
+The page ends with the credits of the data sources, read from ``app/attribution.py`` (the table that
+every response reads too), and with the notice that the alerts of GDACS are automatic and do not replace
+official warnings.
 """
 
 from __future__ import annotations
 
+import html
+import re
+
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
+
+from app.attribution import CREDITS
+from app.collectors.weather import rainviewer_enabled_from_env
 
 router = APIRouter(tags=["Dashboard"])
 
@@ -96,6 +106,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       cursor: pointer;
     }
     button:hover { border-color: var(--accent); }
+    .sim-controls { display: contents; }
+    .sim-controls[hidden] { display: none; }
     .grid {
       display: grid;
       grid-template-columns: repeat(12, 1fr);
@@ -128,6 +140,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       border-bottom: 1px solid hsla(220, 20%, 22%, 0.6);
     }
     th { color: var(--text-1); font-weight: 600; }
+    footer { margin-top: 18px; color: var(--text-1); font-size: 0.8rem; line-height: 1.5; }
+    footer h2 { font-size: 0.85rem; color: var(--text-0); margin: 12px 0 6px; }
+    footer ul { padding-left: 18px; }
+    footer a { color: var(--accent); }
     pre {
       background: hsl(224, 36%, 5%);
       border: 1px solid var(--border);
@@ -158,12 +174,15 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   </header>
 
   <section class="toolbar">
-    <span>Simulation (test data, always labelled):</span>
-    <button onclick="triggerSim('mega_tsunami_japan')">M7.8 earthquake and tsunami, Japan</button>
-    <button onclick="triggerSim('cat5_hurricane_caribbean')">Category 5 hurricane, Antilles</button>
-    <button onclick="triggerSim('volcano_eruption_iceland')">Eruption and ash, Iceland</button>
-    <button onclick="triggerSim('severe_squall_marine')">Violent squall and 5.4 m swell</button>
-    <button onclick="triggerSim('clear')">Back to real data</button>
+    <div id="sim-controls" class="sim-controls" hidden>
+      <span>Simulation (test data, always labelled):</span>
+      <button onclick="triggerSim('mega_tsunami_japan')">M7.8 earthquake and tsunami, Japan</button>
+      <button onclick="triggerSim('cat5_hurricane_caribbean')">Category 5 hurricane, Antilles</button>
+      <button onclick="triggerSim('volcano_eruption_iceland')">Eruption and ash, Iceland</button>
+      <button onclick="triggerSim('severe_squall_marine')">Violent squall and 5.4 m swell</button>
+      <button onclick="triggerSim('clear')">Back to real data</button>
+    </div>
+    <span id="sim-off-note" hidden>Simulator off (set VIGIE_ENABLE_SIMULATION=1 to enable it).</span>
     <button onclick="triggerScheduler()">Run one collection cycle</button>
     <select id="device-select" onchange="refreshAll()">
       <option value="waveshare-7b">Display: Waveshare 7B (1024x600)</option>
@@ -279,6 +298,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         `Scheduler: ${health.scheduler.running ? 'running' : 'stopped'} (${health.scheduler.cycles_count} cycles)`;
       document.getElementById('sim-badge').textContent =
         `Simulation: ${health.simulation_active ? 'ACTIVE (' + esc(health.active_scenario) + ')' : 'off'}`;
+      document.getElementById('sim-controls').hidden = !health.simulation_enabled;
+      document.getElementById('sim-off-note').hidden = !!health.simulation_enabled;
 
       document.getElementById('hazards-count').textContent = `${snap.hazards.length}`;
       document.getElementById('hazards-body').innerHTML = snap.hazards.map(h => `
@@ -318,12 +339,44 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
     refreshAll();
   </script>
+
+  <footer>
+    <p><strong>Not an official warning service.</strong> GDACS alerts are automatic and do not replace official
+    warnings. Alerts and weather come from public providers, can be late, incomplete or wrong, and must not be the
+    only thing a decision rests on. The code is MIT-licensed; the data belongs to each provider under its own terms
+    (<code>SOURCES.md</code>).</p>
+    <h2>Data credits</h2>
+    <ul>
+<!--CREDITS-->
+    </ul>
+  </footer>
 </body>
 </html>
 """
+
+_URL = re.compile(r"https?://[^\s)<,]+")
+
+
+def credits_html(include_rainviewer: bool = True) -> str:
+    """The credit lines of the sources as HTML list items, with their links (the text is escaped)."""
+    items: list[str] = []
+    for credit in CREDITS.values():
+        if credit.key == "rainviewer" and not include_rainviewer:
+            continue
+        text = _URL.sub(
+            lambda m: f'<a href="{m.group(0)}" rel="noopener noreferrer">{m.group(0)}</a>',
+            html.escape(credit.text, quote=True),
+        )
+        items.append(f"      <li><strong>{html.escape(credit.provider)}</strong>: {text}</li>")
+    return "\n".join(items)
+
+
+def render_dashboard(include_rainviewer: bool = True) -> str:
+    """The dashboard page with the credits of the sources filled in."""
+    return DASHBOARD_HTML.replace("<!--CREDITS-->", credits_html(include_rainviewer))
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
 async def get_dashboard() -> HTMLResponse:
     """Serve the web supervision dashboard."""
-    return HTMLResponse(content=DASHBOARD_HTML)
+    return HTMLResponse(content=render_dashboard(include_rainviewer=rainviewer_enabled_from_env()))

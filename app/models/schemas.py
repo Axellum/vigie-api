@@ -12,6 +12,11 @@ The models cover:
 3. GeoJSON (IETF RFC 7946) hazards (``/v1/geojson/hazards``).
 4. OASIS CAP 1.2 alerts (``/v1/cap/alerts``).
 5. Collector health and circuit-breaker state (``/v1/providers``).
+
+Credits: every block of data from one source carries an ``attribution`` field, the text its source asks
+for (``app/attribution.py`` holds them all, ``SOURCES.md`` lists them). A response that mixes blocks
+names the credit of its own fields (``weather_attribution``, ``space_weather_attribution``). The
+credit is ``None`` when the block holds no data. The compact embedded frame has no such field.
 """
 
 from __future__ import annotations
@@ -20,7 +25,9 @@ import os
 from enum import Enum
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
+
+from app.attribution import hazard_credit
 
 
 def cap_sender() -> str:
@@ -171,6 +178,11 @@ class RainNowcast(BaseModel):
     radar_timestamp_utc: Optional[int] = Field(
         default=None, description="UTC timestamp of the latest observed RainViewer radar frame"
     )
+    attribution: Optional[str] = Field(
+        default=None,
+        description="Credit for the rain steps (Open-Meteo) and, when the radar fields are filled, for the radar "
+        "(RainViewer); null when the block holds no data",
+    )
 
 
 class MarineConditions(BaseModel):
@@ -200,6 +212,9 @@ class MarineConditions(BaseModel):
         default=False,
         description="True when the values come from an expired cache entry (the provider could not or must not be asked)",
     )
+    attribution: Optional[str] = Field(
+        default=None, description="Credit the source asks for, to show with this data; null when there is no data"
+    )
 
 
 class SpaceWeatherStatus(BaseModel):
@@ -212,6 +227,9 @@ class SpaceWeatherStatus(BaseModel):
     gps_degraded: Optional[bool] = Field(default=None, description="GNSS accuracy likely degraded (Kp >= 6)")
     hf_radio_blackout_risk: Optional[bool] = Field(
         default=None, description="HF radio disturbance likely (Kp >= 5)"
+    )
+    attribution: Optional[str] = Field(
+        default=None, description="Credit the source asks for, to show with this data; null when there is no data"
     )
 
 
@@ -247,6 +265,14 @@ class HazardAlert(BaseModel):
         default=None, description="Cardinal direction from the target to the hazard (N, NE, E...)"
     )
 
+    @computed_field(  # type: ignore[prop-decorator]
+        description="Credit each reporting source asks for, to show with this alert. GDACS alerts are automatic "
+        "and do not replace official warnings. A simulated alert is credited to no provider."
+    )
+    @property
+    def attribution(self) -> Optional[str]:
+        return hazard_credit(self.id, self.sources or [self.source])
+
 
 class ZoneWeather(BaseModel):
     """Weather and alert level of one watched zone."""
@@ -268,6 +294,11 @@ class ZoneWeather(BaseModel):
         default=None, description="Precipitation per 15-minute step over the next hour (mm); null when unknown"
     )
     daily_10d: list[DailyForecast] = Field(default_factory=list, description="Daily forecasts")
+    attribution: Optional[str] = Field(
+        default=None,
+        description="Credit for the weather of the zone (its provider, and the air quality provider when "
+        "the air quality index was added); null when no provider answered",
+    )
 
 
 class GlobalStatus(BaseModel):
@@ -285,6 +316,9 @@ class GlobalStatus(BaseModel):
     solar_storm_level: Optional[str] = Field(default=None)
     gps_degraded: Optional[bool] = Field(default=None)
     hf_radio_blackout_risk: Optional[bool] = Field(default=None)
+    space_weather_attribution: Optional[str] = Field(
+        default=None, description="Credit for solar_kp and solar_storm_level (NOAA SWPC); null when they are unknown"
+    )
     weather_fallback_active: bool = Field(
         default=False, description="True when a zone weather came from MET Norway or from a stale cache"
     )
@@ -304,7 +338,7 @@ class DeviceType(str, Enum):
 
 
 class SnapshotResponse(BaseModel):
-    """Compact multi-display payload (target: under 12 KiB)."""
+    """Compact multi-display payload (budget: under 16 KiB, with the credit of every item)."""
 
     version: str = Field(default="1.1")
     server_utc: int = Field(..., description="Server UTC timestamp")
@@ -312,7 +346,7 @@ class SnapshotResponse(BaseModel):
         default=DeviceType.WAVESHARE_7B,
         description="Hardware profile served (waveshare-7b, tab5, marine, web, generic)",
     )
-    compact: bool = Field(default=True, description="True when the compact profile (under 12 KiB) is applied")
+    compact: bool = Field(default=True, description="True when the compact profile (under 16 KiB) is applied")
     simulation_active: bool = Field(default=False, description="True while a simulated scenario is active")
     global_status: GlobalStatus
     zones: list[ZoneWeather]
@@ -337,6 +371,9 @@ class FloodRiskStatus(BaseModel):
         default=False,
         description="True when the values come from an expired cache entry (the provider could not or must not be asked)",
     )
+    attribution: Optional[str] = Field(
+        default=None, description="Credit the source asks for, to show with this data; null when there is no data"
+    )
 
 
 class AirQualityStatus(BaseModel):
@@ -356,6 +393,9 @@ class AirQualityStatus(BaseModel):
     stale: bool = Field(
         default=False,
         description="True when the values come from an expired cache entry (the provider could not or must not be asked)",
+    )
+    attribution: Optional[str] = Field(
+        default=None, description="Credit the source asks for, to show with this data; null when there is no data"
     )
 
 
@@ -406,6 +446,11 @@ class PointResponse(BaseModel):
     utc_offset_s: Optional[int] = Field(default=None, description="UTC offset at the position (seconds), if known")
     weather_provider: Optional[str] = Field(default=None, description="Weather provider used; null when none answered")
     fallback_used: bool = Field(default=False, description="True when the weather came from a fallback source")
+    weather_attribution: Optional[str] = Field(
+        default=None,
+        description="Credit for `current` and `daily` (the weather provider); null when no provider answered. "
+        "The other blocks carry their own `attribution`.",
+    )
     local_alert_level: SeverityLevel = Field(default=SeverityLevel.GREEN)
     current: Optional[CurrentWeather] = Field(default=None, description="Current weather; null when unknown")
     daily: list[DailyForecast] = Field(default_factory=list, description="Daily forecasts at the position")
@@ -509,7 +554,7 @@ class CAPFeedResponse(BaseModel):
 
 
 # ============================================================================
-# Crisis simulation (/v1/simulate)
+# Simulator (/v1/simulate, off unless VIGIE_ENABLE_SIMULATION=1)
 # ============================================================================
 
 
