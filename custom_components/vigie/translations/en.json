@@ -11,7 +11,7 @@
         },
         "data_description": {
           "name": "Names the device and its entities.",
-          "url": "For example http://vigie.local:8080 (the address of the machine that runs the Vigie API, and its port).",
+          "url": "For example {example} (the address of the machine that runs the Vigie API, and its port).",
           "location": "The point whose warnings are read: a warning counts when its area contains it."
         }
       },
@@ -25,7 +25,7 @@
         },
         "data_description": {
           "name": "Names the device and its entities.",
-          "url": "For example http://vigie.local:8080",
+          "url": "For example {example}",
           "location": "The point whose warnings are read."
         }
       }

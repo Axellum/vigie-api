@@ -64,6 +64,16 @@ def test_french_keeps_the_placeholders_and_the_accents() -> None:
     assert "Terminée" in text and "Aggravée" in text and "Rayon des rivières" in text
 
 
+def test_no_translated_string_holds_a_url() -> None:
+    """hassfest refuses it ("please use description placeholders instead"): the example address is a placeholder."""
+    for name in ("strings.json", "translations/en.json", "translations/fr.json"):
+        for path in keys(load(COMPONENT / name)):
+            value: Any = load(COMPONENT / name)
+            for part in path.split("."):
+                value = value[part]
+            assert "://" not in value, f"{name}: {path}"
+
+
 def test_every_state_and_event_type_the_code_can_produce_is_translated() -> None:
     from custom_components.vigie.const import EVENT_TYPES, MAX_LEVEL_STATES
 

@@ -39,6 +39,7 @@ async def test_the_form_suggests_the_home_zone_and_a_name(hass: HomeAssistant) -
     assert result["type"] is FlowResultType.FORM and result["step_id"] == "user"
     assert suggested(result, CONF_LOCATION) == {CONF_LATITUDE: 43.1234, CONF_LONGITUDE: 5.4321}
     assert suggested(result, CONF_NAME).startswith("Vigie ")
+    assert result["description_placeholders"] == {"example": "http://vigie.local:8080"}  # the help of the address field
 
 
 async def test_without_a_home_zone_the_location_of_home_assistant_is_suggested(hass: HomeAssistant) -> None:

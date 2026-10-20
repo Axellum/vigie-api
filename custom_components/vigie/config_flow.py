@@ -35,6 +35,9 @@ from .const import (
     NAME,
 )
 
+# Shown in the help of the address field (through a placeholder: a translated string may not hold a URL).
+EXAMPLE_URL = "http://vigie.local:8080"
+
 
 def unique_id_for(url: str, latitude: float, longitude: float) -> str:
     """One entry per instance and place: the same address and the same place (to about 11 m) is the same entry."""
@@ -95,6 +98,7 @@ class VigieConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id=step_id,
             data_schema=self.add_suggested_values_to_schema(schema, defaults),
             errors=errors,
+            description_placeholders={"example": EXAMPLE_URL},  # hassfest: no URL in a translated string
         )
 
     def _defaults(self, user_input: dict[str, Any] | None, entry: ConfigEntry | None) -> dict[str, Any]:

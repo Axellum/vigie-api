@@ -11,7 +11,7 @@
         },
         "data_description": {
           "name": "Nomme l'appareil et ses entités.",
-          "url": "Par exemple http://vigie.local:8080 (l'adresse de la machine qui fait tourner l'API Vigie, et son port).",
+          "url": "Par exemple {example} (l'adresse de la machine qui fait tourner l'API Vigie, et son port).",
           "location": "Le point dont les vigilances sont lues : une vigilance compte quand sa zone le contient."
         }
       },
@@ -25,7 +25,7 @@
         },
         "data_description": {
           "name": "Nomme l'appareil et ses entités.",
-          "url": "Par exemple http://vigie.local:8080",
+          "url": "Par exemple {example}",
           "location": "Le point dont les vigilances sont lues."
         }
       }
