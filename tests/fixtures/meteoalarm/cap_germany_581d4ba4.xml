@@ -1,0 +1,725 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<!-- This is a Common Alerting Protocol (CAP) message issued by Germany's National Meteorological Service, Deutscher Wetterdienst (DWD). Visit https://www.dwd.de -->
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>2.49.0.0.276.0.DWD.PVW.1792355520000.aff84eec-2e82-408a-aeab-dd7294baf4a3.MUL</identifier>
+  <sender>opendata@dwd.de</sender>
+  <sent>2026-10-18T22:32:00+02:00</sent>
+  <status>Actual</status>
+  <msgType>Update</msgType>
+  <source>PVW</source>
+  <scope>Public</scope>
+  <code>id:2.49.0.0.276.0.DWD.PVW.1792355520000.aff84eec-2e82-408a-aeab-dd7294baf4a3</code>
+  <code>MCP:v2.0</code>
+  <references>opendata@dwd.de,2.49.0.0.276.0.DWD.PVW.1792224120000.308c9f68-990c-4975-a17a-63f54daf36e1.MUL,2026-10-17T10:02:00+02:00</references>
+  <info>
+    <language>de-DE</language>
+    <category>Met</category>
+    <event>WINDBÖEN</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Minor</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>PROFILE_VERSION</valueName>
+      <value>2.1.14</value>
+    </eventCode>
+    <eventCode>
+      <valueName>LICENSE</valueName>
+      <value>© GeoBasis-DE / BKG 2021 (Daten modifiziert)</value>
+    </eventCode>
+    <eventCode>
+      <valueName>II</valueName>
+      <value>51</value>
+    </eventCode>
+    <eventCode>
+      <valueName>GROUP</valueName>
+      <value>WIND</value>
+    </eventCode>
+    <eventCode>
+      <valueName>AREA_COLOR</valueName>
+      <value>255 235 59</value>
+    </eventCode>
+    <onset>2026-10-17T19:00:00+02:00</onset>
+    <expires>2026-10-19T02:00:00+02:00</expires>
+    <senderName>Deutscher Wetterdienst</senderName>
+    <headline>Amtliche WARNUNG vor WINDBÖEN</headline>
+    <description>Es treten Windböen mit Geschwindigkeiten bis 55 km/h (15 m/s, 30 kn, Bft 7) anfangs aus nordöstlicher, später aus östlicher Richtung auf. In Schauernähe sowie in exponierten Lagen muss mit Sturmböen bis 65 km/h (18 m/s, 35 kn, Bft 8) gerechnet werden.</description>
+    <instruction>Hinweis auf: umherfliegende leichte Gegenstände. 
+Handlungsempfehlungen: 
+lose Gegenstände sichern; z.B. Zelte und Abdeckungen befestigen</instruction>
+    <web>https://dwd.de/warnungen</web>
+    <contact>Deutscher Wetterdienst</contact>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>north-east</value>
+    </parameter>
+    <parameter>
+      <valueName>subsequent wind direction</valueName>
+      <value>east</value>
+    </parameter>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>north-east</value>
+    </parameter>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>east</value>
+    </parameter>
+    <parameter>
+      <valueName>gusts</valueName>
+      <value>&lt;55 [km/h]</value>
+    </parameter>
+    <parameter>
+      <valueName>impacts</valueName>
+      <value>umherfliegende leichte Gegenstände</value>
+    </parameter>
+    <parameter>
+      <valueName>exposed gusts</valueName>
+      <value>&lt;65 [km/h]</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_level</valueName>
+      <value>2; yellow; Moderate</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_type</valueName>
+      <value>1; Wind</value>
+    </parameter>
+    <area>
+      <areaDesc>Kreis Ostholstein - Binnenland</areaDesc>
+      <geocode>
+        <valueName>EMMA_ID</valueName>
+        <value>DE073</value>
+      </geocode>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>901055001</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+  </info>
+  <info>
+    <language>en</language>
+    <category>Met</category>
+    <event>wind gusts</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Minor</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>PROFILE_VERSION</valueName>
+      <value>2.1.14</value>
+    </eventCode>
+    <eventCode>
+      <valueName>LICENSE</valueName>
+      <value>© GeoBasis-DE / BKG 2021 (Daten modifiziert)</value>
+    </eventCode>
+    <eventCode>
+      <valueName>II</valueName>
+      <value>51</value>
+    </eventCode>
+    <eventCode>
+      <valueName>GROUP</valueName>
+      <value>WIND</value>
+    </eventCode>
+    <eventCode>
+      <valueName>AREA_COLOR</valueName>
+      <value>255 235 59</value>
+    </eventCode>
+    <onset>2026-10-17T19:00:00+02:00</onset>
+    <expires>2026-10-19T02:00:00+02:00</expires>
+    <senderName>Deutscher Wetterdienst</senderName>
+    <headline>Official WARNING of WIND GUSTS</headline>
+    <description>There is a risk of wind gusts (level 1 of 4).
+Max. gusts: &lt; 55 km/h; Wind direction: north-east then east; Increased gusts: near showers and in exposed locations &lt; 65 km/h</description>
+    <instruction>Hazard(s) to expect: light objects flying through the air. 
+Recommendations for what to do: 
+Secure loose objects. For example, fasten tents and coverings.</instruction>
+    <web>https://dwd.de/warnungen</web>
+    <contact>Deutscher Wetterdienst</contact>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>north-east</value>
+    </parameter>
+    <parameter>
+      <valueName>subsequent wind direction</valueName>
+      <value>east</value>
+    </parameter>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>north-east</value>
+    </parameter>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>east</value>
+    </parameter>
+    <parameter>
+      <valueName>gusts</valueName>
+      <value>&lt;55 [km/h]</value>
+    </parameter>
+    <parameter>
+      <valueName>impacts</valueName>
+      <value>light objects flying through the air</value>
+    </parameter>
+    <parameter>
+      <valueName>exposed gusts</valueName>
+      <value>&lt;65 [km/h]</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_level</valueName>
+      <value>2; yellow; Moderate</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_type</valueName>
+      <value>1; Wind</value>
+    </parameter>
+    <area>
+      <areaDesc>Kreis Ostholstein - Binnenland</areaDesc>
+      <geocode>
+        <valueName>EMMA_ID</valueName>
+        <value>DE073</value>
+      </geocode>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>901055001</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+  </info>
+  <info>
+    <language>fr</language>
+    <category>Met</category>
+    <event>Rafales de vent</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Minor</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>PROFILE_VERSION</valueName>
+      <value>2.1.14</value>
+    </eventCode>
+    <eventCode>
+      <valueName>LICENSE</valueName>
+      <value>© GeoBasis-DE / BKG 2021 (Daten modifiziert)</value>
+    </eventCode>
+    <eventCode>
+      <valueName>II</valueName>
+      <value>51</value>
+    </eventCode>
+    <eventCode>
+      <valueName>GROUP</valueName>
+      <value>WIND</value>
+    </eventCode>
+    <eventCode>
+      <valueName>AREA_COLOR</valueName>
+      <value>255 235 59</value>
+    </eventCode>
+    <onset>2026-10-17T19:00:00+02:00</onset>
+    <expires>2026-10-19T02:00:00+02:00</expires>
+    <senderName>Deutscher Wetterdienst</senderName>
+    <headline>ALERTE officielle INTEMPÉRIES pour RAFALES DE VENT</headline>
+    <description>Il y a un risque de rafales de vent (Niveau 1 sur 4).
+Rafale maximale: &lt; 55 km/h ; Direction du vent  : nord-est puis est ; Rafales en hausse  : à proximité des averses et dans les zones exposées &lt; 65 km/h</description>
+    <instruction>Attention : objets légers emportés par le vent. 
+Recommandations d'action : 
+Rangez ou fixez les objets non fixés ; Fixez p. ex. les tentes et les bâches</instruction>
+    <web>https://dwd.de/warnungen</web>
+    <contact>Deutscher Wetterdienst</contact>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>north-east</value>
+    </parameter>
+    <parameter>
+      <valueName>subsequent wind direction</valueName>
+      <value>east</value>
+    </parameter>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>north-east</value>
+    </parameter>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>east</value>
+    </parameter>
+    <parameter>
+      <valueName>gusts</valueName>
+      <value>&lt;55 [km/h]</value>
+    </parameter>
+    <parameter>
+      <valueName>impacts</valueName>
+      <value>objets légers emportés par le vent</value>
+    </parameter>
+    <parameter>
+      <valueName>exposed gusts</valueName>
+      <value>&lt;65 [km/h]</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_level</valueName>
+      <value>2; yellow; Moderate</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_type</valueName>
+      <value>1; Wind</value>
+    </parameter>
+    <area>
+      <areaDesc>Kreis Ostholstein - Binnenland</areaDesc>
+      <geocode>
+        <valueName>EMMA_ID</valueName>
+        <value>DE073</value>
+      </geocode>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>901055001</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+  </info>
+  <info>
+    <language>es</language>
+    <category>Met</category>
+    <event>viento racheado</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Minor</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>PROFILE_VERSION</valueName>
+      <value>2.1.14</value>
+    </eventCode>
+    <eventCode>
+      <valueName>LICENSE</valueName>
+      <value>© GeoBasis-DE / BKG 2021 (Daten modifiziert)</value>
+    </eventCode>
+    <eventCode>
+      <valueName>II</valueName>
+      <value>51</value>
+    </eventCode>
+    <eventCode>
+      <valueName>GROUP</valueName>
+      <value>WIND</value>
+    </eventCode>
+    <eventCode>
+      <valueName>AREA_COLOR</valueName>
+      <value>255 235 59</value>
+    </eventCode>
+    <onset>2026-10-17T19:00:00+02:00</onset>
+    <expires>2026-10-19T02:00:00+02:00</expires>
+    <senderName>Deutscher Wetterdienst</senderName>
+    <headline>AVISO oficial de VIENTO RACHEADO</headline>
+    <description>Existe el riesgo de que se produzca viento racheado. (Nivel 1 de 4)
+Rachas máximas de viento: &lt; 55 km/h; Dirección del viento: noreste luego este; Más vientos racheados: en las proximidades del aguacero y en lugares expuestos &lt; 65 km/h</description>
+    <instruction>Indicio de: objetos ligeros que vuelan por el aire. 
+Recomendaciones de acción: 
+asegurar objetos sueltos; p. ej. fijar las tiendas de campaña y lonas</instruction>
+    <web>https://dwd.de/warnungen</web>
+    <contact>Deutscher Wetterdienst</contact>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>north-east</value>
+    </parameter>
+    <parameter>
+      <valueName>subsequent wind direction</valueName>
+      <value>east</value>
+    </parameter>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>north-east</value>
+    </parameter>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>east</value>
+    </parameter>
+    <parameter>
+      <valueName>gusts</valueName>
+      <value>&lt;55 [km/h]</value>
+    </parameter>
+    <parameter>
+      <valueName>impacts</valueName>
+      <value>objetos ligeros que vuelan por el aire</value>
+    </parameter>
+    <parameter>
+      <valueName>exposed gusts</valueName>
+      <value>&lt;65 [km/h]</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_level</valueName>
+      <value>2; yellow; Moderate</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_type</valueName>
+      <value>1; Wind</value>
+    </parameter>
+    <area>
+      <areaDesc>Kreis Ostholstein - Binnenland</areaDesc>
+      <geocode>
+        <valueName>EMMA_ID</valueName>
+        <value>DE073</value>
+      </geocode>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>901055001</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+  </info>
+  <info>
+    <language>ar</language>
+    <category>Met</category>
+    <event>هبوب رياح</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Minor</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>PROFILE_VERSION</valueName>
+      <value>2.1.14</value>
+    </eventCode>
+    <eventCode>
+      <valueName>LICENSE</valueName>
+      <value>© GeoBasis-DE / BKG 2021 (Daten modifiziert)</value>
+    </eventCode>
+    <eventCode>
+      <valueName>II</valueName>
+      <value>51</value>
+    </eventCode>
+    <eventCode>
+      <valueName>GROUP</valueName>
+      <value>WIND</value>
+    </eventCode>
+    <eventCode>
+      <valueName>AREA_COLOR</valueName>
+      <value>255 235 59</value>
+    </eventCode>
+    <onset>2026-10-17T19:00:00+02:00</onset>
+    <expires>2026-10-19T02:00:00+02:00</expires>
+    <senderName>Deutscher Wetterdienst</senderName>
+    <headline>تحذير رسمي من هبوب رياح</headline>
+    <description>هناك خطر من حدوث هبوب رياح (الدرجة 1 من 4)
+عصفات قسوة: &lt; 55 كم/ساعة; اتجاه الرياح: الشمال الشرقي, ثم  الشرق; عواصف إضافية: شبه الرذاذ  و في الأماكن المكشوفة  &lt; 65 كلمسا</description>
+    <instruction>الخطر ( المخاطر ) المتوقعة: تطاير أجسام صغيرة الحجم في الهواء. 
+التوصيات التي يجب اتباعها: 
+تأمين الأشياء الغير مؤمنه; على سبيل المثال ، ربط الخيام والأغطية</instruction>
+    <web>https://dwd.de/warnungen</web>
+    <contact>Deutscher Wetterdienst</contact>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>north-east</value>
+    </parameter>
+    <parameter>
+      <valueName>subsequent wind direction</valueName>
+      <value>east</value>
+    </parameter>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>north-east</value>
+    </parameter>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>east</value>
+    </parameter>
+    <parameter>
+      <valueName>gusts</valueName>
+      <value>&lt;55 [km/h]</value>
+    </parameter>
+    <parameter>
+      <valueName>impacts</valueName>
+      <value>تطاير أجسام صغيرة الحجم في الهواء</value>
+    </parameter>
+    <parameter>
+      <valueName>exposed gusts</valueName>
+      <value>&lt;65 [km/h]</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_level</valueName>
+      <value>2; yellow; Moderate</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_type</valueName>
+      <value>1; Wind</value>
+    </parameter>
+    <area>
+      <areaDesc>Kreis Ostholstein - Binnenland</areaDesc>
+      <geocode>
+        <valueName>EMMA_ID</valueName>
+        <value>DE073</value>
+      </geocode>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>901055001</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+  </info>
+  <info>
+    <language>ru</language>
+    <category>Met</category>
+    <event>Шквалы ветра</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Minor</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>PROFILE_VERSION</valueName>
+      <value>2.1.14</value>
+    </eventCode>
+    <eventCode>
+      <valueName>LICENSE</valueName>
+      <value>© GeoBasis-DE / BKG 2021 (Daten modifiziert)</value>
+    </eventCode>
+    <eventCode>
+      <valueName>II</valueName>
+      <value>51</value>
+    </eventCode>
+    <eventCode>
+      <valueName>GROUP</valueName>
+      <value>WIND</value>
+    </eventCode>
+    <eventCode>
+      <valueName>AREA_COLOR</valueName>
+      <value>255 235 59</value>
+    </eventCode>
+    <onset>2026-10-17T19:00:00+02:00</onset>
+    <expires>2026-10-19T02:00:00+02:00</expires>
+    <senderName>Deutscher Wetterdienst</senderName>
+    <headline>Официальное метеорологическое предупреждение: Шквалы ветра</headline>
+    <description>Существует риск от: Шквалы ветра (уровень 1 из 4)
+Максимальные порывы ветра: &lt; 55 км / ч; Направление ветра: северо-восточное позже восточное; Доп. шквалистый ветер: в районах кратковременных осадков и в открытойх местности &lt; 65 км / ч</description>
+    <instruction>Ожидаемая опасность: летающих легких предметов. 
+Поведенческие рекомендации: 
+обеспечить надежность незакрепленных предметов; укрепить, напр., палатки или защитные покрытия</instruction>
+    <web>https://dwd.de/warnungen</web>
+    <contact>Deutscher Wetterdienst</contact>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>north-east</value>
+    </parameter>
+    <parameter>
+      <valueName>subsequent wind direction</valueName>
+      <value>east</value>
+    </parameter>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>north-east</value>
+    </parameter>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>east</value>
+    </parameter>
+    <parameter>
+      <valueName>gusts</valueName>
+      <value>&lt;55 [km/h]</value>
+    </parameter>
+    <parameter>
+      <valueName>impacts</valueName>
+      <value>летающих легких предметов</value>
+    </parameter>
+    <parameter>
+      <valueName>exposed gusts</valueName>
+      <value>&lt;65 [km/h]</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_level</valueName>
+      <value>2; yellow; Moderate</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_type</valueName>
+      <value>1; Wind</value>
+    </parameter>
+    <area>
+      <areaDesc>Kreis Ostholstein - Binnenland</areaDesc>
+      <geocode>
+        <valueName>EMMA_ID</valueName>
+        <value>DE073</value>
+      </geocode>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>901055001</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+  </info>
+  <info>
+    <language>tr</language>
+    <category>Met</category>
+    <event>rüzgar esintileri</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Minor</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>PROFILE_VERSION</valueName>
+      <value>2.1.14</value>
+    </eventCode>
+    <eventCode>
+      <valueName>LICENSE</valueName>
+      <value>© GeoBasis-DE / BKG 2021 (Daten modifiziert)</value>
+    </eventCode>
+    <eventCode>
+      <valueName>II</valueName>
+      <value>51</value>
+    </eventCode>
+    <eventCode>
+      <valueName>GROUP</valueName>
+      <value>WIND</value>
+    </eventCode>
+    <eventCode>
+      <valueName>AREA_COLOR</valueName>
+      <value>255 235 59</value>
+    </eventCode>
+    <onset>2026-10-17T19:00:00+02:00</onset>
+    <expires>2026-10-19T02:00:00+02:00</expires>
+    <senderName>Deutscher Wetterdienst</senderName>
+    <headline>RÜZGAR ESİNTİLERİNE karşı resmi UYARI</headline>
+    <description>Rüzgar esintileri bekleniyor (Seviye 1 / 4).
+Maksimum rüzgar: &lt; 55 km/s; Rüzgar yönü: Kuzeydoğu sonra Doğu; Artan esintiler: sağanak yakınında ve maruz kalan konumlarda &lt; 65 km/h</description>
+    <instruction>Beklenen tehlike(ler): havada uçan hafif nesneler. 
+Ne yapılması gerektiğine dair tavsiyeler: 
+Gevşek nesneleri sabitleyin. Örneğin, çadırları ve örtüleri sabitleyin.</instruction>
+    <web>https://dwd.de/warnungen</web>
+    <contact>Deutscher Wetterdienst</contact>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>north-east</value>
+    </parameter>
+    <parameter>
+      <valueName>subsequent wind direction</valueName>
+      <value>east</value>
+    </parameter>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>north-east</value>
+    </parameter>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>east</value>
+    </parameter>
+    <parameter>
+      <valueName>gusts</valueName>
+      <value>&lt;55 [km/h]</value>
+    </parameter>
+    <parameter>
+      <valueName>impacts</valueName>
+      <value>havada uçan hafif nesneler</value>
+    </parameter>
+    <parameter>
+      <valueName>exposed gusts</valueName>
+      <value>&lt;65 [km/h]</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_level</valueName>
+      <value>2; yellow; Moderate</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_type</valueName>
+      <value>1; Wind</value>
+    </parameter>
+    <area>
+      <areaDesc>Kreis Ostholstein - Binnenland</areaDesc>
+      <geocode>
+        <valueName>EMMA_ID</valueName>
+        <value>DE073</value>
+      </geocode>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>901055001</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+  </info>
+  <info>
+    <language>pl</language>
+    <category>Met</category>
+    <event>Porywy wiatru</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Minor</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>PROFILE_VERSION</valueName>
+      <value>2.1.14</value>
+    </eventCode>
+    <eventCode>
+      <valueName>LICENSE</valueName>
+      <value>© GeoBasis-DE / BKG 2021 (Daten modifiziert)</value>
+    </eventCode>
+    <eventCode>
+      <valueName>II</valueName>
+      <value>51</value>
+    </eventCode>
+    <eventCode>
+      <valueName>GROUP</valueName>
+      <value>WIND</value>
+    </eventCode>
+    <eventCode>
+      <valueName>AREA_COLOR</valueName>
+      <value>255 235 59</value>
+    </eventCode>
+    <onset>2026-10-17T19:00:00+02:00</onset>
+    <expires>2026-10-19T02:00:00+02:00</expires>
+    <senderName>Deutscher Wetterdienst</senderName>
+    <headline>Oficjalne OSTRZEŻENIE METEOROLOGICZNE (1. STOPNIA) przed  PORYWAMI WIATRU</headline>
+    <description>Istnieje ryzyko wystąpienia: Porywy wiatru (stopień 1 z 4).
+Maksymalne porywy wiatru: &lt; 55 km/h; Kierunek wiatru: północno-wschodni, potem wschodni; Dodatk. porywy wiatru: w obszarze deszczu i wyeksponowanych miejscach &lt; 65 km/h</description>
+    <instruction>Ostrzeżenie: latające w powietrzu lekkie przedmioty. 
+Zalecenia, jak się zachować: 
+Zabezpiecz luźne przedmioty. Np. zabezpiecz namioty i pokrywy.</instruction>
+    <web>https://dwd.de/warnungen</web>
+    <contact>Deutscher Wetterdienst</contact>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>north-east</value>
+    </parameter>
+    <parameter>
+      <valueName>subsequent wind direction</valueName>
+      <value>east</value>
+    </parameter>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>north-east</value>
+    </parameter>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>east</value>
+    </parameter>
+    <parameter>
+      <valueName>gusts</valueName>
+      <value>&lt;55 [km/h]</value>
+    </parameter>
+    <parameter>
+      <valueName>impacts</valueName>
+      <value>latające w powietrzu lekkie przedmioty</value>
+    </parameter>
+    <parameter>
+      <valueName>exposed gusts</valueName>
+      <value>&lt;65 [km/h]</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_level</valueName>
+      <value>2; yellow; Moderate</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_type</valueName>
+      <value>1; Wind</value>
+    </parameter>
+    <area>
+      <areaDesc>Kreis Ostholstein - Binnenland</areaDesc>
+      <geocode>
+        <valueName>EMMA_ID</valueName>
+        <value>DE073</value>
+      </geocode>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>901055001</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+  </info>
+</alert>

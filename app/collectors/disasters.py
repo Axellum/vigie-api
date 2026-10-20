@@ -20,8 +20,19 @@ from typing import Any, Optional
 import httpx
 
 from app import clock
-from app.collectors.base import BaseCollector, optional_float
+from app.attribution import credit_text
+from app.collectors.base import BaseCollector, Fetched, optional_float, parse_iso_utc
+from app.geo import geojson_to_shape
 from app.models.schemas import HazardAlert, HazardCategory, SeverityLevel
+from app.models.vigilance import (
+    Vigilance,
+    VigilanceArea,
+    VigilanceGeocode,
+    VigilanceParameter,
+    VigilancePhenomenon,
+    VigilanceStatus,
+    VigilanceText,
+)
 
 _GDACS_CATEGORY_MAP: dict[str, tuple[HazardCategory, str]] = {
     "EQ": (HazardCategory.EARTHQUAKE, "Mw"),
@@ -40,17 +51,17 @@ _GDACS_SEVERITY_MAP: dict[str, SeverityLevel] = {
 }
 
 
-def _parse_iso_utc(value: Any) -> Optional[int]:
-    """Parse an ISO 8601 date-time to UTC epoch seconds (naive values are taken as UTC)."""
-    if not isinstance(value, str) or not value.strip():
+_parse_iso_utc = parse_iso_utc
+
+
+def _clean(value: Any) -> Optional[str]:
+    """A provider text as it is, ``None`` when it is missing or blank (the NWS writes the string "None" for no note)."""
+    if not isinstance(value, str):
         return None
-    try:
-        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return int(parsed.timestamp())
+    return value if value.strip() and value.strip() != "None" else None
+
+
+MAX_NWS_FEATURES = 2000  # the answer lists the active alerts; a hundred is a lot, two thousand is a mistake
 
 
 class GDACSCollector(BaseCollector[list[HazardAlert]]):
@@ -175,8 +186,83 @@ class GDACSCollector(BaseCollector[list[HazardAlert]]):
         return alerts
 
 
+# NWS CAP severity -> our level (CAP profile of MeteoAlarm, section 3.4: Minor is the lowest level, "green").
+# `Unknown` is not in the table: the level is then unknown.
+NWS_LEVELS: dict[str, SeverityLevel] = {
+    "minor": SeverityLevel.GREEN,
+    "moderate": SeverityLevel.YELLOW,
+    "severe": SeverityLevel.ORANGE,
+    "extreme": SeverityLevel.RED,
+}
+
+# NWS event name -> our phenomenon: the first rule whose words are all in the lower-case event wins, so the order
+# matters (a "flash flood" is a flood, a "coastal flood" is coastal). An event no rule covers is "other".
+NWS_PHENOMENA: tuple[tuple[tuple[str, ...], VigilancePhenomenon], ...] = (
+    (("tornado",), VigilancePhenomenon.WIND),
+    (("hurricane",), VigilancePhenomenon.WIND),
+    (("typhoon",), VigilancePhenomenon.WIND),
+    (("tropical storm",), VigilancePhenomenon.WIND),
+    (("storm surge",), VigilancePhenomenon.COASTAL),
+    (("coastal flood",), VigilancePhenomenon.COASTAL),
+    (("lakeshore flood",), VigilancePhenomenon.COASTAL),
+    (("tsunami",), VigilancePhenomenon.COASTAL),
+    (("high surf",), VigilancePhenomenon.COASTAL),
+    (("rip current",), VigilancePhenomenon.COASTAL),
+    (("beach hazards",), VigilancePhenomenon.COASTAL),
+    (("flood",), VigilancePhenomenon.FLOOD),
+    (("thunderstorm",), VigilancePhenomenon.THUNDERSTORM),
+    (("blizzard",), VigilancePhenomenon.SNOW_ICE),
+    (("winter storm",), VigilancePhenomenon.SNOW_ICE),
+    (("winter weather",), VigilancePhenomenon.SNOW_ICE),
+    (("ice storm",), VigilancePhenomenon.SNOW_ICE),
+    (("snow",), VigilancePhenomenon.SNOW_ICE),
+    (("freezing rain",), VigilancePhenomenon.SNOW_ICE),
+    (("sleet",), VigilancePhenomenon.SNOW_ICE),
+    (("freezing fog",), VigilancePhenomenon.FOG),
+    (("fog",), VigilancePhenomenon.FOG),
+    (("wind chill",), VigilancePhenomenon.COLD),
+    (("extreme cold",), VigilancePhenomenon.COLD),
+    (("freeze",), VigilancePhenomenon.COLD),
+    (("frost",), VigilancePhenomenon.COLD),
+    (("heat",), VigilancePhenomenon.HEAT),
+    (("dust",), VigilancePhenomenon.OTHER),  # before the "storm warning" of the sea forecasts
+    (("high wind",), VigilancePhenomenon.WIND),
+    (("extreme wind",), VigilancePhenomenon.WIND),
+    (("wind",), VigilancePhenomenon.WIND),
+    (("gale",), VigilancePhenomenon.WIND),
+    (("storm warning",), VigilancePhenomenon.WIND),
+    (("red flag",), VigilancePhenomenon.FIRE),
+    (("fire weather",), VigilancePhenomenon.FIRE),
+    (("fire",), VigilancePhenomenon.FIRE),
+    (("avalanche",), VigilancePhenomenon.AVALANCHE),
+    (("rain",), VigilancePhenomenon.RAIN),
+)
+
+NWS_STATUSES: dict[str, VigilanceStatus] = {
+    "alert": VigilanceStatus.NEW,
+    "update": VigilanceStatus.UPDATE,
+    "cancel": VigilanceStatus.CANCEL,
+}
+
+
+def derive_nws_phenomenon(event: Optional[str]) -> Optional[VigilancePhenomenon]:
+    """Our phenomenon for an NWS event name; ``None`` when there is no event, "other" when no rule covers it."""
+    if not event or not event.strip():
+        return None
+    lowered = event.lower()
+    for words, phenomenon in NWS_PHENOMENA:
+        if all(word in lowered for word in words):
+            return phenomenon
+    return VigilancePhenomenon.OTHER
+
+
 class NOAANWSCollector(BaseCollector[list[HazardAlert]]):
-    """Collector of the most severe NOAA / National Weather Service alerts (tornado, hurricane, tsunami, flood)."""
+    """Collector of the most severe NOAA / National Weather Service alerts (tornado, hurricane, tsunami, flood).
+
+    The same request also feeds the vigilances (``GET /v1/vigilances``): every alert of the answer, whatever its
+    event, is read once as a ``Vigilance`` (``last_vigilances``) at the moment the answer is parsed. Asking for the
+    vigilances (``fetch_vigilances``) goes through the same cache entry, so it never sends a second request.
+    """
 
     FEED_URL = (
         "https://api.weather.gov/alerts/active"
@@ -193,12 +279,105 @@ class NOAANWSCollector(BaseCollector[list[HazardAlert]]):
             ttl_seconds=120,
             http_client=http_client,
         )
+        # The alerts of the last answer read, as vigilances (see ``fetch_vigilances``).
+        self.last_vigilances: list[Vigilance] = []
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> list[HazardAlert]:
         resp = await self._get(client, self.FEED_URL)
         resp.raise_for_status()
         payload = resp.json()
-        return self.parse_alerts(payload)
+        hazards = self.parse_alerts(payload)
+        # The vigilances come from the same answer and are replaced only when an answer was read here, never by a
+        # cached one: the hazards and the vigilances always describe the same moment.
+        self.last_vigilances = self.parse_vigilances(payload)
+        return hazards
+
+    async def fetch_vigilances(self) -> Fetched[list[Vigilance]]:
+        """The vigilances of the cached answer: one request at most per cache lifetime, shared with the hazards."""
+        fetched = await self.fetch_ex()
+        return Fetched(list(self.last_vigilances), stale=fetched.stale)
+
+    @classmethod
+    def parse_vigilances(cls, payload: dict[str, Any]) -> list[Vigilance]:
+        """Every alert of the answer as a ``Vigilance``: the CAP fields as given, the polygon when there is one.
+
+        Most alerts have no polygon (they name zones): their area keeps the UGC and SAME codes as given.
+        An alert with no identifier is skipped; an unknown value stays ``None``.
+        """
+        vigilances: list[Vigilance] = []
+        for feat in (payload.get("features") or [])[:MAX_NWS_FEATURES]:
+            try:
+                parsed = cls._parse_vigilance(feat)
+            except (ValueError, TypeError, KeyError, AttributeError):
+                continue
+            if parsed is not None:
+                vigilances.append(parsed)
+        return vigilances
+
+    @staticmethod
+    def _parse_vigilance(feat: dict[str, Any]) -> Optional[Vigilance]:
+        props = feat.get("properties") or {}
+        identifier = props.get("id") or feat.get("id")
+        if not isinstance(identifier, str) or not identifier or str(props.get("status") or "").lower() != "actual":
+            return None
+        severity = str(props.get("severity") or "").strip()
+        event = _clean(props.get("event"))
+        message_type = _clean(props.get("messageType"))
+        geocode = props.get("geocode") if isinstance(props.get("geocode"), dict) else {}
+        geocodes = [
+            VigilanceGeocode(scheme=scheme, value=str(value))
+            for scheme in ("UGC", "SAME")
+            for value in (geocode.get(scheme) or [])
+            if value
+        ]
+        parameters = [
+            VigilanceParameter(name=str(name), value=str(value))
+            for name, values in (props.get("parameters") or {}).items()
+            for value in (values if isinstance(values, list) else [values])
+            if value is not None
+        ]
+        shape = geojson_to_shape(feat.get("geometry"))
+        sender = _clean(props.get("senderName"))
+        credit = credit_text("noaa_nws")
+        vigilance = Vigilance(
+            id=f"noaa_nws:{identifier}",
+            source="noaa_nws",
+            country="US",
+            attribution=f"{credit} | Issued by {sender}" if sender else credit,
+            identifier=identifier,
+            sent_utc=parse_iso_utc(props.get("sent")),
+            effective_utc=parse_iso_utc(props.get("effective")),
+            onset_utc=parse_iso_utc(props.get("onset")),
+            expires_utc=parse_iso_utc(props.get("expires")),
+            ends_utc=parse_iso_utc(props.get("ends")),
+            message_type=message_type,
+            status=NWS_STATUSES.get(message_type.lower()) if message_type else None,
+            level=NWS_LEVELS.get(severity.lower()),
+            level_original=severity or None,
+            phenomenon=derive_nws_phenomenon(event),
+            phenomenon_original=event,
+            event=event,
+            issuer=sender,
+            texts=[
+                VigilanceText(
+                    language=_clean(props.get("language")),
+                    sender_name=sender,
+                    event=event,
+                    headline=_clean(props.get("headline")),
+                    description=_clean(props.get("description")),
+                    instruction=_clean(props.get("instruction")),
+                    web=_clean(props.get("web")),
+                    parameters=parameters,
+                )
+            ],
+            area=VigilanceArea(
+                description=_clean(props.get("areaDesc")),
+                geocodes=geocodes,
+                has_polygon=shape is not None,
+            ),
+            link=_clean(props.get("@id")) or (feat.get("id") if isinstance(feat.get("id"), str) else None),
+        )
+        return vigilance.with_shape(shape)
 
     @staticmethod
     def _classify_event(event_name: str) -> Optional[tuple[HazardCategory, str, bool]]:

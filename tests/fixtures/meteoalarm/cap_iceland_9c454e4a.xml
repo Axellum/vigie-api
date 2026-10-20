@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>2.49.0.0.352.0.IS.261018153354.11071</identifier>
+  <sender>forecaster@vedur.is</sender>
+  <sent>2026-10-18T15:33:54-00:00</sent>
+  <status>Actual</status>
+  <msgType>Update</msgType>
+  <scope>Public</scope>
+  <references>forecaster@vedur.is,2.49.0.0.352.0.IS.261018093545.11062,2026-10-18T09:35:45+00:00</references>
+  <info>
+    <language>is-IS</language>
+    <category>Met</category>
+    <event>Veðurviðvörun: Vindur</event>
+    <responseType>AllClear</responseType>
+    <urgency>Future</urgency>
+    <severity>Moderate</severity>
+    <certainty>Observed</certainty>
+    <eventCode>
+      <valueName>alertType</valueName>
+      <value>Wind</value>
+    </eventCode>
+    <effective>2026-10-18T15:33:54-00:00</effective>
+    <onset>2026-10-18T12:00:00-00:00</onset>
+    <expires>2026-10-19T00:00:00-00:00</expires>
+    <senderName>IMO - Meteorologist on duty</senderName>
+    <headline>Suðvestan hvassviðri</headline>
+    <description>Suðvestan 18-28 m/s, hvassast norðan undir jöklum og mjög snarpar vindhviður. Varasamt ferðaveður. Búast má við rigningu, talsverð sunnatil.</description>
+    <instruction>Fyrir frekar upplýsingar sjá: https://www.vedur.is/vidvaranir</instruction>
+    <web>http://www.vedur.is/#spasvaedi=mi</web>
+    <contact>forecaster@vedur.is</contact>
+    <parameter>
+      <valueName>awareness_level</valueName>
+      <value>2; yellow; Moderate</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_type</valueName>
+      <value>1; Wind</value>
+    </parameter>
+    <resource>
+      <resourceDesc>Icon: Vindur</resourceDesc>
+      <mimeType>image/png</mimeType>
+      <size>17296</size>
+      <uri>https://cdn.vedur.is/cap/v1/icons/yellow_wind.png</uri>
+      <digest>1c8015126336af265ec36ef202e91611f9cfd7a7</digest>
+    </resource>
+    <area>
+      <areaDesc>Miðhálendi</areaDesc>
+      <polygon>63.55,-19.43 63.88,-19.56 64,-19.74 64.21,-19.72 64.37,-20.18 64.39,-20.61 64.56,-20.97 64.64,-20.99 64.8,-20.61 65,-20.2 65.09,-19.86 65.25,-18.6 65.42,-17.12 65.55,-16.82 65.53,-16.45 65.54,-15.65 64.79,-14.59 64.59,-14.77 64.4,-15.8 64.3,-16.71 64.26,-17.82 64.19,-18.04 63.54,-18.77 63.53,-19.1 63.55,-19.43</polygon>
+      <geocode>
+        <valueName>EMMA_ID</valueName>
+        <value>IS011</value>
+      </geocode>
+    </area>
+  </info>
+  <info>
+    <language>en-GB</language>
+    <category>Met</category>
+    <event>Weather Warning: Wind</event>
+    <responseType>AllClear</responseType>
+    <urgency>Future</urgency>
+    <severity>Moderate</severity>
+    <certainty>Observed</certainty>
+    <eventCode>
+      <valueName>alertType</valueName>
+      <value>Wind</value>
+    </eventCode>
+    <effective>2026-10-18T15:33:54-00:00</effective>
+    <onset>2026-10-18T12:00:00-00:00</onset>
+    <expires>2026-10-19T00:00:00-00:00</expires>
+    <senderName>IMO - Meteorologist on duty</senderName>
+    <headline>Southwesterly gales or strong gales</headline>
+    <description>Southeast and south 18-28 m/s, strongest wind north of glaciers with very strong wind gusts. Traveling can be hazardous. Rain is expected, considerable precipitation in the south part.</description>
+    <instruction>For further information see: https://en.vedur.is/alerts</instruction>
+    <web>http://en.vedur.is/#forec_area=mi</web>
+    <contact>forecaster@vedur.is</contact>
+    <parameter>
+      <valueName>awareness_level</valueName>
+      <value>2; yellow; Moderate</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_type</valueName>
+      <value>1; Wind</value>
+    </parameter>
+    <resource>
+      <resourceDesc>Icon: Wind</resourceDesc>
+      <mimeType>image/png</mimeType>
+      <size>17296</size>
+      <uri>https://cdn.vedur.is/cap/v1/icons/yellow_wind.png</uri>
+      <digest>1c8015126336af265ec36ef202e91611f9cfd7a7</digest>
+    </resource>
+    <area>
+      <areaDesc>Central highlands - Uninhabited part of Iceland</areaDesc>
+      <polygon>63.55,-19.43 63.88,-19.56 64,-19.74 64.21,-19.72 64.37,-20.18 64.39,-20.61 64.56,-20.97 64.64,-20.99 64.8,-20.61 65,-20.2 65.09,-19.86 65.25,-18.6 65.42,-17.12 65.55,-16.82 65.53,-16.45 65.54,-15.65 64.79,-14.59 64.59,-14.77 64.4,-15.8 64.3,-16.71 64.26,-17.82 64.19,-18.04 63.54,-18.77 63.53,-19.1 63.55,-19.43</polygon>
+      <geocode>
+        <valueName>EMMA_ID</valueName>
+        <value>IS011</value>
+      </geocode>
+    </area>
+  </info>
+</alert>
