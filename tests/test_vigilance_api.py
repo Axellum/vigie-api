@@ -129,7 +129,7 @@ def test_a_country_without_a_source_is_a_404_that_lists_the_countries(recorded: 
     response = recorded.client.get("/v1/vigilances", params={"country": "JP"})
     assert response.status_code == 404
     detail = response.json()["detail"]
-    assert "JP" in detail and "FR" in detail and "US" in detail
+    assert "JP" in detail and "/v1/vigilances/countries" in detail  # the list of the countries is a route of its own
 
 
 def test_a_point_nobody_covers_is_a_200_with_a_note(recorded: World) -> None:

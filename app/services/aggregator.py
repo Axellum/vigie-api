@@ -41,6 +41,8 @@ from app.collectors.metservice import MetServiceCollector, metservice_enabled_fr
 from app.collectors.nhc import NHCCollector
 from app.collectors.seismic import EMSCCollector, USGSCollector
 from app.collectors.space_weather import NOAASWPCCollector
+from app.collectors.swic import SwicCollector
+from app.collectors.swic_registry import SwicRegistryCollector, wmo_sources_from_env
 from app.collectors.tsunami import TsunamiCollector
 from app.collectors.vigicrues import VigicruesCollector
 from app.collectors.weather import (
@@ -150,6 +152,9 @@ class AggregatorService:
         vigicrues: Optional[VigicruesCollector] = None,
         nhc: Optional[NHCCollector] = None,
         tsunami: Optional[TsunamiCollector] = None,
+        swic: Optional[SwicCollector] = None,
+        swic_registry: Optional[SwicRegistryCollector] = None,
+        wmo_sources: Optional[str] = None,
         countries: Optional[CountryIndex] = None,
         geometries: Optional[GeometryIndex] = None,
     ) -> None:
@@ -158,6 +163,8 @@ class AggregatorService:
         self.rainviewer_enabled = rainviewer_enabled_from_env() if rainviewer_enabled is None else rainviewer_enabled
         # MetService is on unless VIGIE_ENABLE_METSERVICE turns it off (see ``metservice_enabled_from_env``).
         self.metservice_enabled = metservice_enabled_from_env() if metservice_enabled is None else metservice_enabled
+        # The services of the WMO registry: ``verified`` (default), ``all`` or ``off`` (see ``wmo_sources_from_env``).
+        self.wmo_sources = wmo_sources_from_env() if wmo_sources is None else wmo_sources
         self.usgs = usgs or USGSCollector()
         self.emsc = emsc or EMSCCollector()
         self.gdacs = gdacs or GDACSCollector()
@@ -178,6 +185,8 @@ class AggregatorService:
         self.vigicrues = vigicrues or VigicruesCollector()
         self.nhc = nhc or NHCCollector()
         self.tsunami = tsunami or TsunamiCollector()
+        self.swic = swic or SwicCollector()
+        self.swic_registry = swic_registry or SwicRegistryCollector()
         share_budgets(self.get_all_collectors())  # the four Open-Meteo APIs share one quota
 
         self.storage = storage or SQLiteWALStorage(db_path=db_path)
@@ -202,6 +211,9 @@ class AggregatorService:
             metservice=self.metservice if self.metservice_enabled else None,
             vigicrues=self.vigicrues,
             tsunami=self.tsunami,
+            swic=self.swic if self.wmo_sources != "off" else None,
+            swic_registry=self.swic_registry if self.wmo_sources != "off" else None,
+            swic_mode=self.wmo_sources,
         )
 
     def refresh_zones_from_storage(self) -> list[MonitoredZoneConfig]:
@@ -259,8 +271,19 @@ class AggregatorService:
             self.vigicrues,
             self.nhc,
             self.tsunami,
+            self.swic,
+            self.swic_registry,
         ]
-        off = [c for c, enabled in ((self.rainviewer, self.rainviewer_enabled), (self.metservice, self.metservice_enabled)) if not enabled]
+        off = [
+            c
+            for c, enabled in (
+                (self.rainviewer, self.rainviewer_enabled),
+                (self.metservice, self.metservice_enabled),
+                (self.swic, self.wmo_sources != "off"),
+                (self.swic_registry, self.wmo_sources != "off"),
+            )
+            if not enabled
+        ]
         return [c for c in collectors if c not in off]
 
     def get_providers_health(self) -> list[ProviderHealth]:

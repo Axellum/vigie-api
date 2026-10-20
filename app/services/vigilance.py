@@ -13,6 +13,11 @@ providers as little as it can:
   same warnings are not (so nothing is returned twice, and a request is saved). MeteoAlarm is asked for Germany only
   when the DWD gave no answer at all. Countries with no national collector keep MeteoAlarm. France has MeteoAlarm and
   Vigicrues (river floods, a different thing at a finer scale): see ``_without_covered_flooding``.
+- **The other countries are served by the services of the WMO registry** (``swic``), each service its own source and its own
+  ``coverage`` line, and only for a country that has none of the above: a registry service never answers for a country that has a
+  collector (ADR 0003, 0005). Spain is the one exception, decided on evidence: AEMET's own feed has polygons where MeteoAlarm's
+  Spanish feed has none, so it answers for Spain and MeteoAlarm stands in. Which services an instance reads depends on
+  ``VIGIE_WMO_SOURCES`` (``swic_terms``).
 - A CAP document is asked only for a warning that an answer returns, once (it never changes), and at most
   ``CAP_DOCUMENTS_PER_REQUEST`` new ones per request: the others come with the next request.
 - The NWS answer is the hazards' own: no request of its own.
@@ -48,6 +53,9 @@ from app.collectors.meteoalarm import (
     with_cap,
 )
 from app.collectors.metservice import MetServiceCollector
+from app.collectors.swic import SwicCollector, notes_of
+from app.collectors.swic_registry import SwicRegistryCollector, SwicSource, bundled_registry
+from app.collectors.swic_terms import COUNTRY_OVERRIDES, credit_of, is_eligible, status_of
 from app.collectors.tsunami import TsunamiCollector, vtec_event_key
 from app.collectors.vigicrues import VigicruesCollector
 from app.geo import shape_to_geojson
@@ -55,6 +63,7 @@ from app.models.schemas import SEVERITY_RANK, SeverityLevel
 from app.models.vigilance import (
     Vigilance,
     VigilanceChange,
+    VigilanceCountry,
     VigilanceCoverage,
     VigilanceGeoJSONCollection,
     VigilanceGeoJSONFeature,
@@ -85,7 +94,9 @@ FRANCE = "FR"
 NATIONAL_SOURCES: dict[str, str] = {"DE": "dwd", "CA": "eccc", "NZ": "metservice"}
 SUPPORTED_COUNTRIES = sorted({*COUNTRY_FEEDS, NWS_COUNTRY, *NATIONAL_SOURCES})
 # The sources whose warnings carry their words inline (no CAP document to fetch afterwards).
-INLINE_TEXT_SOURCES = ("dwd", "eccc", "metservice")
+INLINE_TEXT_SOURCES = ("dwd", "eccc", "metservice", "swic")
+REGISTRY_RECHECK_S = 3600  # how often the registry cache is looked at (the registry itself is asked once a day)
+REGISTRY_RETRY_S = 3600  # after a registry that did not answer (the snapshot bundled with the code is used meanwhile)
 # Source -> key of its credit in ``app/attribution.py``, in the order the credits are printed.
 CREDIT_KEYS: dict[str, str] = {
     "meteoalarm": "meteoalarm",
@@ -95,6 +106,18 @@ CREDIT_KEYS: dict[str, str] = {
     "vigicrues": "vigicrues",
     "noaa_nws": "noaa_nws",
     "tsunami": "noaa_tsunami",
+    "swic": "wmo_swic",
+}
+# Whether the licence of a source whose collector is wired here was read and allows relaying its warnings (SOURCES.md). MetService is
+# not: its feed says CC BY 4.0, the website terms it points to allow personal use only, and which one governs is not verified.
+LICENCE_VERIFIED: dict[str, bool] = {
+    "meteoalarm": True,
+    "noaa_nws": True,
+    "tsunami": True,
+    "dwd": True,
+    "eccc": True,
+    "vigicrues": True,
+    "metservice": False,
 }
 TSUNAMI_SOURCE = "tsunami"
 TSUNAMI_COUNTRIES = ("US", "CA")  # the countries the UGC zone codes of the domestic tsunami messages belong to
@@ -102,7 +125,12 @@ FLOODING_WORD = "flooding"  # MeteoAlarm awareness type 12 (CAP profile v2.0): M
 
 NO_SOURCE_NOTE = (
     "No official warning source covers this point (MeteoAlarm: 39 European countries; DWD: Germany; ECCC: Canada; "
-    "MetService: New Zealand; NWS: the United States)."
+    "MetService: New Zealand; NWS: the United States; the national services of the WMO registry that this instance reads: "
+    "see GET /v1/vigilances/countries)."
+)
+WMO_NOT_READ_NOTE = (
+    "The WMO registry lists a national service for this country that this instance does not read: it reads only the services whose "
+    "terms were verified (VIGIE_WMO_SOURCES=verified, SOURCES.md)."
 )
 METSERVICE_OFF_NOTE = (
     "MetService (New Zealand) is turned off on this instance (VIGIE_ENABLE_METSERVICE=0): its terms of use are not settled "
@@ -145,6 +173,26 @@ class SourceData:
     coverage: VigilanceCoverage
     note: Optional[str] = None  # what is worth saying about this source for this country, in every answer
     fallback: bool = False  # asked only because the national service did not answer: in the answer, not in the push tracking
+    source_id: Optional[str] = None  # for a service of the WMO registry (``swic``): its id there
+    credit: Optional[str] = None  # the credit of this very source, when it is not the one of its kind (a registry service has its own)
+
+    @property
+    def key(self) -> str:
+        """What tells one source from another when one fails and another answers: the registry service, else the source."""
+        return source_key(self.source, self.source_id)
+
+
+def source_key(source: str, source_id: Optional[str] = None) -> str:
+    """``swic:mx-smn-es`` for a service of the registry (each fails on its own), the name of the source for any other."""
+    return f"{source}:{source_id}" if source_id else source
+
+
+def vigilance_source_key(vigilance: Vigilance) -> str:
+    """The key of the source of a warning (a registry warning carries its service in its id: ``swic:<service>:<identifier>:...``)."""
+    if vigilance.source == "swic":
+        parts = vigilance.id.split(":", 2)
+        return source_key("swic", parts[1] if len(parts) > 2 else None)
+    return vigilance.source
 
 
 def level_rank(level: Optional[SeverityLevel]) -> int:
@@ -213,6 +261,9 @@ class VigilanceService:
         metservice: Optional[MetServiceCollector] = None,
         vigicrues: Optional[VigicruesCollector] = None,
         tsunami: Optional[TsunamiCollector] = None,
+        swic: Optional[SwicCollector] = None,
+        swic_registry: Optional[SwicRegistryCollector] = None,
+        swic_mode: str = "verified",
     ) -> None:
         self.meteoalarm = meteoalarm
         self.meteoalarm_cap = meteoalarm_cap
@@ -222,6 +273,13 @@ class VigilanceService:
         self.metservice = metservice
         self.vigicrues = vigicrues
         self.tsunami = tsunami
+        self.swic = swic
+        self.swic_registry = swic_registry
+        self.swic_mode = swic_mode if swic is not None else "off"
+        self._registry: Optional[tuple[SwicSource, ...]] = None  # the live registry, once read; else the bundled snapshot
+        self._registry_checked_at: Optional[float] = None
+        self._registry_failed = False
+        self._swic_cache: Optional[tuple[object, dict[str, list[SwicSource]], dict[str, list[SwicSource]]]] = None
         self.countries = countries
         self.geometries = geometries
         self._watched_zones = watched_zones
@@ -250,15 +308,91 @@ class VigilanceService:
         source = NATIONAL_SOURCES.get(country)
         return source if source is not None and getattr(self, source) is not None else None
 
+    # ------------------------------------------------------------------ the services of the WMO registry
+
+    def _registry_now(self) -> tuple[SwicSource, ...]:
+        """The registry as known now: the one read from the WMO, else the snapshot bundled with the code."""
+        if self._registry is not None:
+            return self._registry
+        return bundled_registry()
+
+    async def ensure_registry(self) -> None:
+        """Look at the registry cache now and then (it is asked once a day, and not again for ten minutes after a miss)."""
+        if self.swic is None or self.swic_registry is None:
+            return
+        now = clock.monotonic()
+        wait = REGISTRY_RETRY_S if self._registry_failed else REGISTRY_RECHECK_S
+        if self._registry_checked_at is not None and now - self._registry_checked_at < wait:
+            return
+        self._registry_checked_at = now
+        try:
+            self._registry = (await self.swic_registry.fetch_registry()).value
+            self._registry_failed = False
+        except (CollectorUnavailableError, ValueError):
+            self._registry_failed = True  # the bundled snapshot (or the last registry) stays
+
+    def _covered(self, country: str) -> bool:
+        """A country that has a collector of its own (MeteoAlarm's 39, the United States, Germany, Canada, New Zealand)."""
+        return country in COUNTRY_FEEDS or country == NWS_COUNTRY or country in NATIONAL_SOURCES
+
+    def _swic_index(self) -> tuple[dict[str, list[SwicSource]], dict[str, list[SwicSource]]]:
+        """The registry services by country: the ones this instance reads, and (for a note) all the ones it could read.
+
+        A registry service answers for a country that has no collector; the only exception is ``COUNTRY_OVERRIDES``.
+        The registry is the live one when it was read, else the bundled snapshot.
+        """
+        registry = self._registry_now()
+        if self._swic_cache is not None and self._swic_cache[0] is registry:
+            return self._swic_cache[1], self._swic_cache[2]
+        read: dict[str, list[SwicSource]] = {}
+        every: dict[str, list[SwicSource]] = {}
+        for source in registry:
+            if source.country is None or not is_eligible(source, "all"):
+                continue
+            overridden = COUNTRY_OVERRIDES.get(source.country) == source.source_id
+            if self._covered(source.country) and not overridden:
+                continue
+            every.setdefault(source.country, []).append(source)
+            if self.swic is not None and is_eligible(source, self.swic_mode):
+                read.setdefault(source.country, []).append(source)
+        self._swic_cache = (registry, read, every)
+        return read, every
+
+    def swic_sources(self, country: str) -> list[SwicSource]:
+        """The registry services this instance reads for a country."""
+        return self._swic_index()[0].get(country, [])
+
+    def supported_countries(self) -> list[str]:
+        """The countries this instance has a source for: the collectors' (``SUPPORTED_COUNTRIES``) and the registry services it reads."""
+        return sorted({*SUPPORTED_COUNTRIES, *self._swic_index()[0]})
+
+    def countries_listing(self) -> list[VigilanceCountry]:
+        """What this instance serves, country by country, with the settings it runs with (``GET /v1/vigilances/countries``)."""
+        listing: list[VigilanceCountry] = []
+        for country in self.supported_countries():
+            names = ["noaa_nws"] if country == NWS_COUNTRY else self._plan(country)
+            if names and self.tsunami is not None and country in TSUNAMI_COUNTRIES:
+                names = [*names, TSUNAMI_SOURCE]  # the tsunami messages that name the country (no request of its own)
+            if not names:
+                continue  # New Zealand with MetService turned off: nothing answers for it
+            verified = all(
+                status_of(name.split(":", 1)[1]) == "verified" if name.startswith("swic:") else LICENCE_VERIFIED[name] for name in names
+            )
+            listing.append(VigilanceCountry(country=country, sources=names, licence_verified=verified))
+        return listing
+
     def _plan(self, country: str) -> list[str]:
         """The sources asked for a country, in order. The NWS is not here: it costs no request of its own."""
+        swic = [f"swic:{source.source_id}" for source in self.swic_sources(country)]
+        if swic and country in COUNTRY_OVERRIDES:
+            return swic  # MeteoAlarm stands in only if they all fail
         national = self._national(country)
         if national is not None:
             return [national]
         plan = ["meteoalarm"] if country in COUNTRY_FEEDS else []
         if country == FRANCE and self.vigicrues is not None:
             plan.append("vigicrues")
-        return plan
+        return plan + swic
 
     def needed_countries(self, extra_points: Optional[list[tuple[float, float]]] = None) -> list[str]:
         """The countries worth keeping fresh (those with a feed of their own): watched zones, followed points, recent requests."""
@@ -449,6 +583,44 @@ class VigilanceService:
             note += f" {flow.skipped} sections above green could not be read."
         return self._national_data("vigicrues", FRANCE, self.vigicrues, "flow", fetched, list(flow.vigilances), flow.updated_utc, note)
 
+    async def _swic(self, source: SwicSource) -> SourceData:
+        """One service of the WMO registry: its own feeds (and the WMO's copy), read like any source, its own ``coverage`` line."""
+        assert self.swic is not None
+        country = source.country or ""
+        try:
+            fetched = await self.swic.fetch_source(source)
+        except (CollectorUnavailableError, ValueError) as exc:
+            data = self._unavailable("swic", country, exc)
+            data.coverage.source_id = source.source_id
+            data.source_id = source.source_id
+            data.credit = credit_of(source)
+            return data
+        feed = fetched.value
+        now = clock.wall()
+        active = [v for v in feed.vigilances if is_active(v, now)]
+        notes = notes_of(feed)
+        if status_of(source.source_id) != "verified":
+            notes.append("The terms of this service were not verified (SOURCES.md): the instance reads it because VIGIE_WMO_SOURCES=all.")
+        coverage = VigilanceCoverage(
+            source="swic",
+            source_id=source.source_id,
+            country=country,
+            status="stale" if fetched.stale else "ok",
+            feed_updated_utc=feed.updated_utc,
+            fetched_age_s=self._age(self.swic, source.source_id),
+        )
+        return SourceData("swic", country, active, coverage, note=" ".join(notes) or None, source_id=source.source_id, credit=credit_of(source))
+
+    async def _ask(self, entry: str, country: str) -> SourceData:
+        """One entry of the plan of a country: a source by name (``dwd``, ``meteoalarm``...) or ``swic:<service>``."""
+        if entry.startswith("swic:"):
+            service = next((s for s in self.swic_sources(country) if s.source_id == entry.split(":", 1)[1]), None)
+            assert service is not None
+            return await self._swic(service)
+        if entry == "meteoalarm":
+            return await self._meteoalarm(country)
+        return await getattr(self, f"_{entry}")()
+
     @staticmethod
     def _age(collector: Any, key: str) -> Optional[int]:
         entry = collector._cache.get(key)
@@ -469,6 +641,15 @@ class VigilanceService:
         """The sources of one country: the national one first; MeteoAlarm only if there is none, or it gave no answer."""
         if country == NWS_COUNTRY:
             return [await self._nws()]
+        services = self.swic_sources(country)
+        if services and country in COUNTRY_OVERRIDES:  # Spain: AEMET (polygons), MeteoAlarm (codes only) if every service failed
+            group = list(await asyncio.gather(*(self._swic(service) for service in services)))
+            if all(data.coverage.status == "unavailable" for data in group):
+                fallback = await self._meteoalarm(country)
+                fallback.fallback = True
+                fallback.note = "Used because the national service gave no answer; its warnings name codes whose shape is not available."
+                group.append(fallback)
+            return group
         national = self._national(country)
         if national is not None:
             data = await getattr(self, f"_{national}")()
@@ -486,6 +667,8 @@ class VigilanceService:
             sources.append(await self._meteoalarm(country))
         if country == FRANCE and self.vigicrues is not None:
             sources.append(await self._vigicrues())
+        if services:
+            sources.extend(await asyncio.gather(*(self._swic(service) for service in services)))
         return sources
 
     async def _sources(self, countries: list[str]) -> list[SourceData]:
@@ -590,6 +773,7 @@ class VigilanceService:
         coverage = [data.coverage for data in sources]
         used = {data.source for data in sources}
         answered = {data.source for data in sources if data.coverage.status != "unavailable"}  # a source that said nothing is not credited
+        service_credits = [data.credit for data in sources if data.source == "swic" and data.coverage.status != "unavailable" and data.credit]
         if without_texts:
             for item in coverage:
                 if item.source == "meteoalarm":
@@ -601,14 +785,23 @@ class VigilanceService:
                     break
         note = None
         if not sources:
-            note = METSERVICE_OFF_NOTE if "NZ" in countries and self.metservice is None else NO_SOURCE_NOTE
+            unread = self._swic_index()[1]
+            if "NZ" in countries and self.metservice is None:
+                note = METSERVICE_OFF_NOTE
+            elif any(country in unread for country in countries):
+                note = WMO_NOT_READ_NOTE
+            else:
+                note = NO_SOURCE_NOTE
         return VigilancesResponse(
             server_utc=int(clock.wall()),
             query=query,
             countries=countries,
             vigilances=vigilances,
             coverage=coverage,
-            attribution=merge_credits(*(credit_text(credit) for source, credit in CREDIT_KEYS.items() if source in answered)),
+            attribution=merge_credits(
+                *(credit_text(credit) for source, credit in CREDIT_KEYS.items() if source in answered and source != "swic"),
+                *service_credits,
+            ),
             disclaimer=METEOALARM_DISCLAIMER if "meteoalarm" in used else None,
             note=note,
         )
@@ -650,7 +843,9 @@ class VigilanceService:
         river_radius_km: float = DEFAULT_RIVER_RADIUS_KM,
     ) -> VigilancesResponse:
         """The warnings that cover the exact position (a polygon of the source, a code whose shape is known, or a river section within ``river_radius_km``)."""
-        countries = [c for c in self.countries.countries_for_point(lat, lon) if c in SUPPORTED_COUNTRIES]
+        await self.ensure_registry()
+        supported = set(self.supported_countries())
+        countries = [c for c in self.countries.countries_for_point(lat, lon) if c in supported]
         for country in countries:
             self.remember(country)
         sources = await self._sources(countries)
@@ -668,7 +863,8 @@ class VigilanceService:
     async def for_country(self, country: str, languages: Optional[tuple[str, ...]] = None) -> VigilancesResponse:
         """Every warning of a country, whether or not its area can be matched to a point."""
         country = country.upper()
-        if country not in SUPPORTED_COUNTRIES:
+        await self.ensure_registry()
+        if country not in self.supported_countries():
             raise KeyError(country)
         self.remember(country)
         sources = await self._sources([country])
@@ -727,24 +923,22 @@ class VigilanceService:
         The copies a fallback source gives of a national service's warnings are left out (they are in the answer, not in
         the pushes).
         """
-        countries = [c for c in self.countries.countries_for_point(lat, lon) if c in SUPPORTED_COUNTRIES]
+        supported = set(self.supported_countries())
+        countries = [c for c in self.countries.countries_for_point(lat, lon) if c in supported]
         sources = [data for data in await self._sources(countries) if not data.fallback]
         locator = PointLocator(lat, lon, self.geometries)
         found = [v for data in sources for v in data.vigilances if locator.covering(v)]
         shown = keep_the_strongest(self._without_covered_flooding(found))
         covered = set(keep_the_strongest(found)) - set(shown)
-        silent = {data.source for data in sources if data.coverage.status == "unavailable"}
-        return shown, {data.source for data in sources} - silent, silent, covered
+        silent = {data.key for data in sources if data.coverage.status == "unavailable"}
+        return shown, {data.key for data in sources} - silent, silent, covered
 
     async def refresh(self, points: list[FollowedPoint]) -> None:
         """Keep the feeds of the needed countries fresh (a cached feed costs nothing): called by the scheduler."""
+        await self.ensure_registry()
         extra = [(p.lat, p.lon) for p in points]
         countries = self.needed_countries(extra)
-        fetches = [
-            getattr(self, f"_{source}")(*([country] if source == "meteoalarm" else []))
-            for country in countries
-            for source in self._plan(country)
-        ]
+        fetches = [self._ask(entry, country) for country in countries for entry in self._plan(country)]
         await asyncio.gather(*fetches, return_exceptions=True)
 
     async def poll_changes(self, points: list[FollowedPoint]) -> list[tuple[FollowedPoint, VigilanceChange]]:
@@ -771,7 +965,7 @@ class VigilanceService:
             known = self._known.get(point.key, set())
             if previous is not None and silent:
                 # What a silent source said at the last look still stands, and still covers the flooding warnings it covered.
-                merged = {**{key: v for key, v in previous.items() if v.source in silent}, **current}
+                merged = {**{key: v for key, v in previous.items() if vigilance_source_key(v) in silent}, **current}
                 kept = {v.id for v in self._without_covered_flooding(list(merged.values()))}
                 current = {key: v for key, v in merged.items() if v.id in kept}
             self._tracked[point.key] = current
@@ -782,7 +976,7 @@ class VigilanceService:
             for key, vigilance in current.items():
                 before = previous.get(key)
                 if before is None:
-                    if vigilance.source not in known:
+                    if vigilance_source_key(vigilance) not in known:
                         continue  # the first answer of that source: its baseline
                     changes.append((point, self._change(point, "appeared", vigilance, None, now)))
                 elif level_rank(vigilance.level) > level_rank(before.level) >= 0:
