@@ -25,14 +25,14 @@ WORKDIR /app
 # Runtime dependencies, read from pyproject.toml (the one list of them), in a layer of their own.
 COPY pyproject.toml ./
 RUN python -c "import tomllib; print('\n'.join(tomllib.load(open('pyproject.toml', 'rb'))['project']['dependencies']))" > /tmp/requirements.txt \
- && pip install -r /tmp/requirements.txt \
+ && pip install --root-user-action=ignore -r /tmp/requirements.txt \
  && rm /tmp/requirements.txt
 
 COPY LICENSE ./
 COPY app ./app
 
-# A system user with no shell and no home; /data is the only place it can write.
-RUN useradd --system --uid 10001 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin vigie \
+# A user with no shell and no home; /data is the only place it can write.
+RUN useradd --uid 10001 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin vigie \
  && mkdir /data \
  && chown vigie:vigie /data
 USER vigie
