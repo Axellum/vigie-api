@@ -24,6 +24,10 @@ All notable changes to this project are documented here. The format follows
   are optional (`null` = unknown). `GET /v1/point` has a `daily` forecast and `utc_offset_s`.
 - `POST /v1/zones` requires `utc_offset_s` (there is no silent default of zero).
 - Open-Meteo is asked for the sea-level pressure (`pressure_msl`) and the current UV index.
+- The RainViewer radar frame is the latest **observed** one (past frames only); the free
+  RainViewer API has had no nowcast since 2026-01-01. The short-term rain of the frame comes only
+  from Open-Meteo `minutely_15` (interpolated from hourly data outside Central Europe and North
+  America, as Open-Meteo documents).
 - The CAP `area.circle` radius is `0` (the affected radius is not known), the CAP `language` is
   `en-US`, `sender` is `vigie-api` or `VIGIE_CAP_SENDER`, and `web` is no longer set.
 - Default database file is `vigie.db` (an existing `vigie_mondiale.db` is still used).

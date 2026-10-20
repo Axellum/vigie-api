@@ -3,12 +3,17 @@
 Multi-provider weather:
 
 1. ``OpenMeteoCollector`` (primary): high-resolution blended models (Meteo-France
-   AROME, NOAA HRRR, DWD ICON-D2, ECMWF IFS, JMA...) with a 15-minute precipitation
-   nowcast (``minutely_15``) at the exact coordinates.
+   AROME, NOAA HRRR, DWD ICON-D2, ECMWF IFS, JMA...) with the 15-minute precipitation
+   of the next hour (``minutely_15``) at the exact coordinates. Open-Meteo documents that
+   15-minute data is native only in Central Europe and North America; elsewhere it is
+   interpolated from hourly data. This is the only source of the short-term rain of the
+   embedded frame (``ZONE`` fields 16 to 18 and ``RAIN5M``).
 2. ``MetNorwayCollector`` (fallback): ``api.met.no`` Locationforecast 2.0 (compact),
    used when Open-Meteo is unavailable.
-3. ``RainViewerCollector`` (radar): timestamps and tile URL templates of the world
-   precipitation radar.
+3. ``RainViewerCollector`` (radar): timestamp and tile URL template of the latest observed
+   frame of the world precipitation radar. The free RainViewer API has had no nowcast (future
+   frames) since 2026-01-01, so nothing about future rain comes from it; the embedded frame
+   does not use it at all.
 
 Rule: a variable the provider does not supply stays ``None``. Nothing is guessed,
 padded or copied from another field (for example MET Norway has no gust, no UV and
@@ -96,7 +101,7 @@ def _rounded(value: Any, digits: int = 1) -> Optional[float]:
 
 
 class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
-    """Primary collector: Open-Meteo forecast with 15-minute nowcast and daily forecast."""
+    """Primary collector: Open-Meteo forecast with the 15-minute rain of the next hour and the daily forecast."""
 
     BASE_URL = "https://api.open-meteo.com/v1/forecast"
 
@@ -408,23 +413,23 @@ class RainViewerCollector(BaseCollector[dict[str, Any]]):
 
     @staticmethod
     def parse_maps(payload: dict[str, Any]) -> dict[str, Any]:
-        """Extract the latest radar frame and the tile URL template.
+        """Extract the latest observed radar frame and the tile URL template.
 
-        Raises ``ValueError`` when the response lists no frame: no timestamp or URL is invented.
+        Only past frames are used: a nowcast (future) frame is a forecast, not a radar image,
+        and the free API no longer provides any. Raises ``ValueError`` when the response lists
+        no past frame: no timestamp or URL is invented.
         """
         host = str(payload.get("host") or "")
         radar = payload.get("radar") or {}
         past = radar.get("past") or []
-        nowcast = radar.get("nowcast") or []
 
-        latest = nowcast[0] if nowcast else (past[-1] if past else None)
+        latest = past[-1] if past else None
         if not host or not isinstance(latest, dict) or not latest.get("path") or not latest.get("time"):
-            raise ValueError("RainViewer response lists no radar frame")
+            raise ValueError("RainViewer response lists no past radar frame")
 
         return {
             "host": host,
             "radar_timestamp_utc": int(latest["time"]),
             "radar_tile_url_template": f"{host}{latest['path']}/256/{{z}}/{{x}}/{{y}}/2/1_1.png",
             "past_frames_count": len(past),
-            "nowcast_frames_count": len(nowcast),
         }

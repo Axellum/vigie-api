@@ -126,7 +126,7 @@ class DailyForecast(BaseModel):
 
 
 class RainNowcast(BaseModel):
-    """Precipitation over the next 60 minutes (15-minute steps) and radar tile metadata."""
+    """Precipitation over the next 60 minutes (Open-Meteo 15-minute steps) and the latest observed radar frame."""
 
     interval_minutes: int = Field(default=15, description="Time step (minutes)")
     mm_per_step: Optional[list[float]] = Field(
@@ -139,7 +139,7 @@ class RainNowcast(BaseModel):
         default=None, description="RainViewer radar tile URL template (slippy map)"
     )
     radar_timestamp_utc: Optional[int] = Field(
-        default=None, description="UTC timestamp of the latest RainViewer radar frame"
+        default=None, description="UTC timestamp of the latest observed RainViewer radar frame"
     )
 
 

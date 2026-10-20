@@ -241,25 +241,33 @@ def test_swpc_parser_raises_instead_of_defaulting(payload: object) -> None:
         NOAASWPCCollector.parse_kp_json(payload)
 
 
-def test_rainviewer_parser() -> None:
+def test_rainviewer_parser_uses_the_latest_observed_frame() -> None:
+    """Since 2026-01-01 the free API has no nowcast; a future frame would be a forecast, so it is ignored."""
     data = {
         "host": "https://tilecache.rainviewer.com",
         "radar": {
-            "past": [{"time": 1792330000, "path": "/v2/radar/1792330000"}],
+            "past": [
+                {"time": 1792329400, "path": "/v2/radar/older"},
+                {"time": 1792330000, "path": "/v2/radar/1792330000"},
+            ],
             "nowcast": [{"time": 1792330600, "path": "/v2/radar/nowcast_abc"}],
         },
     }
     parsed = RainViewerCollector.parse_maps(data)
-    assert parsed["radar_timestamp_utc"] == 1792330600
-    assert "{z}/{x}/{y}" in parsed["radar_tile_url_template"]
+    assert parsed["radar_timestamp_utc"] == 1792330000
+    assert parsed["radar_tile_url_template"] == (
+        "https://tilecache.rainviewer.com/v2/radar/1792330000/256/{z}/{x}/{y}/2/1_1.png"
+    )
+    assert parsed["past_frames_count"] == 2
 
-    past_only = RainViewerCollector.parse_maps({"host": data["host"], "radar": {"past": data["radar"]["past"]}})
-    assert past_only["radar_timestamp_utc"] == 1792330000
 
-
-def test_rainviewer_parser_raises_without_frame() -> None:
+def test_rainviewer_parser_raises_without_a_past_frame() -> None:
     with pytest.raises(ValueError):
         RainViewerCollector.parse_maps({"host": "https://tilecache.rainviewer.com", "radar": {}})
+    with pytest.raises(ValueError):  # a nowcast frame alone is not a radar image
+        RainViewerCollector.parse_maps(
+            {"host": "https://tilecache.rainviewer.com", "radar": {"nowcast": [{"time": 1, "path": "/v2/radar/x"}]}}
+        )
 
 
 def test_marine_parser() -> None:
