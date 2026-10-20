@@ -119,6 +119,11 @@ All notable changes to this project are documented here. The format follows
   demand, never in a pull request. A format change or a removed endpoint fails the run; a provider that
   does not answer (timeout, HTTP 403 / 429 / 5xx) is only reported. The tests stay offline
   (`tests/test_live_feeds_tool.py` plays the tool against simulated providers).
+- **Docker.** `Dockerfile` (`python:3.13-slim`, non-root user, `/data` volume, health check on
+  `/v1/health`, `uvicorn app.main:app --host 0.0.0.0 --port 8080`; RainViewer off in the image),
+  `.dockerignore`, and a `docker` job in `ci.yml` that builds the image, runs it and asks `/v1/health`
+  and `/v1/embedded/frame` (`scripts/docker_smoke.sh`). `.github/workflows/publish-image.yml` pushes
+  `ghcr.io/axellum/vigie-api` only when a `v*` tag is pushed, after the same smoke test.
 - `LICENSE` (MIT, code only: the data belongs to each provider under its own terms).
 - `VIGIE_ENABLE_RAINVIEWER` (default on, unchanged): `0` stops asking RainViewer, whose free API is for
   personal and educational use only. `/v1/point` then leaves the radar fields unknown and `/v1/providers`
