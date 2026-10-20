@@ -20,8 +20,9 @@ Endpoints:
                                      (contract: ``docs/embedded-frame.md``).
 - ``GET    /v1/geojson/hazards``   : IETF RFC 7946 GeoJSON (``FeatureCollection``).
 - ``GET    /v1/cap/alerts``        : OASIS CAP 1.2 (Common Alerting Protocol).
-- ``GET    /v1/vigilances``        : Official national weather warnings (MeteoAlarm, NWS) for a point (``lat, lon``)
-                                     or a country (``country``).
+- ``GET    /v1/vigilances``        : Official national weather warnings (MeteoAlarm, DWD, ECCC, MetService, NWS, and the
+                                     Vigicrues river floods of France) for a point (``lat, lon``) or a country
+                                     (``country``).
 - ``GET    /v1/vigilances.geojson``: The same, as GeoJSON.
 - ``POST   /v1/simulate``          : Inject a simulated scenario (always labelled as a simulation). Off unless
                                      ``VIGIE_ENABLE_SIMULATION=1``: it answers 403 otherwise.
@@ -59,6 +60,7 @@ from app.models.schemas import (
 from app.models.vigilance import VigilanceGeoJSONCollection, VigilancesResponse
 from app.routers.dashboard import router as dashboard_router
 from app.services.aggregator import AggregatorService
+from app.services.geoindex import DEFAULT_RIVER_RADIUS_KM, MAX_RIVER_RADIUS_KM
 from app.services.scheduler import BackgroundAlertScheduler
 from app.services.vigilance import FOLLOW_DECIMALS, SUPPORTED_COUNTRIES, parse_languages
 
@@ -167,7 +169,8 @@ app = FastAPI(
     lifespan=lifespan,
     description=(
         "Aggregates world natural hazards (USGS, EMSC, GDACS, NOAA NWS, USGS Volcano, NOAA SWPC), the official "
-        "national weather warnings (MeteoAlarm, NOAA NWS) "
+        "national weather warnings (MeteoAlarm, DWD, Environment and Climate Change Canada, MetService, NOAA NWS, "
+        "Vigicrues) "
         "and weather (Open-Meteo, MET Norway fallback, RainViewer radar, marine, river discharge, "
         "air quality) for the Vigie displays. A value no provider supplied is reported as unknown "
         "(null, or an empty field in the embedded frame); nothing is ever made up. "
@@ -349,7 +352,10 @@ async def get_cap_alerts() -> CAPFeedResponse:
 VIGILANCE_DESCRIPTION = (
     "Ask either for a position (`lat` and `lon`: the warnings whose area contains that exact point) or for a country "
     "(`country`, ISO 3166-1 alpha-2: every warning of that country). Sources: the MeteoAlarm feeds of 39 European "
-    "countries, and the Severe and Extreme alerts of the US National Weather Service. The words of the issuer are "
+    "countries, the Deutscher Wetterdienst for Germany (preferred to MeteoAlarm's copies), Environment and Climate "
+    "Change Canada, MetService for New Zealand, the Severe and Extreme alerts of the US National Weather Service, and "
+    "Vigicrues for the river floods of France. A river section is a line: for a position it counts when it lies within "
+    "`river_radius_km` of it, and `distance_km` says how far. The words of the issuer are "
     "kept untouched in `texts` (one entry per language; `lang=fr,en` keeps only those languages); `level` and "
     "`phenomenon` are the API's own normalization and are listed in `derived`. `coverage` says what the API could "
     "not do: a warning whose area is given by a code without a shape on this instance cannot be matched to a point. "
@@ -377,14 +383,18 @@ def _vigilance_request(lat: Optional[float], lon: Optional[float], country: Opti
 
 
 async def _vigilances(
-    lat: Optional[float], lon: Optional[float], country: Optional[str], lang: Optional[str]
+    lat: Optional[float],
+    lon: Optional[float],
+    country: Optional[str],
+    lang: Optional[str],
+    river_radius_km: float = DEFAULT_RIVER_RADIUS_KM,
 ) -> VigilancesResponse:
     _vigilance_request(lat, lon, country)
     languages = parse_languages(lang)
     if country is not None:
         return await aggregator.vigilances.for_country(country, languages)
     assert lat is not None and lon is not None
-    return await aggregator.vigilances.for_point(lat, lon, languages)
+    return await aggregator.vigilances.for_point(lat, lon, languages, river_radius_km)
 
 
 @app.get(
@@ -406,9 +416,15 @@ async def get_vigilances(
     lang: Optional[str] = Query(
         default=None, max_length=64, description="Keep only the texts in these languages, e.g. `fr,en` (a prefix of the language tag). All by default"
     ),
+    river_radius_km: float = Query(
+        default=DEFAULT_RIVER_RADIUS_KM,
+        gt=0.0,
+        le=MAX_RIVER_RADIUS_KM,
+        description="For a position: how far from it a river section (Vigicrues, France) still counts, in kilometres",
+    ),
 ) -> VigilancesResponse:
-    """Official weather warnings for a point or a country (MeteoAlarm, NWS)."""
-    return await _vigilances(lat, lon, country, lang)
+    """Official weather warnings for a point or a country (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues)."""
+    return await _vigilances(lat, lon, country, lang, river_radius_km)
 
 
 @app.get(
@@ -427,9 +443,12 @@ async def get_vigilances_geojson(
     lon: Optional[float] = Query(default=None, ge=-180.0, le=180.0, description="Exact longitude (WGS84)"),
     country: Optional[str] = Query(default=None, min_length=2, max_length=2, pattern=r"^[A-Za-z]{2}$", description="ISO 3166-1 alpha-2 country"),
     lang: Optional[str] = Query(default=None, max_length=64, description="Keep only the texts in these languages, e.g. `fr,en`"),
+    river_radius_km: float = Query(
+        default=DEFAULT_RIVER_RADIUS_KM, gt=0.0, le=MAX_RIVER_RADIUS_KM, description="For a position: the radius for a river section (Vigicrues), in kilometres"
+    ),
 ) -> VigilanceGeoJSONCollection:
     """The same warnings as GeoJSON (RFC 7946)."""
-    return aggregator.vigilances.to_geojson(await _vigilances(lat, lon, country, lang))
+    return aggregator.vigilances.to_geojson(await _vigilances(lat, lon, country, lang, river_radius_km))
 
 
 @app.post(

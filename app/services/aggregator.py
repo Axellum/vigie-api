@@ -28,6 +28,8 @@ from typing import Any, Awaitable, Optional, TypeVar
 from app.attribution import RADAR, SIMULATION_CREDIT, credit_text, merge_credits
 from app.collectors.budget import share_budgets
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector
+from app.collectors.dwd import DWDCollector
+from app.collectors.eccc import ECCCCollector
 from app.collectors.flood_air import (
     OpenMeteoAirQualityCollector,
     OpenMeteoFloodCollector,
@@ -35,8 +37,10 @@ from app.collectors.flood_air import (
 )
 from app.collectors.marine import OpenMeteoMarineCollector
 from app.collectors.meteoalarm import MeteoAlarmCapCollector, MeteoAlarmCollector
+from app.collectors.metservice import MetServiceCollector
 from app.collectors.seismic import EMSCCollector, USGSCollector
 from app.collectors.space_weather import NOAASWPCCollector
+from app.collectors.vigicrues import VigicruesCollector
 from app.collectors.weather import (
     MetNorwayCollector,
     OpenMeteoCollector,
@@ -134,6 +138,10 @@ class AggregatorService:
         rainviewer_enabled: Optional[bool] = None,
         meteoalarm: Optional[MeteoAlarmCollector] = None,
         meteoalarm_cap: Optional[MeteoAlarmCapCollector] = None,
+        dwd: Optional[DWDCollector] = None,
+        eccc: Optional[ECCCCollector] = None,
+        metservice: Optional[MetServiceCollector] = None,
+        vigicrues: Optional[VigicruesCollector] = None,
         countries: Optional[CountryIndex] = None,
         geometries: Optional[GeometryIndex] = None,
     ) -> None:
@@ -154,6 +162,10 @@ class AggregatorService:
         self.swpc = swpc or NOAASWPCCollector()
         self.meteoalarm = meteoalarm or MeteoAlarmCollector()
         self.meteoalarm_cap = meteoalarm_cap or MeteoAlarmCapCollector()
+        self.dwd = dwd or DWDCollector()
+        self.eccc = eccc or ECCCCollector()
+        self.metservice = metservice or MetServiceCollector()
+        self.vigicrues = vigicrues or VigicruesCollector()
         share_budgets(self.get_all_collectors())  # the four Open-Meteo APIs share one quota
 
         self.storage = storage or SQLiteWALStorage(db_path=db_path)
@@ -164,7 +176,8 @@ class AggregatorService:
         self.active_scenario: SimulationScenario = SimulationScenario.CLEAR
         self.simulated_hazards: list[HazardAlert] = []
         self.last_weather_fallback_used: bool = False
-        # The official warnings (MeteoAlarm, NWS): the NWS answer is the hazards' own, no request of its own.
+        # The official warnings (MeteoAlarm, the national services, the NWS): the NWS answer is the hazards' own, no
+        # request of its own.
         self.vigilances = VigilanceService(
             meteoalarm=self.meteoalarm,
             meteoalarm_cap=self.meteoalarm_cap,
@@ -172,6 +185,10 @@ class AggregatorService:
             countries=countries or default_countries(),
             geometries=geometries or default_geometries(),
             watched_zones=lambda: self.monitored_zones,
+            dwd=self.dwd,
+            eccc=self.eccc,
+            metservice=self.metservice,
+            vigicrues=self.vigicrues,
         )
 
     def refresh_zones_from_storage(self) -> list[MonitoredZoneConfig]:
@@ -223,6 +240,10 @@ class AggregatorService:
             self.swpc,
             self.meteoalarm,
             self.meteoalarm_cap,
+            self.dwd,
+            self.eccc,
+            self.metservice,
+            self.vigicrues,
         ]
         return collectors if self.rainviewer_enabled else [c for c in collectors if c is not self.rainviewer]
 
