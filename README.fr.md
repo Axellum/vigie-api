@@ -72,7 +72,7 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
 | `GET /v1/vigilances/countries` | Les pays que cette instance sert avec ses réglages, les sources qui répondent pour chacun, et si leur licence est vérifiée. |
 | `GET /v1/vigilances.geojson` | Les mêmes vigilances en GeoJSON, la forme de chaque zone en géométrie. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Zones surveillées (la liste de suivi). Une zone doit donner son `utc_offset_s`. |
-| `GET/POST /v1/watched-points`, `DELETE /v1/watched-points/{id}` | Les points que vous surveillez (un lieu, une faille, un volcan...), chacun avec un rayon. Les dangers dans le rayon d'un point le nomment dans `near_places`. |
+| `GET/POST /v1/watched-points`, `DELETE /v1/watched-points/{id}` | Les points que vous surveillez (un lieu, une faille, un volcan...), chacun avec un rayon. **Personnels** : listés ici et dans le statut, jamais dans les dangers. `POST` et `DELETE` sont **désactivés** (403) sauf si `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`. |
 | `GET /v1/watched-points/status?days=7` | Pour chaque point surveillé, les événements dans son rayon sur les derniers jours, et `quiet` seulement si chaque source de dangers a répondu et a été lue sans trou. |
 | `GET /v1/history` | Historique des dangers, stocké dans SQLite. |
 | `GET /v1/health`, `GET /v1/providers` | État, disjoncteur et cache de chaque source, avec ses appels, son poids et son quota sur 24 heures. |
@@ -85,6 +85,12 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
 **L'API n'a aucune authentification.** Utilisez-la sur un réseau de confiance. Ne l'exposez pas telle quelle
 sur Internet : quiconque peut l'atteindre peut ajouter ou supprimer des zones et des points surveillés et déclencher des
 cycles de collecte. Si vous devez l'exposer, placez devant elle un proxy inverse qui authentifie.
+
+**Sur une instance publique, `POST` et `DELETE` de `/v1/watched-points` ne doivent pas être atteignables depuis Internet**, comme `POST /v1/zones` et
+`POST /v1/simulate` : placez l'instance derrière un proxy inverse qui les bloque (les lectures peuvent rester ouvertes). Comme un point surveillé est
+personnel (un domicile, par exemple), ces deux routes sont aussi **désactivées par défaut** : elles répondent 403 tant que l'instance n'a pas
+`VIGIE_ENABLE_WATCHED_POINTS_WRITE=1` (`GET /v1/health` indique `watched_points_write_enabled`), à réserver à une instance que seuls des clients de
+confiance peuvent atteindre.
 
 ## Vigilances météo officielles
 
@@ -322,7 +328,7 @@ GET /v1/point?lat=-15.4&lon=28.3&fire_radius_km=50        fires_nearby : nombre,
 
 ## Lieux proches d'un danger, et points surveillés
 
-Un séisme ou un événement volcanique dit de quoi il est proche. Chaque danger de `/v1/geojson/hazards` (et de `/v1/history`, `/v1/stream`, et de
+Un séisme ou un événement volcanique dit de quoi il est proche. Chaque danger de `/v1/geojson/hazards` (et de `/v1/history`, et de
 `/v1/snapshot` et `/v1/point` avec `compact=false`) porte `near_places`, du plus proche au plus lointain, et le nomme dans `derived` :
 
 ```json
@@ -336,12 +342,16 @@ Séisme M 7,7 du Panama, 9 octobre 2026, USGS `us6000u18k` : la distance à la t
 (Vincenty sur l'ellipsoïde, jusqu'à la trace d'origine : 4,19 km).
 
 - **C'est calculé par Vigie**, pas rapporté par une source, et cela **ne change jamais un `severity`**. Affichez-le comme « calculé par Vigie ».
-  `[]` veut dire que rien n'est proche ; `null` que ce n'a pas pu être calculé (le fichier des failles est illisible, une alerte simulée, ou le profil
-  compact de `/v1/snapshot` et `/v1/point`, qui reste sous 16 Kio).
-- **Trois ensembles de lieux.** Les failles actives qui ont un nom, de la base GEM Global Active Faults Database (séismes et événements volcaniques,
-  à 70 km de profondeur au plus, à moins de 10 km) ; les volcans que les sources de dangers rapportent elles-mêmes (un séisme à moins de 20 km de l'un
-  d'eux) ; et les **points surveillés** que vous ajoutez, chacun dans son propre rayon. **Aucune liste des volcans du monde n'est embarquée** (celle du
-  Smithsonian a une licence floue) : l'Etna n'est nommé que tant que GDACS ou l'USGS le signalent, ou si vous l'ajoutez comme point de type `volcano`.
+  `[]` veut dire que rien n'est proche ; `null` que ce n'a pas été calculé (un danger comparé à rien, comme une tempête ou une inondation ; le fichier des
+  failles est illisible ; une alerte simulée ; ou le profil compact de `/v1/snapshot` et `/v1/point`, qui reste sous 16 Kio, donc les dangers poussés sur
+  `/v1/stream`).
+- **Deux ensembles de lieux de référence.** Les failles actives qui ont un nom, de la base GEM Global Active Faults Database (séismes et événements
+  volcaniques, à 70 km de profondeur au plus, à moins de 10 km) ; et les volcans que les sources de dangers rapportent elles-mêmes (un séisme à moins
+  de 20 km de l'un d'eux). **Aucune liste des volcans du monde n'est embarquée** (celle du Smithsonian a une licence floue) : l'Etna n'est nommé que tant
+  que GDACS ou l'USGS le signalent.
+- **Les points que vous surveillez ne sont jamais dans `near_places`.** Les dangers sont partagés avec tous les clients, un site public compris, et un point
+  surveillé est personnel (un domicile, par exemple) : son nom fuirait, et quiconque pourrait écrire un point ferait apparaître n'importe quel texte dans les
+  dangers de tout le monde. Un point surveillé est listé par `/v1/watched-points` et son statut, et nulle part ailleurs.
 - **Les rayons sont des réglages, pas des faits publiés par une source** (`VIGIE_NEAR_*` plus bas).
 - **Une faille n'est nommée que si la base la nomme.** Plus de la moitié de ses traces n'ont pas de nom, et ce sont celles de la Méditerranée et de l'Asie :
   la faille nord-anatolienne n'est pas nommée dans le fichier. La mention est la distance à la *trace de surface cartographiée*, pas l'affirmation que le séisme
@@ -357,9 +367,13 @@ GET  /v1/watched-points/status?days=7
 `status` liste, pour chaque point, les événements dans son rayon sur les derniers jours (un séisme à l'heure où il a eu lieu, tout autre danger à la dernière
 fois que l'API l'a vu actif) et un `state` : `events` ; `quiet` (rien ne s'est passé, **et chaque source de dangers a répondu et a été lue sans trou depuis
 `quiet_since_utc`**) ; ou `unknown`, avec `unreachable_sources`. L'API ne sait que ce qu'elle a vu : une instance démarrée il y a une heure le dit
-(`window_covered: false`) au lieu de « rien depuis une semaine ». Comme `/v1/zones`, ces routes n'ont aucune authentification, et **le nom d'un point surveillé
-apparaît dans les `near_places` des dangers proches** : ne surveillez pas votre domicile sur une instance que d'autres peuvent lire. Détails, chiffres et ce qui
-n'est pas vérifié : [`docs/data-sources.md`](docs/data-sources.md) (en anglais) et [ADR 0008](docs/decisions/0008-sensitive-points.md).
+(`window_covered: false`) au lieu de « rien depuis une semaine ».
+
+Comme `/v1/zones`, les routes des points surveillés n'ont aucune authentification, et la liste et le statut sont lisibles par quiconque atteint l'API : ne
+surveillez pas votre domicile sur une instance que d'autres peuvent lire. **`POST` et `DELETE` sont désactivés sauf `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`**
+(403 avec un message sinon ; les lectures marchent toujours), et sur une instance publique ils doivent être bloqués par un proxy inverse, comme `/v1/zones`
+et `/v1/simulate`. Détails, chiffres et ce qui n'est pas vérifié : [`docs/data-sources.md`](docs/data-sources.md) (en anglais) et
+[ADR 0008](docs/decisions/0008-sensitive-points.md).
 
 ## Home Assistant
 
@@ -405,6 +419,7 @@ Tous les réglages sont des variables d'environnement facultatives.
 | `VIGIE_DB_PATH` | `vigie.db` à la racine du dépôt (ignoré par git) ; `/data/vigie.db` dans l'image Docker | Fichier SQLite (zones surveillées, historique, dernier instantané). |
 | `VIGIE_SCHEDULER` | `0` | `1` démarre le planificateur en arrière-plan (rafraîchissement toutes les 90 s, envoi par WebSocket). |
 | `VIGIE_ENABLE_SIMULATION` | `0` | `1` active `POST /v1/simulate` (et les boutons du tableau de bord). La route n'a pas d'authentification et écrit les alertes simulées dans l'historique des dangers : ne l'activez que sur une instance que seuls des clients de confiance peuvent atteindre. |
+| `VIGIE_ENABLE_WATCHED_POINTS_WRITE` | `0` | `1` active `POST` et `DELETE` de `/v1/watched-points` (403 sinon ; les lectures marchent toujours). Les routes n'ont pas d'authentification et un point surveillé est personnel : ne l'activez que sur une instance que seuls des clients de confiance peuvent atteindre, et bloquez ces deux routes dans le proxy inverse d'une instance publique. |
 | `VIGIE_ENABLE_RAINVIEWER` | `1` ; `0` dans l'image Docker | `0` cesse d'interroger RainViewer (les champs radar de `/v1/point` restent inconnus). Son API gratuite est réservée à un usage personnel et pédagogique : mettez `0` sur une instance qui sert d'autres personnes. |
 | `VIGIE_ENABLE_METSERVICE` | `1` (aussi dans l'image Docker) | `0` cesse d'interroger MetService (Nouvelle-Zélande) : une position là-bas n'a alors aucune source, et la réponse dit que la source est désactivée. Son flux indique CC BY 4.0 mais les conditions du site auxquelles il renvoie n'autorisent qu'un usage personnel et interdisent la rediffusion, et on n'a pas vérifié laquelle prévaut : mettez `0` sur une instance qui sert d'autres personnes, sauf accord de MetService. |
 | `VIGIE_CONTACT` | aucune | Adresse e-mail ou URL ajoutée au `User-Agent` envoyé aux sources. MET Norway et NOAA exigent un contact identifiable : renseignez-la. |

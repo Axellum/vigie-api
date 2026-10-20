@@ -64,7 +64,7 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
 | `GET /v1/vigilances/countries` | The countries this instance serves with its settings, the sources that answer for each, and whether their licence is verified. |
 | `GET /v1/vigilances.geojson` | The same warnings as GeoJSON, the shape of each area as geometry. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Watched zones (the watchlist). A zone needs its `utc_offset_s`. |
-| `GET/POST /v1/watched-points`, `DELETE /v1/watched-points/{id}` | The points you watch (a place, a fault, a volcano...), each with a radius. The hazards within a point's radius name it in `near_places`. |
+| `GET/POST /v1/watched-points`, `DELETE /v1/watched-points/{id}` | The points you watch (a place, a fault, a volcano...), each with a radius. **Personal**: listed here and in the status, never in the hazards. `POST` and `DELETE` are **off** (403) unless `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`. |
 | `GET /v1/watched-points/status?days=7` | For each watched point, the events within its radius over the last days, and `quiet` only when every hazard source answered and was read without a gap. |
 | `GET /v1/history` | Hazard history stored in SQLite. |
 | `GET /v1/health`, `GET /v1/providers` | Health, circuit breaker and cache state of each provider, and its calls, weight and quota over 24 hours. |
@@ -77,6 +77,11 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
 **The API has no authentication.** Run it on a trusted network. Do not expose it to the Internet as is:
 anyone who can reach it can add or delete watched zones and watched points and trigger collection cycles. Put a reverse proxy
 that authenticates in front of it if you must.
+
+**On a public instance, `POST` and `DELETE` of `/v1/watched-points` must not be reachable from the Internet**, like `POST /v1/zones` and
+`POST /v1/simulate`: put the instance behind a reverse proxy that blocks them (the reads can stay open). Because a watched point is personal
+(a home, for example), these two routes are also **off by default**: they answer 403 until the instance sets `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`
+(`GET /v1/health` reports `watched_points_write_enabled`), which is for an instance that trusted clients alone can reach.
 
 ## Official weather warnings
 
@@ -301,8 +306,8 @@ GET /v1/point?lat=-15.4&lon=28.3&fire_radius_km=50        fires_nearby: count, n
 
 ## Places near a hazard, and watched points
 
-An earthquake or a volcanic event says what it is close to. Each hazard of `/v1/geojson/hazards` (and of `/v1/history`, `/v1/stream`,
-and of `/v1/snapshot` and `/v1/point` with `compact=false`) carries `near_places`, nearest first, and names it in `derived`:
+An earthquake or a volcanic event says what it is close to. Each hazard of `/v1/geojson/hazards` (and of `/v1/history`, and of
+`/v1/snapshot` and `/v1/point` with `compact=false`) carries `near_places`, nearest first, and names it in `derived`:
 
 ```json
 "near_places": [
@@ -315,12 +320,16 @@ M 7.7 of Panama, 9 October 2026, USGS `us6000u18k`: the distance to the mapped s
 (Vincenty on the ellipsoid, to the original trace: 4.19 km).
 
 - **It is calculated by Vigie**, not reported by a source, and it **never changes a `severity`**. Show it as "calculated by Vigie".
-  `[]` means nothing is near; `null` means it was not worked out (the fault file cannot be read, a simulated alert, or the compact profile of
-  `/v1/snapshot` and `/v1/point`, which keeps to 16 KiB).
-- **Three sets of places.** The active faults that have a name, from the GEM Global Active Faults Database (earthquakes and volcanic events,
-  at most 70 km deep, within 10 km); the volcanoes that the hazard sources themselves report (an earthquake within 20 km of one); and the
-  **watched points** you add, each within its own radius. **No list of the world's volcanoes is bundled** (the Smithsonian list has an unclear
-  licence): Etna is named only while GDACS or the USGS report it, or when you add it as a point of kind `volcano`.
+  `[]` means nothing is near; `null` means it was not worked out (a hazard that is compared with nothing, such as a storm or a flood; the fault
+  file cannot be read; a simulated alert; or the compact profile of `/v1/snapshot` and `/v1/point`, which keeps to 16 KiB, and so the
+  hazards pushed on `/v1/stream`).
+- **Two sets of reference places.** The active faults that have a name, from the GEM Global Active Faults Database (earthquakes and volcanic
+  events, at most 70 km deep, within 10 km); and the volcanoes that the hazard sources themselves report (an earthquake within 20 km of one).
+  **No list of the world's volcanoes is bundled** (the Smithsonian list has an unclear licence): Etna is named only while GDACS or the USGS
+  report it.
+- **The points you watch are never in `near_places`.** The hazards are shared with every client, a public website included, and a watched point
+  is personal (a home, for example): its name would leak, and anyone who could write a point could make any text appear in everyone's hazards.
+  A watched point is listed by `/v1/watched-points` and its status, and nowhere else.
 - **The radii are settings, not facts any source publishes** (`VIGIE_NEAR_*` below).
 - **A fault is named only if the database names it.** More than half of its traces have no name, and they are the Mediterranean and Asia: the North
   Anatolian Fault is not named in the file. The mention is the distance to the *mapped surface trace*, not a statement that the earthquake happened on that fault.
@@ -335,9 +344,13 @@ GET  /v1/watched-points/status?days=7
 `status` lists, for each point, the events within its radius over the last days (an earthquake by the time it happened, any other hazard by the last
 time the API saw it active) and a `state`: `events`; `quiet` (nothing happened, **and every hazard source answered and has been read without a gap since
 `quiet_since_utc`**); or `unknown`, with `unreachable_sources`. The API only knows what it saw: an instance started an hour ago says so
-(`window_covered: false`) instead of "nothing in the last week". Like `/v1/zones`, these routes have no authentication, and **the name of a watched point
-appears in the `near_places` of the hazards near it**: do not watch your home on an instance that others can read. Details, numbers and what is not
-verified: [`docs/data-sources.md`](docs/data-sources.md) and [ADR 0008](docs/decisions/0008-sensitive-points.md).
+(`window_covered: false`) instead of "nothing in the last week".
+
+Like `/v1/zones`, the watched-point routes have no authentication, and the list and the status are readable by anyone who can reach the API:
+do not watch your home on an instance that others can read. **`POST` and `DELETE` are off unless `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`** (403
+with a message otherwise; the reads always work), and on a public instance they must be blocked by a reverse proxy, as for `/v1/zones` and
+`/v1/simulate`. Details, numbers and what is not verified: [`docs/data-sources.md`](docs/data-sources.md) and
+[ADR 0008](docs/decisions/0008-sensitive-points.md).
 
 ## Home Assistant
 
@@ -382,6 +395,7 @@ All settings are optional environment variables.
 | `VIGIE_DB_PATH` | `vigie.db` in the repository root (git-ignored); `/data/vigie.db` in the Docker image | SQLite file (watchlist, history, last snapshot). |
 | `VIGIE_SCHEDULER` | `0` | `1` starts the background scheduler (refresh every 90 s, WebSocket push). |
 | `VIGIE_ENABLE_SIMULATION` | `0` | `1` enables `POST /v1/simulate` (and the dashboard buttons). The route has no authentication and writes the simulated alerts into the hazard history: enable it only on an instance that trusted clients alone can reach. |
+| `VIGIE_ENABLE_WATCHED_POINTS_WRITE` | `0` | `1` enables `POST` and `DELETE` of `/v1/watched-points` (403 otherwise; the reads always work). The routes have no authentication and a watched point is personal: enable it only on an instance that trusted clients alone can reach, and block the two routes in the reverse proxy of a public instance. |
 | `VIGIE_ENABLE_RAINVIEWER` | `1`; `0` in the Docker image | `0` stops asking RainViewer (the radar fields of `/v1/point` stay unknown). Its free API is for personal and educational use: set `0` on an instance that serves other people. |
 | `VIGIE_ENABLE_METSERVICE` | `1` (also in the Docker image) | `0` stops asking MetService (New Zealand): a position there then gets no source, and the answer says it is turned off. Its feed says CC BY 4.0 but the website terms it points to allow personal use only and forbid resupply, and which one governs is not verified: set `0` on an instance that serves other people unless MetService agrees. |
 | `VIGIE_WMO_SOURCES` | `verified` | Which national services of the WMO registry are read for the countries that have no source of their own: `verified` (only those whose own terms were read and allow relaying them), `all` (every service that is not excluded, for an instance only its owner uses) or `off`. An unknown value means `verified`. See "More countries, through the WMO registry". |

@@ -102,16 +102,23 @@ named in the hazard's `derived` list. **It is computed by Vigie from reference d
 never changes a `severity`, and a client should show it as such ("calculated by Vigie"). The decisions, and what is not verified:
 [ADR 0008](decisions/0008-sensitive-points.md). Licence and credit: [`SOURCES.md`](../SOURCES.md).
 
-`near_places` is a list when it was worked out (**empty: nothing is near**, an answer, not a gap) and `null` when it was not: the bundled
-fault file could not be read, the alert is simulated, or the profile is the compact one (see "Cost" below).
+`near_places` is a list when it was worked out (**empty: nothing is near**, an answer, not a gap) and `null` when it was not: the hazard is
+compared with nothing (a storm, a flood...), the bundled fault file could not be read, the alert is simulated, or the profile is the compact one
+(see "Cost" below).
+
+**It holds reference places only: the named active faults and the volcanoes that the hazard sources name.** The points a user watches are never
+in it. `near_places` is in the outputs every client shares (`/v1/geojson/hazards`, `/v1/history`, the full `/v1/snapshot` and `/v1/point`; and the
+stream and the compact profiles, with `null`), a public website included, and a watched point is personal (a home, for example): its name and
+position would leak through the hazards, and anyone who could `POST` a point could make any text appear in everyone's hazards. The watched
+points are listed by `/v1/watched-points` and `/v1/watched-points/status` only (below).
 
 ### What each hazard is compared with
 
-| Hazard | Active faults | Volcanoes in alert | Watched points |
-| --- | --- | --- | --- |
-| Earthquake | yes, if its depth is at most 70 km or unknown | yes | yes |
-| Volcanic event | yes | no | yes |
-| Tsunami, storm, flood, fire, any other | no | no | yes |
+| Hazard | Active faults | Volcanoes in alert |
+| --- | --- | --- |
+| Earthquake | yes, if its depth is at most 70 km or unknown | yes |
+| Volcanic event | yes | no |
+| Tsunami, storm, flood, fire, any other | no (`near_places` is `null`) | no |
 
 - **Active faults**: the traces that have a name in the GEM Global Active Faults Database, bundled in `app/data/gem-active-faults.geojson.gz`
   (below). The distance is from the hazard's position to the nearest point of the trace; a fault with several traces is said once, at its nearest.
@@ -120,9 +127,8 @@ fault file could not be read, the alert is simulated, or the profile is the comp
 - **Volcanoes in alert**: only those that a hazard source of the moment names: a USGS elevated alert (`vName`; 4 volcanoes on 2026-10-20: Great
   Sitkin, Shishaldin, Kilauea, Ahyi Seamount) or a GDACS eruption (`eventname`; 2 on that day, Kanlaon and Taal, both no longer current). **There is
   no bundled list of the world's volcanoes**: the Smithsonian Global Volcanism Program's list has an unclear licence, and its owner has not been asked
-  yet (a question for the project's owner). So Etna is named only while a source reports it, or when the user adds it as a watched point of kind
-  `volcano`. A volcano the feed gives no name is not named.
-- **Watched points**: the points of `/v1/watched-points`, each with its own radius, for every kind of hazard.
+  yet (a question for the project's owner). So Etna is named only while a source reports it (a user can still watch it as a point of kind
+  `volcano`, which is personal and shows in the status only). A volcano the feed gives no name is not named.
 
 ### The settings
 
@@ -136,6 +142,7 @@ the catalogues are uncertain (by how much, for these feeds: not verified). They 
 | `VIGIE_NEAR_VOLCANO_KM` | 20 | An earthquake within this distance of a volcano in alert is near it (0.1 to 500) |
 | `VIGIE_NEAR_MAX_PLACES` | 5 | At most this many places under a hazard, the nearest first (1 to 20) |
 | `VIGIE_WATCHED_POINTS_MAX` | 50 | The most watched points an instance keeps (1 to 500); a new one over the limit is a 409 |
+| `VIGIE_ENABLE_WATCHED_POINTS_WRITE` | 0 (off) | `1` enables `POST` and `DELETE` of `/v1/watched-points` (403 otherwise; the reads always work). Not a radius: a switch, listed here with its siblings |
 | `VIGIE_QUIET_MAX_GAP_S` | 900 | A source not read for longer than this breaks the run of readings that "nothing happened" rests on (60 to 86,400) |
 
 A value that is not a number, or is outside its range, means the default. The radius of a watched point is its own: up to 500 km, 50 by default.
@@ -179,15 +186,21 @@ Measured on the author's PC (Windows, Python 3.13), not on a server.
 | | |
 | --- | --- |
 | One earthquake against the faults | 15 microseconds (656 real earthquakes in 10 ms) |
-| All the hazards of a request, 56 hazards (the merged feeds of 2026-10-20) | 2.5 ms with no watched point, 2.7 ms with 5, **4.3 ms with 50** (median of 200 runs; 5.0 ms at the 95th percentile) |
-| 639 hazards and 50 points | 32 ms |
+| All the hazards of a request, 56 hazards (the merged feeds of 2026-10-20) | 2.5 ms (median of 200 runs). **Measured with up to 50 watched points before they were taken out of `near_places`: 2.7 ms with 5, 4.3 ms with 50. The points no longer cost anything per request here** |
+| 639 hazards | about 30 ms (measured with 50 points before they were taken out: 32 ms) |
 | The compact `GET /v1/snapshot` and `GET /v1/point` | **carry no `near_places`** (null): a place and the credit of its source on each of 15 hazards would not fit in 16 KiB. The snapshot of the realistic test grows by 480 bytes (the null and the empty `derived` of 15 hazards: 14,457 to 14,937 of 16,384). Ask `compact=false`, `/v1/geojson/hazards`, `/v1/history` or the stream for the places |
 
 ### Watched points and their status
 
 `GET/POST /v1/watched-points`, `DELETE /v1/watched-points/{id}`: a name, a kind (`place`, `fault`, `volcano`, `custom`), a position and a radius, stored in SQLite
-with the zones. Like `/v1/zones`, the routes have no authentication and the list is public on a public instance: **a point's name appears in the `near_places` of
-the hazards close to it**, so do not watch your home on an instance that others can read.
+with the zones. **A watched point is personal and is listed here only**: by `GET /v1/watched-points` and the status below, never in the hazards (see above).
+Like `/v1/zones`, the routes have no authentication, and the list and the status are readable by anyone who can reach the API: do not watch your home on an
+instance that others can read.
+
+**Writing is off by default.** `POST /v1/watched-points` and `DELETE /v1/watched-points/{id}` answer 403 with a message until the instance sets
+`VIGIE_ENABLE_WATCHED_POINTS_WRITE=1` (`1`, `true`, `yes` or `on`; read at each request; `GET /v1/health` reports `watched_points_write_enabled`). The reads
+always work. The switch is the same kind as `VIGIE_ENABLE_SIMULATION`, and it is not enough on a public instance: the two write routes must not be reachable
+from the Internet, like `POST /v1/zones` and `POST /v1/simulate`, so put the instance behind a reverse proxy that blocks them.
 
 `GET /v1/watched-points/status?days=7` gives, for each point, the events within its radius over the last `days` days (1 to 30) and a `state`:
 

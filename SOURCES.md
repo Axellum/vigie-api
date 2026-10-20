@@ -181,7 +181,8 @@ names only codes (the Philippines, India) is listed by `country=` and counted in
 `near_places` (the places an earthquake or a volcanic event is close to, calculated by Vigie; [`docs/data-sources.md`](docs/data-sources.md),
 [ADR 0008](docs/decisions/0008-sensitive-points.md)) compares a hazard with a **file of named active faults bundled in the repository**
 (`app/data/gem-active-faults.geojson.gz`, rebuilt by [`tools/build_faults.py`](tools/build_faults.py), checked on 2026-10-20), with the volcanoes
-that the hazard sources above report, and with the points the instance's user watches. Nothing is read from the fault source while the API runs.
+and that the hazard sources above report. The points the instance's user watches are not compared: they are personal and listed by their own routes only.
+Nothing is read from the fault source while the API runs.
 
 | Data (id) | Licence | Terms | Credit in the responses | Clauses, and what is not verified |
 | --- | --- | --- | --- | --- |
@@ -189,13 +190,13 @@ that the hazard sources above report, and with the points the instance's user wa
 | **Not bundled:** Smithsonian Institution Global Volcanism Program, the list of Holocene volcanoes | Would name every volcano, not only those in alert. | **Unclear, and not asked yet.** | None: not downloaded. | **A question for the owner:** write to the Global Volcanism Program before redistributing the list. Until then the volcanoes named by `near_places` are those the USGS (`vName`) and GDACS (`eventname`) report themselves, and the user's own watched points. |
 
 The hazard that names a fault carries the citation above in its `attribution`; one that names only a volcano carries the credit of the source that reported the volcano
-(the USGS Volcano Hazards Program or GDACS); a watched point is the user's own and is credited to nobody.
+(the USGS Volcano Hazards Program or GDACS).
 
 ## Where the credits go
 
 - **JSON responses.** `attribution` on each hazard alert (`/v1/snapshot`, `/v1/point`, `/v1/history`,
   `/v1/geojson/hazards`, `/v1/cap/alerts`, `/v1/stream`; a hazard that names a fault in `near_places` also carries the citation of the GEM
-  database), on each zone of the snapshot (the weather, plus
+  database where `near_places` is present), on each zone of the snapshot (the weather, plus
   the air quality when its index was added), and on the `rain_nowcast`, `marine`, `flood_risk`,
   `air_quality` and `space_weather` blocks of `/v1/point`. Where one object mixes several blocks the
   field is named after what it credits: `weather_attribution` in `/v1/point`,
@@ -227,7 +228,8 @@ This project was built for one person's home. Each of these points comes from th
    official warning: the DWD wants its source details deleted if a warning is changed, and ECCC wants no alteration
    of the content or intent of an alert; MetService's Code of Practice asks for no modification either.
 5. Leave the simulator off (`VIGIE_ENABLE_SIMULATION` unset) and do not expose the unauthenticated routes
-   (`POST /v1/zones`, `POST /v1/watched-points`, `POST /v1/scheduler/trigger`) to the Internet.
+   (`POST /v1/zones`, `POST` and `DELETE /v1/watched-points`, `POST /v1/scheduler/trigger`) to the Internet; the watched-point writes
+   are also off unless `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`.
 6. MetService (New Zealand): the feed says CC BY 4.0 and its use is subject to a Code of Practice, but the website terms
    it points to allow personal use only and forbid resupply (see its row above). For one person's home that is no
    problem; before relaying New Zealand's warnings to other people, ask MetService (the CAP page gives an address for
@@ -237,6 +239,6 @@ This project was built for one person's home. Each of these points comes from th
    whose terms are unknown, contradictory or restrictive (Singapore, Thailand, Kuwait, Trinidad and Tobago publish terms that
    restrict copying); that is for an instance only its owner uses. Even the verified ones ask for their credit: keep it with the
    warning, as the API puts it in `attribution`.
-8. Watched points (`/v1/watched-points`): the list is public on a public instance, and the name of a point appears in the `near_places` of
-   the hazards near it. Do not watch a home on an instance that others can read. The fault file is CC BY-SA 4.0 (share-alike): keep its
+8. Watched points (`/v1/watched-points`): they are never in the hazards, but the list and the status are readable by anyone who can reach the
+   API. Do not watch a home on an instance that others can read. The fault file is CC BY-SA 4.0 (share-alike): keep its
    notice (`app/data/gem-active-faults.NOTICE.md`) with any copy of it, and the citation in the `attribution` of a hazard that names a fault.

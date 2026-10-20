@@ -20,13 +20,20 @@ Questions: where do the names come from, and under which licence; how far is "ne
 
 1. **A derived field, never an alert.** `near_places` on a hazard is a list of `{name, kind, distance_km, sources}`, nearest first,
    at most 5, distances rounded to 0.1 km. It is named in the hazard's `derived`. It **never changes a `severity`** (a test plays
-   every kind of hazard before and after). `[]` means it was worked out and nothing is near; `null` means it was not (the fault file
-   cannot be read, the alert is simulated, or the compact profile). The same rule as the rest of the API: a value nobody supplied is
+   every kind of hazard before and after). `[]` means it was worked out and nothing is near; `null` means it was not (a hazard that is
+   compared with nothing, such as a storm or a flood; the fault file cannot be read; the alert is simulated; or the compact profile). The same rule as the rest of the API: a value nobody supplied is
    unknown, not an empty answer ([ADR 0001](0001-two-repos-no-fabricated-data-frame-format.md)).
-2. **Three sets of places, each for the hazards it makes sense for.** The named active faults, for earthquakes and volcanic events,
-   when the depth is at most 70 km or unknown. The volcanoes **a hazard source names itself** (a USGS elevated alert, a GDACS eruption),
-   for earthquakes. The points the user watches, for every kind of hazard. No list of the world's volcanoes is bundled: the Smithsonian
-   Global Volcanism Program's licence is unclear and has not been asked about.
+2. **Two sets of reference places, each for the hazards it makes sense for.** The named active faults, for earthquakes and volcanic
+   events, when the depth is at most 70 km or unknown. The volcanoes **a hazard source names itself** (a USGS elevated alert, a GDACS
+   eruption), for earthquakes. A hazard that is compared with neither (a storm, a flood, a tsunami) has `near_places: null`: no reference
+   place applies to it, which is not the answer "nothing is near". No list of the world's volcanoes is bundled: the Smithsonian Global
+   Volcanism Program's licence is unclear and has not been asked about.
+   **The points the user watches are not in `near_places`** (changed in review, before the merge). The first version
+   named a point in the hazards within its radius. That was wrong for an instance whose hazards are shared: `near_places` is in every output
+   that every client reads (the hazards, the history, the snapshot, the point, and a public website), so a watched point, which is personal
+   (a home, for example), would have leaked its name and its position through them; and anyone who can `POST` a point on a public
+   instance could have made any text appear in everyone's hazards. A watched point is listed by `/v1/watched-points` and
+   `/v1/watched-points/status` and nowhere else, and a test looks for a point's name in every output that is shared.
 3. **The radii are settings, not sourced facts.** Faults 10 km, volcanoes in alert 20 km, depth 70 km, 5 places, 50 watched points,
    a watched point its own radius (up to 500 km). They are environment variables (`VIGIE_NEAR_*`, `VIGIE_WATCHED_POINTS_MAX`), written
    in the README and `docs/data-sources.md` as choices of this instance. Nobody publishes the distance at which an epicentre is "near"
@@ -52,7 +59,12 @@ Questions: where do the names come from, and under which licence; how far is "ne
    ellipsoid to a dense sampling of the original traces) on real earthquakes and on 30 days of them, to within the simplification
    (-0.47 to +0.46 km). It does not say that an earthquake happened on a fault.
 7. **A watched point is a row of SQLite beside the zones** (`/v1/watched-points`: name, kind, position, radius; at most 50). Like the zones,
-   the routes have no authentication.
+   the routes have no authentication, so **the writes (`POST`, `DELETE`) are off by default**: they answer 403 with a message unless the
+   instance sets `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1` (the pattern of `VIGIE_ENABLE_SIMULATION`; the answer comes before the body is read; the
+   reads always work). A switch on is for an instance that trusted clients alone can reach. **On a public instance the two write routes must not
+   be reachable from the Internet**, like `POST /v1/zones` and `POST /v1/simulate`: a reverse proxy in front of it blocks them. The list and the
+   status stay readable by whoever reaches the API, so a home must not be watched on an instance others can read. Not changed here:
+   `/v1/zones`, which keeps its own exposure.
 8. **"Nothing happened" is a claim that needs proof** (the principle of [ADR 0003](0003-national-source-preferred-rivers-are-lines.md),
    point 6: a source that did not answer says nothing). A point with no event is `quiet` only if all seven hazard sources answered at the
    last reading and each has been read **without a gap** longer than 15 minutes (`VIGIE_QUIET_MAX_GAP_S`) for as long as the claim goes
@@ -64,7 +76,8 @@ Questions: where do the names come from, and under which licence; how far is "ne
    the last time it was seen active; a simulated alert never counts; a hazard is compared by its position.
 10. **The compact profile carries no places.** `GET /v1/snapshot` and `GET /v1/point` are held to 16 KiB with the credit of every item,
     and the realistic snapshot of the tests was at 14,457 bytes: a place and its citation on each of 15 hazards would not fit. They
-    answer `near_places: null` (14,937 bytes). `compact=false`, `/v1/geojson/hazards`, `/v1/history` and the stream carry them.
+    answer `near_places: null` (14,937 bytes), and so do the hazards pushed on the stream. `compact=false`, `/v1/geojson/hazards` and
+    `/v1/history` carry them.
 11. **A number JSON cannot carry is a 422, not a 500.** Python's parser accepts `NaN`; the validation error that quotes it could not be
     encoded and the API answered 500 on any route with a number. One handler writes such a value as text. (Found while validating the
     new routes; it applied to `/v1/zones` as well.)
@@ -73,7 +86,8 @@ Questions: where do the names come from, and under which licence; how far is "ne
 
 - A hazard weighs about 100 bytes more per place in the full profiles, plus the citation (about 200 bytes) once per hazard near a fault.
 - Cost, measured on the author's PC: loading the file 31 to 36 ms and 4.2 MB once at start; 15 microseconds per earthquake; all the hazards
-  of a request (56, the merged feeds of 2026-10-20) 2.5 ms, or 4.3 ms with 50 watched points.
+  of a request (56, the merged feeds of 2026-10-20) 2.5 ms. (Measured with the watched points in `near_places`: 4.3 ms with 50 of them. They
+  are no longer in it, so they cost nothing per request there.)
 - The database gets two tables (`watched_points`, `source_runs`); an older database gets them when it starts.
 - The fault data is from 2021 and the repository has not changed since; the files of the tool pin it, and a newer version is a decision.
 - Of 656 earthquakes M4.5+ in 30 days, 43 had a named fault under them, most aftershocks of the M 7.7 of Panama (2026-10-09). The
@@ -84,7 +98,7 @@ Questions: where do the names come from, and under which licence; how far is "ne
 - **The Smithsonian GVP volcano list** (about 1,200 Holocene volcanoes): the licence is unclear. Writing to the Global Volcanism Program is a
   public action of the owner. Until then Etna is named only while GDACS or the USGS report it, or when someone adds it as a watched point of kind `volcano`.
 - **Unnamed faults.** Keep them with `name: null`, or find a second dataset that names the Mediterranean and Asian faults (its licence first)?
-- **Public instances.** The list of watched points is public and unauthenticated, like `/v1/zones`, and the name of a point appears in
-  the `near_places` of the hazards near it. A home must not be watched on an instance others can read; a switch that turns the routes off,
-  or a key, is a decision for whoever runs one.
+- **Public instances.** The list and the status of the watched points are readable by anyone who reaches the API, like `/v1/zones`. The
+  writes are off by default and must be blocked by a reverse proxy on a public instance; a key (authentication of the API) is still a decision for
+  whoever runs one. A home must not be watched on an instance others can read.
 - **The compact profile.** If a display needs the places, the budget has to be argued again (fewer hazards, one place, a shared citation).
