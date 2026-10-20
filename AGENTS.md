@@ -16,6 +16,7 @@ python -m ruff check .                    # lint (CI runs it)
 scripts\run.ps1                           # run the API on Windows (port 8080)
 python tools/capture_frame.py out.txt     # write a REAL frame from the live providers
 python tools/check_live_feeds.py          # ask each real provider once (the weekly live-feeds workflow does it)
+python tools/build_geometries.py          # rebuild app/data (borders, NUTS shapes) from Natural Earth and Wikidata
 ```
 
 Python 3.12 or newer. Use PowerShell 5.1-compatible commands when you give a command to the
@@ -62,3 +63,8 @@ owner (no `&&`).
 12. **Public-facing text stays modest**: a personal project, made with AI, shared in case it helps; no
     promise, no marketing word, no detail of a private network or machine (`tests/test_public_text.py`).
     `POST /v1/simulate` stays off unless `VIGIE_ENABLE_SIMULATION=1`.
+13. **Official warnings keep the issuer's words.** A `Vigilance` returns the identifier, times, original level and event,
+    headline, description and instruction as the source wrote them; the API's own fields (`status`, `level`,
+    `phenomenon`) come from the tables of `docs/data-sources.md`, are named in `derived`, and are `None` when no table
+    covers the word. Never translate, shorten or reword an official text, and never guess a level. A shape that
+    has no stated licence is not added to `app/data/` ([`SOURCES.md`](SOURCES.md) says which, and why).

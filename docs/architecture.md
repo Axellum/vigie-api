@@ -3,9 +3,9 @@
 ## Overview
 
 ```
- USGS  EMSC  GDACS  NOAA NWS  USGS Volcano     Open-Meteo (forecast, marine, flood, air)   MET Norway   RainViewer   NOAA SWPC
-   \     |     |       |         /                       |                                     |             |          |
-    +----+-----+-------+--------+--------------+---------+-------------------------------------+-------------+----------+
+ USGS  EMSC  GDACS  NOAA NWS  USGS Volcano     Open-Meteo (forecast, marine, flood, air)   MET Norway   RainViewer   NOAA SWPC   MeteoAlarm
+   \     |     |       |         /                       |                                     |             |          |          |
+    +----+-----+-------+--------+--------------+---------+-------------------------------------+-------------+----------+----------+
                                        Collectors (app/collectors)
                           circuit breaker + TTL cache + parsers that never invent a value
                                                 |
@@ -33,11 +33,16 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | `app/clock.py` | Time source of the collectors, replaceable by a test (simulated clock). |
 | `app/collectors/base.py` | `BaseCollector`: HTTP client, circuit breaker (`CLOSED`, `OPEN`, `HALF_OPEN`), TTL cache, request coalescing, health. |
 | `app/collectors/seismic.py` | USGS and EMSC earthquakes. |
-| `app/collectors/disasters.py` | GDACS and NOAA NWS alerts. |
+| `app/collectors/disasters.py` | GDACS and NOAA NWS alerts (the NWS answer is also read as official warnings). |
+| `app/collectors/meteoalarm.py` | MeteoAlarm: the Atom feed of a country and the CAP documents it links to; the level, phenomenon and status tables. |
 | `app/collectors/flood_air.py` | River discharge (GloFAS), air quality and dust, USGS volcanoes. |
 | `app/collectors/weather.py` | Open-Meteo (primary), MET Norway (fallback), RainViewer (radar). |
 | `app/collectors/marine.py`, `space_weather.py` | Open-Meteo Marine, NOAA SWPC Kp index. |
 | `app/services/aggregator.py` | Orchestration: weather fallback chain, hazard fusion, `build_snapshot`, `build_point_response`, frame, GeoJSON, CAP, simulator. |
+| `app/models/vigilance.py` | The `Vigilance` model (an official warning) and the answers built on it. |
+| `app/geo.py`, `app/services/geoindex.py` | Polygons of a CAP message; the country of a point and the shape of a code (shapely), from the files of `app/data/`. |
+| `app/services/vigilance.py` | `VigilanceService`: the warnings of a point or a country, and the changes to push. |
+| `app/data/`, `tools/build_geometries.py` | The two bundled geometry files and the script that rebuilds them (licences: [`SOURCES.md`](../SOURCES.md)). |
 | `app/services/geodesy.py` | Haversine distance, bearing, tsunami ETA, de-duplication of hazards across agencies. |
 | `app/services/embedded_frame.py` | Serializes the snapshot (and an optional GPS point) to the text frame, with its CRC32. |
 | `app/services/storage_wal.py` | SQLite in WAL mode: watchlist, hazard history, last snapshot. |
@@ -47,6 +52,54 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | `tools/check_live_feeds.py` | Asks each real provider once and checks the parsers still read the answer (weekly workflow). |
 | `scripts/run.ps1` | Starts the API on Windows. |
 | `Dockerfile`, `scripts/docker_smoke.sh` | The image (non-root, health check) and the script that proves it answers. |
+
+## Official warnings (vigilances)
+
+`GET /v1/vigilances` gives the warnings that the national weather services publish (MeteoAlarm for 39 European
+countries, the NWS for the United States), for a position (`lat`, `lon`) or a country (`country`), as JSON or
+GeoJSON. The embedded frame is **not changed**: the warnings have their own routes and the frame contract stays
+[`embedded-frame.md`](embedded-frame.md).
+
+```
+ position ──> country (offline, bundled borders) ──> MeteoAlarm feed of the country (180 s cache) ─┐
+                                                 └─> NWS answer of the hazards (shared)           ├─> warnings in force
+ country= ───────────────────────────────────────────────────────────────────────────────────────┘        │
+                                                                                                          v
+                  keep those whose polygon, or whose code's shape, contains the position ──> CAP documents (once each)
+```
+
+The decision and its reasons: [ADR 0002](decisions/0002-official-warnings-kept-intact-and-localized-offline.md).
+Rules that hold the whole model:
+
+- **The official words stay intact.** The identifier, the times, the original level and phenomenon, the
+  headline, the description and the instruction in every language the issuer wrote, the codes of the area and
+  the link to the original are returned as given. The three fields the API derives (`status`, `level`,
+  `phenomenon`) are named in `derived` on every warning and come from tables
+  ([`data-sources.md`](data-sources.md)); what no table covers is `null`.
+- **Every warning carries its credit**, and the answer carries the notice that MeteoAlarm obliges
+  redistributors to publish (`disclaimer`).
+- **What cannot be matched is said, not hidden.** A warning is matched to a position by its own polygon (exact)
+  or by the shape of one of its codes (simplified: a position within about 2 km of the edge of a shape counts as
+  inside it, except when it lies inside another shape of the same code system). A code with no shape on this
+  instance cannot be matched: `area.localization` is `none`, and `coverage` counts those warnings
+  (`warnings_not_matchable`) instead of letting an empty list read as "nothing to fear". Which codes have a
+  shape, and why the others do not, is in [`SOURCES.md`](../SOURCES.md).
+- **A provider that does not answer is reported** (`coverage[].status`: `stale` with the age of the last answer,
+  or `unavailable`), never an all-clear.
+- **Sober on the providers.** One feed per needed country, a CAP document once and only for a warning that is
+  returned, no request of its own for the NWS ([`data-sources.md`](data-sources.md) has the measured figures).
+
+### Push on `/v1/stream`
+
+A client sends `{"action": "follow", "lat": .., "lon": ..}` on the WebSocket and gets a `vigilance_state` at
+once (what `GET /v1/vigilances` would answer); `{"action": "unfollow", ..}` stops it. With the scheduler on, the
+changes are pushed as `vigilance_push` messages with `change` = `appeared` (a warning for the position that was
+not there), `upgraded` (its level went up: `previous_level` says from what) or `ended` (it expired, was
+cancelled or is no longer listed). The watched zones are followed by the scheduler too and their changes go to
+every client (`point.zone_id`, `point.zone_name`). The first look at a position only sets the baseline: nothing
+is pushed for what was already there; a source that does not answer never ends a warning. A position is
+rounded to 4 decimals (about 11 m), a connection follows 10 at most, and the positions live in memory with the
+connection.
 
 ## Unknown values
 
@@ -144,6 +197,14 @@ Tables: `monitored_zones` (the watchlist, seeded with five cities), `hazards_his
   (`GET /v1/health` reports `simulation_enabled`). Enable it only where trusted clients alone can reach
   the API. The rest of the API is not authenticated either (`POST /v1/zones`, `POST /v1/scheduler/trigger`):
   do not expose it to the Internet without a reverse proxy that does.
+- **Official warnings, what is not matched.** Warnings that name their area with MeteoAlarm `EMMA_ID` codes only
+  (Germany, Italy, Spain, Austria, Poland...) are listed by `country=` but cannot be matched to a position: their
+  shapes have no stated licence and are not bundled ([`SOURCES.md`](../SOURCES.md)). NWS alerts that name UGC zones
+  instead of a polygon are in the same case. A change of a warning that is not matched to any followed position is
+  not pushed.
+- **Official warnings, the issuer's name.** The terms of MeteoAlarm want the name of the national service shown when
+  one country is concerned. The name comes with the CAP document (`senderName`); a warning returned before its
+  document is read, or whose document the server does not have, carries the credit of EUMETNET – MeteoAlarm only.
 - **Duplicate title and value.** When USGS and EMSC report the same earthquake the merged alert
   keeps the USGS title and the highest magnitude, so the title can show a slightly lower
   magnitude than the value.
