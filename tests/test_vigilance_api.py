@@ -44,6 +44,13 @@ def recorded(world: World, sim_clock: SimClock, monkeypatch: pytest.MonkeyPatch)
 
     monkeypatch.setattr(world.aggregator.meteoalarm, "fetch_country", AsyncMock(side_effect=feed))
     monkeypatch.setattr(world.aggregator.meteoalarm_cap, "fetch_document", AsyncMock(side_effect=document))
+    # The national services, recorded the same day. Vigicrues is a calm day here (every section green, as on most days):
+    # the river sections of the day have their own tests, and a yellow section on the Drôme would take the département's
+    # MeteoAlarm "flooding" out of the answers below (the rule is tested in tests/test_national_sources.py).
+    monkeypatch.setattr(world.aggregator.dwd, "fetch_status", AsyncMock(return_value=Fetched(samples.dwd_status())))
+    monkeypatch.setattr(world.aggregator.eccc, "fetch_alerts", AsyncMock(return_value=Fetched(samples.eccc_alerts())))
+    monkeypatch.setattr(world.aggregator.metservice, "fetch_feed", AsyncMock(return_value=Fetched(samples.empty_metservice())))
+    monkeypatch.setattr(world.aggregator.vigicrues, "fetch_flow", AsyncMock(return_value=Fetched(samples.all_green_flow())))
     return world
 
 
@@ -52,7 +59,7 @@ def test_a_point_gets_its_warnings(recorded: World) -> None:
     response = recorded.client.get("/v1/vigilances", params={"lat": lat, "lon": lon})
     assert response.status_code == 200
     body = response.json()
-    assert body["query"] == {"lat": lat, "lon": lon, "country": None} and body["countries"] == ["FR"]
+    assert body["query"] == {"lat": lat, "lon": lon, "country": None, "river_radius_km": 5.0} and body["countries"] == ["FR"]
     [warning] = body["vigilances"]
     assert warning["id"] == "meteoalarm:b77d3bc0-76a2-4886-8da8-bac8d99f57fc:6-0-1"
     assert (warning["level"], warning["level_original"]) == ("YELLOW", "Yellow")
@@ -68,8 +75,11 @@ def test_a_point_gets_its_warnings(recorded: World) -> None:
     assert warning["issuer"] == "METEO-FRANCE" and warning["texts"][0]["headline"] == "Vigilance jaune inondations"
     assert warning["link"].startswith("https://feeds.meteoalarm.org/api/v1/warnings/")
     assert warning["attribution"].startswith(credit_text("meteoalarm"))
-    assert body["attribution"] == credit_text("meteoalarm") and body["disclaimer"] == METEOALARM_DISCLAIMER
-    assert body["coverage"][0]["status"] == "ok" and body["note"] is None
+    # France has two sources: MeteoAlarm (the départements) and Vigicrues (the river sections).
+    assert body["attribution"] == f"{credit_text('meteoalarm')} | {credit_text('vigicrues')}"
+    assert body["disclaimer"] == METEOALARM_DISCLAIMER
+    assert [c["source"] for c in body["coverage"]] == ["meteoalarm", "vigicrues"] and body["note"] is None
+    assert [c["status"] for c in body["coverage"]] == ["ok", "ok"]
 
 
 def test_the_times_are_utc_epoch_seconds_and_unknown_is_null(recorded: World) -> None:
@@ -158,7 +168,7 @@ def test_the_openapi_documents_both_routes(recorded: World) -> None:
         operation = schema["paths"][path]["get"]
         assert operation["tags"] == ["Vigilances"]
         assert "official warning service" in operation["description"] or "not an official" in operation["description"]
-        assert {p["name"] for p in operation["parameters"]} == {"lat", "lon", "country", "lang"}
+        assert {p["name"] for p in operation["parameters"]} == {"lat", "lon", "country", "lang", "river_radius_km"}
         assert all(p.get("description") for p in operation["parameters"])
         assert {"404", "422"} <= set(operation["responses"])
         assert "/v1/stream" in operation["description"] and "vigilance_push" in operation["description"]
@@ -167,8 +177,8 @@ def test_the_openapi_documents_both_routes(recorded: World) -> None:
     assert schema["components"]["schemas"]["Vigilance"]["properties"]["level"]["description"].startswith("DERIVED")
 
 
-def test_the_countries_with_a_source_are_the_39_feeds_and_the_united_states() -> None:
-    assert SUPPORTED_COUNTRIES == sorted({*COUNTRY_FEEDS, "US"}) and len(SUPPORTED_COUNTRIES) == 40
+def test_the_countries_with_a_source_are_the_39_feeds_the_united_states_canada_and_new_zealand() -> None:
+    assert SUPPORTED_COUNTRIES == sorted({*COUNTRY_FEEDS, "US", "CA", "NZ"}) and len(SUPPORTED_COUNTRIES) == 42
 
 
 def test_the_embedded_frame_and_the_hazards_are_not_changed_by_the_warnings(recorded: World) -> None:

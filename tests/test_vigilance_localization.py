@@ -53,7 +53,7 @@ def test_the_country_of_a_point(place: str, point: tuple[float, float], countrie
 
 
 def test_every_country_with_a_source_has_a_border() -> None:
-    assert set(default_countries().countries()) == {*COUNTRY_FEEDS, "US"}
+    assert set(default_countries().countries()) == {*COUNTRY_FEEDS, "US", "CA", "NZ"}
 
 
 # ---------------------------------------------------------------- the shapes of the codes
@@ -80,7 +80,7 @@ def test_the_shapes_keep_the_names_of_the_regions() -> None:
 def test_the_shapes_are_small_enough_to_live_in_the_repository() -> None:
     sizes = {path.name: path.stat().st_size for path in DATA_DIR.glob("*.geojson.gz")}
     assert set(sizes) == {"countries.geojson.gz", "geocodes-nuts.geojson.gz"}
-    assert sum(sizes.values()) < 300 * 1024, sizes
+    assert sum(sizes.values()) < 400 * 1024, sizes
 
 
 def test_a_point_belongs_to_the_one_region_it_lies_in() -> None:

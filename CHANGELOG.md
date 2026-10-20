@@ -7,6 +7,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **Push of the official warnings, source by source.** A source of a followed position that does not answer no longer
+  silences the others (before, the whole position was left as it was): what it had said stands and ends nothing; a
+  source that answers for the first time after the baseline sets its own baseline. The credit of an answer names only
+  the sources that answered.
 - **README rewritten in a modest tone** ("a personal project, made with AI, shared in case it helps", no
   promise), English first, with a French version (`README.fr.md`) linked from the top. It says that the
   code is MIT and the data is not, carries the notice that this is not an official warning service and that
@@ -113,7 +117,7 @@ All notable changes to this project are documented here. The format follows
   answer carries the notice MeteoAlarm obliges redistributors to publish. The tables, the licences and what is not
   verified are in `docs/data-sources.md` and `SOURCES.md`; the embedded frame does not change.
 - **Localization of a warning to a point** with shapely: the polygon of the source, or the shape of the code of its
-  area. Two small files are bundled (`app/data/`, 242 KiB): the borders of the 40 countries (Natural Earth, public
+  area. Two small files are bundled (`app/data/`, 381 KiB): the borders of the 42 countries (Natural Earth, public
   domain) to find the country of a point offline, and the French departments and Belgian provinces (Natural Earth,
   public domain, with NUTS codes from Wikidata, CC0). `tools/build_geometries.py` rebuilds them. The MeteoAlarm
   `EMMA_ID` shapes and the Eurostat NUTS shapes are **not** bundled (no licence stated, and non-commercial use only):
@@ -125,6 +129,32 @@ All notable changes to this project are documented here. The format follows
 - **`meteoalarm_atom` and `meteoalarm_cap` collectors** in `GET /v1/providers`, counted like the others (no published
   quota). Only the feeds of the needed countries are asked, cached 180 s; a CAP document once, only for a warning an
   answer returns. The weekly live-feeds check covers MeteoAlarm and the NWS warnings.
+- **National warning services: the DWD (Germany), Environment and Climate Change Canada, MetService (New Zealand).**
+  Three collectors (`dwd_cap`, `eccc_alerts`, `metservice_cap` in `GET /v1/providers`) that read the national service
+  itself, with its polygons and its words untouched (the DWD in eight languages, ECCC in English and French).
+  **The national source answers for its country and MeteoAlarm's copy of it is not asked for** (Germany); MeteoAlarm
+  stands in only if the DWD does not answer, and the answer says so. Germany's warnings can now be matched to a
+  position. The DWD is read as its status ZIP by district (one conditional request, `304` most of the time, cached
+  120 s); ECCC through MSC GeoMet (one request for all of Canada, cached 300 s; an alert it still lists after it ended, `status_en`
+  `ended`, is not served) and not through the Datamart, whose
+  usage policy forbids what finding new CAP files there would need; MetService through its RSS feed (cached 300 s,
+  conditional), **whose items have not been seen yet** (no warning in force on 2026-10-20) but whose format MetService
+  documents in its CAP user guide: the level is the `ColourCode` parameter, the phenomenon the `<event>` word, and the
+  tests use a feed written after the guide's examples, labelled synthetic. Credit lines: `Source: Deutscher Wetterdienst`, the
+  `Data Source: Environment and Climate Change Canada` line of the ECCC licence, and a CC BY 4.0 line for MetService.
+  ECCC's usage-policy line of 86,400 requests a day is in the quotas. Canada and New Zealand are added to the bundled
+  borders (196 to 335 KiB). `tests/test_national_sobriety.py` counts the requests of a simulated day.
+- **Vigicrues, the river flood vigilance of France** (`vigicrues_flow`). One request reads the colour (yellow,
+  orange, red) of the 337 sections of river (Licence Ouverte 2.0, credit and date of the last update in the warning),
+  cached 30 minutes, 10 while a section is orange or red; the flow offers no validator and weighs 2.2 MB. A section
+  is a **line**: `GET /v1/vigilances` has a `river_radius_km` (5 km by default, 50 at most) and returns the
+  `distance_km` of each section it matches. A MeteoAlarm "Flooding" warning of a département is left out of an answer
+  when a Vigicrues section of the same answer crosses it at the same level or higher ("Rain-flood" always stays),
+  and the pushes follow the same rule. The official bulletins are linked, not relayed.
+- **The checks of the weekly live-feeds run** cover `dwd_cap`, `eccc_alerts`, `metservice_cap` and `vigicrues_flow`: a
+  severity, an event number, a colour or a status word the tables do not know, a polygon missing, a MetService item
+  that cannot be read or has no `ColourCode` or an event word the guide does not list, or a flow cut short makes the
+  run red.
 - **Credit of the source in every response.** Each block of data carries an `attribution` field with the
   text its source asks for: hazard alerts (`/v1/snapshot`, `/v1/point`, `/v1/history`, GeoJSON features and
   `metadata`, CAP parameters and description, WebSocket pushes), the zones of the snapshot, and the

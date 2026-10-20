@@ -7,8 +7,9 @@ no promise of support, availability or accuracy.
 
 It gathers world natural hazards (earthquakes, tsunamis, volcanoes, cyclones, tornadoes, floods, fires,
 geomagnetic storms), weather (current conditions, 15-minute rain, forecast, marine, river discharge,
-air quality) and the official weather warnings of the national services (MeteoAlarm in Europe, the National
-Weather Service in the United States) from public sources, and serves them to:
+air quality) and the official weather warnings of the national services (MeteoAlarm in Europe, the Deutscher
+Wetterdienst in Germany, Environment and Climate Change Canada, MetService in New Zealand, the National Weather
+Service in the United States, and Vigicrues for the rivers of France) from public sources, and serves them to:
 
 - the ESP32-P4 displays of the Vigie project (Waveshare 7B, M5Stack Tab5), through a compact text
   frame: [`docs/embedded-frame.md`](docs/embedded-frame.md);
@@ -37,6 +38,9 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
   a paid Open-Meteo plan**, and check the terms of the other providers.
 - RainViewer's free API is for personal and educational use only. Turn it off on an instance that relays
   its data to others (`VIGIE_ENABLE_RAINVIEWER=0`; the Docker image does).
+- MetService (New Zealand) publishes its warnings as CC BY 4.0 under a Code of Practice, but the website terms it points
+  to allow personal use only and forbid resupply. Fine for one home; ask MetService before relaying its warnings to
+  other people ([`SOURCES.md`](SOURCES.md)).
 
 ## Endpoints
 
@@ -47,7 +51,7 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
 | `GET /v1/point?lat=&lon=` | Weather at one GPS position, marine (`marine=true`), river discharge, air quality, space weather, nearby hazards. |
 | `GET /v1/geojson/hazards` | Active hazards as GeoJSON (RFC 7946). |
 | `GET /v1/cap/alerts` | Active hazards as OASIS CAP 1.2. |
-| `GET /v1/vigilances?lat=&lon=` or `?country=FR` | Official weather warnings that cover a point, or all those of a country (MeteoAlarm, NWS), the issuer's words untouched. See below. |
+| `GET /v1/vigilances?lat=&lon=` or `?country=FR` | Official weather warnings that cover a point, or all those of a country (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues), the issuer's words untouched. See below. |
 | `GET /v1/vigilances.geojson` | The same warnings as GeoJSON, the shape of each area as geometry. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Watched zones (the watchlist). A zone needs its `utc_offset_s`. |
 | `GET /v1/history` | Hazard history stored in SQLite. |
@@ -65,21 +69,29 @@ that authenticates in front of it if you must.
 ## Official weather warnings
 
 `GET /v1/vigilances` gives the warnings that the national weather services publish: **MeteoAlarm** (EUMETNET) for
-39 European countries and the **National Weather Service** for the United States. It relays them; it does not
-issue any. The words of the issuer (headline, description and instruction, in every language it wrote) are
-returned untouched.
+39 European countries, the **Deutscher Wetterdienst** for Germany, **Environment and Climate Change Canada**,
+**MetService** for New Zealand, the **National Weather Service** for the United States, and **Vigicrues** for the
+river floods of France. It relays them; it does not issue any. The words of the issuer (headline, description and
+instruction, in every language it wrote) are returned untouched.
+
+**One source answers for a country.** Germany is the DWD (MeteoAlarm's copy of the German warnings is not asked for,
+unless the DWD gives no answer); Canada and New Zealand have their own service; the other European countries are
+MeteoAlarm's. France has two, which say two things: MeteoAlarm a colour per département, Vigicrues a colour per
+**section of river**. A MeteoAlarm "flooding" warning that a Vigicrues section of the same answer says at the same
+level or higher is left out; otherwise it stays ([`docs/data-sources.md`](docs/data-sources.md)).
 
 ```
 GET /v1/vigilances?lat=44.9334&lon=4.8924      the warnings whose area contains this exact point
 GET /v1/vigilances?country=FR&lang=fr          every warning of a country, the texts in French only
 GET /v1/vigilances.geojson?lat=..&lon=..       the same, as GeoJSON (the shape of each area is the geometry)
+GET /v1/vigilances?lat=..&lon=..&river_radius_km=10   how far a river section still counts (default 5, at most 50)
 ```
 
 Real answer for a point in the Drôme (France), cut: the feeds of 2026-10-20 played back by the tests.
 
 ```json
 {
-  "query": {"lat": 44.9334, "lon": 4.8924, "country": null},
+  "query": {"lat": 44.9334, "lon": 4.8924, "country": null, "river_radius_km": 5.0},
   "countries": ["FR"],
   "vigilances": [{
     "id": "meteoalarm:b77d3bc0-76a2-4886-8da8-bac8d99f57fc:6-0-1",
@@ -101,16 +113,38 @@ Real answer for a point in the Drôme (France), cut: the feeds of 2026-10-20 pla
 }
 ```
 
+A river section is a **line**: the same route for Nîmes (Gard), 3.9 km from the Vistre, which Vigicrues had in
+orange that day (cut; the official bulletin of the territory said the same: "Vistre et Vidourle restent en
+vigilance orange"). The département's own MeteoAlarm "flooding", also orange, is left out of this answer because the
+section says it, finer.
+
+```json
+{
+  "vigilances": [{
+    "id": "vigicrues:GA32", "source": "vigicrues", "country": "FR",
+    "attribution": "Source: Vigicrues, Service central d'hydrométéorologie et d'appui à la prévision des inondations (SCHAPI), https://www.vigicrues.gouv.fr. Licence Ouverte 2.0 | Last update of the flow: 2026-10-20T07:55:15+00:00",
+    "level": "ORANGE", "level_original": "3", "phenomenon": "flood",
+    "area": {"description": "Vistre", "geocodes": [{"scheme": "VIGICRUES_SECTION", "value": "GA32"}, ...], "has_polygon": false, "localization": "line"},
+    "distance_km": 3.93,
+    "web": "https://www.vigicrues.gouv.fr/bulletin_local/20#GA32",
+    "derived": ["level", "phenomenon"]
+  }],
+  "coverage": [{"source": "meteoalarm", "country": "FR", "status": "ok", ...}, {"source": "vigicrues", "country": "FR", "status": "ok", ...}]
+}
+```
+
 - **The source's words and the API's fields are told apart.** `level` (GREEN, YELLOW, ORANGE, RED), `phenomenon`
   (wind, rain, thunderstorm, snow-ice, heat, cold, flood, avalanche, coastal, fire, fog, other) and `status`
   (new, update, cancel) are the API's own and are named in `derived`; the tables are in
   [`docs/data-sources.md`](docs/data-sources.md). A word no table covers gives `null`. `level_original`,
   `phenomenon_original`, `event` and `texts` are the source's.
 - **Show the credit and the notice.** Every warning has its `attribution`, and the answer has the `disclaimer`
-  that the terms of MeteoAlarm oblige a redistributor to publish. This is not an official warning service.
-- **A warning that cannot be matched to a point says so.** A point is matched by the polygon of the warning, or by the
-  shape of its area code. Warnings of France, Belgium and of the countries that send polygons (for example
-  Switzerland and Norway) are matched. Warnings that name only MeteoAlarm `EMMA_ID` codes (Germany, Italy, Spain,
+  that the terms of MeteoAlarm oblige a redistributor to publish. This is not an official warning service. Only the
+  sources that answered are credited.
+- **A warning that cannot be matched to a point says so.** A point is matched by the polygon of the warning, by the
+  shape of its area code, or, for a river section, by its distance to the line (`river_radius_km`, `distance_km` in
+  the answer). Warnings of France, Belgium, Germany, Canada and of the countries that send polygons (for example
+  Switzerland and Norway) are matched. Warnings that name only MeteoAlarm `EMMA_ID` codes (Italy, Spain,
   Austria, Poland...) are listed by `country=` but **not matched to a point**: the shapes of these codes have no stated
   licence and are not bundled ([`SOURCES.md`](SOURCES.md)). For a point, `coverage[].warnings_not_matchable` counts them, so an empty
   list is not read as "nothing to fear". The same goes for the NWS alerts that name zones instead of a polygon.
@@ -121,9 +155,10 @@ Real answer for a point in the Drôme (France), cut: the feeds of 2026-10-20 pla
   warning for that point `appeared`, was `upgraded` (`previous_level` says from what) or `ended`.
   `{"action": "unfollow", ...}` stops it. The watched zones are followed by the scheduler too and their changes go to
   every client. Nothing is pushed for what was already there when a point is first followed.
-- **Few requests.** Only the feeds of the countries that are needed are asked (the country of a point is found
-  offline), each cached 180 s; a CAP document, which holds the issuer's words, is asked once and only for a warning
-  that an answer returns; the NWS needs no request of its own. See "Calls to the providers" below.
+- **Few requests.** Only the sources of the countries that are needed are asked (the country of a point is found
+  offline), each cached as long as its rhythm allows (MeteoAlarm 180 s, DWD 120 s and asked conditionally, ECCC and
+  MetService 300 s, Vigicrues 30 minutes); a CAP document, which holds the issuer's words, is asked once and only for a
+  warning that an answer returns; the NWS needs no request of its own. See "Calls to the providers" below.
 - The embedded frame of the displays does **not** change.
 
 ## Run
@@ -201,6 +236,8 @@ upstream, and counts the requests each source receives:
 | USGS volcanoes | 212 | 144 |
 | MeteoAlarm feeds (France and Iceland: the countries of two of the five zones) | n/a | 640 |
 | MeteoAlarm CAP documents | n/a | 0 |
+| Vigicrues flow (Paris is in France; 2.2 MB each; 138 while a section is orange, 46 on a calm day) | n/a | 138 |
+| DWD, ECCC, MetService (no zone in Germany, Canada or New Zealand) | n/a | 0 |
 
 "Before" is `main` at commit 1864e25 (same simulation, measured once); "after" is this code. The
 heaviest Open-Meteo hour weighs 2,305 before and 412 after (quota 5,000), the heaviest minute 497
@@ -214,6 +251,12 @@ fresh (a 180 s cache, asked again at the next 90 s cycle), and nothing for the N
 which the same simulated day confirms (705 calls with or without the warnings).
 `tests/test_vigilance_sobriety.py` plays 500 clients on 50 positions of four countries for 6 hours: 6,000 answers cost
 320 feed requests (80 per country) and 4 CAP documents.
+
+A zone, a followed point or a client in **Germany** costs the DWD 480 requests a day (479 of them `304`, a few
+hundred bytes) and no longer the German MeteoAlarm feed (320 a day); in **Canada** ECCC 240 (31 KB each with
+gzip); in **New Zealand** MetService 240 (239 `304`). However many people read the warnings, a source is asked at
+most once per cache lifetime (720, 288, 288 and 144 a day for DWD, ECCC, MetService and Vigicrues).
+`tests/test_national_sobriety.py` plays these days.
 
 ### Run on Windows (a PC that serves the display)
 
@@ -281,7 +324,7 @@ CI (`.github/workflows/`):
   job that builds the Docker image, runs it and asks `/v1/health` and `/v1/embedded/frame`.
 - `secret-scan.yml`: gitleaks over the whole git history, on every pull request and push to `main`.
 - `live-feeds.yml`: every Monday and on demand, never in a pull request, `tools/check_live_feeds.py` asks
-  each real provider once (MeteoAlarm and the NWS warnings included). A red run means a provider changed its
+  each real provider once (MeteoAlarm, the NWS warnings and the DWD, ECCC, MetService and Vigicrues included). A red run means a provider changed its
   format, removed an endpoint, or sent a level or phenomenon word the tables do not know.
 - `publish-image.yml`: pushes the Docker image to `ghcr.io/axellum/vigie-api` when a `v*` tag is pushed.
 
@@ -291,7 +334,7 @@ CI (`.github/workflows/`):
 | --- | --- |
 | Earthquakes | USGS, EMSC / SeismicPortal, GDACS |
 | Disasters | GDACS, NOAA NWS, USGS Volcano Hazards Program |
-| Official weather warnings | MeteoAlarm (EUMETNET, 39 European countries), NOAA NWS (United States) |
+| Official weather warnings | MeteoAlarm (EUMETNET, 39 European countries), Deutscher Wetterdienst (Germany), Environment and Climate Change Canada, MetService (New Zealand), NOAA NWS (United States), Vigicrues (river floods of France) |
 | Space weather | NOAA SWPC |
 | Weather | Open-Meteo (primary), MET Norway (fallback), RainViewer (radar) |
 | Marine, river discharge, air quality | Open-Meteo Marine, Flood (GloFAS), Air Quality (CAMS) |

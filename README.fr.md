@@ -8,7 +8,9 @@ tel quel, sans aucune promesse de support, de disponibilité ni d'exactitude.
 Il rassemble des dangers naturels dans le monde (séismes, tsunamis, volcans, cyclones, tornades,
 inondations, incendies, orages géomagnétiques), de la météo (conditions actuelles, pluie à 15 minutes,
 prévisions, mer, débit des rivières, qualité de l'air) et les vigilances officielles des services nationaux
-(MeteoAlarm en Europe, le National Weather Service aux États-Unis) à partir de sources publiques, puis les sert :
+(MeteoAlarm en Europe, le Deutscher Wetterdienst en Allemagne, Environnement et Changement climatique Canada,
+MetService en Nouvelle-Zélande, le National Weather Service aux États-Unis, et Vigicrues pour les cours d'eau de
+France) à partir de sources publiques, puis les sert :
 
 - aux écrans ESP32-P4 du projet Vigie (Waveshare 7B, M5Stack Tab5), par une trame texte compacte :
   [`docs/embedded-frame.md`](docs/embedded-frame.md) ;
@@ -42,6 +44,10 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
 - L'API gratuite de RainViewer est réservée à un usage personnel et pédagogique. Désactivez-la sur une
   instance qui relaie ses données à d'autres personnes (`VIGIE_ENABLE_RAINVIEWER=0` ; l'image Docker le
   fait).
+- MetService (Nouvelle-Zélande) publie ses vigilances sous licence CC BY 4.0 et avec un code de bonne pratique, mais les
+  conditions du site auxquelles il renvoie n'autorisent qu'un usage personnel et interdisent la rediffusion. Aucun
+  souci pour une maison ; demandez à MetService avant de relayer ses vigilances à d'autres personnes
+  ([`SOURCES.md`](SOURCES.md)).
 
 ## Points d'accès
 
@@ -52,7 +58,7 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
 | `GET /v1/point?lat=&lon=` | Météo en un point GPS, mer (`marine=true`), débit des rivières, qualité de l'air, météo spatiale, dangers proches. |
 | `GET /v1/geojson/hazards` | Dangers actifs en GeoJSON (RFC 7946). |
 | `GET /v1/cap/alerts` | Dangers actifs en OASIS CAP 1.2. |
-| `GET /v1/vigilances?lat=&lon=` ou `?country=FR` | Vigilances météo officielles qui couvrent un point, ou toutes celles d'un pays (MeteoAlarm, NWS), avec les mots de l'émetteur intacts. Voir plus bas. |
+| `GET /v1/vigilances?lat=&lon=` ou `?country=FR` | Vigilances météo officielles qui couvrent un point, ou toutes celles d'un pays (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues), avec les mots de l'émetteur intacts. Voir plus bas. |
 | `GET /v1/vigilances.geojson` | Les mêmes vigilances en GeoJSON, la forme de chaque zone en géométrie. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Zones surveillées (la liste de suivi). Une zone doit donner son `utc_offset_s`. |
 | `GET /v1/history` | Historique des dangers, stocké dans SQLite. |
@@ -70,14 +76,23 @@ cycles de collecte. Si vous devez l'exposer, placez devant elle un proxy inverse
 ## Vigilances météo officielles
 
 `GET /v1/vigilances` donne les vigilances que publient les services météo nationaux : **MeteoAlarm** (EUMETNET)
-pour 39 pays d'Europe et le **National Weather Service** pour les États-Unis. L'API les relaie, elle n'en
-émet aucune. Les mots de l'émetteur (titre, description et consigne, dans chaque langue qu'il a écrite)
-sont rendus tels quels.
+pour 39 pays d'Europe, le **Deutscher Wetterdienst** pour l'Allemagne, **Environnement et Changement climatique
+Canada**, **MetService** pour la Nouvelle-Zélande, le **National Weather Service** pour les États-Unis et
+**Vigicrues** pour les crues des cours d'eau de France. L'API les relaie, elle n'en émet aucune. Les mots de
+l'émetteur (titre, description et consigne, dans chaque langue qu'il a écrite) sont rendus tels quels.
+
+**Une seule source répond pour un pays.** Pour l'Allemagne, c'est le DWD (la copie des vigilances allemandes par
+MeteoAlarm n'est pas interrogée, sauf si le DWD ne répond pas) ; le Canada et la Nouvelle-Zélande ont leur propre
+service ; les autres pays d'Europe sont ceux de MeteoAlarm. La France en a deux, qui disent deux choses :
+MeteoAlarm une couleur par département, Vigicrues une couleur par **tronçon de cours d'eau**. Une vigilance
+« inondation » de MeteoAlarm qu'un tronçon Vigicrues de la même réponse dit au même niveau ou plus haut est écartée ;
+sinon elle reste ([`docs/data-sources.md`](docs/data-sources.md), en anglais).
 
 ```
 GET /v1/vigilances?lat=44.9334&lon=4.8924      les vigilances dont la zone contient ce point exact
 GET /v1/vigilances?country=FR&lang=fr          toutes les vigilances d'un pays, textes en français seulement
 GET /v1/vigilances.geojson?lat=..&lon=..       les mêmes en GeoJSON (la forme de chaque zone est la géométrie)
+GET /v1/vigilances?lat=..&lon=..&river_radius_km=10   jusqu'où un tronçon de cours d'eau compte encore (5 par défaut, 50 au plus)
 ```
 
 Réponse réelle pour un point de la Drôme, abrégée : les flux du 20/10/2026 rejoués par les tests (les mots de
@@ -85,7 +100,7 @@ l'émetteur sont ceux de Météo-France, les noms des champs restent en anglais)
 
 ```json
 {
-  "query": {"lat": 44.9334, "lon": 4.8924, "country": null},
+  "query": {"lat": 44.9334, "lon": 4.8924, "country": null, "river_radius_km": 5.0},
   "countries": ["FR"],
   "vigilances": [{
     "id": "meteoalarm:b77d3bc0-76a2-4886-8da8-bac8d99f57fc:6-0-1",
@@ -107,17 +122,39 @@ l'émetteur sont ceux de Météo-France, les noms des champs restent en anglais)
 }
 ```
 
+Un tronçon de cours d'eau est une **ligne** : la même route pour Nîmes (Gard), à 3,9 km du Vistre, que Vigicrues
+avait en orange ce jour-là (extrait ; le bulletin officiel du territoire disait la même chose). L'« inondation »
+du département, orange elle aussi chez MeteoAlarm, est écartée de cette réponse parce que le tronçon la dit, plus
+finement.
+
+```json
+{
+  "vigilances": [{
+    "id": "vigicrues:GA32", "source": "vigicrues", "country": "FR",
+    "attribution": "Source: Vigicrues, Service central d'hydrométéorologie et d'appui à la prévision des inondations (SCHAPI), https://www.vigicrues.gouv.fr. Licence Ouverte 2.0 | Last update of the flow: 2026-10-20T07:55:15+00:00",
+    "level": "ORANGE", "level_original": "3", "phenomenon": "flood",
+    "area": {"description": "Vistre", "geocodes": [{"scheme": "VIGICRUES_SECTION", "value": "GA32"}, ...], "has_polygon": false, "localization": "line"},
+    "distance_km": 3.93,
+    "web": "https://www.vigicrues.gouv.fr/bulletin_local/20#GA32",
+    "derived": ["level", "phenomenon"]
+  }],
+  "coverage": [{"source": "meteoalarm", "country": "FR", "status": "ok", ...}, {"source": "vigicrues", "country": "FR", "status": "ok", ...}]
+}
+```
+
 - **Les mots de la source et les champs de l'API sont distingués.** `level` (GREEN, YELLOW, ORANGE, RED),
   `phenomenon` (wind, rain, thunderstorm, snow-ice, heat, cold, flood, avalanche, coastal, fire, fog, other) et
   `status` (new, update, cancel) sont ceux de l'API et sont nommés dans `derived` ; les tables sont dans
   [`docs/data-sources.md`](docs/data-sources.md). Un mot qu'aucune table ne couvre donne `null`. `level_original`,
   `phenomenon_original`, `event` et `texts` sont ceux de la source.
 - **Affichez le crédit et l'avis.** Chaque vigilance a son `attribution`, et la réponse a le `disclaimer` que les
-  conditions de MeteoAlarm obligent un redistributeur à publier. Ce n'est pas un service d'alerte officiel.
+  conditions de MeteoAlarm obligent un redistributeur à publier. Ce n'est pas un service d'alerte officiel. Seules les
+  sources qui ont répondu sont créditées.
 - **Une vigilance qui ne peut pas être rattachée à un point le dit.** Un point est rattaché par le polygone de la
-  vigilance, ou par la forme du code de sa zone. Les vigilances de la France, de la Belgique et des pays qui
-  envoient des polygones (par exemple la Suisse et la Norvège) sont rattachées. Celles qui ne nomment leur zone que
-  par des codes MeteoAlarm `EMMA_ID` (Allemagne, Italie, Espagne, Autriche, Pologne...) sont listées par `country=`
+  vigilance, par la forme du code de sa zone ou, pour un tronçon de cours d'eau, par sa distance à la ligne
+  (`river_radius_km` ; `distance_km` dans la réponse). Les vigilances de la France, de la Belgique, de l'Allemagne, du
+  Canada et des pays qui envoient des polygones (par exemple la Suisse et la Norvège) sont rattachées. Celles qui ne
+  nomment leur zone que par des codes MeteoAlarm `EMMA_ID` (Italie, Espagne, Autriche, Pologne...) sont listées par `country=`
   mais **ne sont pas rattachées à un point** : les formes de ces codes n'ont pas de licence connue et ne sont pas
   incluses ([`SOURCES.md`](SOURCES.md), en anglais). Pour un point, `coverage[].warnings_not_matchable` les compte, de sorte
   qu'une liste vide ne se lit pas comme « rien à craindre ». C'est pareil pour les alertes NWS qui nomment des zones
@@ -129,10 +166,11 @@ l'émetteur sont ceux de Météo-France, les noms des champs restent en anglais)
   ou `ended` (terminée). `{"action": "unfollow", ...}` l'arrête. Les zones surveillées sont suivies elles aussi par le
   planificateur et leurs changements vont à tous les clients. Rien n'est envoyé pour ce qui existait déjà quand un
   point est suivi pour la première fois.
-- **Peu de requêtes.** Seuls les flux des pays nécessaires sont interrogés (le pays d'un point se trouve hors ligne),
-  chacun gardé 180 s ; un document CAP, qui contient les mots de l'émetteur, n'est demandé qu'une fois et seulement
-  pour une vigilance qu'une réponse renvoie ; le NWS n'a besoin d'aucune requête propre. Voir « Appels aux sources »
-  plus bas.
+- **Peu de requêtes.** Seules les sources des pays nécessaires sont interrogées (le pays d'un point se trouve hors
+  ligne), chacune gardée aussi longtemps que son rythme le permet (MeteoAlarm 180 s, DWD 120 s avec une requête
+  conditionnelle, ECCC et MetService 300 s, Vigicrues 30 minutes) ; un document CAP, qui contient les mots de
+  l'émetteur, n'est demandé qu'une fois et seulement pour une vigilance qu'une réponse renvoie ; le NWS n'a besoin
+  d'aucune requête propre. Voir « Appels aux sources » plus bas.
 - La trame embarquée des écrans **ne change pas**.
 
 ## Lancer
@@ -211,6 +249,8 @@ que reçoit chaque source :
 | Volcans USGS | 212 | 144 |
 | Flux MeteoAlarm (France et Islande : les pays de deux des cinq zones) | sans objet | 640 |
 | Documents CAP de MeteoAlarm | sans objet | 0 |
+| Flux Vigicrues (Paris est en France ; 2,2 Mo chacun ; 138 tant qu'un tronçon est en orange, 46 un jour calme) | sans objet | 138 |
+| DWD, ECCC, MetService (aucune zone en Allemagne, au Canada ni en Nouvelle-Zélande) | sans objet | 0 |
 
 « Avant » est `main` au commit 1864e25 (même simulation, mesurée une fois) ; « après » est ce code. L'heure
 la plus chargée d'Open-Meteo pèse 2 305 avant et 412 après (quota de 5 000), la minute la plus chargée 497 et
@@ -224,6 +264,12 @@ planificateur le garde à jour (un cache de 180 s, redemandé au cycle de 90 s s
 réponse est celle des dangers, ce que confirme la même journée simulée (705 appels avec ou sans les vigilances).
 `tests/test_vigilance_sobriety.py` joue 500 clients sur 50 positions de quatre pays pendant 6 heures : 6 000
 réponses coûtent 320 requêtes de flux (80 par pays) et 4 documents CAP.
+
+Une zone, un point suivi ou un client en **Allemagne** coûte 480 requêtes par jour au DWD (479 d'entre elles en
+`304`, quelques centaines d'octets) et plus le flux MeteoAlarm allemand (320 par jour) ; au **Canada**, 240 à ECCC
+(31 Ko chacune avec gzip) ; en **Nouvelle-Zélande**, 240 à MetService (239 en `304`). Quel que soit le nombre de
+lecteurs des vigilances, une source n'est interrogée qu'une fois par durée de cache au plus (720, 288, 288 et 144
+par jour pour le DWD, ECCC, MetService et Vigicrues). `tests/test_national_sobriety.py` joue ces journées.
 
 ### Lancer sous Windows (un PC qui alimente l'écran)
 
@@ -292,7 +338,8 @@ CI (`.github/workflows/`) :
   tâche qui construit l'image Docker, la lance et interroge `/v1/health` et `/v1/embedded/frame`.
 - `secret-scan.yml` : gitleaks sur tout l'historique git, à chaque pull request et envoi sur `main`.
 - `live-feeds.yml` : chaque lundi et à la demande, jamais dans une pull request, `tools/check_live_feeds.py`
-  interroge chaque vraie source une fois (MeteoAlarm et les vigilances du NWS compris). Une exécution rouge
+  interroge chaque vraie source une fois (MeteoAlarm, les vigilances du NWS, le DWD, ECCC, MetService et Vigicrues
+compris). Une exécution rouge
   veut dire qu'une source a changé de format, retiré un point d'accès, ou envoyé un mot de niveau ou de
   phénomène que les tables ne connaissent pas.
 - `publish-image.yml` : pousse l'image Docker vers `ghcr.io/axellum/vigie-api` quand une étiquette `v*` est
@@ -304,7 +351,7 @@ CI (`.github/workflows/`) :
 | --- | --- |
 | Séismes | USGS, EMSC / SeismicPortal, GDACS |
 | Catastrophes | GDACS, NOAA NWS, USGS Volcano Hazards Program |
-| Vigilances météo officielles | MeteoAlarm (EUMETNET, 39 pays d'Europe), NOAA NWS (États-Unis) |
+| Vigilances météo officielles | MeteoAlarm (EUMETNET, 39 pays d'Europe), Deutscher Wetterdienst (Allemagne), Environnement et Changement climatique Canada, MetService (Nouvelle-Zélande), NOAA NWS (États-Unis), Vigicrues (crues des cours d'eau de France) |
 | Météo spatiale | NOAA SWPC |
 | Météo | Open-Meteo (principale), MET Norway (secours), RainViewer (radar) |
 | Mer, débit des rivières, qualité de l'air | Open-Meteo Marine, Flood (GloFAS), Air Quality (CAMS) |

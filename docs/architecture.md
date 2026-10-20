@@ -35,6 +35,7 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | `app/collectors/seismic.py` | USGS and EMSC earthquakes. |
 | `app/collectors/disasters.py` | GDACS and NOAA NWS alerts (the NWS answer is also read as official warnings). |
 | `app/collectors/meteoalarm.py` | MeteoAlarm: the Atom feed of a country and the CAP documents it links to; the level, phenomenon and status tables. |
+| `app/collectors/dwd.py`, `eccc.py`, `metservice.py`, `vigicrues.py` | The national warning services: the DWD (a ZIP of CAP documents, read conditionally), ECCC (MSC GeoMet), MetService (an RSS feed and its CAP documents) and Vigicrues (the GeoJSON flow of river sections); each with its level, phenomenon and status tables. |
 | `app/collectors/flood_air.py` | River discharge (GloFAS), air quality and dust, USGS volcanoes. |
 | `app/collectors/weather.py` | Open-Meteo (primary), MET Norway (fallback), RainViewer (radar). |
 | `app/collectors/marine.py`, `space_weather.py` | Open-Meteo Marine, NOAA SWPC Kp index. |
@@ -56,19 +57,24 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 ## Official warnings (vigilances)
 
 `GET /v1/vigilances` gives the warnings that the national weather services publish (MeteoAlarm for 39 European
-countries, the NWS for the United States), for a position (`lat`, `lon`) or a country (`country`), as JSON or
-GeoJSON. The embedded frame is **not changed**: the warnings have their own routes and the frame contract stays
+countries, the DWD for Germany, Environment and Climate Change Canada, MetService for New Zealand, the NWS for the
+United States, and Vigicrues for the river floods of France), for a position (`lat`, `lon`) or a country (`country`), as
+JSON or GeoJSON. The embedded frame is **not changed**: the warnings have their own routes and the frame contract stays
 [`embedded-frame.md`](embedded-frame.md).
 
 ```
- position ──> country (offline, bundled borders) ──> MeteoAlarm feed of the country (180 s cache) ─┐
-                                                 └─> NWS answer of the hazards (shared)           ├─> warnings in force
- country= ───────────────────────────────────────────────────────────────────────────────────────┘        │
-                                                                                                          v
-                  keep those whose polygon, or whose code's shape, contains the position ──> CAP documents (once each)
+ position ──> country (offline, bundled borders) ──> the source of the country: DWD (DE) / ECCC (CA) / MetService (NZ)
+                                                     or the MeteoAlarm feed of the country (180 s cache) ───────┐
+                                                 ├─> France only: Vigicrues, the river sections (a line each)   │
+                                                 └─> NWS answer of the hazards (shared)                         ├─> warnings in force
+ country= ──────────────────────────────────────────────────────────────────────────────────────────────────────┘        │
+                                                                                                                         v
+        keep those whose polygon, whose code's shape, or whose river line (within river_radius_km) holds the position
+                              ──> drop the MeteoAlarm "flooding" a Vigicrues section says ──> CAP documents (once each)
 ```
 
-The decision and its reasons: [ADR 0002](decisions/0002-official-warnings-kept-intact-and-localized-offline.md).
+The decisions and their reasons: [ADR 0002](decisions/0002-official-warnings-kept-intact-and-localized-offline.md),
+[ADR 0003](decisions/0003-national-source-preferred-rivers-are-lines.md) (one source per country, a river is a line).
 Rules that hold the whole model:
 
 - **The official words stay intact.** The identifier, the times, the original level and phenomenon, the
@@ -78,16 +84,22 @@ Rules that hold the whole model:
   ([`data-sources.md`](data-sources.md)); what no table covers is `null`.
 - **Every warning carries its credit**, and the answer carries the notice that MeteoAlarm obliges
   redistributors to publish (`disclaimer`).
-- **What cannot be matched is said, not hidden.** A warning is matched to a position by its own polygon (exact)
-  or by the shape of one of its codes (simplified: a position within about 2 km of the edge of a shape counts as
-  inside it, except when it lies inside another shape of the same code system). A code with no shape on this
+- **What cannot be matched is said, not hidden.** A warning is matched to a position by its own polygon (exact),
+  by the shape of one of its codes (simplified: a position within about 2 km of the edge of a shape counts as
+  inside it, except when it lies inside another shape of the same code system), or, for a river section, by the
+  distance to its line (`river_radius_km`, 5 km by default; the distance comes back as `distance_km`). A code with no shape on this
   instance cannot be matched: `area.localization` is `none`, and `coverage` counts those warnings
   (`warnings_not_matchable`) instead of letting an empty list read as "nothing to fear". Which codes have a
   shape, and why the others do not, is in [`SOURCES.md`](../SOURCES.md).
 - **A provider that does not answer is reported** (`coverage[].status`: `stale` with the age of the last answer,
-  or `unavailable`), never an all-clear.
-- **Sober on the providers.** One feed per needed country, a CAP document once and only for a warning that is
-  returned, no request of its own for the NWS ([`data-sources.md`](data-sources.md) has the measured figures).
+  or `unavailable`), never an all-clear, and it is not credited.
+- **One source per country.** The national source answers for its country and MeteoAlarm's copy of it is not asked
+  for (Germany); MeteoAlarm stands in only if the national service gives no answer. France has two sources, which
+  say two things (the départements, the rivers); a MeteoAlarm "flooding" warning that a river section of the answer
+  says at the same level or higher is left out ([`data-sources.md`](data-sources.md)).
+- **Sober on the providers.** One request per needed source, conditional where the source supports it (DWD,
+  MetService), a CAP document once and only for a warning that is returned, no request of its own for the NWS
+  ([`data-sources.md`](data-sources.md) has the measured figures).
 
 ### Push on `/v1/stream`
 
@@ -97,7 +109,9 @@ changes are pushed as `vigilance_push` messages with `change` = `appeared` (a wa
 not there), `upgraded` (its level went up: `previous_level` says from what) or `ended` (it expired, was
 cancelled or is no longer listed). The watched zones are followed by the scheduler too and their changes go to
 every client (`point.zone_id`, `point.zone_name`). The first look at a position only sets the baseline: nothing
-is pushed for what was already there; a source that does not answer never ends a warning. A position is
+is pushed for what was already there; a source that does not answer never ends a warning, and does not silence the
+other sources of the position (what it had said stands; if it answers for the first time after the baseline, that
+first answer is its own baseline). A position is
 rounded to 4 decimals (about 11 m), a connection follows 10 at most, and the positions live in memory with the
 connection.
 
@@ -198,7 +212,7 @@ Tables: `monitored_zones` (the watchlist, seeded with five cities), `hazards_his
   the API. The rest of the API is not authenticated either (`POST /v1/zones`, `POST /v1/scheduler/trigger`):
   do not expose it to the Internet without a reverse proxy that does.
 - **Official warnings, what is not matched.** Warnings that name their area with MeteoAlarm `EMMA_ID` codes only
-  (Germany, Italy, Spain, Austria, Poland...) are listed by `country=` but cannot be matched to a position: their
+  (Italy, Spain, Austria, Poland... Germany since the DWD answers for it) are listed by `country=` but cannot be matched to a position: their
   shapes have no stated licence and are not bundled ([`SOURCES.md`](../SOURCES.md)). NWS alerts that name UGC zones
   instead of a polygon are in the same case. A change of a warning that is not matched to any followed position is
   not pushed.

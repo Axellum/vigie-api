@@ -11,7 +11,8 @@ shape of that code. This script builds the files it reads; nothing is read at ru
 What the default build writes, and the licence of every input (checked on 2026-10-20, see ``SOURCES.md``):
 
 - ``app/data/countries.geojson.gz``: the borders of the countries the API has a warning source for
-  (the MeteoAlarm countries and the United States), to find the country of a point without a network call.
+  (the MeteoAlarm countries, the United States, Canada and New Zealand), to find the country of a point without a
+  network call.
   Input: Natural Earth ``ne_10m_admin_0_countries``, **public domain**
   (https://www.naturalearthdata.com/about/terms-of-use/). Simplified with a tolerance of 0.01 degree
   (about 1 km), coordinates rounded to 3 decimals.
@@ -67,10 +68,12 @@ NUTS_TOLERANCE_DEG = 0.005
 EMMA_TOLERANCE_DEG = 0.005
 DECIMALS = 3
 
-# The countries the API has a source of warnings for: the 39 MeteoAlarm feeds and the NWS (United States).
+# The countries the API has a source of warnings for: the 39 MeteoAlarm feeds, the NWS (United States), Environment and
+# Climate Change Canada and MetService (New Zealand). Germany has the DWD as well as MeteoAlarm.
 COUNTRIES = (
     "AD AT BA BE BG HR CY CZ DK EE FI FR DE GR HU IS IE IL IT LV LT LU MT MD ME NL MK NO PL PT RO RS SK SI ES SE CH UA GB"
     " US"
+    " CA NZ"
 ).split()
 
 # Where a country's warnings apply, when it is only part of the country Natural Earth draws: France is drawn with

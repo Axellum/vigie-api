@@ -7,6 +7,7 @@ a good answer passes, a valid empty answer is not a failure, and an answer the p
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,9 @@ import httpx
 import pytest
 
 from tests import samples
+from tests import vigilance_samples as national
+from tests.test_dwd import archive, cap_document
+from tests.test_metservice import BASE, synthetic_cap, synthetic_feed
 from tools import check_live_feeds as tool
 
 GOOD_USGS = {
@@ -69,6 +73,17 @@ METNO_HEADERS = {
 }
 
 
+def full_vigicrues_flow() -> bytes:
+    """The recorded subset (31 sections) repeated up to the size of the real flow (341 sections), under other codes."""
+    payload = json.loads(national.national_fixture("vigicrues", "InfoVigiCru_subset.geojson"))
+    features = payload["features"]
+    copies = [json.loads(json.dumps(f)) for _ in range(10) for f in features]
+    for index, feature in enumerate(copies):
+        feature["properties"]["CdEntCru"] = f"{feature['properties']['CdEntCru']}-{index}"
+    payload["features"] = features + copies
+    return json.dumps(payload).encode()
+
+
 def meteoalarm_answer(request: httpx.Request) -> httpx.Response:
     """The recorded Atom feed of France, and its recorded CAP document for any document asked."""
     if request.url.path.startswith("/api/v1/warnings/"):
@@ -93,6 +108,10 @@ def good_answers() -> dict[str, Callable[[httpx.Request], httpx.Response]]:
         "api.met.no": lambda r: httpx.Response(200, json=samples.metno_payload(), headers=METNO_HEADERS),
         "api.rainviewer.com": lambda r: httpx.Response(200, json=GOOD_RADAR),
         "feeds.meteoalarm.org": meteoalarm_answer,
+        "opendata.dwd.de": lambda r: httpx.Response(200, content=national.national_fixture("dwd", "status_district_mul.zip")),
+        "api.weather.gc.ca": lambda r: httpx.Response(200, content=national.national_fixture("eccc", "weather_alerts_items.json")),
+        "alerts.metservice.com": lambda r: httpx.Response(200, content=national.national_fixture("metservice", "rss_empty.xml")),
+        "www.vigicrues.gouv.fr": lambda r: httpx.Response(200, content=full_vigicrues_flow()),
     }
 
 
@@ -116,7 +135,9 @@ def test_there_is_a_check_for_each_collector() -> None:
 @pytest.mark.asyncio
 async def test_every_source_passes_when_nothing_changed() -> None:
     results = await run()
-    assert {r.outcome for r in results.values()} == {"ok"}, {k: v for k, v in results.items() if v.outcome != "ok"}
+    # MetService's feed was empty the day it was recorded: a valid answer, not yet a proof that its items are read.
+    assert {k for k, v in results.items() if v.outcome != "ok"} == {"metservice_cap"}
+    assert results["metservice_cap"].outcome == "empty"
     assert tool.exit_code(list(results.values())) == 0
 
 
@@ -157,6 +178,10 @@ async def test_a_changed_format_is_a_failure_for_each_kind_of_source() -> None:
             "air-quality-api.open-meteo.com": lambda r: httpx.Response(200, json={"current": {}}),
             "api.rainviewer.com": lambda r: httpx.Response(200, json={"host": "h", "radar": {"nowcast": [{"time": 1, "path": "/p"}]}}),
             "feeds.meteoalarm.org": lambda r: httpx.Response(200, text="<html><body>maintenance</body></html>"),
+            "opendata.dwd.de": lambda r: httpx.Response(200, text="<html><body>maintenance</body></html>"),
+            "api.weather.gc.ca": lambda r: httpx.Response(200, json={"error": "maintenance"}),
+            "alerts.metservice.com": lambda r: httpx.Response(200, text="<html><body>maintenance</body></html>"),
+            "www.vigicrues.gouv.fr": lambda r: httpx.Response(200, json={"error": "maintenance"}),
         }
     )
     failed = {name for name, r in results.items() if r.outcome == "FAIL"}
@@ -172,6 +197,10 @@ async def test_a_changed_format_is_a_failure_for_each_kind_of_source() -> None:
         "rainviewer_radar",
         "meteoalarm_atom",
         "meteoalarm_cap",
+        "dwd_cap",
+        "eccc_alerts",
+        "metservice_cap",
+        "vigicrues_flow",
     }
 
 
@@ -275,3 +304,122 @@ async def test_the_french_feed_is_asked_once_for_both_meteoalarm_checks() -> Non
     await run({"feeds.meteoalarm.org": answer}, only=["meteoalarm_atom", "meteoalarm_cap"])
     assert len([p for p in paths if p.startswith("/feeds/")]) == 1
     assert len([p for p in paths if p.startswith("/api/v1/warnings/")]) == 1
+
+
+# ---------------------------------------------------------------- the national services
+
+
+@pytest.mark.asyncio
+async def test_the_national_checks_describe_what_they_read() -> None:
+    results = await run(only=["dwd_cap", "eccc_alerts", "vigicrues_flow"])
+    assert results["dwd_cap"].detail == "7 areas of 4 documents read, all with a polygon"
+    assert results["eccc_alerts"].detail == "36 of 36 alerts read, all with a polygon"
+    assert results["vigicrues_flow"].detail == "209 of 341 sections above green (187 yellow, 22 orange)"
+
+
+def national_run(host: str, answer: Callable[[httpx.Request], httpx.Response], source: str) -> Any:
+    return run({host: answer}, only=[source])
+
+
+@pytest.mark.asyncio
+async def test_dwd_a_quiet_status_is_empty_and_an_unknown_word_is_a_failure() -> None:
+    empty = national.national_fixture("dwd", "difference_district_mul.zip")
+    quiet = await national_run("opendata.dwd.de", lambda r: httpx.Response(200, content=empty), "dwd_cap")
+    assert quiet["dwd_cap"].outcome == "empty"
+
+    for content, word in ((archive(cap_document(severity="Catastrophic")), "Catastrophic"), (archive(cap_document(ii="777")), "777")):
+        results = await national_run("opendata.dwd.de", lambda r, c=content: httpx.Response(200, content=c), "dwd_cap")
+        assert results["dwd_cap"].outcome == "FAIL" and word in results["dwd_cap"].detail
+
+
+@pytest.mark.asyncio
+async def test_dwd_an_area_without_a_polygon_is_a_failure() -> None:
+    content = archive(cap_document(areas=[{"name": "Ohne Form", "cell": "811000005", "polygons": []}]))
+    results = await national_run("opendata.dwd.de", lambda r: httpx.Response(200, content=content), "dwd_cap")
+    assert results["dwd_cap"].outcome == "FAIL" and "without a polygon" in results["dwd_cap"].detail
+
+
+@pytest.mark.asyncio
+async def test_dwd_a_busy_server_is_only_reported() -> None:
+    results = await national_run("opendata.dwd.de", lambda r: httpx.Response(503), "dwd_cap")
+    assert results["dwd_cap"].outcome == "unreachable"
+
+
+@pytest.mark.asyncio
+async def test_eccc_no_alert_is_empty_and_an_unknown_colour_or_status_is_a_failure() -> None:
+    quiet = await national_run("api.weather.gc.ca", lambda r: httpx.Response(200, json={"features": []}), "eccc_alerts")
+    assert quiet["eccc_alerts"].outcome == "empty"
+
+    def changed(**properties: str) -> Callable[[httpx.Request], httpx.Response]:
+        payload = json.loads(national.national_fixture("eccc", "weather_alerts_items.json"))
+        payload["features"][0]["properties"].update(properties)
+        return lambda r: httpx.Response(200, json=payload)
+
+    violet = await national_run("api.weather.gc.ca", changed(risk_colour_en="violet"), "eccc_alerts")
+    assert violet["eccc_alerts"].outcome == "FAIL" and "violet" in violet["eccc_alerts"].detail
+    upgraded = await national_run("api.weather.gc.ca", changed(status_en="upgraded"), "eccc_alerts")
+    assert upgraded["eccc_alerts"].outcome == "FAIL" and "upgraded" in upgraded["eccc_alerts"].detail
+    statement = await national_run("api.weather.gc.ca", changed(alert_type="statement", risk_colour_en="grey"), "eccc_alerts")
+    assert statement["eccc_alerts"].outcome == "ok"  # a statement has none of the three colours: not a failure
+
+    # REAL: GeoMet keeps listing an alert for a while after it ended, with status_en "ended" (seen live on 2026-10-20). Not a failure.
+    payload = json.loads(national.national_fixture("eccc", "weather_alerts_items.json"))
+    payload["features"].append(json.loads(national.national_fixture("eccc", "ended_item.json")))
+    ended = await national_run("api.weather.gc.ca", lambda r: httpx.Response(200, json=payload), "eccc_alerts")
+    assert ended["eccc_alerts"].outcome == "ok" and ended["eccc_alerts"].detail == "36 of 37 alerts read, all with a polygon"
+
+
+@pytest.mark.asyncio
+async def test_eccc_a_removed_endpoint_is_a_failure() -> None:
+    results = await national_run("api.weather.gc.ca", lambda r: httpx.Response(404), "eccc_alerts")
+    assert results["eccc_alerts"].outcome == "FAIL" and "HTTP 404" in results["eccc_alerts"].detail
+
+
+@pytest.mark.asyncio
+async def test_metservice_a_readable_item_is_ok_and_an_unreadable_one_fails() -> None:
+    """The item and the document are SYNTHETIC (tests/test_metservice.py): MetService had no warning the day it was recorded."""
+    address = BASE + "wellington.cap"
+
+    def serve(feed: bytes, documents: dict[str, bytes]) -> Callable[[httpx.Request], httpx.Response]:
+        def answer(request: httpx.Request) -> httpx.Response:
+            content = feed if str(request.url).endswith("/cap/rss") else documents.get(str(request.url))
+            return httpx.Response(404) if content is None else httpx.Response(200, content=content)
+
+        return answer
+
+    ok = await national_run("alerts.metservice.com", serve(synthetic_feed(address), {address: synthetic_cap("w")}), "metservice_cap")
+    assert ok["metservice_cap"].outcome == "ok" and "1 warnings from 1 items" in ok["metservice_cap"].detail
+    broken = await national_run("alerts.metservice.com", serve(synthetic_feed(address), {address: b"<html/>"}), "metservice_cap")
+    assert broken["metservice_cap"].outcome == "FAIL" and "1 of 1 items" in broken["metservice_cap"].detail
+    levelless = synthetic_cap("w", headline="Heavy Rain Warning", colour=None)  # neither a ColourCode nor a colour word
+    unknown = await national_run("alerts.metservice.com", serve(synthetic_feed(address), {address: levelless}), "metservice_cap")
+    assert unknown["metservice_cap"].outcome == "FAIL" and "derive_level" in unknown["metservice_cap"].detail
+    # What the guide says is always there: the ColourCode (here missing, the headline still gives a level), a listed event word, a polygon.
+    for document, expected in (
+        (synthetic_cap("w", colour=None), "no ColourCode"),
+        (synthetic_cap("w", event="Heavy Rain Warning"), "event words the guide does not list"),
+        (synthetic_cap("w", polygon=None), "1 warnings without a polygon"),
+    ):
+        outcome = await national_run("alerts.metservice.com", serve(synthetic_feed(address), {address: document}), "metservice_cap")
+        assert outcome["metservice_cap"].outcome == "FAIL" and expected in outcome["metservice_cap"].detail
+
+
+@pytest.mark.asyncio
+async def test_vigicrues_a_calm_day_is_empty_a_short_flow_or_an_unreadable_section_is_a_failure() -> None:
+    calm = json.loads(full_vigicrues_flow())
+    for feature in calm["features"]:
+        feature["properties"]["NivInfViCr"] = 1
+    quiet = await national_run("www.vigicrues.gouv.fr", lambda r: httpx.Response(200, json=calm), "vigicrues_flow")
+    assert quiet["vigicrues_flow"].outcome == "empty" and "all 341 sections are green" in quiet["vigicrues_flow"].detail
+
+    short = await national_run(
+        "www.vigicrues.gouv.fr",
+        lambda r: httpx.Response(200, content=national.national_fixture("vigicrues", "InfoVigiCru_subset.geojson")),
+        "vigicrues_flow",
+    )
+    assert short["vigicrues_flow"].outcome == "FAIL" and "only 31 sections" in short["vigicrues_flow"].detail
+
+    broken = json.loads(full_vigicrues_flow())
+    broken["features"][0]["geometry"] = None
+    unreadable = await national_run("www.vigicrues.gouv.fr", lambda r: httpx.Response(200, json=broken), "vigicrues_flow")
+    assert unreadable["vigicrues_flow"].outcome == "FAIL" and "could not be read" in unreadable["vigicrues_flow"].detail

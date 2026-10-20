@@ -14,6 +14,8 @@ import httpx
 from app import clock as app_clock
 from app.collectors.base import CacheEntry
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector
+from app.collectors.dwd import DWDCollector
+from app.collectors.eccc import ECCCCollector
 from app.collectors.flood_air import (
     OpenMeteoAirQualityCollector,
     OpenMeteoFloodCollector,
@@ -21,8 +23,10 @@ from app.collectors.flood_air import (
 )
 from app.collectors.marine import OpenMeteoMarineCollector
 from app.collectors.meteoalarm import MeteoAlarmCapCollector, MeteoAlarmCollector
+from app.collectors.metservice import MetServiceCollector
 from app.collectors.seismic import EMSCCollector, USGSCollector
 from app.collectors.space_weather import NOAASWPCCollector
+from app.collectors.vigicrues import VigicruesCollector
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector, RainViewerCollector
 from app.services.aggregator import AggregatorService
 from app.services.storage_wal import SQLiteWALStorage
@@ -149,6 +153,10 @@ def make_service(db_path: Path, **collectors: Any) -> AggregatorService:
         "swpc": NOAASWPCCollector(http_client=down),
         "meteoalarm": MeteoAlarmCollector(http_client=down),
         "meteoalarm_cap": MeteoAlarmCapCollector(http_client=down),
+        "dwd": DWDCollector(http_client=down),
+        "eccc": ECCCCollector(http_client=down),
+        "metservice": MetServiceCollector(http_client=down),
+        "vigicrues": VigicruesCollector(http_client=down),
     }
     defaults.update(collectors)
     return AggregatorService(storage=SQLiteWALStorage(db_path=db_path), **defaults)

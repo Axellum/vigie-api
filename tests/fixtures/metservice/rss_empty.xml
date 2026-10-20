@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0">
+  <channel>
+    <title>Metservice Public CAP Alerts</title>
+    <link>https://www.metservice.com</link>
+    <description>Current Watches, Warnings and Advisories for New Zealand issued by MetService</description>
+    <copyright>Copyright Meteorological Service of New Zealand Limited, 2026. Licensed under Creative Commons BY 4.0.</copyright>
+    <pubDate>Wed, 21 Oct 2026 00:55:28 +1300</pubDate>
+  </channel>
+</rss>

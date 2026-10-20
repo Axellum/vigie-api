@@ -25,6 +25,8 @@ from typing import Any, Awaitable, Callable, Optional
 import httpx
 
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector
+from app.collectors.dwd import DWDCollector
+from app.collectors.eccc import ECCCCollector
 from app.collectors.flood_air import (
     OpenMeteoAirQualityCollector,
     OpenMeteoFloodCollector,
@@ -32,8 +34,10 @@ from app.collectors.flood_air import (
 )
 from app.collectors.marine import OpenMeteoMarineCollector
 from app.collectors.meteoalarm import MeteoAlarmCapCollector, MeteoAlarmCollector
+from app.collectors.metservice import MetServiceCollector
 from app.collectors.seismic import EMSCCollector, USGSCollector
 from app.collectors.space_weather import NOAASWPCCollector
+from app.collectors.vigicrues import VigicruesCollector
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector, RainViewerCollector
 from app.models.schemas import DeviceType, MonitoredZoneConfig
 from app.services.aggregator import AggregatorService
@@ -59,10 +63,22 @@ HOST_TO_SOURCE: dict[str, str] = {
     "api.weather.gov": "noaa_nws",
     "volcanoes.usgs.gov": "usgs_volcano_gvp",
     "services.swpc.noaa.gov": "noaa_swpc",
+    "opendata.dwd.de": "dwd_cap",
+    "api.weather.gc.ca": "eccc_alerts",
+    "alerts.metservice.com": "metservice_cap",
+    "www.vigicrues.gouv.fr": "vigicrues_flow",
     # feeds.meteoalarm.org serves the Atom feeds and the CAP documents: see ``source_of``.
 }
 
-METEOALARM_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "meteoalarm"
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
+METEOALARM_FIXTURES = FIXTURES / "meteoalarm"
+
+# The answers of the national services, recorded on 2026-10-20 (see the README of each folder). The simulated DWD and
+# MetService send the validators they sent then, and answer 304 to the request that repeats them; ECCC and Vigicrues
+# send none, as the real ones.
+DWD_ETAG = '"6ad75578-4005"'
+DWD_LAST_MODIFIED = "Tue, 20 Oct 2026 11:50:16 GMT"
+METSERVICE_LAST_MODIFIED = "Tue, 20 Oct 2026 11:55:21 GMT"
 
 OPEN_METEO_SOURCES = ("open_meteo_hd", "open_meteo_aqi", "open_meteo_flood", "open_meteo_marine")
 
@@ -106,6 +122,9 @@ class Upstream:
         self.per_minute: Counter[int] = Counter()  # Open-Meteo weight per minute
         self.requests: list[tuple[str, str]] = []  # (source, url) when ``record_urls`` is set
         self.record_urls = False
+        # What the national services answer, when a test wants something other than the recordings of 2026-10-20.
+        self.bodies: dict[str, bytes] = {}
+        self.not_modified: Counter[str] = Counter()  # requests answered 304 (they are in ``calls`` too)
 
     def client(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(transport=httpx.MockTransport(self._handler))
@@ -134,6 +153,30 @@ class Upstream:
             return httpx.Response(200, content=(METEOALARM_FIXTURES / f"atom_{name}.xml").read_bytes())
         if source == "meteoalarm_cap":
             return httpx.Response(200, content=(METEOALARM_FIXTURES / "cap_france_b77d3bc0.xml").read_bytes())
+        if source == "dwd_cap":
+            if request.headers.get("If-None-Match") == DWD_ETAG:
+                self.not_modified[source] += 1
+                return httpx.Response(304)
+            return httpx.Response(
+                200,
+                content=self.bodies.get(source) or (FIXTURES / "dwd" / "status_district_mul.zip").read_bytes(),
+                headers={"ETag": DWD_ETAG, "Last-Modified": DWD_LAST_MODIFIED},
+            )
+        if source == "eccc_alerts":
+            return httpx.Response(200, content=self.bodies.get(source) or (FIXTURES / "eccc" / "weather_alerts_items.json").read_bytes())
+        if source == "metservice_cap":
+            if request.headers.get("If-Modified-Since") == METSERVICE_LAST_MODIFIED:
+                self.not_modified[source] += 1
+                return httpx.Response(304)
+            return httpx.Response(
+                200,
+                content=self.bodies.get(source) or (FIXTURES / "metservice" / "rss_empty.xml").read_bytes(),
+                headers={"Last-Modified": METSERVICE_LAST_MODIFIED},
+            )
+        if source == "vigicrues_flow":
+            return httpx.Response(
+                200, content=self.bodies.get(source) or (FIXTURES / "vigicrues" / "InfoVigiCru_subset.geojson").read_bytes()
+            )
         return httpx.Response(200, json=self._payload(source, params))
 
     def _payload(self, source: str, params: dict[str, str]) -> Any:
@@ -186,8 +229,8 @@ class Upstream:
 class FakeStorage:
     """In-memory stand-in for ``SQLiteWALStorage``: the simulation is about provider calls, not disk writes."""
 
-    def __init__(self) -> None:
-        self._zones = [MonitoredZoneConfig(**zone) for zone in DEFAULT_WATCHLIST_SEED]
+    def __init__(self, zones: Optional[list[dict[str, Any]]] = None) -> None:
+        self._zones = [MonitoredZoneConfig(**zone) for zone in (zones or DEFAULT_WATCHLIST_SEED)]
 
     def list_zones(self) -> list[MonitoredZoneConfig]:
         return list(self._zones)
@@ -286,7 +329,7 @@ class DayResult:
 class Simulation:
     """Plays one simulated day: clients and the scheduler of the application against the simulated upstream."""
 
-    def __init__(self, clock: SimClock, scenario: Optional[Scenario] = None) -> None:
+    def __init__(self, clock: SimClock, scenario: Optional[Scenario] = None, zones: Optional[list[dict[str, Any]]] = None) -> None:
         # ``clock`` must be installed as the time source of the collectors (the ``sim_clock`` fixture).
         self.clock = clock
         self.scenario = scenario or Scenario()
@@ -308,7 +351,11 @@ class Simulation:
             swpc=NOAASWPCCollector(http_client=http),
             meteoalarm=MeteoAlarmCollector(http_client=http),
             meteoalarm_cap=MeteoAlarmCapCollector(http_client=http),
-            storage=FakeStorage(),  # type: ignore[arg-type]
+            dwd=DWDCollector(http_client=http),
+            eccc=ECCCCollector(http_client=http),
+            metservice=MetServiceCollector(http_client=http),
+            vigicrues=VigicruesCollector(http_client=http),
+            storage=FakeStorage(zones),  # type: ignore[arg-type]
         )
         self.scheduler = BackgroundAlertScheduler(
             self.aggregator, NullHub(), interval_seconds=SCHEDULER_PERIOD_S
@@ -356,8 +403,13 @@ class Simulation:
                 add(second, lambda c=client: self._client_request(c))
         return events
 
-    async def run(self, duration_s: int = DAY_S) -> DayResult:
+    async def run(
+        self, duration_s: int = DAY_S, extra: Optional[dict[int, list[Callable[[], Awaitable[None]]]]] = None
+    ) -> DayResult:
+        """Play the day. ``extra`` adds actions of a test (a second -> the actions that start in it) to the clients' and the scheduler's."""
         events = self.build_events(duration_s)
+        for second, actions in (extra or {}).items():
+            events.setdefault(second, []).extend(actions)
         for second in sorted(events):
             self.clock.now = float(second)
             await asyncio.gather(*(action() for action in events[second]))
