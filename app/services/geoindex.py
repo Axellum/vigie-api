@@ -14,29 +14,43 @@ says where each comes from and under which licence). Nothing is fetched at run t
   when it is there: ``VIGIE_EMMA_GEOMETRIES``, else ``app/data/local/emma_id.geojson.gz``.
 
 A code without a shape here cannot be matched to a point: the answer says so (``coverage``), it never guesses.
+
+A river section (Vigicrues) is a **line**, not an area: a point is matched when it lies within ``river_radius_km`` of
+it (``DEFAULT_RIVER_RADIUS_KM`` unless the query says otherwise), and the distance is returned with the warning.
 """
 
 from __future__ import annotations
 
 import gzip
 import json
+import math
 import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, Optional
 
 from shapely import STRtree
+from shapely.affinity import scale
 from shapely.geometry import Point, shape
 from shapely.geometry.base import BaseGeometry
+from shapely.ops import nearest_points
 
 from app.geo import finalize
 from app.models.vigilance import Vigilance
+from app.services.geodesy import haversine_km
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
 BORDER_MARGIN_DEG = 0.02  # a point this close to a border counts as inside the country (simplified borders)
 COAST_MARGIN_DEG = 0.25  # a point at sea belongs to the nearest country this close
 GEOCODE_MARGIN_DEG = 0.02  # a point in no shape of a code system belongs to the shapes this close
+
+# How far from a point a river section (a line) still counts. 5 km: the lines of Vigicrues are simplified, the flood plain
+# of a large river is several kilometres wide, and a flood vigilance is a heads-up; the distance is returned with the
+# warning, so a client that wants less can filter (or ask for a smaller radius). See ``docs/data-sources.md``.
+DEFAULT_RIVER_RADIUS_KM = 5.0
+MAX_RIVER_RADIUS_KM = 50.0
+LINE_TYPES = ("LineString", "MultiLineString")
 
 
 def _load_features(path: Path) -> list[dict[str, Any]]:
@@ -155,13 +169,30 @@ def default_geometries() -> GeometryIndex:
     return GeometryIndex.from_disk()
 
 
-Localization = Literal["polygon", "geocode", "none"]
+Localization = Literal["polygon", "geocode", "line", "none"]
+
+
+def is_line(shape_: Optional[BaseGeometry]) -> bool:
+    """True for the line of a river section."""
+    return shape_ is not None and shape_.geom_type in LINE_TYPES
+
+
+def line_distance_km(lat: float, lon: float, line: BaseGeometry) -> float:
+    """Distance in kilometres from a position to the nearest point of a line (WGS84).
+
+    The nearest point is found on the plane where longitudes are scaled by the cosine of the latitude (right at the
+    scale of a few tens of kilometres), then the distance to it is the great-circle one.
+    """
+    k = max(math.cos(math.radians(lat)), 0.01)
+    flat = scale(line, xfact=k, yfact=1.0, origin=(0.0, 0.0))
+    near = nearest_points(flat, Point(lon * k, lat))[0]
+    return haversine_km(lat, lon, near.y, near.x / k)
 
 
 def localization_of(vigilance: Vigilance, geometries: GeometryIndex) -> Localization:
     """How a point can be matched to the area of this warning on this instance."""
     if vigilance.shape is not None:
-        return "polygon"
+        return "line" if is_line(vigilance.shape) else "polygon"
     if any(geometries.has(code.scheme, code.value) for code in vigilance.area.geocodes):
         return "geocode"
     return "none"
@@ -170,16 +201,35 @@ def localization_of(vigilance: Vigilance, geometries: GeometryIndex) -> Localiza
 class PointLocator:
     """One position, ready to be tested against many warnings (the codes it belongs to are worked out once)."""
 
-    def __init__(self, lat: float, lon: float, geometries: GeometryIndex) -> None:
+    def __init__(
+        self, lat: float, lon: float, geometries: GeometryIndex, river_radius_km: float = DEFAULT_RIVER_RADIUS_KM
+    ) -> None:
+        self.lat = lat
+        self.lon = lon
         self.point = Point(lon, lat)
+        self.river_radius_km = river_radius_km
         self._codes = geometries.codes_at(lat, lon)
+        self._distances: dict[str, float] = {}
+
+    def distance_km(self, vigilance: Vigilance) -> Optional[float]:
+        """The distance to the line of a river section (``None`` for any other warning), worked out once."""
+        if not is_line(vigilance.shape):
+            return None
+        if vigilance.id not in self._distances:
+            assert vigilance.shape is not None
+            self._distances[vigilance.id] = line_distance_km(self.lat, self.lon, vigilance.shape)
+        return self._distances[vigilance.id]
 
     def covering(self, vigilance: Vigilance) -> Optional[Localization]:
-        """``polygon`` or ``geocode`` when the position lies in the area of the warning, else ``None``.
+        """``polygon``, ``line`` or ``geocode`` when the position lies in the area of the warning, else ``None``.
 
-        The polygon of the source is exact (its edge counts as inside). A code counts when the position belongs to
-        its shape (see ``GeometryIndex.codes_at``).
+        The polygon of the source is exact (its edge counts as inside). A river section counts when the position lies
+        within ``river_radius_km`` of its line. A code counts when the position belongs to its shape (see
+        ``GeometryIndex.codes_at``).
         """
+        if is_line(vigilance.shape):
+            distance = self.distance_km(vigilance)
+            return "line" if distance is not None and distance <= self.river_radius_km else None
         if vigilance.shape is not None and vigilance.shape.covers(self.point):
             return "polygon"
         if any((code.scheme, code.value) in self._codes for code in vigilance.area.geocodes):
@@ -188,9 +238,9 @@ class PointLocator:
 
 
 def geometry_of(vigilance: Vigilance, geometries: GeometryIndex) -> tuple[Optional[BaseGeometry], Optional[str]]:
-    """The geometry to draw for a warning and where it comes from: its own polygon, else the shapes of its codes."""
+    """The geometry to draw for a warning and where it comes from: its own polygon or line, else the shapes of its codes."""
     if vigilance.shape is not None:
-        return vigilance.shape, "polygon"
+        return vigilance.shape, "line" if is_line(vigilance.shape) else "polygon"
     shapes = [(code, geometries.get(code.scheme, code.value)) for code in vigilance.area.geocodes]
     known = [(code, area) for code, area in shapes if area is not None]
     if not known:

@@ -112,6 +112,28 @@ CREDITS: dict[str, Credit] = {
             "and hydrological services. Terms equivalent to CC BY 4.0 with additional requirements for redistributors",
             "ours",
         ),
+        Credit("dwd_warnings", "Deutscher Wetterdienst (DWD)", "Source: Deutscher Wetterdienst", "provider"),
+        Credit(
+            "eccc_alerts",
+            "Environment and Climate Change Canada (MSC)",
+            "Data Source: Environment and Climate Change Canada. Contains information licenced under the Data Server "
+            "End-use Licence of Environment and Climate Change Canada (https://eccc-msc.github.io/open-data/licence/readme_en/)",
+            "provider",
+        ),
+        Credit(
+            "metservice_alerts",
+            "MetService (New Zealand)",
+            "Source: MetService (Meteorological Service of New Zealand Limited), licensed under Creative Commons BY 4.0 "
+            "(https://creativecommons.org/licenses/by/4.0/)",
+            "ours",
+        ),
+        Credit(
+            "vigicrues",
+            "Vigicrues (SCHAPI)",
+            "Source: Vigicrues, Service central d'hydrométéorologie et d'appui à la prévision des inondations (SCHAPI), "
+            "https://www.vigicrues.gouv.fr. Licence Ouverte 2.0",
+            "ours",
+        ),
     )
 }
 

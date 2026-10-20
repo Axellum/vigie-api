@@ -1,4 +1,6 @@
-"""Models of the official national weather warnings ("vigilances"): MeteoAlarm and the US National Weather Service.
+"""Models of the official national weather warnings ("vigilances"): MeteoAlarm, the US National Weather Service, the
+German Weather Service (DWD), Environment and Climate Change Canada (ECCC), MetService (New Zealand) and Vigicrues
+(river floods, France).
 
 The principle (``docs/architecture.md``): **the official content stays intact**, our normalized fields stand
 beside it and say that they are ours.
@@ -82,12 +84,13 @@ class VigilanceArea(BaseModel):
     description: Optional[str] = Field(default=None, description="Name of the area, as given (CAP areaDesc)")
     geocodes: list[VigilanceGeocode] = Field(default_factory=list, description="Codes of the area, as given")
     has_polygon: bool = Field(default=False, description="True when the source gives the polygon(s) of the area")
-    localization: Literal["polygon", "geocode", "none"] = Field(
+    localization: Literal["polygon", "geocode", "line", "none"] = Field(
         default="none",
         description=(
             "How a point can be matched to this area on this instance: `polygon` (the source's polygon), "
             "`geocode` (the shape of one of its codes is known here, simplified: a point within about 2 km of "
-            "its edge counts as inside) or `none` (no shape: the warning cannot be matched to a point)"
+            "its edge counts as inside), `line` (the source gives the line of a river section: a point counts when it "
+            "lies within the radius asked for, `river_radius_km`) or `none` (no shape: the warning cannot be matched to a point)"
         ),
     )
     # The polygons themselves are not part of the JSON answer (they are large): `GET /v1/vigilances.geojson` has them.
@@ -97,7 +100,9 @@ class Vigilance(BaseModel):
     """One official warning for one area."""
 
     id: str = Field(..., description="Identifier of this warning for this area in this API (unique, stable while the source keeps it)")
-    source: Literal["meteoalarm", "noaa_nws"] = Field(..., description="Where the warning comes from")
+    source: Literal["meteoalarm", "noaa_nws", "dwd", "eccc", "metservice", "vigicrues"] = Field(
+        ..., description="Where the warning comes from"
+    )
     country: Optional[str] = Field(default=None, description="ISO 3166-1 alpha-2 country of the warning")
     attribution: str = Field(..., description="The credit the source asks for (with the issuer where the source names it)")
     identifier: str = Field(..., description="Identifier of the original CAP message, as given")
@@ -123,6 +128,13 @@ class Vigilance(BaseModel):
         description="Headline, description and instruction of the issuer, in each language it gives, untouched. Empty when the CAP document could not be read",
     )
     area: VigilanceArea
+    distance_km: Optional[float] = Field(
+        default=None,
+        description=(
+            "For a position query and a warning whose area is a line (a river section of Vigicrues): the distance from the "
+            "position to the line, in kilometres. Null for any other warning"
+        ),
+    )
     link: Optional[str] = Field(default=None, description="Link to the original (the CAP document)")
     web: Optional[str] = Field(default=None, description="Web page of the source for this warning")
     derived: list[str] = Field(default_factory=lambda: ["status", "level", "phenomenon"], description="The fields above that the API derived: everything else is the source's own")
@@ -132,7 +144,7 @@ class Vigilance(BaseModel):
 
     @property
     def shape(self) -> Optional[BaseGeometry]:
-        """The polygons of the area as one shapely geometry (``None`` without polygon)."""
+        """The polygons of the area as one shapely geometry, or the lines of a river section (``None`` without either)."""
         return self._shape
 
     def with_shape(self, shape: Optional[BaseGeometry]) -> "Vigilance":
@@ -147,12 +159,15 @@ class VigilanceQuery(BaseModel):
     lat: Optional[float] = None
     lon: Optional[float] = None
     country: Optional[str] = None
+    river_radius_km: Optional[float] = Field(
+        default=None, description="For a position: how far from it a river section (Vigicrues) still counts, in kilometres"
+    )
 
 
 class VigilanceCoverage(BaseModel):
     """What the API knows of one source for one country, so that an empty answer is not read as "nothing to fear"."""
 
-    source: str = Field(..., description="meteoalarm or noaa_nws")
+    source: str = Field(..., description="meteoalarm, noaa_nws, dwd, eccc, metservice or vigicrues")
     country: Optional[str] = Field(default=None, description="ISO 3166-1 alpha-2 country")
     status: Literal["ok", "stale", "unavailable"] = Field(
         ..., description="`stale`: the provider did not answer, the last answer is served; `unavailable`: no answer at all"
