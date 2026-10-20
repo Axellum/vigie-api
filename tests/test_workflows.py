@@ -6,6 +6,7 @@ The PC has no Docker: the proof that the image works is the ``docker`` job of ``
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -85,10 +86,11 @@ def test_the_secret_scan_reads_the_whole_history_with_a_pinned_checked_binary() 
     assert "pull_request" in triggers(workflow)
 
 
-def test_every_action_is_pinned_to_a_version() -> None:
+def test_every_action_is_pinned_to_a_version_or_a_commit() -> None:
+    """A version tag (`@v4`), or the full commit of an action that has no tag that moves (hassfest, the HACS action)."""
     for path in WORKFLOWS.glob("*.yml"):
         for ref in re.findall(r"uses:\s*([\w./-]+@[\w.-]+)", path.read_text(encoding="utf-8")):
-            assert re.search(r"@v\d+", ref), f"{path.name}: {ref} is not pinned to a version"
+            assert re.search(r"@(?:v\d+|[0-9a-f]{40})$", ref), f"{path.name}: {ref} is not pinned to a version or a commit"
 
 
 # ============================================================================
@@ -114,3 +116,47 @@ def test_the_image_does_not_ask_rainviewer_by_default() -> None:
 def test_dockerignore_keeps_secrets_databases_and_the_history_out_of_the_image() -> None:
     lines = set((ROOT / ".dockerignore").read_text(encoding="utf-8").split())
     assert {".git", ".venv", ".env", "*.db", "*.log", "logs"} <= lines
+
+
+# ============================================================================
+# The Home Assistant integration
+# ============================================================================
+
+
+def test_the_home_assistant_workflow_has_its_own_python_and_leaves_the_api_jobs_alone() -> None:
+    workflow = load("home-assistant.yml")
+    assert workflow["permissions"] == {"contents": "read"}
+    assert set(workflow["jobs"]) == {"tests", "hassfest", "hacs"}
+    tests = workflow["jobs"]["tests"]
+    setup = next(step for step in tests["steps"] if "setup-python" in str(step.get("uses", "")))
+    assert setup["with"]["python-version"] == "3.14"  # what the pinned Home Assistant needs, not the API's 3.12 and 3.13
+    text = steps_text(workflow, "tests")
+    assert "tests_ha/requirements.txt" in text and "pytest tests_ha" in text
+    assert "continue-on-error" not in tests
+    # The API's jobs run the API's tests only (pyproject.toml: testpaths = ["tests"]) and never install Home Assistant.
+    ci = load("ci.yml")
+    assert "tests_ha" not in steps_text(ci, "test") and "homeassistant" not in steps_text(ci, "test")
+    assert 'testpaths = ["tests"]' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+
+
+def test_hassfest_and_hacs_are_run_with_the_category_and_ignores_stated() -> None:
+    workflow = load("home-assistant.yml")
+    assert any("home-assistant/actions/hassfest@" in str(step.get("uses", "")) for step in workflow["jobs"]["hassfest"]["steps"])
+    hacs = next(step for step in workflow["jobs"]["hacs"]["steps"] if "hacs/action@" in str(step.get("uses", "")))
+    assert hacs["with"]["category"] == "integration"
+    assert set(hacs["with"]["ignore"].split()) == {"brands", "topics"}  # no brand image and no topics yet
+    assert str(hacs["with"]["comment"]).lower() == "false"  # read-only job
+    # The action refuses a private repository: the job runs only once the repository is public.
+    assert "github.event.repository.private" in workflow["jobs"]["hacs"]["if"]
+
+
+def test_the_pinned_home_assistant_test_plugin_and_the_workflow_python_agree() -> None:
+    requirements = (ROOT / "tests_ha" / "requirements.txt").read_text(encoding="utf-8")
+    assert re.search(r"^pytest-homeassistant-custom-component==\d+\.\d+\.\d+$", requirements, re.M)
+    hacs = json.loads((ROOT / "hacs.json").read_text(encoding="utf-8"))
+    assert re.fullmatch(r"\d{4}\.\d+\.\d+", hacs["homeassistant"])
+
+
+def test_the_image_leaves_the_integration_and_its_tests_out() -> None:
+    lines = set((ROOT / ".dockerignore").read_text(encoding="utf-8").split())
+    assert {"custom_components", "tests_ha", "hacs.json", ".venv-ha"} <= lines

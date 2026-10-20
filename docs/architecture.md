@@ -52,6 +52,8 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | `tools/capture_frame.py` | Captures a real frame to a file. |
 | `tools/check_live_feeds.py` | Asks each real provider once and checks the parsers still read the answer (weekly workflow). |
 | `scripts/run.ps1` | Starts the API on Windows. |
+| `custom_components/vigie/`, `hacs.json`, `tests_ha/` | The Home Assistant integration (a client of `GET /v1/vigilances`, with `WS /v1/stream` as a hint to read again), its tests, and their CI. See [`home-assistant.md`](home-assistant.md). |
+| `tools/fake_instance.py` | A fake instance (`/v1/health`, `/v1/vigilances`) with warnings added by hand, labelled `SIMULATION`, to try the integration. |
 | `Dockerfile`, `scripts/docker_smoke.sh` | The image (non-root, health check) and the script that proves it answers. |
 
 ## Official warnings (vigilances)

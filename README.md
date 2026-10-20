@@ -163,6 +163,14 @@ section says it, finer.
   warning that an answer returns; the NWS needs no request of its own. See "Calls to the providers" below.
 - The embedded frame of the displays does **not** change.
 
+## Home Assistant
+
+`custom_components/vigie` is a Home Assistant integration that reads these warnings for a place and gives a
+maximum-level sensor, a "warning active" binary sensor and an event entity (`new`, `upgraded`, `ended`) to start
+automations. It needs an instance of this API that Home Assistant can reach, and nothing else. Install, options, the
+rules of "unknown is not none", an automation example and the limits: [`docs/home-assistant.md`](docs/home-assistant.md).
+It comes as is, like the rest of the project, and it is not an official warning service either.
+
 ## Run
 
 Python 3.12 or newer (the CI covers 3.12 and 3.13).
@@ -323,6 +331,7 @@ repository.
 python -m pytest              # no test touches the network
 python -m ruff check .        # lint
 python tools/capture_frame.py frame.txt     # write a REAL frame (uses the live providers)
+python tools/fake_instance.py               # a fake instance whose warnings you choose (to try the Home Assistant integration)
 python tools/check_live_feeds.py            # ask each real provider once, check the parsers still read it
 python tools/build_geometries.py            # rebuild app/data (borders and NUTS shapes) from Natural Earth and Wikidata
 ```
@@ -339,6 +348,9 @@ CI (`.github/workflows/`):
 - `live-feeds.yml`: every Monday and on demand, never in a pull request, `tools/check_live_feeds.py` asks
   each real provider once (MeteoAlarm, the NWS warnings and the DWD, ECCC, MetService and Vigicrues included). A red run means a provider changed its
   format, removed an endpoint, or sent a level or phenomenon word the tables do not know.
+- `home-assistant.yml`: the Home Assistant integration (`custom_components/vigie`), only when it changes, and weekly:
+  its tests (`tests_ha/`, in an environment of their own: Python 3.14 and the Home Assistant release they pin), hassfest
+  and the HACS validation.
 - `publish-image.yml`: pushes the Docker image to `ghcr.io/axellum/vigie-api` when a `v*` tag is pushed.
 
 ## Data sources
@@ -361,5 +373,6 @@ How each one is cached and what it costs in calls: [`docs/data-sources.md`](docs
 - [`docs/architecture.md`](docs/architecture.md): components, data flow, limits.
 - [`docs/embedded-frame.md`](docs/embedded-frame.md): the frame contract (single source of truth).
 - [`docs/data-sources.md`](docs/data-sources.md): how each source is used, cache and call volume.
+- [`docs/home-assistant.md`](docs/home-assistant.md): the Home Assistant integration.
 - [`docs/decisions/`](docs/decisions): architecture decision records.
 - [`CHANGELOG.md`](CHANGELOG.md), [`AGENTS.md`](AGENTS.md) (guide for AI coding agents).

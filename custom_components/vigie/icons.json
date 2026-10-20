@@ -1,0 +1,28 @@
+{
+  "entity": {
+    "sensor": {
+      "max_level": {
+        "default": "mdi:weather-cloudy-alert",
+        "state": {
+          "none": "mdi:shield-check-outline",
+          "yellow": "mdi:alert-outline",
+          "orange": "mdi:alert",
+          "red": "mdi:alert-octagon"
+        }
+      }
+    },
+    "binary_sensor": {
+      "warning_active": {
+        "default": "mdi:shield-check-outline",
+        "state": {
+          "on": "mdi:alert"
+        }
+      }
+    },
+    "event": {
+      "vigilance": {
+        "default": "mdi:bell-alert-outline"
+      }
+    }
+  }
+}
