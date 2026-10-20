@@ -1,4 +1,4 @@
-# 0007. Sensitive points: what a hazard is close to, and the points the user watches
+# 0008. Sensitive points: what a hazard is close to, and the points the user watches
 
 - Status: accepted (four points are questions for the owner: see "Open points")
 - Date: 2026-10-20

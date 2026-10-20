@@ -359,7 +359,7 @@ fois que l'API l'a vu actif) et un `state` : `events` ; `quiet` (rien ne s'est p
 `quiet_since_utc`**) ; ou `unknown`, avec `unreachable_sources`. L'API ne sait que ce qu'elle a vu : une instance démarrée il y a une heure le dit
 (`window_covered: false`) au lieu de « rien depuis une semaine ». Comme `/v1/zones`, ces routes n'ont aucune authentification, et **le nom d'un point surveillé
 apparaît dans les `near_places` des dangers proches** : ne surveillez pas votre domicile sur une instance que d'autres peuvent lire. Détails, chiffres et ce qui
-n'est pas vérifié : [`docs/data-sources.md`](docs/data-sources.md) (en anglais) et [ADR 0007](docs/decisions/0007-sensitive-points.md).
+n'est pas vérifié : [`docs/data-sources.md`](docs/data-sources.md) (en anglais) et [ADR 0008](docs/decisions/0008-sensitive-points.md).
 
 ## Home Assistant
 

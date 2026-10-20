@@ -13,7 +13,7 @@ watches>". Three sets of named places are compared with each hazard that has a p
 
 **The radii are settings, not sourced facts** (``PlaceSettings``, the "near" variables of the README): nobody publishes
 the distance at which an epicentre is "near" a fault, and the catalogues' positions are uncertain by several kilometres. They say
-how far this instance looks; ``docs/decisions/0007-sensitive-points.md`` gives the reasoning. The result never changes the
+how far this instance looks; ``docs/decisions/0008-sensitive-points.md`` gives the reasoning. The result never changes the
 severity of a hazard, and it is named in the ``derived`` list of the hazard.
 
 ``near_places`` is ``None`` when it could not be worked out (the bundled file is missing or damaged, so the faults of an
@@ -67,7 +67,7 @@ def _number_from_env(name: str, default: float, low: float, high: float) -> floa
 
 @dataclass(frozen=True)
 class PlaceSettings:
-    """How far this instance looks. Chosen, not measured nor published by any source (``docs/decisions/0007-sensitive-points.md``)."""
+    """How far this instance looks. Chosen, not measured nor published by any source (``docs/decisions/0008-sensitive-points.md``)."""
 
     fault_km: float = 10.0  # an epicentre within this distance of a mapped trace is "near" it
     fault_max_depth_km: float = 70.0  # deeper earthquakes (intermediate and deep focus) are not compared with surface traces

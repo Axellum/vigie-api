@@ -615,7 +615,7 @@ class AggregatorService:
             )
         )
         enriched_nearby = enriched_nearby[:limit_hazards]
-        if compact:  # the 16 KiB profile carries no `near_places` (docs/decisions/0007-sensitive-points.md): ask `compact=false`
+        if compact:  # the 16 KiB profile carries no `near_places` (docs/decisions/0008-sensitive-points.md): ask `compact=false`
             enriched_nearby = [h.model_copy(update={"near_places": None}) for h in enriched_nearby]
 
         rain_steps: Optional[list[float]] = weather_bundle.get("rain_next_60m") if weather_bundle else None
@@ -761,7 +761,7 @@ class AggregatorService:
             zones_out.append(zone_weather)
 
         selected_hazards = all_hazards[:limit_hazards]
-        if compact:  # the 16 KiB profile carries no `near_places` (docs/decisions/0007-sensitive-points.md): ask `compact=false`
+        if compact:  # the 16 KiB profile carries no `near_places` (docs/decisions/0008-sensitive-points.md): ask `compact=false`
             selected_hazards = [h.model_copy(update={"near_places": None}) for h in selected_hazards]
 
         hazards_known = sources_ok > 0 or (self.simulation_active and bool(self.simulated_hazards))

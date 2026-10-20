@@ -66,7 +66,7 @@ All notable changes to this project are documented here. The format follows
   `VIGIE_QUIET_MAX_GAP_S` (15 minutes) since `quiet_since_utc`; an instance started an hour ago says so (`window_covered: false`) instead of
   "nothing in the last week"; otherwise `unknown` and `unreachable_sources`. The runs of readings are kept in SQLite (`source_runs`).
   The routes have no authentication, like `/v1/zones`, and the name of a watched point appears in the `near_places` of the hazards near it.
-- [ADR 0007](docs/decisions/0007-sensitive-points.md).
+- [ADR 0008](docs/decisions/0008-sensitive-points.md).
 - **More countries, through the registry of the WMO Severe Weather Information Centre** (`wmo_swic_registry`, `wmo_swic`).
   The registry lists the national services that publish CAP warnings (140 services in 135 countries on 2026-10-20). For a
   country that has no source of its own, the API reads the service's own feed (and the WMO's copy of it, for a service on a

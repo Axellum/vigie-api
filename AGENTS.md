@@ -91,5 +91,5 @@ owner (no `&&`).
     (`PlaceSettings`, `VIGIE_NEAR_*`), not facts: do not present them as sourced. `app/data/gem-active-faults.geojson.gz` is
     **CC BY-SA 4.0** (share-alike), rebuilt only by `tools/build_faults.py` from the pinned commit, with its notice beside it; the code
     stays MIT. A fault the database does not name is not named. A watched point is `quiet` only when every hazard source answered and
-    was read without a gap ([ADR 0007](docs/decisions/0007-sensitive-points.md)); the compact `/v1/snapshot` and `/v1/point` carry no
+    was read without a gap ([ADR 0008](docs/decisions/0008-sensitive-points.md)); the compact `/v1/snapshot` and `/v1/point` carry no
     `near_places`.

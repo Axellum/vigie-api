@@ -3,7 +3,7 @@
 For each point: the events of the last days within its radius, from the history of hazards the API keeps, and, when there are none,
 whether the API may say "nothing happened". It may only if **every hazard source answered at the last reading and has been read
 without a gap** over the period it speaks of. Otherwise the point says which source is unreachable, or that it has not been
-watched long enough (``docs/decisions/0007-sensitive-points.md``).
+watched long enough (``docs/decisions/0008-sensitive-points.md``).
 """
 
 from __future__ import annotations

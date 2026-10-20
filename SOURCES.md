@@ -179,7 +179,7 @@ names only codes (the Philippines, India) is listed by `country=` and counted in
 ## Reference data: what a hazard is close to
 
 `near_places` (the places an earthquake or a volcanic event is close to, calculated by Vigie; [`docs/data-sources.md`](docs/data-sources.md),
-[ADR 0007](docs/decisions/0007-sensitive-points.md)) compares a hazard with a **file of named active faults bundled in the repository**
+[ADR 0008](docs/decisions/0008-sensitive-points.md)) compares a hazard with a **file of named active faults bundled in the repository**
 (`app/data/gem-active-faults.geojson.gz`, rebuilt by [`tools/build_faults.py`](tools/build_faults.py), checked on 2026-10-20), with the volcanoes
 that the hazard sources above report, and with the points the instance's user watches. Nothing is read from the fault source while the API runs.
 

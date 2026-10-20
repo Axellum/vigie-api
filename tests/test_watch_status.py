@@ -1,6 +1,6 @@
 """``GET /v1/watched-points/status``: what happened near a point, and when "nothing happened" may be said.
 
-The principle (ADR 0003 point 6, ``docs/decisions/0007-sensitive-points.md``): a source that did not answer says nothing. A point
+The principle (ADR 0003 point 6, ``docs/decisions/0008-sensitive-points.md``): a source that did not answer says nothing. A point
 with no event is ``quiet`` only if every hazard source answered at the last reading **and** has been read without a gap for as long
 as the claim goes back. The hazards are the real earthquake of Panama (``tests/fixtures/places``), with its event time moved into
 the window where a test needs it.

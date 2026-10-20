@@ -9,7 +9,7 @@ Provides:
 3. The last valid snapshot (``snapshot_cache``), so a cold start can serve something even
    when the Internet is down.
 4. The **watched points** behind ``/v1/watched-points`` (``watched_points``), and for each hazard source the run of reads
-   without a gap that "nothing happened" rests on (``source_runs``, see ``docs/decisions/0007-sensitive-points.md``).
+   without a gap that "nothing happened" rests on (``source_runs``, see ``docs/decisions/0008-sensitive-points.md``).
 
 The database file is ``VIGIE_DB_PATH`` when set, otherwise ``vigie.db`` at the repository
 root (git-ignored). A ``vigie_mondiale.db`` left by an earlier layout is reused when present.

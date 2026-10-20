@@ -337,7 +337,7 @@ time the API saw it active) and a `state`: `events`; `quiet` (nothing happened, 
 `quiet_since_utc`**); or `unknown`, with `unreachable_sources`. The API only knows what it saw: an instance started an hour ago says so
 (`window_covered: false`) instead of "nothing in the last week". Like `/v1/zones`, these routes have no authentication, and **the name of a watched point
 appears in the `near_places` of the hazards near it**: do not watch your home on an instance that others can read. Details, numbers and what is not
-verified: [`docs/data-sources.md`](docs/data-sources.md) and [ADR 0007](docs/decisions/0007-sensitive-points.md).
+verified: [`docs/data-sources.md`](docs/data-sources.md) and [ADR 0008](docs/decisions/0008-sensitive-points.md).
 
 ## Home Assistant
 

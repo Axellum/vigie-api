@@ -2,7 +2,7 @@
 
 Both are **computed by Vigie**, not reported by a source: a hazard says "6 km from the Azuero Fault Zone (active fault)", a watched
 point says "nothing within 50 km in the last 7 days". They never change the severity of a hazard, and the field that holds them
-is named in the ``derived`` list of the hazard (``docs/decisions/0007-sensitive-points.md``).
+is named in the ``derived`` list of the hazard (``docs/decisions/0008-sensitive-points.md``).
 
 This module imports nothing from ``schemas.py`` (``HazardAlert`` uses ``NearPlace``): the models that need the hazard types are
 in ``watch.py``.

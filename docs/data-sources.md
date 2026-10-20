@@ -100,7 +100,7 @@ reads each once.
 An earthquake or a volcanic event says what it is close to: `near_places` (a list of `name`, `kind`, `distance_km`, `sources`) on every hazard,
 named in the hazard's `derived` list. **It is computed by Vigie from reference data and from settings**, not reported by a source, it
 never changes a `severity`, and a client should show it as such ("calculated by Vigie"). The decisions, and what is not verified:
-[ADR 0007](decisions/0007-sensitive-points.md). Licence and credit: [`SOURCES.md`](../SOURCES.md).
+[ADR 0008](decisions/0008-sensitive-points.md). Licence and credit: [`SOURCES.md`](../SOURCES.md).
 
 `near_places` is a list when it was worked out (**empty: nothing is near**, an answer, not a gap) and `null` when it was not: the bundled
 fault file could not be read, the alert is simulated, or the profile is the compact one (see "Cost" below).
