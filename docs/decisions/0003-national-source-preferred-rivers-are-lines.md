@@ -49,12 +49,18 @@ river, a line.
 - A French position costs one more source (Vigicrues: 3 to 4 reads of the 2.2 MB flow a day, and 88 to 240 looks of 330 bytes: 7 to 9 MB a day).
 - The same flood can still be said by MeteoAlarm's département and a section of a lower colour: both are kept on purpose.
 
-## Open points (for the owner)
+## Points settled by the owner (2026-10-20)
 
-- **ECCC through the Datamart.** An AMQPS client (a dependency and an open connection) would give the full CAP messages
-  (sender, instruction, message type) and follow the usage policy to the letter; GeoMet is used meanwhile.
-- **Canada's border.** 131 KiB of the 335; a tolerance of 0.03 degree would make it 64 KiB, at the price of the border
-  with the United States being drawn within about 3 km instead of 1 km.
+- **ECCC stays on GeoMet.** No AMQPS client: it would add a dependency and an open connection for the CAP `instruction`,
+  `senderName` and `msgType`, which GeoMet does not carry. Reconsider only if the usage policy changes or those fields are
+  needed.
+- **Canada's border is kept as it is** (131 KiB of the 335): a coastal point must find its country; a tolerance of 0.03
+  degree would make it 64 KiB but draw the border with the United States within about 3 km instead of 1 km.
+- **MetService can be switched off** (`VIGIE_ENABLE_METSERVICE=0`, on by default, also in the Docker image): its feed says
+  CC BY 4.0 under a Code of Practice, the website terms it points to allow personal use only and forbid resupply. No
+  e-mail, no registration.
+- **The flooding rule stays,** with its caveat: that MeteoAlarm derives its flooding colour from Vigicrues is deduced from
+  the data of 2026-10-20, not read in a current document (`docs/data-sources.md`).
 - **Vigicrues' weight** (settled): it was 100 MB a day calm and 300 MB in a flood for 337 sections of which a handful
   matter. No lighter endpoint carries the level, so bundling the lines would save nothing; the flow is now read on its
   publications only, which is 7 to 9 MB a day. What is left is the image signal (an inference), which the weekly check
