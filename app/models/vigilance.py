@@ -20,7 +20,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, Field, PrivateAttr, SerializerFunctionWrapHandler, model_serializer
 from shapely.geometry.base import BaseGeometry
 
 from app.models.schemas import SeverityLevel
@@ -100,7 +100,7 @@ class Vigilance(BaseModel):
     """One official warning for one area."""
 
     id: str = Field(..., description="Identifier of this warning for this area in this API (unique, stable while the source keeps it)")
-    source: Literal["meteoalarm", "noaa_nws", "dwd", "eccc", "metservice", "vigicrues"] = Field(
+    source: Literal["meteoalarm", "noaa_nws", "dwd", "eccc", "metservice", "vigicrues", "tsunami"] = Field(
         ..., description="Where the warning comes from"
     )
     country: Optional[str] = Field(default=None, description="ISO 3166-1 alpha-2 country of the warning")
@@ -159,15 +159,24 @@ class VigilanceQuery(BaseModel):
     lat: Optional[float] = None
     lon: Optional[float] = None
     country: Optional[str] = None
+    source: Optional[str] = Field(default=None, description="For a query by source (`tsunami`): the source asked for")
     river_radius_km: Optional[float] = Field(
         default=None, description="For a position: how far from it a river section (Vigicrues) still counts, in kilometres"
     )
+
+    @model_serializer(mode="wrap")
+    def _without_the_source_of_a_place(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        """``source`` is there for a query by source only: a query by position or country reads as it always did."""
+        data: dict[str, Any] = handler(self)
+        if data.get("source") is None:
+            data.pop("source", None)
+        return data
 
 
 class VigilanceCoverage(BaseModel):
     """What the API knows of one source for one country, so that an empty answer is not read as "nothing to fear"."""
 
-    source: str = Field(..., description="meteoalarm, noaa_nws, dwd, eccc, metservice or vigicrues")
+    source: str = Field(..., description="meteoalarm, noaa_nws, dwd, eccc, metservice, vigicrues or tsunami")
     country: Optional[str] = Field(default=None, description="ISO 3166-1 alpha-2 country")
     status: Literal["ok", "stale", "unavailable"] = Field(
         ..., description="`stale`: the provider did not answer, the last answer is served; `unavailable`: no answer at all"

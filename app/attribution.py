@@ -100,6 +100,18 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "noaa_nhc",
+            "NOAA National Hurricane Center",
+            "Source: NOAA National Weather Service, National Hurricane Center (https://www.nhc.noaa.gov). Not endorsed by NOAA or the NWS",
+            "ours",
+        ),
+        Credit(
+            "noaa_tsunami",
+            "NOAA U.S. Tsunami Warning Centers",
+            "Source: NOAA National Weather Service, U.S. Tsunami Warning Centers (https://www.tsunami.gov). Not endorsed by NOAA or the NWS",
+            "ours",
+        ),
+        Credit(
             "noaa_swpc",
             "NOAA Space Weather Prediction Center",
             "Source: NOAA Space Weather Prediction Center (https://www.swpc.noaa.gov). Not endorsed by NOAA",
@@ -152,6 +164,9 @@ HAZARD_SOURCE_CREDITS: dict[str, str] = {
     "GDACS": "gdacs",
     "NOAA_NWS": "noaa_nws",
     "USGS_VOLCANO": "usgs_volcano",
+    "NHC": "noaa_nhc",
+    "PTWC": "noaa_tsunami",
+    "NTWC": "noaa_tsunami",
 }
 
 # Blocks of data and the credits they carry (the order is the order of the text).
