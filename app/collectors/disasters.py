@@ -176,7 +176,7 @@ class GDACSCollector(BaseCollector[list[HazardAlert]]):
 
 
 class NOAANWSCollector(BaseCollector[list[HazardAlert]]):
-    """Collector of critical NOAA / National Weather Service alerts (tornado, hurricane, tsunami, flood)."""
+    """Collector of the most severe NOAA / National Weather Service alerts (tornado, hurricane, tsunami, flood)."""
 
     FEED_URL = (
         "https://api.weather.gov/alerts/active"

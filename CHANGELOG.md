@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **README rewritten in a modest tone** ("a personal project, made with AI, shared in case it helps", no
+  promise), English first, with a French version (`README.fr.md`) linked from the top. It says that the
+  code is MIT and the data is not, carries the notice that this is not an official warning service and that
+  GDACS alerts are automatic and do not replace official warnings, and adds Docker, the new settings and the
+  CI workflows. The home network address (`192.168.0.155`) and the author's folder names are replaced by
+  placeholders (`<PC address>`, `<repository folder>`); the Windows start script, firewall rule and Task
+  Scheduler instructions are unchanged otherwise (`-LogFile`, `-Port`, `-NoInstall` still work).
+  `tests/test_public_text.py` keeps promises, marketing words and private details out of the public texts.
 - **The simulator is opt-in.** `POST /v1/simulate` has no authentication and writes simulated alerts into
   the hazard history, so it now answers 403 unless the instance sets `VIGIE_ENABLE_SIMULATION=1`
   (default off). `GET /v1/health` reports `simulation_enabled`; the dashboard hides the simulation buttons

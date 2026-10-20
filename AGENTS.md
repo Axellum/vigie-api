@@ -15,6 +15,7 @@ python -m pytest                          # all tests, no network
 python -m ruff check .                    # lint (CI runs it)
 scripts\run.ps1                           # run the API on Windows (port 8080)
 python tools/capture_frame.py out.txt     # write a REAL frame from the live providers
+python tools/check_live_feeds.py          # ask each real provider once (the weekly live-feeds workflow does it)
 ```
 
 Python 3.12 or newer. Use PowerShell 5.1-compatible commands when you give a command to the
@@ -42,8 +43,9 @@ owner (no `&&`).
 6. **No secret in the repository.** No provider needs a key. Contact data (`VIGIE_CONTACT`) and
    the CAP sender are environment variables. Do not write a private repository URL or an invented
    address into code or into data sent to third parties.
-7. **Respect the providers' terms** ([`docs/data-sources.md`](docs/data-sources.md)): the project
-   is non-commercial (Open-Meteo free API), cache aggressively, send an identifying `User-Agent`.
+7. **Respect the providers' terms** ([`SOURCES.md`](SOURCES.md) lists them; how each source is used is in
+   [`docs/data-sources.md`](docs/data-sources.md)): the project is non-commercial (Open-Meteo free API),
+   cache aggressively, send an identifying `User-Agent`.
 8. **Git**: work on a branch, one commit per topic, stage files one by one, open a pull request
    against `main`; never push to `main`.
 9. **Provider calls stay sober.** A request to a provider goes through `BaseCollector._get` (it is
@@ -53,3 +55,10 @@ owner (no `&&`).
    request around these. `tests/test_call_sobriety.py` replays a day of 1,000 clients and fails if
    the Open-Meteo quota would be exceeded.
 10. Add a line to [`CHANGELOG.md`](CHANGELOG.md) (`[Unreleased]`) for any user-visible change.
+11. **Credit every source.** A new source or block of data gets its credit text in `app/attribution.py`,
+    an `attribution` field, and a row in [`SOURCES.md`](SOURCES.md) (`tests/test_sources_page.py` checks they
+    match). The compact frame has no credit field. Write a text that is not the provider's own as "ours" and
+    say what could not be verified: never invent a required wording.
+12. **Public-facing text stays modest**: a personal project, made with AI, shared in case it helps; no
+    promise, no marketing word, no detail of a private network or machine (`tests/test_public_text.py`).
+    `POST /v1/simulate` stays off unless `VIGIE_ENABLE_SIMULATION=1`.
