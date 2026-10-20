@@ -142,4 +142,5 @@ This project was built for one person's home. Each of these points comes from th
 6. MetService (New Zealand): the feed says CC BY 4.0 and its use is subject to a Code of Practice, but the website terms
    it points to allow personal use only and forbid resupply (see its row above). For one person's home that is no
    problem; before relaying New Zealand's warnings to other people, ask MetService (the CAP page gives an address for
-   developers). There is no switch to turn the source off yet.
+   developers: no e-mail was sent) or keep `VIGIE_ENABLE_METSERVICE=0`. The source is on by default, also in the Docker
+   image; off, a position in New Zealand gets no source and the answer says why.

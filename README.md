@@ -40,7 +40,8 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
   its data to others (`VIGIE_ENABLE_RAINVIEWER=0`; the Docker image does).
 - MetService (New Zealand) publishes its warnings as CC BY 4.0 under a Code of Practice, but the website terms it points
   to allow personal use only and forbid resupply. Fine for one home; ask MetService before relaying its warnings to
-  other people ([`SOURCES.md`](SOURCES.md)).
+  other people, or turn it off on an instance that serves them (`VIGIE_ENABLE_METSERVICE=0`; on by default, the Docker
+  image keeps it on) ([`SOURCES.md`](SOURCES.md)).
 
 ## Endpoints
 
@@ -197,6 +198,7 @@ All settings are optional environment variables.
 | `VIGIE_SCHEDULER` | `0` | `1` starts the background scheduler (refresh every 90 s, WebSocket push). |
 | `VIGIE_ENABLE_SIMULATION` | `0` | `1` enables `POST /v1/simulate` (and the dashboard buttons). The route has no authentication and writes the simulated alerts into the hazard history: enable it only on an instance that trusted clients alone can reach. |
 | `VIGIE_ENABLE_RAINVIEWER` | `1`; `0` in the Docker image | `0` stops asking RainViewer (the radar fields of `/v1/point` stay unknown). Its free API is for personal and educational use: set `0` on an instance that serves other people. |
+| `VIGIE_ENABLE_METSERVICE` | `1` (also in the Docker image) | `0` stops asking MetService (New Zealand): a position there then gets no source, and the answer says it is turned off. Its feed says CC BY 4.0 but the website terms it points to allow personal use only and forbid resupply, and which one governs is not verified: set `0` on an instance that serves other people unless MetService agrees. |
 | `VIGIE_CONTACT` | none | E-mail address or URL added to the `User-Agent` sent to the providers. MET Norway and NOAA require an identifying contact: set it. |
 | `VIGIE_CAP_SENDER` | `vigie-api` | `sender` of the CAP alerts. |
 | `VIGIE_GRID_FORECAST_DEG` | `0.05` | Grid (degrees, about 5 km) the position is snapped to before the Open-Meteo forecast and MET Norway are asked. |

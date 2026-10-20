@@ -28,6 +28,7 @@ from app.collectors.flood_air import (
     USGSVolcanoCollector,
 )
 from app.collectors.marine import OpenMeteoMarineCollector
+from app.collectors.metservice import metservice_enabled_from_env
 from app.collectors.seismic import EMSCCollector, USGSCollector
 from app.collectors.space_weather import NOAASWPCCollector
 from app.collectors.weather import OpenMeteoCollector, rainviewer_enabled_from_env
@@ -347,6 +348,33 @@ async def test_a_service_without_rainviewer_never_asks_for_the_radar(tmp_path: P
 def test_rainviewer_stays_on_by_default(world: World) -> None:
     assert world.aggregator.rainviewer_enabled is True
     assert len(world.aggregator.get_all_collectors()) == 18
+
+
+# ============================================================================
+# MetService can be turned off
+# ============================================================================
+
+
+@pytest.mark.parametrize(("value", "enabled"), [(None, True), ("", True), ("1", True), ("yes", True), ("0", False), ("false", False), ("NO", False), (" off ", False)])
+def test_metservice_switch(monkeypatch: pytest.MonkeyPatch, value: str | None, enabled: bool) -> None:
+    if value is None:
+        monkeypatch.delenv("VIGIE_ENABLE_METSERVICE", raising=False)
+    else:
+        monkeypatch.setenv("VIGIE_ENABLE_METSERVICE", value)
+    assert metservice_enabled_from_env() is enabled
+
+
+def test_a_service_without_metservice_neither_lists_nor_asks_it(tmp_path: Path) -> None:
+    service = make_service(tmp_path / "nz.db", metservice_enabled=False)
+    assert service.metservice not in service.get_all_collectors()
+    assert "metservice_cap" not in {p.provider_id for p in service.get_providers_health()}
+    assert len(service.get_all_collectors()) == 17
+    assert service.vigilances.metservice is None  # the warnings service has no New Zealand source any more
+
+
+def test_metservice_stays_on_by_default(world: World) -> None:
+    assert world.aggregator.metservice_enabled is True
+    assert world.aggregator.vigilances.metservice is world.aggregator.metservice
 
 
 # ============================================================================

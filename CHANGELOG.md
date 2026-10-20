@@ -7,6 +7,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **`VIGIE_ENABLE_METSERVICE`** (default on, also in the Docker image): `0` stops asking MetService. Its feed says CC BY
+  4.0 under a Code of Practice, but the website terms it points to allow personal use only and forbid resupply, and
+  which one governs is not verified: a public instance can switch it off. A position in New Zealand then gets no source
+  and the answer says why; the source is no longer in `GET /v1/providers`.
 - **Push of the official warnings, source by source.** A source of a followed position that does not answer no longer
   silences the others (before, the whole position was left as it was): what it had said stands and ends nothing; a
   source that answers for the first time after the baseline sets its own baseline. The credit of an answer names only

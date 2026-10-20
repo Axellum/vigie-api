@@ -132,8 +132,13 @@ class Upstream:
         return [r.url.path.rsplit("/", 1)[-1] for r in self.meteoalarm.requests if r.url.path.startswith("/api/v1/warnings/")]
 
 
-def make_service(upstream: Upstream, zones: Optional[list[dict[str, Any]]] = None, national: bool = False) -> VigilanceService:
-    """The service on the simulated upstream. ``national=True`` wires DWD, ECCC, MetService and Vigicrues as well."""
+def make_service(
+    upstream: Upstream, zones: Optional[list[dict[str, Any]]] = None, national: bool = False, metservice: bool = True
+) -> VigilanceService:
+    """The service on the simulated upstream. ``national=True`` wires DWD, ECCC, MetService and Vigicrues as well.
+
+    ``metservice=False`` leaves MetService out, as an instance that turned it off (``VIGIE_ENABLE_METSERVICE=0``).
+    """
     extra: dict[str, Any] = {}
     if national:
         extra = {
@@ -142,6 +147,8 @@ def make_service(upstream: Upstream, zones: Optional[list[dict[str, Any]]] = Non
             "metservice": MetServiceCollector(http_client=upstream.metservice_provider.client()),
             "vigicrues": VigicruesCollector(http_client=upstream.vigicrues_provider.client()),
         }
+    if not metservice:
+        extra.pop("metservice", None)
     return VigilanceService(
         meteoalarm=MeteoAlarmCollector(http_client=upstream.meteoalarm.client()),
         meteoalarm_cap=MeteoAlarmCapCollector(http_client=upstream.meteoalarm.client()),
