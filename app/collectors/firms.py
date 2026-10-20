@@ -85,7 +85,16 @@ NAN = float("nan")
 
 
 class FIRMSError(RuntimeError):
-    """A FIRMS read failed. The message never holds the MAP_KEY."""
+    """A FIRMS read failed. The message never holds the MAP_KEY.
+
+    ``status`` is the HTTP status FIRMS answered (``None`` when it did not answer at all) and ``transport`` says that the request itself
+    failed (timeout, connection): the weekly live check tells a FIRMS that is busy from one whose answer changed.
+    """
+
+    def __init__(self, message: str, status: Optional[int] = None, transport: bool = False) -> None:
+        super().__init__(message)
+        self.status = status
+        self.transport = transport
 
 
 # ------------------------------------------------------------------------------------------------ settings
@@ -413,6 +422,8 @@ class FIRMSCollector(BaseCollector[FireSet]):
         """One world read of one day. Raises ``FIRMSError`` (the key redacted) or ``BudgetExhaustedError``."""
         url = f"{AREA_URL}/{self._key}/{source}/world/1/{date}"
         problem: Optional[str] = None
+        status: Optional[int] = None
+        transport = False
         content = b""
         try:
             try:
@@ -423,14 +434,16 @@ class FIRMSCollector(BaseCollector[FireSet]):
             raise
         except Exception as exc:  # httpx exceptions can hold the URL, so the message is cleaned before it leaves
             problem = self.redact(f"{type(exc).__name__}: {exc}")
+            transport = isinstance(exc, httpx.TransportError)
         else:
             content = response.content
             if response.status_code != 200:
+                status = response.status_code
                 problem = f"HTTP {response.status_code} from {HOST}"
             elif len(content) > MAX_BODY_BYTES:
                 problem = f"answer of {len(content)} bytes is too large"
         if problem is not None:
-            raise FIRMSError(f"{source} {date}: {problem}")
+            raise FIRMSError(f"{source} {date}: {problem}", status=status, transport=transport)
         try:
             table, stats = await clock.run_blocking(parse_csv, content, date)
         except ValueError as exc:

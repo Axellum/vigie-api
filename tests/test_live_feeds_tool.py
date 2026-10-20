@@ -15,7 +15,7 @@ from typing import Any, Optional
 import httpx
 import pytest
 
-from tests import samples, storm_samples, swic_samples
+from tests import firms_samples, samples, storm_samples, swic_samples
 from tests import vigilance_samples as national
 from tests.helpers import SimClock
 from tests.test_dwd import archive, cap_document
@@ -167,18 +167,27 @@ async def run(overrides: dict[str, Callable[[httpx.Request], httpx.Response]] | 
     return {r.source: r for r in results}
 
 
+@pytest.fixture(autouse=True)
+def no_firms_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The machine that runs the tests may hold a real key: these tests never use it."""
+    monkeypatch.delenv("VIGIE_FIRMS_MAP_KEY", raising=False)
+
+
 def test_there_is_a_check_for_each_collector() -> None:
     from app.main import aggregator
 
-    assert set(tool.CHECKS) == {c.provider_id for c in aggregator.get_all_collectors()}
+    # NASA FIRMS has a check although it has no collector in an instance without a key: the check says "skipped" then.
+    assert set(tool.CHECKS) == {c.provider_id for c in aggregator.get_all_collectors()} | {"nasa_firms"}
 
 
 @pytest.mark.asyncio
 async def test_every_source_passes_when_nothing_changed() -> None:
     results = await run()
     # MetService's feed was empty the day it was recorded: a valid answer, not yet a proof that its items are read.
-    assert {k for k, v in results.items() if v.outcome != "ok"} == {"metservice_cap"}
+    # FIRMS is not asked without a key (the weekly workflow has none).
+    assert {k for k, v in results.items() if v.outcome != "ok"} == {"metservice_cap", "nasa_firms"}
     assert results["metservice_cap"].outcome == "empty"
+    assert results["nasa_firms"].outcome == "skipped"
     assert tool.exit_code(list(results.values())) == 0
 
 
@@ -634,3 +643,138 @@ async def test_wmo_services_that_do_not_answer_are_reported_not_failed() -> None
     results = await run(hosts, only=["wmo_swic"])
     assert results["wmo_swic"].outcome == "unreachable"
     assert tool.exit_code(list(results.values())) == 0
+
+
+# ------------------------------------------------------------------------------------------------ NASA FIRMS
+
+FIRMS_HOST = "firms.modaps.eosdis.nasa.gov"
+FIRMS_DAY = "2026-10-19"  # the day before the instant the tests freeze (firms_samples.EVENING, 2026-10-20 18:12 UTC)
+
+
+def firms_hosts(
+    monkeypatch: pytest.MonkeyPatch,
+    server: Optional[firms_samples.FirmsServer] = None,
+    minimum: int = 200,
+    key: Optional[str] = firms_samples.KEY,
+) -> tuple[dict[str, Callable[[httpx.Request], httpx.Response]], list[httpx.Request]]:
+    """The check's environment (the key, or none) and a simulated FIRMS; the floor of rows is the recording's, not the real file's."""
+    server = server or firms_samples.FirmsServer()
+    seen: list[httpx.Request] = []
+    if key is not None:
+        monkeypatch.setenv("VIGIE_FIRMS_MAP_KEY", key)
+    monkeypatch.setattr(tool, "FIRMS_MIN_ROWS", minimum)
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return server._respond(request)
+
+    return {FIRMS_HOST: answer}, seen
+
+
+async def firms_result(hosts: dict[str, Callable[[httpx.Request], httpx.Response]]) -> tool.Result:
+    return (await run(hosts, only=["nasa_firms"]))["nasa_firms"]
+
+
+@pytest.mark.asyncio
+async def test_firms_is_skipped_without_a_key_and_nothing_is_asked(monkeypatch: pytest.MonkeyPatch) -> None:
+    hosts, seen = firms_hosts(monkeypatch, key=None)
+    result = await firms_result(hosts)
+    assert result.outcome == "skipped" and "VIGIE_FIRMS_MAP_KEY" in result.detail
+    assert seen == []
+    assert tool.exit_code([result]) == 0 and tool.exit_code([result], strict=True) == 0  # not a failure, and not even a "not reachable"
+    assert "| `nasa_firms` | skipped |" in tool.render([result])
+
+
+@pytest.mark.asyncio
+async def test_firms_a_key_that_is_not_one_is_skipped_too_and_never_quoted(monkeypatch: pytest.MonkeyPatch) -> None:
+    odd = "not a key / with spaces and a slash"
+    hosts, seen = firms_hosts(monkeypatch, key=odd)
+    monkeypatch.setenv("VIGIE_FIRMS_MAP_KEY", odd)
+    result = await firms_result(hosts)
+    assert result.outcome == "skipped" and seen == []
+    assert odd not in result.detail
+
+
+@pytest.mark.asyncio
+async def test_firms_reads_yesterdays_world_file_once_and_describes_it(monkeypatch: pytest.MonkeyPatch, sim_clock: SimClock) -> None:
+    sim_clock.EPOCH = firms_samples.EVENING
+    hosts, seen = firms_hosts(monkeypatch)
+    result = await firms_result(hosts)
+    assert result.outcome == "ok", result.detail
+    assert len(seen) == 1  # one request: 36 of the 5,000 transactions
+    assert seen[0].url.path.split("/")[5:] == ["VIIRS_NOAA20_NRT", "world", "1", FIRMS_DAY]
+    rows = len(firms_samples.fixture_rows(firms_samples.N20))
+    assert f"{rows} detections" in result.detail and f"VIIRS_NOAA20_NRT {FIRMS_DAY}" in result.detail
+    assert firms_samples.KEY not in result.detail and firms_samples.KEY not in tool.render([result])
+    assert tool.exit_code([result], strict=True) == 0
+
+
+@pytest.mark.asyncio
+async def test_firms_a_cut_file_is_a_failure(monkeypatch: pytest.MonkeyPatch, sim_clock: SimClock) -> None:
+    sim_clock.EPOCH = firms_samples.EVENING
+    hosts, _ = firms_hosts(monkeypatch, minimum=5_000)  # the recording is shorter than a real day: the real floor refuses it
+    result = await firms_result(hosts)
+    assert result.outcome == "FAIL" and "cut or changed" in result.detail
+    assert tool.exit_code([result]) == 1
+
+
+@pytest.mark.asyncio
+async def test_firms_a_changed_format_is_a_failure(monkeypatch: pytest.MonkeyPatch, sim_clock: SimClock) -> None:
+    sim_clock.EPOCH = firms_samples.EVENING
+    server = firms_samples.FirmsServer()
+    recorded = firms_samples.csv_for(firms_samples.N20, FIRMS_DAY).decode("utf-8")
+    lines = recorded.splitlines()
+    without_power = [lines[0]] + [",".join(line.split(",")[:12] + ["", line.split(",")[-1]]) for line in lines[1:]]
+    cases = {
+        "renamed columns": recorded.replace("latitude,", "lat,", 1).encode("utf-8"),
+        "not a CSV": b"<html><body>Service unavailable</body></html>",
+        "empty": b"",
+        "confidence in numbers": recorded.replace(",l,", ",10,").replace(",n,", ",50,").replace(",h,", ",90,").encode("utf-8"),
+        "no power": ("\n".join(without_power) + "\n").encode("utf-8"),
+    }
+    for name, body in cases.items():
+        server.answers[(firms_samples.N20, FIRMS_DAY)] = body
+        hosts, _ = firms_hosts(monkeypatch, server)
+        result = await firms_result(hosts)
+        assert result.outcome == "FAIL", (name, result)
+        assert firms_samples.KEY not in result.detail
+
+
+@pytest.mark.asyncio
+async def test_firms_rows_that_cannot_be_read_are_a_failure_beyond_one_in_a_hundred(monkeypatch: pytest.MonkeyPatch, sim_clock: SimClock) -> None:
+    sim_clock.EPOCH = firms_samples.EVENING
+    server = firms_samples.FirmsServer()
+    lines = firms_samples.csv_for(firms_samples.N20, FIRMS_DAY).decode("utf-8").splitlines()
+    broken = [lines[0]] + [line if index % 4 else "x,y" + line[3:] for index, line in enumerate(lines[1:])]  # a quarter of the rows lose their position
+    server.answers[(firms_samples.N20, FIRMS_DAY)] = ("\n".join(broken) + "\n").encode("utf-8")
+    hosts, _ = firms_hosts(monkeypatch, server)
+    result = await firms_result(hosts)
+    assert result.outcome == "FAIL" and "could not be read" in result.detail
+
+
+@pytest.mark.asyncio
+async def test_firms_a_busy_or_unreachable_server_is_only_reported_and_a_refused_query_fails(monkeypatch: pytest.MonkeyPatch, sim_clock: SimClock) -> None:
+    sim_clock.EPOCH = firms_samples.EVENING
+    for status, outcome in ((503, "unreachable"), (429, "unreachable"), (403, "unreachable"), (404, "FAIL"), (400, "FAIL")):
+        server = firms_samples.FirmsServer()
+        server.status[firms_samples.N20] = (status, b"no")
+        hosts, _ = firms_hosts(monkeypatch, server)
+        result = await firms_result(hosts)
+        assert result.outcome == outcome, (status, result)
+        assert firms_samples.KEY not in result.detail
+    server = firms_samples.FirmsServer()
+    server.failing.add(firms_samples.N20)  # connection refused
+    hosts, _ = firms_hosts(monkeypatch, server)
+    result = await firms_result(hosts)
+    assert result.outcome == "unreachable" and firms_samples.KEY not in result.detail
+    assert tool.exit_code([result]) == 0 and tool.exit_code([result], strict=True) == 1
+
+
+@pytest.mark.asyncio
+async def test_firms_a_refused_key_is_a_failure_and_the_key_is_not_in_the_report(monkeypatch: pytest.MonkeyPatch, sim_clock: SimClock) -> None:
+    sim_clock.EPOCH = firms_samples.EVENING
+    other = "fedcba9876543210fedcba9876543210"
+    hosts, _ = firms_hosts(monkeypatch, key=other)  # the simulated FIRMS answers "Invalid MAP_KEY." with a 200, as the real one does
+    result = await firms_result(hosts)
+    assert result.outcome == "FAIL" and "Invalid MAP_KEY" in result.detail
+    assert other not in result.detail and other not in tool.render([result])
