@@ -3,7 +3,8 @@
 Coverage:
 
 - Major earthquakes (``EQ``), tsunamis (``TS``), volcanic eruptions (``VO``), cyclones /
-  hurricanes / typhoons (``TC``), floods (``FL``) and wildfires (``WF``) through GDACS.
+  hurricanes / typhoons (``TC``), floods (``FL``) and wildfires (``WF``) through GDACS: the events
+  still current at the orange or red alert level (green means a low humanitarian impact).
 - Immediate Tornado, Hurricane, Tsunami and Flash Flood warnings through NOAA NWS.
 
 An alert needs a position, a severity and an event time to be kept. The main value
@@ -18,6 +19,7 @@ from typing import Any, Optional
 
 import httpx
 
+from app import clock
 from app.collectors.base import BaseCollector, optional_float
 from app.models.schemas import HazardAlert, HazardCategory, SeverityLevel
 
@@ -52,9 +54,34 @@ def _parse_iso_utc(value: Any) -> Optional[int]:
 
 
 class GDACSCollector(BaseCollector[list[HazardAlert]]):
-    """Asynchronous GDACS collector (Global Disaster Alert and Coordination System, UN / EU)."""
+    """Asynchronous GDACS collector (Global Disaster Alert and Coordination System, UN / EU).
 
-    FEED_URL = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/MAP"
+    One request per refresh to the documented search endpoint
+    (https://www.gdacs.org/gdacsapi/swagger/index.html, ``/api/Events/geteventlist/search``) for every
+    event type at once. The ``MAP`` endpoint used before now needs one request per event type: called
+    without ``eventtype`` it answers HTTP 400 "Eventtype is required." (seen on 2026-10-20), so this
+    collector received nothing. The search answers 204 with an empty body when nothing matches.
+    """
+
+    FEED_URL = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH"
+    EVENT_TYPES = "EQ;TC;FL;VO;WF"  # the types _GDACS_CATEGORY_MAP knows (GDACS has no separate TS type)
+    # Orange and red only: GDACS green means a low humanitarian impact, and there are hundreds of green
+    # events at any time (mostly small wildfires), more than one page of the search.
+    ALERT_LEVELS = "Orange;Red"
+    WINDOW_DAYS = 30  # an event still current (a long flood, a cyclone) can have started weeks ago
+    PAGE_SIZE = 100  # the documented maximum; orange and red events of 30 days fit in one page
+
+    @classmethod
+    def search_params(cls, now_utc: float) -> dict[str, str]:
+        """Query of the search endpoint for the events that started within ``WINDOW_DAYS`` of ``now_utc``."""
+        start = datetime.fromtimestamp(now_utc - cls.WINDOW_DAYS * 86400, tz=timezone.utc).date()
+        return {
+            "eventlist": cls.EVENT_TYPES,
+            "alertlevel": cls.ALERT_LEVELS,
+            "fromDate": start.isoformat(),
+            "pageSize": str(cls.PAGE_SIZE),
+            "pageNumber": "1",
+        }
 
     def __init__(self, http_client: Optional[httpx.AsyncClient] = None) -> None:
         super().__init__(
@@ -66,20 +93,25 @@ class GDACSCollector(BaseCollector[list[HazardAlert]]):
         )
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> list[HazardAlert]:
-        resp = await self._get(client, self.FEED_URL)
+        resp = await self._get(client, self.FEED_URL, params=self.search_params(clock.wall()))
         resp.raise_for_status()
-        payload = resp.json()
-        return self.parse_geojson(payload)
+        if resp.status_code == 204 or not resp.content.strip():
+            return []  # GDACS answered: no event matches (not a failure)
+        return self.parse_geojson(resp.json())
 
     @staticmethod
     def parse_geojson(payload: dict[str, Any]) -> list[HazardAlert]:
-        """Parse the GDACS FeatureCollection into ``HazardAlert`` objects."""
+        """Parse the GDACS FeatureCollection into ``HazardAlert`` objects (current events only)."""
         alerts: list[HazardAlert] = []
         features = payload.get("features") or []
 
         for feat in features:
             try:
                 props = feat.get("properties") or {}
+                # "iscurrent" is the string "true" / "false" in the search answer: an event GDACS no
+                # longer follows is not an active hazard. Absent: kept (older answers had no flag).
+                if str(props.get("iscurrent", "true")).strip().lower() == "false":
+                    continue
                 geom = feat.get("geometry") or {}
                 coords = geom.get("coordinates") or []
                 if not coords or not isinstance(coords[0], (int, float)):
