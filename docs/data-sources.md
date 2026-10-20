@@ -47,7 +47,9 @@ at most 96 "now" requests of the forecast (15 minutes) and 24 daily ones (1 hour
 calls (1 hour), 24 marine calls (1 hour) and 4 river discharge calls (6 hours). A GPS position adds
 those calls (marine and river discharge when requested); two positions in the same cell share them.
 The hazard feeds add one call per feed per TTL (at most 1,440 a day for USGS and EMSC, which have the
-shortest TTL; the scheduler alone refreshes them every 90 s, 960 a day).
+shortest TTL; the scheduler alone refreshes them every 90 s, 960 a day). The README gives the calls
+a day measured by a simulation of 1,000 clients on 50 points, before and after the TTLs, grids and
+budget.
 
 ### Weight of the Open-Meteo calls
 

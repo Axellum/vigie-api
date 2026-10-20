@@ -85,6 +85,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `tests/test_call_sobriety.py` and `tests/simulation.py`: a simulated day (1,000 clients on 50
+  points, the scheduler on, a simulated upstream and clock, no network) that counts the requests
+  each provider receives and checks the Open-Meteo quota; `python -m tests.simulation` prints the
+  table. Open-Meteo, per day: 32,732 calls (weight 46,502) before, 7,927 calls (weight 8,412) after.
 - `docs/` : architecture, frame contract, data sources and terms, decision records.
 - `tests/test_embedded_frame_contract.py` pins the frame contract; no test reaches the network.
 - Air quality (EAQI) for every watched zone.

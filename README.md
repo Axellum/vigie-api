@@ -66,6 +66,38 @@ No API key is needed by any provider. A grid value outside 0.0001 to 10 degrees 
 default is used). Only the request sent to the provider and the cache key use the snapped point: the
 response still reports the exact position of the client, and the distances to the hazards use it.
 
+### Calls to the providers
+
+The calls to the providers do not grow with the number of clients: they depend on the number of
+distinct 5 km cells asked for and on how fast each source really changes (grids, one cache entry per
+cell, one request for simultaneous callers, TTLs from each source's rhythm, a call budget; see
+[`docs/architecture.md`](docs/architecture.md) and [`docs/data-sources.md`](docs/data-sources.md)).
+`tests/test_call_sobriety.py` plays a simulated day with the scheduler on and its 5 default zones,
+and 1,000 clients on 50 points (20 each, polling every 30 minutes, 10 points are harbours that also ask
+for the marine conditions; no two points share a cell, so the grids do not help), against a simulated
+upstream, and counts the requests each source receives:
+
+| Source | Calls a day, before | after |
+| --- | ---: | ---: |
+| Open-Meteo forecast | 17,212 | 6,167 |
+| Open-Meteo air quality | 7,182 | 1,320 |
+| Open-Meteo river discharge | 6,122 | 200 |
+| Open-Meteo marine | 2,216 | 240 |
+| **Open-Meteo, weighted** (the free quota is 10,000 a day) | **46,502** | **8,412** |
+| USGS earthquakes, EMSC | 1,980 each | 1,393 each |
+| NOAA NWS alerts | 1,069 | 705 |
+| GDACS | 676 | 474 |
+| RainViewer | 662 | 144 |
+| NOAA SWPC | 403 | 286 |
+| USGS volcanoes | 212 | 144 |
+
+"Before" is `main` at commit 1864e25 (same simulation, measured once); "after" is this code. The
+heaviest Open-Meteo hour weighs 2,305 before and 412 after (quota 5,000), the heaviest minute 497
+and 231 (quota 600). With clients polling every 15 minutes instead, before becomes 54,766 and after
+8,667: the load of the clients hardly changes the "after". The 55 distinct cells of this scenario use
+84 % of the free quota; beyond that the budget stops the requests and serves the cache, flagged stale.
+Play it yourself: `python -m tests.simulation` (about 20 seconds).
+
 ### Run on Windows (the PC that serves the display)
 
 The display fetches `http://<PC address>:8080/v1/embedded/frame` (for example
