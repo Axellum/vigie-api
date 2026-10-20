@@ -14,7 +14,7 @@ Endpoints:
 - ``GET    /v1/point``             : Weather at a GPS position (``lat, lon``): 15-minute rain, radar,
                                      marine (``marine=true``), river discharge, air quality / ash,
                                      space weather and nearby hazards.
-- ``GET    /v1/snapshot``          : Multi-zone snapshot plus world hazards, under 12 KiB, for every
+- ``GET    /v1/snapshot``          : Multi-zone snapshot plus world hazards, under 16 KiB, for every
                                      display profile (``waveshare-7b``, ``tab5``, ``marine``, ``web``).
 - ``GET    /v1/embedded/frame``    : Compact text frame for the ESP32-P4 displays
                                      (contract: ``docs/embedded-frame.md``).
@@ -232,7 +232,7 @@ async def get_point_weather_and_hazards(
         description="Display or client profile (tab5, waveshare-7b, marine, web, generic)",
     ),
     max_hazards: Optional[int] = Query(default=None, ge=1, le=100, description="Maximum number of hazards returned"),
-    compact: bool = Query(default=True, description="Compact profile (under 12 KiB) for the ESP32-P4"),
+    compact: bool = Query(default=True, description="Compact profile (under 16 KiB)"),
 ) -> PointResponse:
     """Weather at one position (15-minute rain, marine, river discharge, air, space weather) plus nearby hazards."""
     return await aggregator.build_point_response(
@@ -257,9 +257,9 @@ async def get_snapshot(
     max_hazards: Optional[int] = Query(
         default=None, ge=1, le=50, description="Maximum number of hazards in the snapshot"
     ),
-    compact: bool = Query(default=True, description="Keep the payload under 12 KiB for the ESP32-P4"),
+    compact: bool = Query(default=True, description="Compact profile: keep the payload under 16 KiB (5 days per zone, credits included)"),
 ) -> SnapshotResponse:
-    """Return the full multi-zone snapshot plus the de-duplicated world hazards (under 12 KiB)."""
+    """Return the full multi-zone snapshot plus the de-duplicated world hazards (compact: under 16 KiB)."""
     return await aggregator.build_snapshot(
         device_type=device_type,
         max_hazards=max_hazards,

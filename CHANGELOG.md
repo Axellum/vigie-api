@@ -113,7 +113,12 @@ All notable changes to this project are documented here. The format follows
   dashboard and the OpenAPI description carry the notice too. A block with no data has `attribution: null`;
   a simulated alert or block is credited to no provider. The compact frame is unchanged: it has no credit
   field. The compact snapshot is larger by about 2.5 KB with 15 hazards and 5 zones (measured on live data:
-  12.3 KB before, 14.8 KB after).
+  12.3 KB before, 14.8 KB after): **its documented budget is raised from 12 KiB to 16 KiB**, with the credit
+  kept on every item (the display reads only the frame, whose 8 KiB budget is unchanged).
+  `tests/test_snapshot_budget.py` builds a compact snapshot from realistic samples of the five hazard sources
+  (15 hazards, 5 zones with weather and air quality) and keeps every device profile under 16 KiB. About 18
+  hazards fit; the profiles carry 15 at most (12 for `marine`), but the `web` profile, whose default limit is
+  50 hazards, is not bound by the budget.
 - **`SOURCES.md`**, the single list of the licence, terms, required credit, quota and clauses of each
   source, with what is **not verified** (checked on 2026-10-20). `docs/data-sources.md` keeps how each
   source is used (what is read, TTL, call volume, budget) and no longer repeats the terms. A test checks

@@ -34,8 +34,8 @@ owner (no `&&`).
    display decoder in the other repository, in the same change. Do not modify the display
    repository from here.
 3. **A failing provider never makes the API fail** and never blocks the event loop: keep the
-   circuit breaker, the cache and the fallback. Keep `GET /v1/snapshot` under 12 KiB and the frame
-   under 8 KiB.
+   circuit breaker, the cache and the fallback. Keep the compact `GET /v1/snapshot` under 16 KiB
+   (it carries the credit of every item, see rule 11) and the frame under 8 KiB.
 4. **Tests never touch the network** (`tests/conftest.py` refuses every `httpx` request). Mock
    the collectors; use real provider payloads as samples.
 5. **Everything is in English**: code, comments, messages, documents, commits. The product name

@@ -16,7 +16,7 @@ from app.services.embedded_frame import verify_embedded_frame_crc
 from app.services.scheduler import detect_new_or_upgraded_hazards
 from tests import samples
 from tests.conftest import World
-from tests.helpers import expired_entry
+from tests.helpers import SNAPSHOT_BUDGET_BYTES, expired_entry
 
 # ============================================================================
 # Weather fallback
@@ -232,7 +232,7 @@ def test_simulation_snapshot_size_and_standards(world: World, simulation_on: Non
         snap = world.client.get(f"/v1/snapshot?device_type={dev}&compact=true")
         assert snap.status_code == 200
         size = len(json.dumps(snap.json(), separators=(",", ":")).encode("utf-8"))
-        assert size < 12288, f"payload too large for {dev}: {size} bytes"
+        assert size < SNAPSHOT_BUDGET_BYTES, f"payload too large for {dev}: {size} bytes"
         assert snap.json()["simulation_active"] is True
         assert snap.json()["global_status"]["max_severity"] == "RED"
 

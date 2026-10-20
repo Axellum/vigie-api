@@ -500,7 +500,7 @@ class AggregatorService:
         max_hazards: Optional[int] = None,
         compact: bool = True,
     ) -> SnapshotResponse:
-        """Build the global snapshot (under 12 KiB in compact mode) and save it to SQLite."""
+        """Build the global snapshot (under 16 KiB in compact mode) and save it to SQLite."""
         days_per_zone = 5 if compact else 10
         limit_hazards = max_hazards or DEVICE_DEFAULT_MAX_HAZARDS.get(device_type, 15)
         zones_cfg = list(self.monitored_zones)

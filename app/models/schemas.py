@@ -338,7 +338,7 @@ class DeviceType(str, Enum):
 
 
 class SnapshotResponse(BaseModel):
-    """Compact multi-display payload (target: under 12 KiB)."""
+    """Compact multi-display payload (budget: under 16 KiB, with the credit of every item)."""
 
     version: str = Field(default="1.1")
     server_utc: int = Field(..., description="Server UTC timestamp")
@@ -346,7 +346,7 @@ class SnapshotResponse(BaseModel):
         default=DeviceType.WAVESHARE_7B,
         description="Hardware profile served (waveshare-7b, tab5, marine, web, generic)",
     )
-    compact: bool = Field(default=True, description="True when the compact profile (under 12 KiB) is applied")
+    compact: bool = Field(default=True, description="True when the compact profile (under 16 KiB) is applied")
     simulation_active: bool = Field(default=False, description="True while a simulated scenario is active")
     global_status: GlobalStatus
     zones: list[ZoneWeather]

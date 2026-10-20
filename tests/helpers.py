@@ -27,6 +27,9 @@ from app.services.aggregator import AggregatorService
 from app.services.storage_wal import SQLiteWALStorage
 from tests import samples
 
+# Budget of the compact ``GET /v1/snapshot`` (the credit of every item included): 16 KiB.
+SNAPSHOT_BUDGET_BYTES = 16 * 1024
+
 
 class SimClock:
     """Simulated clock: ``monotonic()`` and ``time()`` move only when the test says so.
