@@ -69,8 +69,14 @@ QUOTAS: dict[str, Quota] = {
     "met_norway_fallback": Quota("met-norway", (Limit(1, 20),), "https://api.met.no/doc/TermsOfService"),
     # "Rate limiting set to 100 requests/IP/minute" (since 2026-01-01).
     "rainviewer_radar": Quota("rainviewer", (Limit(60, 100),), "https://rainviewer.com/api/transition-faq.html"),
+    # MSC Open Data Service Usage Policy: "If you or your application's usage, involves 86,400 requests per day or
+    # higher (about 1 request per second), contact us" (read 2026-10-20). A threshold above which the MSC asks to be
+    # told, not a quota that refuses: it is kept as the limit all the same (this API sends under 300 a day).
+    "eccc_alerts": Quota("eccc-msc", (Limit(DAY_S, 86_400),), "https://eccc-msc.github.io/open-data/usage-policy/readme_en/"),
     # Not listed, no published quota: usgs_eq, emsc_seismic, gdacs_global, noaa_nws (a limit exists but "is
-    # not public information"), usgs_volcano_gvp, noaa_swpc.
+    # not public information"), usgs_volcano_gvp, noaa_swpc, and the other warning services: dwd_cap, metservice_cap and
+    # vigicrues_flow publish none (nothing about a request rate on their terms or documentation pages, 2026-10-20: not
+    # verified), meteoalarm_atom and meteoalarm_cap neither.
 }
 
 
