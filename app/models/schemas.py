@@ -424,6 +424,35 @@ class AirQualityStatus(BaseModel):
     )
 
 
+class FiresNearby(BaseModel):
+    """The active fires that NASA FIRMS detected around a position in the last 24 hours (``/v1/point``).
+
+    **Computed by Vigie from the detections, never an alert**: it does not raise ``local_alert_level``. No detection is not the absence of
+    fire: the satellites pass a given place a few times a day, a cloud hides the ground, and a small fire is not seen. The detections are
+    the satellites' pixels (375 m), the latest of them about 3 hours old when FIRMS publishes them. Every field named in ``derived`` is our
+    own count or distance; the detections themselves are served by ``GET /v1/fires``.
+    """
+
+    radius_km: float = Field(..., gt=0.0, description="Radius around the position that was searched (kilometres)")
+    count_24h: int = Field(..., ge=0, description="Detections within the radius whose acquisition time is in the last 24 hours (every confidence, low included)")
+    nearest_km: Optional[float] = Field(default=None, ge=0.0, description="Distance to the nearest of them (kilometres); null when there is none")
+    max_frp_mw: Optional[float] = Field(
+        default=None, ge=0.0, description="Highest fire radiative power among them (megawatts); null when there is none or FIRMS gave none"
+    )
+    latest_utc: Optional[int] = Field(default=None, description="Acquisition time (UTC epoch seconds) of the most recent of them; null when there is none")
+    data_read_utc: int = Field(..., description="When the API last read FIRMS (UTC epoch seconds): the detections are from before that")
+    stale: bool = Field(
+        default=False, description="True when the last attempt to read FIRMS failed: these are the detections of the previous reading"
+    )
+    sources: list[str] = Field(default_factory=list, description="FIRMS products read (e.g. VIIRS_NOAA20_NRT)")
+    derived: list[str] = Field(
+        default_factory=lambda: ["count_24h", "nearest_km", "max_frp_mw", "latest_utc"],
+        description="The fields above that Vigie computed from the detections",
+    )
+    attribution: str = Field(..., description="The credit NASA asks for, to show with this data")
+    disclaimer: str = Field(..., description="The disclaimer NASA asks to pass on with FIRMS data")
+
+
 class MonitoredZoneConfig(BaseModel):
     """Persistent configuration of a watched zone (SQLite watchlist)."""
 
@@ -489,6 +518,11 @@ class PointResponse(BaseModel):
     nearby_hazards: list[HazardAlert] = Field(
         default_factory=list,
         description="Global hazards filtered and enriched relative to this position",
+    )
+    fires_nearby: Optional[FiresNearby] = Field(
+        default=None,
+        description="Active fires detected around the position in the last 24 hours (NASA FIRMS). Null when the source is off on this "
+        "instance (`GET /v1/health`, `disabled_sources`) or has not been read yet. Informative only: never part of `local_alert_level`",
     )
 
 

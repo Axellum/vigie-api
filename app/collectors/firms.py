@@ -21,7 +21,7 @@ What is asked, and why (measurements in ``docs/data-sources.md``):
 - **Transactions**: FIRMS allows 5,000 transactions per 10 minutes per key and says a large request counts as several. A world read
   of one day was measured at 36 transactions; the budget counts it so (``WORLD_DAY_TRANSACTIONS``).
 
-The rows are kept compactly (``HotspotTable``: typed arrays, about 37 bytes a row, sorted by latitude through an index) and parsed in a
+The rows are kept compactly (``HotspotTable``: typed arrays, about 43 bytes a row measured, sorted by latitude through an index) and parsed in a
 thread, so the event loop is never held. A value the CSV does not give is ``None``; a row without a readable position or time is skipped
 and counted. **The key never leaves this module**: every error that is raised, recorded (``last_error`` of ``GET /v1/providers``) or
 logged has it replaced by ``REDACTED`` (``tests/test_firms_secret.py``).
