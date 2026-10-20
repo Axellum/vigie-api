@@ -38,7 +38,8 @@ def write_snapshot(payload: dict, path: Path = SNAPSHOT_PATH) -> int:
     # No time and no file name in the gzip header: the same input gives the same bytes.
     with open(path, "wb") as raw, gzip.GzipFile(filename="", mode="wb", fileobj=raw, compresslevel=9, mtime=0) as handle:
         handle.write(body)
-    print(f"wrote {path.relative_to(REPO_ROOT)}: {len(trimmed['sources'])} services, {path.stat().st_size / 1024:.1f} KiB gzipped")
+    shown = path.relative_to(REPO_ROOT) if path.is_relative_to(REPO_ROOT) else path
+    print(f"wrote {shown}: {len(trimmed['sources'])} services, {path.stat().st_size / 1024:.1f} KiB gzipped")
     return len(trimmed["sources"])
 
 
