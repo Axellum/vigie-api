@@ -87,6 +87,11 @@ async def test_a_day_of_1000_clients_on_50_points_stays_under_the_open_meteo_quo
     assert weight < 0.3 * BEFORE_OPEN_METEO_WEIGHT
     assert peak_minute < BEFORE_OPEN_METEO_PEAK_MINUTE and peak_hour < BEFORE_OPEN_METEO_PEAK_HOUR
     assert result.calls["met_norway_fallback"] == 0  # Open-Meteo never failed: the fallback was not asked
+    # The official warnings: the scheduler asks the MeteoAlarm feeds of the countries of the watched zones only (Paris:
+    # France, Reykjavik: Iceland; Tokyo and Pointe-a-Pitre have no source, San Francisco is the NWS answer the hazards
+    # already use), and fetches no CAP document while no warning changes. See tests/test_vigilance_sobriety.py.
+    assert 0 < result.calls["meteoalarm_atom"] <= 2 * (DAY_S // 180 + 1)
+    assert result.calls.get("meteoalarm_cap", 0) == 0
 
     # The number of calls does not depend on the number of clients: a refresh happens at most once per
     # lifetime of a cache entry, so each source is bounded by (cells x refreshes per day), whatever the load.

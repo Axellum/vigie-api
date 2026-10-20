@@ -34,6 +34,7 @@ from app.collectors.flood_air import (
     USGSVolcanoCollector,
 )
 from app.collectors.marine import OpenMeteoMarineCollector
+from app.collectors.meteoalarm import MeteoAlarmCapCollector, MeteoAlarmCollector
 from app.collectors.seismic import EMSCCollector, USGSCollector
 from app.collectors.space_weather import NOAASWPCCollector
 from app.collectors.weather import (
@@ -81,7 +82,9 @@ from app.services.geodesy import (
     enrich_hazard_for_point,
     haversine_km,
 )
+from app.services.geoindex import CountryIndex, GeometryIndex, default_countries, default_geometries
 from app.services.storage_wal import DEFAULT_WATCHLIST_SEED, SQLiteWALStorage
+from app.services.vigilance import VigilanceService
 
 T = TypeVar("T")
 
@@ -129,6 +132,10 @@ class AggregatorService:
         storage: Optional[SQLiteWALStorage] = None,
         db_path: Optional[str | Path] = None,
         rainviewer_enabled: Optional[bool] = None,
+        meteoalarm: Optional[MeteoAlarmCollector] = None,
+        meteoalarm_cap: Optional[MeteoAlarmCapCollector] = None,
+        countries: Optional[CountryIndex] = None,
+        geometries: Optional[GeometryIndex] = None,
     ) -> None:
         self.started_at_utc = int(time.time())
         # RainViewer is on unless VIGIE_ENABLE_RAINVIEWER turns it off (see ``rainviewer_enabled_from_env``).
@@ -145,6 +152,8 @@ class AggregatorService:
         self.flood = flood or OpenMeteoFloodCollector()
         self.air_quality = air_quality or OpenMeteoAirQualityCollector()
         self.swpc = swpc or NOAASWPCCollector()
+        self.meteoalarm = meteoalarm or MeteoAlarmCollector()
+        self.meteoalarm_cap = meteoalarm_cap or MeteoAlarmCapCollector()
         share_budgets(self.get_all_collectors())  # the four Open-Meteo APIs share one quota
 
         self.storage = storage or SQLiteWALStorage(db_path=db_path)
@@ -155,6 +164,15 @@ class AggregatorService:
         self.active_scenario: SimulationScenario = SimulationScenario.CLEAR
         self.simulated_hazards: list[HazardAlert] = []
         self.last_weather_fallback_used: bool = False
+        # The official warnings (MeteoAlarm, NWS): the NWS answer is the hazards' own, no request of its own.
+        self.vigilances = VigilanceService(
+            meteoalarm=self.meteoalarm,
+            meteoalarm_cap=self.meteoalarm_cap,
+            noaa_nws=self.noaa_nws,
+            countries=countries or default_countries(),
+            geometries=geometries or default_geometries(),
+            watched_zones=lambda: self.monitored_zones,
+        )
 
     def refresh_zones_from_storage(self) -> list[MonitoredZoneConfig]:
         """Reload the watched zones from SQLite."""
@@ -203,6 +221,8 @@ class AggregatorService:
             self.flood,
             self.air_quality,
             self.swpc,
+            self.meteoalarm,
+            self.meteoalarm_cap,
         ]
         return collectors if self.rainviewer_enabled else [c for c in collectors if c is not self.rainviewer]
 

@@ -7,6 +7,9 @@ This service:
    ``GREEN -> YELLOW -> ORANGE -> RED``, or a higher magnitude / intensity).
 3. Pushes urgent alerts over WebSocket (``/v1/stream``) together with the updated embedded
    frame (``embedded_frame``) for the displays.
+4. Watches the official weather warnings (MeteoAlarm, NWS) of the watched zones and of the positions the
+   clients follow, and pushes the changes (``vigilance_push``): a warning that appears, whose level goes up,
+   or that ends. The feeds of the countries that are needed are kept fresh (a cached feed costs no request).
 """
 
 from __future__ import annotations
@@ -19,6 +22,7 @@ from typing import Any, Optional
 from app.models.schemas import SEVERITY_RANK, HazardAlert
 from app.services.aggregator import AggregatorService
 from app.services.embedded_frame import serialize_embedded_frame
+from app.services.vigilance import FollowedPoint
 
 
 def _value_increased(previous: Optional[float], current: Optional[float]) -> bool:
@@ -64,8 +68,48 @@ class BackgroundAlertScheduler:
         self.last_push_utc: Optional[int] = None
         self.last_new_or_upgraded_count: int = 0
         self.last_error: Optional[str] = None
+        self.last_vigilance_changes_count: int = 0
+        self.last_vigilance_error: Optional[str] = None
         self._known_hazards: dict[str, HazardAlert] = {}
         self._task: Optional[asyncio.Task[None]] = None
+
+    def followed_points(self) -> list[FollowedPoint]:
+        """The positions whose official warnings are watched: the watched zones (everyone is told), then the clients' own."""
+        points = [
+            FollowedPoint(
+                key=f"zone:{zone['id']}",
+                lat=float(zone["lat"]),
+                lon=float(zone["lon"]),
+                label={"zone_id": str(zone["id"]), "zone_name": str(zone["name"])},
+                audience="all",
+            )
+            for zone in self.aggregator.monitored_zones
+        ]
+        client_points = getattr(self.ws_hub, "followed_points", lambda: set())()
+        points.extend(
+            FollowedPoint(key=f"point:{lat},{lon}", lat=lat, lon=lon, label={}, audience="followers")
+            for lat, lon in sorted(client_points)
+        )
+        return points
+
+    async def run_vigilance_cycle(self) -> int:
+        """Look at the official warnings of the followed positions and push what changed; returns how many changes."""
+        try:
+            points = self.followed_points()
+            await self.aggregator.vigilances.refresh(points)
+            changes = await self.aggregator.vigilances.poll_changes(points)
+            for point, change in changes:
+                message = change.model_dump(mode="json")
+                if point.audience == "all":
+                    await self.ws_hub.broadcast(message)
+                else:
+                    await self.ws_hub.send_to_followers((point.lat, point.lon), message)
+            self.last_vigilance_changes_count = len(changes)
+            self.last_vigilance_error = None
+            return len(changes)
+        except Exception as exc:
+            self.last_vigilance_error = f"{type(exc).__name__}: {exc}"
+            return 0
 
     async def run_single_cycle(self) -> dict[str, Any]:
         """Run one full cycle: collect, compute the difference, push over WebSocket if needed."""
@@ -94,6 +138,8 @@ class BackgroundAlertScheduler:
                     }
                 )
 
+            vigilance_changes = await self.run_vigilance_cycle()
+
             return {
                 "status": "ok",
                 "cycles_count": self.cycles_count,
@@ -101,6 +147,7 @@ class BackgroundAlertScheduler:
                 "total_hazards": len(snapshot.hazards),
                 "new_or_upgraded_count": len(diff),
                 "new_or_upgraded_ids": [h.id for h in diff],
+                "vigilance_changes_count": vigilance_changes,
                 "max_severity": (
                     snapshot.global_status.max_severity.value
                     if snapshot.global_status.max_severity is not None
@@ -148,4 +195,6 @@ class BackgroundAlertScheduler:
             "last_new_or_upgraded_count": self.last_new_or_upgraded_count,
             "tracked_hazards_count": len(self._known_hazards),
             "last_error": self.last_error,
+            "last_vigilance_changes_count": self.last_vigilance_changes_count,
+            "last_vigilance_error": self.last_vigilance_error,
         }

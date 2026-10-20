@@ -20,6 +20,9 @@ Endpoints:
                                      (contract: ``docs/embedded-frame.md``).
 - ``GET    /v1/geojson/hazards``   : IETF RFC 7946 GeoJSON (``FeatureCollection``).
 - ``GET    /v1/cap/alerts``        : OASIS CAP 1.2 (Common Alerting Protocol).
+- ``GET    /v1/vigilances``        : Official national weather warnings (MeteoAlarm, NWS) for a point (``lat, lon``)
+                                     or a country (``country``).
+- ``GET    /v1/vigilances.geojson``: The same, as GeoJSON.
 - ``POST   /v1/simulate``          : Inject a simulated scenario (always labelled as a simulation). Off unless
                                      ``VIGIE_ENABLE_SIMULATION=1``: it answers 403 otherwise.
 - ``WS     /v1/stream``            : Real-time WebSocket stream for connected terminals.
@@ -27,6 +30,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import json
 import os
 import time
 from contextlib import asynccontextmanager
@@ -52,16 +56,27 @@ from app.models.schemas import (
     SimulationResponse,
     SnapshotResponse,
 )
+from app.models.vigilance import VigilanceGeoJSONCollection, VigilancesResponse
 from app.routers.dashboard import router as dashboard_router
 from app.services.aggregator import AggregatorService
 from app.services.scheduler import BackgroundAlertScheduler
+from app.services.vigilance import FOLLOW_DECIMALS, SUPPORTED_COUNTRIES, parse_languages
+
+# The most positions one WebSocket connection can follow for official warnings.
+MAX_FOLLOWED_POINTS_PER_CONNECTION = 10
 
 
 class WebSocketHub:
-    """Manager of the real-time WebSocket connections (Waveshare 7B, M5Stack Tab5, web)."""
+    """Manager of the real-time WebSocket connections (Waveshare 7B, M5Stack Tab5, web).
+
+    A client can also follow positions (``{"action": "follow", "lat": .., "lon": ..}``): the scheduler then pushes it the
+    changes of the official warnings of those positions (`vigilance_push`). The positions live in memory, per
+    connection, and are forgotten with it.
+    """
 
     def __init__(self) -> None:
         self.active_connections: list[WebSocket] = []
+        self.following: dict[WebSocket, set[tuple[float, float]]] = {}
 
     async def connect(self, websocket: WebSocket) -> None:
         await websocket.accept()
@@ -70,6 +85,35 @@ class WebSocketHub:
     def disconnect(self, websocket: WebSocket) -> None:
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
+        self.following.pop(websocket, None)
+
+    def follow(self, websocket: WebSocket, lat: float, lon: float) -> Optional[tuple[float, float]]:
+        """Follow a position (rounded to ``FOLLOW_DECIMALS`` decimals); ``None`` when the connection follows too many."""
+        key = (round(lat, FOLLOW_DECIMALS), round(lon, FOLLOW_DECIMALS))
+        points = self.following.setdefault(websocket, set())
+        if key not in points and len(points) >= MAX_FOLLOWED_POINTS_PER_CONNECTION:
+            return None
+        points.add(key)
+        return key
+
+    def unfollow(self, websocket: WebSocket, lat: float, lon: float) -> None:
+        self.following.get(websocket, set()).discard((round(lat, FOLLOW_DECIMALS), round(lon, FOLLOW_DECIMALS)))
+
+    def followed_points(self) -> set[tuple[float, float]]:
+        """Every position that some connection follows."""
+        return {point for points in self.following.values() for point in points}
+
+    async def send_to_followers(self, point: tuple[float, float], message: dict[str, Any]) -> None:
+        """Send a message to the connections that follow ``point``."""
+        stale: list[WebSocket] = []
+        for conn, points in list(self.following.items()):
+            if point in points:
+                try:
+                    await conn.send_json(message)
+                except Exception:
+                    stale.append(conn)
+        for s in stale:
+            self.disconnect(s)
 
     async def broadcast(self, message: dict[str, Any]) -> None:
         stale: list[WebSocket] = []
@@ -122,7 +166,8 @@ app = FastAPI(
     version=__version__,
     lifespan=lifespan,
     description=(
-        "Aggregates world natural hazards (USGS, EMSC, GDACS, NOAA NWS, USGS Volcano, NOAA SWPC) "
+        "Aggregates world natural hazards (USGS, EMSC, GDACS, NOAA NWS, USGS Volcano, NOAA SWPC), the official "
+        "national weather warnings (MeteoAlarm, NOAA NWS) "
         "and weather (Open-Meteo, MET Norway fallback, RainViewer radar, marine, river discharge, "
         "air quality) for the Vigie displays. A value no provider supplied is reported as unknown "
         "(null, or an empty field in the embedded frame); nothing is ever made up. "
@@ -301,6 +346,92 @@ async def get_cap_alerts() -> CAPFeedResponse:
     return await aggregator.build_cap_feed()
 
 
+VIGILANCE_DESCRIPTION = (
+    "Ask either for a position (`lat` and `lon`: the warnings whose area contains that exact point) or for a country "
+    "(`country`, ISO 3166-1 alpha-2: every warning of that country). Sources: the MeteoAlarm feeds of 39 European "
+    "countries, and the Severe and Extreme alerts of the US National Weather Service. The words of the issuer are "
+    "kept untouched in `texts` (one entry per language; `lang=fr,en` keeps only those languages); `level` and "
+    "`phenomenon` are the API's own normalization and are listed in `derived`. `coverage` says what the API could "
+    "not do: a warning whose area is given by a code without a shape on this instance cannot be matched to a point. "
+    "The sources' terms ask for `disclaimer` to be published with the warnings. To be told when a warning appears, "
+    "goes up or ends for a position, send `{\"action\": \"follow\", \"lat\": .., \"lon\": ..}` on the WebSocket "
+    "`/v1/stream` (you get a `vigilance_state` at once, then a `vigilance_push` for each change; "
+    "`{\"action\": \"unfollow\", ..}` stops it). This is not an official warning "
+    "service: follow the warnings of your national authorities."
+)
+
+
+def _vigilance_request(lat: Optional[float], lon: Optional[float], country: Optional[str]) -> None:
+    """Check that the query is a position or a country, not both and not half a position."""
+    if (lat is None) != (lon is None):
+        raise HTTPException(status_code=422, detail="`lat` and `lon` go together")
+    if lat is not None and country is not None:
+        raise HTTPException(status_code=422, detail="Ask for a position (`lat`, `lon`) or for a `country`, not both")
+    if lat is None and country is None:
+        raise HTTPException(status_code=422, detail="Ask for a position (`lat` and `lon`) or for a `country`")
+    if country is not None and country.upper() not in SUPPORTED_COUNTRIES:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No official warning source for country '{country.upper()}'. Countries with a source: {', '.join(SUPPORTED_COUNTRIES)}",
+        )
+
+
+async def _vigilances(
+    lat: Optional[float], lon: Optional[float], country: Optional[str], lang: Optional[str]
+) -> VigilancesResponse:
+    _vigilance_request(lat, lon, country)
+    languages = parse_languages(lang)
+    if country is not None:
+        return await aggregator.vigilances.for_country(country, languages)
+    assert lat is not None and lon is not None
+    return await aggregator.vigilances.for_point(lat, lon, languages)
+
+
+@app.get(
+    "/v1/vigilances",
+    response_model=VigilancesResponse,
+    tags=["Vigilances"],
+    description=VIGILANCE_DESCRIPTION,
+    responses={
+        404: {"description": "No source of official warnings for this country."},
+        422: {"description": "Neither a position nor a country, or both."},
+    },
+)
+async def get_vigilances(
+    lat: Optional[float] = Query(default=None, ge=-90.0, le=90.0, description="Exact latitude (WGS84): the warnings covering that point"),
+    lon: Optional[float] = Query(default=None, ge=-180.0, le=180.0, description="Exact longitude (WGS84)"),
+    country: Optional[str] = Query(
+        default=None, min_length=2, max_length=2, pattern=r"^[A-Za-z]{2}$", description="ISO 3166-1 alpha-2 country: every warning of that country"
+    ),
+    lang: Optional[str] = Query(
+        default=None, max_length=64, description="Keep only the texts in these languages, e.g. `fr,en` (a prefix of the language tag). All by default"
+    ),
+) -> VigilancesResponse:
+    """Official weather warnings for a point or a country (MeteoAlarm, NWS)."""
+    return await _vigilances(lat, lon, country, lang)
+
+
+@app.get(
+    "/v1/vigilances.geojson",
+    response_model=VigilanceGeoJSONCollection,
+    tags=["Vigilances"],
+    description=VIGILANCE_DESCRIPTION
+    + " Each feature is a warning; its geometry is the polygon of the source, or the shape of its code, or null.",
+    responses={
+        404: {"description": "No source of official warnings for this country."},
+        422: {"description": "Neither a position nor a country, or both."},
+    },
+)
+async def get_vigilances_geojson(
+    lat: Optional[float] = Query(default=None, ge=-90.0, le=90.0, description="Exact latitude (WGS84)"),
+    lon: Optional[float] = Query(default=None, ge=-180.0, le=180.0, description="Exact longitude (WGS84)"),
+    country: Optional[str] = Query(default=None, min_length=2, max_length=2, pattern=r"^[A-Za-z]{2}$", description="ISO 3166-1 alpha-2 country"),
+    lang: Optional[str] = Query(default=None, max_length=64, description="Keep only the texts in these languages, e.g. `fr,en`"),
+) -> VigilanceGeoJSONCollection:
+    """The same warnings as GeoJSON (RFC 7946)."""
+    return aggregator.vigilances.to_geojson(await _vigilances(lat, lon, country, lang))
+
+
 @app.post(
     "/v1/simulate",
     response_model=SimulationResponse,
@@ -330,9 +461,54 @@ async def post_simulate(request: SimulationRequest) -> SimulationResponse:
     return response
 
 
+async def _handle_follow(websocket: WebSocket, text: str) -> None:
+    """``{"action": "follow" | "unfollow", "lat": .., "lon": ..}``: follow the official warnings of a position.
+
+    The client gets the warnings now (`vigilance_state`), then the scheduler (`VIGIE_SCHEDULER=1`) pushes what
+    changes there: a warning that appears, whose level goes up, or that ends (`vigilance_push`). Any other text is ignored.
+    """
+    try:
+        request = json.loads(text)
+    except ValueError:
+        return
+    if not isinstance(request, dict) or request.get("action") not in ("follow", "unfollow"):
+        return
+    lat, lon = request.get("lat"), request.get("lon")
+    valid = (
+        isinstance(lat, (int, float))
+        and isinstance(lon, (int, float))
+        and not isinstance(lat, bool)
+        and not isinstance(lon, bool)
+        and -90.0 <= lat <= 90.0
+        and -180.0 <= lon <= 180.0
+    )
+    if not valid:
+        await websocket.send_json({"event": "error", "detail": "`lat` and `lon` must be numbers within the globe"})
+        return
+    if request["action"] == "unfollow":
+        ws_hub.unfollow(websocket, float(lat), float(lon))
+        await websocket.send_json({"event": "vigilance_unfollowed", "lat": lat, "lon": lon})
+        return
+    followed = ws_hub.follow(websocket, float(lat), float(lon))
+    if followed is None:
+        await websocket.send_json(
+            {"event": "error", "detail": f"A connection follows {MAX_FOLLOWED_POINTS_PER_CONNECTION} positions at most"}
+        )
+        return
+    try:
+        state = await aggregator.vigilances.for_point(followed[0], followed[1])
+    except Exception:  # the position stays followed: the scheduler will push what changes
+        await websocket.send_json({"event": "error", "detail": "The warnings of this position could not be read now"})
+        return
+    await websocket.send_json({"event": "vigilance_state", "point": {"lat": followed[0], "lon": followed[1]}, **state.model_dump(mode="json")})
+
+
 @app.websocket("/v1/stream")
 async def websocket_stream(websocket: WebSocket) -> None:
-    """Real-time WebSocket stream: the initial state, then alert updates."""
+    """Real-time WebSocket stream: the initial state, then alert updates.
+
+    Besides the hazards (`alert_push`), a client can follow the official warnings of positions: see `_handle_follow`.
+    """
     await ws_hub.connect(websocket)
     try:
         initial_snap = await aggregator.build_snapshot()
@@ -348,6 +524,8 @@ async def websocket_stream(websocket: WebSocket) -> None:
             msg = await websocket.receive_text()
             if msg.strip().lower() == "ping":
                 await websocket.send_json({"event": "pong", "server_utc": int(time.time())})
+            else:
+                await _handle_follow(websocket, msg)
     except WebSocketDisconnect:
         ws_hub.disconnect(websocket)
     except Exception:
