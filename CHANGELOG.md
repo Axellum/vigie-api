@@ -7,6 +7,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **A number JSON cannot carry is a 422, not a 500.** Python's parser accepts `NaN` and `Infinity`; the validation error that quoted the value
+  could not be encoded, so any route with a number (`POST /v1/zones`, the new `POST /v1/watched-points`...) answered 500. The value is now
+  written as text in the error.
+
 - **No flood level is drawn from river discharge any more.** `flood_risk.flood_alert_level` of `/v1/point` is always
   null and no longer raises `local_alert_level` (points, zones, dashboard). It came from `anomaly_ratio`, the highest
   GloFAS ensemble member over the ensemble mean, which measures how far the forecast scenarios spread, not how high the
@@ -38,6 +42,31 @@ All notable changes to this project are documented here. The format follows
     ([ADR 0007](docs/decisions/0007-active-fires-from-nasa-firms.md), `docs/data-sources.md`).
   - `tools/check_live_feeds.py` reads one world day of FIRMS when it has the key and **skips it without** (new outcome `skipped`,
     never a failure): the weekly workflow has no key, so it skips FIRMS.
+- **What a hazard is close to: `near_places`** on every hazard of `/v1/geojson/hazards`, `/v1/history`, the stream and the full profile of
+  `/v1/snapshot` and `/v1/point` (`compact=false`): `[{name, kind, distance_km, sources}]`, nearest first, at most 5, named in the new `derived`
+  list of the hazard and credited in its `attribution`. **Calculated by Vigie, never a severity.** Three sets of places: the **named active
+  faults** of the GEM Global Active Faults Database (earthquakes and volcanic events, at most 70 km deep, within 10 km), the **volcanoes
+  that the hazard sources themselves report** (an earthquake within 20 km of a USGS elevated alert or a GDACS eruption; no list of the
+  world's volcanoes is bundled, the Smithsonian one has an unclear licence), and the **watched points** (each within its own radius).
+  `[]` is "nothing is near", `null` is "not worked out" (the fault file is unreadable, a simulated alert, the compact profile, which
+  carries none to keep to 16 KiB). The radii are **settings, not sourced facts** (`VIGIE_NEAR_FAULT_KM`, `VIGIE_NEAR_FAULT_MAX_DEPTH_KM`,
+  `VIGIE_NEAR_VOLCANO_KM`, `VIGIE_NEAR_MAX_PLACES`). The distance is to the mapped surface trace; it was checked against Vincenty on the
+  ellipsoid to a dense sampling of the original traces: the M 7.7 earthquake of Panama (2026-10-09) is 4.3 km from the Azuero Fault Zone
+  (4.19 km by the oracle), and over 656 real earthquakes of 30 days the two agree to -0.47 / +0.46 km. Cost: 31-36 ms and 4 MB to load,
+  2.5 ms (4.3 ms with 50 points) for the 56 hazards of a request.
+- **The fault file** `app/data/gem-active-faults.geojson.gz` (189 KiB, 6,090 named traces of 13,696) is **CC BY-SA 4.0**, share-alike, with its
+  notice (`app/data/gem-active-faults.NOTICE.md`, `app/data/README.md`); the code stays MIT. `tools/build_faults.py` downloads the pinned
+  commit and refuses any other content. **The traces without a name are not kept** (7,598): the Mediterranean and Asia are mostly unnamed,
+  and the North Anatolian Fault is not named in the file.
+- **Watched points**: `GET/POST /v1/watched-points`, `DELETE /v1/watched-points/{id}` (a name, a kind `place` / `fault` / `volcano` / `custom`, a
+  position, a radius; at most 50, `VIGIE_WATCHED_POINTS_MAX`; 409 beyond), and **`GET /v1/watched-points/status?days=7`**: for each point the
+  events within its radius (an earthquake by the time it happened, any other hazard by the last time it was seen active), and a `state`:
+  `events`, `quiet` or `unknown`. **`quiet` is proved, not assumed**: every one of the 7 hazard sources must have answered at the last
+  reading (an answer served from the cache after a failure does not count) and have been read without a gap longer than
+  `VIGIE_QUIET_MAX_GAP_S` (15 minutes) since `quiet_since_utc`; an instance started an hour ago says so (`window_covered: false`) instead of
+  "nothing in the last week"; otherwise `unknown` and `unreachable_sources`. The runs of readings are kept in SQLite (`source_runs`).
+  The routes have no authentication, like `/v1/zones`, and the name of a watched point appears in the `near_places` of the hazards near it.
+- [ADR 0007](docs/decisions/0007-sensitive-points.md).
 - **More countries, through the registry of the WMO Severe Weather Information Centre** (`wmo_swic_registry`, `wmo_swic`).
   The registry lists the national services that publish CAP warnings (140 services in 135 countries on 2026-10-20). For a
   country that has no source of its own, the API reads the service's own feed (and the WMO's copy of it, for a service on a

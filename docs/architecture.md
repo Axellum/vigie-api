@@ -48,10 +48,12 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | `app/models/vigilance.py` | The `Vigilance` model (an official warning) and the answers built on it. |
 | `app/geo.py`, `app/services/geoindex.py` | Polygons of a CAP message; the country of a point and the shape of a code (shapely), from the files of `app/data/`. |
 | `app/services/vigilance.py` | `VigilanceService`: the warnings of a point or a country, and the changes to push. |
-| `app/data/`, `tools/build_geometries.py` | The two bundled geometry files and the script that rebuilds them (licences: [`SOURCES.md`](../SOURCES.md)). |
+| `app/data/`, `tools/build_geometries.py`, `tools/build_faults.py` | The bundled reference files and the scripts that rebuild them: the borders and NUTS shapes, and the named active faults (CC BY-SA 4.0, with its notice; licences: [`SOURCES.md`](../SOURCES.md)). |
+| `app/models/places.py`, `app/services/places.py` | `near_places` of a hazard: the named active faults (`FaultIndex`, `shapely.STRtree`), the volcanoes in alert and the watched points within a radius; the radii are settings (`PlaceSettings`). Calculated by Vigie, named in `derived`, never a severity ([ADR 0007](decisions/0007-sensitive-points.md)). |
+| `app/models/watch.py`, `app/services/watch.py` | The status of the watched points (`GET /v1/watched-points/status`): the events within each radius, and `quiet` only when every hazard source answered and has been read without a gap (`SourceReads`). |
 | `app/services/geodesy.py` | Haversine distance, bearing, tsunami ETA, de-duplication of hazards across agencies. |
 | `app/services/embedded_frame.py` | Serializes the snapshot (and an optional GPS point) to the text frame, with its CRC32. |
-| `app/services/storage_wal.py` | SQLite in WAL mode: watchlist, hazard history, last snapshot. |
+| `app/services/storage_wal.py` | SQLite in WAL mode: watchlist, watched points, hazard history, last snapshot, the runs of readings of the hazard sources. |
 | `app/services/scheduler.py` | Optional periodic collection and differential push of new or worsening alerts. |
 | `app/routers/dashboard.py` | Supervision page. |
 | `tools/capture_frame.py` | Captures a real frame to a file. |
@@ -205,8 +207,8 @@ The number of calls to the providers must not grow with the number of clients. W
 ## Persistence
 
 SQLite in WAL mode, file `VIGIE_DB_PATH` or `vigie.db` in the repository root (git-ignored).
-Tables: `monitored_zones` (the watchlist, seeded with five cities), `hazards_history`,
-`snapshot_cache`. Older databases are migrated on start (a hazard without a value is stored as
+Tables: `monitored_zones` (the watchlist, seeded with five cities), `watched_points`, `hazards_history`,
+`snapshot_cache`, `source_runs` (for each hazard source, since when it has been read without a gap). Older databases are migrated on start (a hazard without a value is stored as
 `NULL`). A legacy `vigie_mondiale.db` is reused when `vigie.db` does not exist.
 
 ## Known limitations
@@ -226,7 +228,8 @@ Tables: `monitored_zones` (the watchlist, seeded with five cities), `hazards_his
   default**: it answers 403 unless the instance sets `VIGIE_ENABLE_SIMULATION=1`
   (`GET /v1/health` reports `simulation_enabled`). Enable it only where trusted clients alone can reach
   the API. The rest of the API is not authenticated either (`POST /v1/zones`, `POST /v1/scheduler/trigger`):
-  do not expose it to the Internet without a reverse proxy that does.
+  do not expose it to the Internet without a reverse proxy that does (`POST /v1/watched-points` too: the name of a watched point appears
+  in the `near_places` of the hazards near it).
 - **Official warnings, what is not matched.** Warnings that name their area with MeteoAlarm `EMMA_ID` codes only
   (Italy, Spain, Austria, Poland... Germany since the DWD answers for it) are listed by `country=` but cannot be matched to a position: their
   shapes have no stated licence and are not bundled ([`SOURCES.md`](../SOURCES.md)). NWS alerts that name UGC zones

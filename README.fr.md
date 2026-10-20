@@ -49,6 +49,9 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
   souci pour une maison ; demandez à MetService avant de relayer ses vigilances à d'autres personnes, ou désactivez-la
   sur une instance qui en sert (`VIGIE_ENABLE_METSERVICE=0` ; activée par défaut, l'image Docker la garde activée)
   ([`SOURCES.md`](SOURCES.md)).
+- Le fichier des failles actives nommées (`app/data/gem-active-faults.geojson.gz`, utilisé pour `near_places`) est sous **CC BY-SA 4.0**
+  (GEM Global Active Faults Database, Styron et Pagani 2020), pas MIT : partage dans les mêmes conditions, avec sa notice à côté
+  ([`app/data/README.md`](app/data/README.md), [`SOURCES.md`](SOURCES.md)).
 - Les services nationaux du registre de l'OMM (`VIGIE_WMO_SOURCES`) : ce sont les conditions de chaque émetteur qui comptent,
   et la plupart n'ont pas été trouvées ou limitent la copie. Le réglage par défaut ne lit que les 7 dont les conditions
   propres ont été lues et permettent de les relayer ; `all` est pour une instance que son propriétaire est seul à utiliser.
@@ -61,7 +64,7 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
 | `GET /v1/embedded/frame` | Trame texte compacte pour les écrans ([contrat](docs/embedded-frame.md)). |
 | `GET /v1/snapshot` | Zones surveillées (météo) et dangers mondiaux, JSON compact. |
 | `GET /v1/point?lat=&lon=` | Météo en un point GPS, mer (`marine=true`), débit des rivières, qualité de l'air, météo spatiale, dangers proches. |
-| `GET /v1/geojson/hazards` | Dangers actifs en GeoJSON (RFC 7946) : un point chacun. `has_forecast` dit si une tempête ou un tsunami a une prévision. |
+| `GET /v1/geojson/hazards` | Dangers actifs en GeoJSON (RFC 7946) : un point chacun. `has_forecast` dit si une tempête ou un tsunami a une prévision ; `near_places` et `derived` disent de quoi un séisme ou un événement volcanique est proche (calculé par Vigie). Voir « Lieux proches d'un danger » plus bas. |
 | `GET /v1/geojson/hazards/{id}/forecast` | La prévision d'un danger en GeoJSON : le cône, la trajectoire et les positions d'un cyclone tropical, l'épicentre et les heures d'arrivée d'un tsunami. Voir « Tempêtes et tsunamis » plus bas. |
 | `GET /v1/fires?bbox=w,s,e,n`, `GET /v1/fires/grid` | Les feux actifs vus par NASA FIRMS (VIIRS, NOAA-20 et NOAA-21) : les détections d'une zone en GeoJSON, ou comptées par cellule pour les petits zooms. Demande `VIGIE_FIRMS_MAP_KEY` (404 sans). Voir « Feux actifs » plus bas. |
 | `GET /v1/cap/alerts` | Dangers actifs en OASIS CAP 1.2. |
@@ -69,6 +72,8 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
 | `GET /v1/vigilances/countries` | Les pays que cette instance sert avec ses réglages, les sources qui répondent pour chacun, et si leur licence est vérifiée. |
 | `GET /v1/vigilances.geojson` | Les mêmes vigilances en GeoJSON, la forme de chaque zone en géométrie. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Zones surveillées (la liste de suivi). Une zone doit donner son `utc_offset_s`. |
+| `GET/POST /v1/watched-points`, `DELETE /v1/watched-points/{id}` | Les points que vous surveillez (un lieu, une faille, un volcan...), chacun avec un rayon. Les dangers dans le rayon d'un point le nomment dans `near_places`. |
+| `GET /v1/watched-points/status?days=7` | Pour chaque point surveillé, les événements dans son rayon sur les derniers jours, et `quiet` seulement si chaque source de dangers a répondu et a été lue sans trou. |
 | `GET /v1/history` | Historique des dangers, stocké dans SQLite. |
 | `GET /v1/health`, `GET /v1/providers` | État, disjoncteur et cache de chaque source, avec ses appels, son poids et son quota sur 24 heures. |
 | `GET/POST /v1/scheduler/...` | État du planificateur en arrière-plan (facultatif), lancement d'un cycle immédiat. |
@@ -78,7 +83,7 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
 | `GET /docs` | Documentation OpenAPI interactive. |
 
 **L'API n'a aucune authentification.** Utilisez-la sur un réseau de confiance. Ne l'exposez pas telle quelle
-sur Internet : quiconque peut l'atteindre peut ajouter ou supprimer des zones surveillées et déclencher des
+sur Internet : quiconque peut l'atteindre peut ajouter ou supprimer des zones et des points surveillés et déclencher des
 cycles de collecte. Si vous devez l'exposer, placez devant elle un proxy inverse qui authentifie.
 
 ## Vigilances météo officielles
@@ -315,6 +320,47 @@ GET /v1/point?lat=-15.4&lon=28.3&fire_radius_km=50        fires_nearby : nombre,
 - **La clé n'est jamais montrée** : elle est dans l'URL de chaque requête à FIRMS, et elle est masquée dans chaque erreur, dans
   `last_error` et dans les journaux. Gardez-la hors du dépôt et des commandes que vous partagez.
 
+## Lieux proches d'un danger, et points surveillés
+
+Un séisme ou un événement volcanique dit de quoi il est proche. Chaque danger de `/v1/geojson/hazards` (et de `/v1/history`, `/v1/stream`, et de
+`/v1/snapshot` et `/v1/point` avec `compact=false`) porte `near_places`, du plus proche au plus lointain, et le nomme dans `derived` :
+
+```json
+"near_places": [
+  {"name": "Azuero Fault Zone", "kind": "fault", "distance_km": 4.3, "sources": ["GEM"]}
+],
+"derived": ["near_places"]
+```
+
+Séisme M 7,7 du Panama, 9 octobre 2026, USGS `us6000u18k` : la distance à la trace de surface cartographiée, vérifiée par un second calcul
+(Vincenty sur l'ellipsoïde, jusqu'à la trace d'origine : 4,19 km).
+
+- **C'est calculé par Vigie**, pas rapporté par une source, et cela **ne change jamais un `severity`**. Affichez-le comme « calculé par Vigie ».
+  `[]` veut dire que rien n'est proche ; `null` que ce n'a pas pu être calculé (le fichier des failles est illisible, une alerte simulée, ou le profil
+  compact de `/v1/snapshot` et `/v1/point`, qui reste sous 16 Kio).
+- **Trois ensembles de lieux.** Les failles actives qui ont un nom, de la base GEM Global Active Faults Database (séismes et événements volcaniques,
+  à 70 km de profondeur au plus, à moins de 10 km) ; les volcans que les sources de dangers rapportent elles-mêmes (un séisme à moins de 20 km de l'un
+  d'eux) ; et les **points surveillés** que vous ajoutez, chacun dans son propre rayon. **Aucune liste des volcans du monde n'est embarquée** (celle du
+  Smithsonian a une licence floue) : l'Etna n'est nommé que tant que GDACS ou l'USGS le signalent, ou si vous l'ajoutez comme point de type `volcano`.
+- **Les rayons sont des réglages, pas des faits publiés par une source** (`VIGIE_NEAR_*` plus bas).
+- **Une faille n'est nommée que si la base la nomme.** Plus de la moitié de ses traces n'ont pas de nom, et ce sont celles de la Méditerranée et de l'Asie :
+  la faille nord-anatolienne n'est pas nommée dans le fichier. La mention est la distance à la *trace de surface cartographiée*, pas l'affirmation que le séisme
+  a eu lieu sur cette faille.
+- **Les failles sont sous CC BY-SA 4.0** (Styron et Pagani, 2020), dans un fichier à part avec sa notice : [`app/data/README.md`](app/data/README.md),
+  [`SOURCES.md`](SOURCES.md). Le crédit est dans `attribution` du danger qui en nomme une.
+
+```
+POST /v1/watched-points   {"name": "Etna", "kind": "volcano", "lat": 37.751, "lon": 14.994, "radius_km": 30}
+GET  /v1/watched-points/status?days=7
+```
+
+`status` liste, pour chaque point, les événements dans son rayon sur les derniers jours (un séisme à l'heure où il a eu lieu, tout autre danger à la dernière
+fois que l'API l'a vu actif) et un `state` : `events` ; `quiet` (rien ne s'est passé, **et chaque source de dangers a répondu et a été lue sans trou depuis
+`quiet_since_utc`**) ; ou `unknown`, avec `unreachable_sources`. L'API ne sait que ce qu'elle a vu : une instance démarrée il y a une heure le dit
+(`window_covered: false`) au lieu de « rien depuis une semaine ». Comme `/v1/zones`, ces routes n'ont aucune authentification, et **le nom d'un point surveillé
+apparaît dans les `near_places` des dangers proches** : ne surveillez pas votre domicile sur une instance que d'autres peuvent lire. Détails, chiffres et ce qui
+n'est pas vérifié : [`docs/data-sources.md`](docs/data-sources.md) (en anglais) et [ADR 0007](docs/decisions/0007-sensitive-points.md).
+
 ## Home Assistant
 
 `custom_components/vigie` est une intégration Home Assistant qui lit ces vigilances pour un lieu et donne un capteur
@@ -369,6 +415,12 @@ Tous les réglages sont des variables d'environnement facultatives.
 | `VIGIE_GRID_MARINE_DEG` | `0.1` | Idem pour Open-Meteo Marine. |
 | `VIGIE_EMMA_GEOMETRIES` | aucune | Chemin d'un GeoJSON compressé des formes MeteoAlarm `EMMA_ID` que vous avez fabriqué vous-même (`python tools/build_geometries.py --emma` ; par défaut `app/data/local/emma_id.geojson.gz` est lu s'il existe). Il permet de rattacher à un point les vigilances qui ne nomment leur zone que par des codes `EMMA_ID`. Non incluses dans le dépôt : voir [`SOURCES.md`](SOURCES.md). |
 | `VIGIE_WMO_SOURCES` | `verified` | Quels services nationaux du registre de l'OMM sont lus pour les pays qui n'ont pas de source propre : `verified` (seulement ceux dont les conditions propres ont été lues et permettent de les relayer), `all` (tous ceux qui ne sont pas exclus, pour une instance que son propriétaire est seul à utiliser) ou `off`. Une valeur inconnue vaut `verified`. Voir « Plus de pays, par le registre de l'OMM ». |
+| `VIGIE_NEAR_FAULT_KM` | `10` | Un séisme ou un événement volcanique à moins de cette distance (km) de la trace cartographiée d'une faille active nommée en est proche (0,1 à 100). Un réglage, pas un fait publié. |
+| `VIGIE_NEAR_FAULT_MAX_DEPTH_KM` | `70` | Un séisme plus profond (km) n'est pas comparé aux failles (1 à 1000). |
+| `VIGIE_NEAR_VOLCANO_KM` | `20` | Un séisme à moins de cette distance (km) d'un volcan qu'une source de dangers signale en est proche (0,1 à 500). |
+| `VIGIE_NEAR_MAX_PLACES` | `5` | Au plus ce nombre de lieux sous un danger, du plus proche au plus lointain (1 à 20). |
+| `VIGIE_WATCHED_POINTS_MAX` | `50` | Le nombre maximal de points surveillés que l'instance garde (1 à 500). Un de plus que la limite reçoit 409. |
+| `VIGIE_QUIET_MAX_GAP_S` | `900` | Une source de dangers non lue depuis plus longtemps (secondes, 60 à 86 400) rompt la série de lectures sur laquelle repose le `quiet` d'un point surveillé. |
 | `VIGIE_BUDGET_FRACTION` | `0.9` | Part du quota publié de chaque source (Open-Meteo 10 000 appels par jour, MET Norway, RainViewer) que l'API laisse passer. Au-delà, le cache est servi, marqué périmé. |
 | `VIGIE_FIRMS_MAP_KEY` | aucune | La `MAP_KEY` gratuite de [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/api/map_key/). Sans elle, les feux actifs sont désactivés : `GET /v1/fires` et `GET /v1/fires/grid` répondent 404, `fires_nearby` de `/v1/point` est nul et `GET /v1/health` liste la source dans `disabled_sources`. La clé est dans l'URL de chaque requête à FIRMS : l'API ne l'écrit jamais (erreurs, `last_error`, journaux), mais gardez-la hors du dépôt, de l'historique de votre shell et des commandes que vous partagez. Une valeur qui n'est pas faite de lettres et de chiffres désactive la source. |
 | `VIGIE_FIRMS_SOURCES` | `VIIRS_NOAA20_NRT,VIIRS_NOAA21_NRT` | Les produits FIRMS lus : un seul, ou les deux (un seul divise le volume par deux). Le reste est ignoré (Suomi NPP s'arrête le 2026-11-02, MODIS a une autre structure). |
@@ -525,6 +577,7 @@ NHC et les centres d'alerte aux tsunamis compris). Une exécution rouge
 | Séismes | USGS, EMSC / SeismicPortal, GDACS |
 | Catastrophes | GDACS, NOAA NWS, USGS Volcano Hazards Program, NOAA National Hurricane Center (cyclones tropicaux), NOAA U.S. Tsunami Warning Centers (messages de tsunami) |
 | Vigilances météo officielles | MeteoAlarm (EUMETNET, 39 pays d'Europe), Deutscher Wetterdienst (Allemagne), Environnement et Changement climatique Canada, MetService (Nouvelle-Zélande), NOAA NWS (États-Unis), Vigicrues (crues des cours d'eau de France), les services nationaux du registre du Severe Weather Information Centre de l'OMM (7 lus par défaut : Algérie, Argentine, Barbade, Jamaïque, Mexique, Philippines, Espagne) |
+| Failles actives (`near_places`) | GEM Global Active Faults Database, les traces qui ont un nom (CC BY-SA 4.0, embarquée) |
 | Météo spatiale | NOAA SWPC |
 | Météo | Open-Meteo (principale), MET Norway (secours), RainViewer (radar) |
 | Mer, débit des rivières, qualité de l'air | Open-Meteo Marine, Flood (GloFAS), Air Quality (CAMS) |
