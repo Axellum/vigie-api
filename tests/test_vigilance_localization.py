@@ -97,8 +97,11 @@ def test_the_shapes_keep_the_names_of_the_regions() -> None:
 
 def test_the_shapes_are_small_enough_to_live_in_the_repository() -> None:
     sizes = {path.name: path.stat().st_size for path in DATA_DIR.glob("*.geojson.gz")}
-    assert set(sizes) == {"countries.geojson.gz", "geocodes-nuts.geojson.gz"}
-    assert sum(sizes.values()) < 1024 * 1024, sizes  # 135 countries since the services of the WMO registry (it was 42)
+    assert set(sizes) == {"countries.geojson.gz", "geocodes-nuts.geojson.gz", "gem-active-faults.geojson.gz"}
+    # The shapes the warnings are localized with: 135 countries since the services of the WMO registry (it was 42).
+    assert sizes["countries.geojson.gz"] + sizes["geocodes-nuts.geojson.gz"] < 1024 * 1024, sizes
+    # The named active faults the earthquakes are compared with (tests/test_faults_file.py): a file of its own.
+    assert sizes["gem-active-faults.geojson.gz"] < 300 * 1024, sizes
 
 
 def test_a_point_belongs_to_the_one_region_it_lies_in() -> None:

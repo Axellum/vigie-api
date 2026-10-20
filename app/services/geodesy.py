@@ -196,7 +196,7 @@ def _merge_two_hazards(primary: HazardAlert, secondary: HazardAlert) -> HazardAl
             "depth_km": best_depth,
             "tsunami_warning": tsunami_flag,
         }
-    ).with_event_key(preferred.event_key or other.event_key)
+    ).with_event_key(preferred.event_key or other.event_key).with_place_name(preferred.place_name or other.place_name)
 
 
 def deduplicate_hazards(

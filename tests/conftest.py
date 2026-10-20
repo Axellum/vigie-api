@@ -24,7 +24,7 @@ from fastapi.testclient import TestClient
 # Must be set before ``app.main`` is imported: it builds the aggregator at import time.
 _TEST_DIR = Path(tempfile.mkdtemp(prefix="vigie-tests-"))
 os.environ["VIGIE_DB_PATH"] = str(_TEST_DIR / "vigie-tests.db")
-for _name in ("VIGIE_SCHEDULER", "VIGIE_CAP_SENDER", "VIGIE_CONTACT", "VIGIE_ENABLE_SIMULATION"):
+for _name in ("VIGIE_SCHEDULER", "VIGIE_CAP_SENDER", "VIGIE_CONTACT", "VIGIE_ENABLE_SIMULATION", "VIGIE_ENABLE_WATCHED_POINTS_WRITE"):
     os.environ.pop(_name, None)
 
 from app import clock as app_clock  # noqa: E402
@@ -82,6 +82,12 @@ def sim_clock(monkeypatch: pytest.MonkeyPatch) -> SimClock:
 def simulation_on(monkeypatch: pytest.MonkeyPatch) -> None:
     """Enable ``POST /v1/simulate`` for the test (it is off unless ``VIGIE_ENABLE_SIMULATION`` is set)."""
     monkeypatch.setenv("VIGIE_ENABLE_SIMULATION", "1")
+
+
+@pytest.fixture()
+def watched_points_write_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Enable ``POST`` / ``DELETE`` of ``/v1/watched-points`` for the test (off unless ``VIGIE_ENABLE_WATCHED_POINTS_WRITE`` is set)."""
+    monkeypatch.setenv("VIGIE_ENABLE_WATCHED_POINTS_WRITE", "1")
 
 
 @dataclass

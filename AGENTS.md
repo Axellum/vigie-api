@@ -86,3 +86,12 @@ owner (no `&&`).
     a field of that answer means updating what it reads, `tests_ha/payloads.py` and the recorded answer in
     `tests_ha/fixtures/` in the same change (`tests/test_home_assistant_contract.py` fails otherwise). `python -m pytest`
     never collects `tests_ha/` and never installs Home Assistant; the integration has its own CI workflow.
+15. **Places near a hazard are ours, and say so.** `near_places` (faults, volcanoes in alert; **never the watched points**, which are
+    personal and listed by `/v1/watched-points` only, because the hazards are shared with every client) is calculated by Vigie,
+    named in `derived`, and never changes a `severity`; `null` is "not worked out", `[]` is "nothing near". Its radii are settings
+    (`PlaceSettings`, `VIGIE_NEAR_*`), not facts: do not present them as sourced. `app/data/gem-active-faults.geojson.gz` is
+    **CC BY-SA 4.0** (share-alike), rebuilt only by `tools/build_faults.py` from the pinned commit, with its notice beside it; the code
+    stays MIT. A fault the database does not name is not named. A watched point is `quiet` only when every hazard source answered and
+    was read without a gap ([ADR 0008](docs/decisions/0008-sensitive-points.md)); the compact `/v1/snapshot` and `/v1/point` carry no
+    `near_places`. `POST` and `DELETE /v1/watched-points` are off unless `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1` and must not be reachable
+    from the Internet on a public instance.

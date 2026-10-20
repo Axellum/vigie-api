@@ -154,9 +154,12 @@ def feature(geometry: BaseGeometry, properties: dict[str, Any]) -> dict[str, Any
     }
 
 
-def write_collection(path: Path, features: list[dict[str, Any]], note: str) -> None:
-    """Write a gzipped FeatureCollection (compact JSON) and say how big it is."""
-    collection = {"type": "FeatureCollection", "note": note, "features": features}
+def write_collection(path: Path, features: list[dict[str, Any]], note: str, extra: Optional[dict[str, Any]] = None) -> None:
+    """Write a gzipped FeatureCollection (compact JSON) and say how big it is.
+
+    ``extra`` adds members to the collection (RFC 7946 allows foreign members), e.g. the licence of the data.
+    """
+    collection = {"type": "FeatureCollection", "note": note, **(extra or {}), "features": features}
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(collection, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     # No time and no file name in the gzip header: the same input gives the same bytes, whatever the name of the file.

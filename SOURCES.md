@@ -176,10 +176,27 @@ the China Meteorological Administration (`cn-cma-xx`, a feed of 1,000 items and 
 The borders used to tell the country of a position (Natural Earth, public domain) are in the table "Shapes" above; a warning that
 names only codes (the Philippines, India) is listed by `country=` and counted in `warnings_not_matchable`, it is not matched to a point.
 
+## Reference data: what a hazard is close to
+
+`near_places` (the places an earthquake or a volcanic event is close to, calculated by Vigie; [`docs/data-sources.md`](docs/data-sources.md),
+[ADR 0008](docs/decisions/0008-sensitive-points.md)) compares a hazard with a **file of named active faults bundled in the repository**
+(`app/data/gem-active-faults.geojson.gz`, rebuilt by [`tools/build_faults.py`](tools/build_faults.py), checked on 2026-10-20), with the volcanoes
+and that the hazard sources above report. The points the instance's user watches are not compared: they are personal and listed by their own routes only.
+Nothing is read from the fault source while the API runs.
+
+| Data (id) | Licence | Terms | Credit in the responses | Clauses, and what is not verified |
+| --- | --- | --- | --- | --- |
+| **GEM Global Active Faults Database**, `geojson/gem_active_faults_harmonized.geojson` at commit `56816508ad92fd6846dad1163b1c8c01376a2cd1` (2021-06-24, the last commit of the repository) (`gem_faults`) | **CC BY-SA 4.0** (Attribution-ShareAlike), `LICENSE.txt` of the repository and "freely and publicly available [...] under a Creative Commons attribution sharealike license" in its README (read on 2026-10-20). | [Repository](https://github.com/GEMScienceTools/gem-global-active-faults), [licence](https://creativecommons.org/licenses/by-sa/4.0/), [citation](https://journals.sagepub.com/doi/abs/10.1177/8755293020944182) | `Active faults: GEM Global Active Faults Database (Styron and Pagani, 2020, Earthquake Spectra, doi:10.1177/8755293020944182), CC BY-SA 4.0, simplified by Vigie` (wording: suggested; the README gives the citation of the paper, the licence and the statement of the change are added to it) | **Share-alike: the bundled file is an adaptation and stays CC BY-SA 4.0**, its notice and its statement of the changes are in the file, in `app/data/gem-active-faults.NOTICE.md` and in `app/data/README.md`; the code that reads it is MIT, as a separate work (the project's reading of the licence, **not a lawyer's advice**). Changes: only the 6,090 traces (of 13,696) that have a name are kept, with their name and geometry only, simplified within 0.56 km and rounded to 110 m. No endorsement by the GEM Foundation or the authors; no warranty. It is a map of mapped surface traces, simplified, and says nothing of whether an earthquake happened on a fault. **Not verified:** that every dataset the GEM compilation gathers (SHARE, UCERF3, EMME, HimaTibetMap...) allows it to be shared under CC BY-SA 4.0 (the repository states the licence of the whole); that the `fs_name` column is the fault system (the README describes `fz_name`, the file has `fs_name`; read from the content). The database dates from 2021. |
+| **Not bundled:** Smithsonian Institution Global Volcanism Program, the list of Holocene volcanoes | Would name every volcano, not only those in alert. | **Unclear, and not asked yet.** | None: not downloaded. | **A question for the owner:** write to the Global Volcanism Program before redistributing the list. Until then the volcanoes named by `near_places` are those the USGS (`vName`) and GDACS (`eventname`) report themselves, and the user's own watched points. |
+
+The hazard that names a fault carries the citation above in its `attribution`; one that names only a volcano carries the credit of the source that reported the volcano
+(the USGS Volcano Hazards Program or GDACS).
+
 ## Where the credits go
 
 - **JSON responses.** `attribution` on each hazard alert (`/v1/snapshot`, `/v1/point`, `/v1/history`,
-  `/v1/geojson/hazards`, `/v1/cap/alerts`, `/v1/stream`), on each zone of the snapshot (the weather, plus
+  `/v1/geojson/hazards`, `/v1/cap/alerts`, `/v1/stream`; a hazard that names a fault in `near_places` also carries the citation of the GEM
+  database where `near_places` is present), on each zone of the snapshot (the weather, plus
   the air quality when its index was added), and on the `rain_nowcast`, `marine`, `flood_risk`,
   `air_quality` and `space_weather` blocks of `/v1/point`. Where one object mixes several blocks the
   field is named after what it credits: `weather_attribution` in `/v1/point`,
@@ -211,7 +228,8 @@ This project was built for one person's home. Each of these points comes from th
    official warning: the DWD wants its source details deleted if a warning is changed, and ECCC wants no alteration
    of the content or intent of an alert; MetService's Code of Practice asks for no modification either.
 5. Leave the simulator off (`VIGIE_ENABLE_SIMULATION` unset) and do not expose the unauthenticated routes
-   (`POST /v1/zones`, `POST /v1/scheduler/trigger`) to the Internet.
+   (`POST /v1/zones`, `POST` and `DELETE /v1/watched-points`, `POST /v1/scheduler/trigger`) to the Internet; the watched-point writes
+   are also off unless `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`.
 6. MetService (New Zealand): the feed says CC BY 4.0 and its use is subject to a Code of Practice, but the website terms
    it points to allow personal use only and forbid resupply (see its row above). For one person's home that is no
    problem; before relaying New Zealand's warnings to other people, ask MetService (the CAP page gives an address for
@@ -221,3 +239,6 @@ This project was built for one person's home. Each of these points comes from th
    whose terms are unknown, contradictory or restrictive (Singapore, Thailand, Kuwait, Trinidad and Tobago publish terms that
    restrict copying); that is for an instance only its owner uses. Even the verified ones ask for their credit: keep it with the
    warning, as the API puts it in `attribution`.
+8. Watched points (`/v1/watched-points`): they are never in the hazards, but the list and the status are readable by anyone who can reach the
+   API. Do not watch a home on an instance that others can read. The fault file is CC BY-SA 4.0 (share-alike): keep its
+   notice (`app/data/gem-active-faults.NOTICE.md`) with any copy of it, and the citation in the `attribution` of a hazard that names a fault.

@@ -192,7 +192,10 @@ class GDACSCollector(BaseCollector[list[HazardAlert]]):
                     value_unit=value_unit,
                     tsunami_warning=tsunami_flag,
                 )
-                alerts.append(hazard.with_event_key(_gdacs_cyclone_key(props) if ev_type == "TC" else None))
+                hazard = hazard.with_event_key(_gdacs_cyclone_key(props) if ev_type == "TC" else None)
+                if ev_type == "VO":  # the volcano's own name (`eventname`: "Kanlaon"; `name` is "Eruption  Kanlaon")
+                    hazard = hazard.with_place_name(_clean(props.get("eventname")))
+                alerts.append(hazard)
             except (ValueError, TypeError, KeyError):
                 continue
 

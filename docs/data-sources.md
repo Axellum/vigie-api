@@ -95,6 +95,131 @@ Neither provider publishes a rate limit (**not verified** that none exists): the
 finds nothing new is a `304` of 239 bytes (tsunami.gov) or 484 bytes (the NHC); the weekly check (`tools/check_live_feeds.py`)
 reads each once.
 
+## Places near a hazard, and watched points
+
+An earthquake or a volcanic event says what it is close to: `near_places` (a list of `name`, `kind`, `distance_km`, `sources`) on every hazard,
+named in the hazard's `derived` list. **It is computed by Vigie from reference data and from settings**, not reported by a source, it
+never changes a `severity`, and a client should show it as such ("calculated by Vigie"). The decisions, and what is not verified:
+[ADR 0008](decisions/0008-sensitive-points.md). Licence and credit: [`SOURCES.md`](../SOURCES.md).
+
+`near_places` is a list when it was worked out (**empty: nothing is near**, an answer, not a gap) and `null` when it was not: the hazard is
+compared with nothing (a storm, a flood...), the bundled fault file could not be read, the alert is simulated, or the profile is the compact one
+(see "Cost" below).
+
+**It holds reference places only: the named active faults and the volcanoes that the hazard sources name.** The points a user watches are never
+in it. `near_places` is in the outputs every client shares (`/v1/geojson/hazards`, `/v1/history`, the full `/v1/snapshot` and `/v1/point`; and the
+stream and the compact profiles, with `null`), a public website included, and a watched point is personal (a home, for example): its name and
+position would leak through the hazards, and anyone who could `POST` a point could make any text appear in everyone's hazards. The watched
+points are listed by `/v1/watched-points` and `/v1/watched-points/status` only (below).
+
+### What each hazard is compared with
+
+| Hazard | Active faults | Volcanoes in alert |
+| --- | --- | --- |
+| Earthquake | yes, if its depth is at most 70 km or unknown | yes |
+| Volcanic event | yes | no |
+| Tsunami, storm, flood, fire, any other | no (`near_places` is `null`) | no |
+
+- **Active faults**: the traces that have a name in the GEM Global Active Faults Database, bundled in `app/data/gem-active-faults.geojson.gz`
+  (below). The distance is from the hazard's position to the nearest point of the trace; a fault with several traces is said once, at its nearest.
+  **It is the distance to the mapped surface trace.** The depth is not used, and it does not say that the earthquake happened on that fault: an
+  earthquake deeper than 70 km is left out for that reason (a trace 4 km from the epicentre of an earthquake 162 km down means nothing).
+- **Volcanoes in alert**: only those that a hazard source of the moment names: a USGS elevated alert (`vName`; 4 volcanoes on 2026-10-20: Great
+  Sitkin, Shishaldin, Kilauea, Ahyi Seamount) or a GDACS eruption (`eventname`; 2 on that day, Kanlaon and Taal, both no longer current). **There is
+  no bundled list of the world's volcanoes**: the Smithsonian Global Volcanism Program's list has an unclear licence, and its owner has not been asked
+  yet (a question for the project's owner). So Etna is named only while a source reports it (a user can still watch it as a point of kind
+  `volcano`, which is personal and shows in the status only). A volcano the feed gives no name is not named.
+
+### The settings
+
+The radii are **settings, not sourced facts**: no agency publishes the distance at which an epicentre is "near" a fault, and the positions of
+the catalogues are uncertain (by how much, for these feeds: not verified). They say how far this instance looks.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `VIGIE_NEAR_FAULT_KM` | 10 | An earthquake or volcanic event within this distance of a mapped trace is near the fault (0.1 to 100). A round figure, about 18 times the most the simplification of the traces can move them (0.56 km) |
+| `VIGIE_NEAR_FAULT_MAX_DEPTH_KM` | 70 | Deeper earthquakes are not compared with the faults (1 to 1000). 70 km is the usual limit between shallow and intermediate-depth earthquakes (**not verified** against a source in this project) |
+| `VIGIE_NEAR_VOLCANO_KM` | 20 | An earthquake within this distance of a volcano in alert is near it (0.1 to 500) |
+| `VIGIE_NEAR_MAX_PLACES` | 5 | At most this many places under a hazard, the nearest first (1 to 20) |
+| `VIGIE_WATCHED_POINTS_MAX` | 50 | The most watched points an instance keeps (1 to 500); a new one over the limit is a 409 |
+| `VIGIE_ENABLE_WATCHED_POINTS_WRITE` | 0 (off) | `1` enables `POST` and `DELETE` of `/v1/watched-points` (403 otherwise; the reads always work). Not a radius: a switch, listed here with its siblings |
+| `VIGIE_QUIET_MAX_GAP_S` | 900 | A source not read for longer than this breaks the run of readings that "nothing happened" rests on (60 to 86,400) |
+
+A value that is not a number, or is outside its range, means the default. The radius of a watched point is its own: up to 500 km, 50 by default.
+
+### The fault file
+
+| | |
+| --- | --- |
+| Source | GEM Global Active Faults Database, `geojson/gem_active_faults_harmonized.geojson`, commit `56816508` of 2021-06-24 (the last of the repository: the database has not changed since) |
+| Licence | **CC BY-SA 4.0** (share-alike): the file stays under it, the code stays MIT. Notice and statement of the changes: `app/data/gem-active-faults.NOTICE.md` |
+| Citation | Styron, Richard, and Marco Pagani. "The GEM Global Active Faults Database." *Earthquake Spectra*, vol. 36, no. 1_suppl, Oct. 2020, pp. 160-180, doi:10.1177/8755293020944182 |
+| Built by | `python tools/build_faults.py`: downloads the pinned commit, refuses any other content (git blob id), keeps the traces that have a name |
+| Kept | 6,090 traces of 13,696 (26,360 vertices of 154,994); 189 KiB gzipped, 1,083 KiB raw |
+| Simplified | Douglas-Peucker, 0.005 degree (the line stays within 0.56 km of the original), coordinates rounded to 3 decimals (110 m), elevation dropped |
+| Load, memory | 31 to 36 ms at start, +4.2 MB of memory (Windows, Python 3.13, 5 loads) |
+
+**The traces without a name are not kept** (7,598 of 13,696): the mention is "N km from <name>", and a name the database does not give is not
+made up. The consequence is a hole in the Mediterranean and Asia: the traces there come from datasets that give catalogue numbers only. In the file, the
+74 traces whose centre is around the North Anatolian Fault (27 to 41 degrees east, 39.5 to 41.5 north) are all unnamed (EMME, `ME_TRCS003`...), and so are the
+198 around Greece (19 to 28 east, 36 to 41 north), while 550 of the 629 around Japan are named. **The North Anatolian Fault is not named in
+this file**, so an earthquake on it gets no fault under it. The names are the database's, spelled as it spells them (`ROMERAL_FAULT`), with the fault system (`fs_name`)
+preferred to the fault (`name`) when both exist. A name damaged by an encoding error (6 names) is treated as no name, not repaired.
+
+### How well the distance is measured
+
+The distance is worked out on a flat map scaled to the latitude of the hazard, then as a great circle (`line_distance_km`, the one used for river sections).
+`tests/test_near_places.py` checks it against **a second, independent computation**: Vincenty's formula on the WGS84 ellipsoid, to a dense sampling (100 m) of the
+original unsimplified traces (`tests/oracle_geodesy.py`, itself checked against Geoscience Australia's published example, 54,972.271 m). Two real earthquakes:
+the M 7.7 of Panama of 9 October 2026 (USGS `us6000u18k`, depth 12.6 km) is **4.3 km from the Azuero Fault Zone** (the oracle: 4.194 km; the API's method on the original trace:
+4.210 km; on the simplified bundled trace: 4.26 km, shown as 4.3); the M 4.6 of Assam (`us6000tzth`, depth 10 km) is 3.2 km from the Barapani - Tyrsad Fault (oracle 3.213 km, API 3.210 km on the original trace).
+
+Over the **656 earthquakes of 30 days** (the USGS M4.5+ feed, to 2026-10-20), the same 47 earthquakes have a named fault within 10 km by both methods (before the depth rule),
+55 (earthquake, fault) pairs, none found by only one of the two; the bundled file differs from the oracle by **-0.47 to +0.46 km, mean +0.08 km, median +0.05 km**, inside the simplification.
+After the depth rule 43 of the 656 have a fault under them (132 of the 656 are deeper than 70 km), most of them aftershocks of the Panama earthquake. Without the name
+rule 114 would have one: 67 are near only unnamed traces.
+
+### Cost
+
+Measured on the author's PC (Windows, Python 3.13), not on a server.
+
+| | |
+| --- | --- |
+| One earthquake against the faults | 15 microseconds (656 real earthquakes in 10 ms) |
+| All the hazards of a request, 56 hazards (the merged feeds of 2026-10-20) | 2.5 ms (median of 200 runs). **Measured with up to 50 watched points before they were taken out of `near_places`: 2.7 ms with 5, 4.3 ms with 50. The points no longer cost anything per request here** |
+| 639 hazards | about 30 ms (measured with 50 points before they were taken out: 32 ms) |
+| The compact `GET /v1/snapshot` and `GET /v1/point` | **carry no `near_places`** (null): a place and the credit of its source on each of 15 hazards would not fit in 16 KiB. The snapshot of the realistic test grows by 480 bytes (the null and the empty `derived` of 15 hazards: 14,457 to 14,937 of 16,384). Ask `compact=false`, `/v1/geojson/hazards`, `/v1/history` or the stream for the places |
+
+### Watched points and their status
+
+`GET/POST /v1/watched-points`, `DELETE /v1/watched-points/{id}`: a name, a kind (`place`, `fault`, `volcano`, `custom`), a position and a radius, stored in SQLite
+with the zones. **A watched point is personal and is listed here only**: by `GET /v1/watched-points` and the status below, never in the hazards (see above).
+Like `/v1/zones`, the routes have no authentication, and the list and the status are readable by anyone who can reach the API: do not watch your home on an
+instance that others can read.
+
+**Writing is off by default.** `POST /v1/watched-points` and `DELETE /v1/watched-points/{id}` answer 403 with a message until the instance sets
+`VIGIE_ENABLE_WATCHED_POINTS_WRITE=1` (`1`, `true`, `yes` or `on`; read at each request; `GET /v1/health` reports `watched_points_write_enabled`). The reads
+always work. The switch is the same kind as `VIGIE_ENABLE_SIMULATION`, and it is not enough on a public instance: the two write routes must not be reachable
+from the Internet, like `POST /v1/zones` and `POST /v1/simulate`, so put the instance behind a reverse proxy that blocks them.
+
+`GET /v1/watched-points/status?days=7` gives, for each point, the events within its radius over the last `days` days (1 to 30) and a `state`:
+
+| `state` | Meaning |
+| --- | --- |
+| `events` | Something happened within the radius: `events` lists the most recent (20 at most; `events_count` is the total), each with its distance. `unreachable_sources` says which source did not answer: the list may be incomplete |
+| `quiet` | Nothing happened, **and the sources vouch for it**: `quiet_since_utc` is the start of the quiet period and `window_covered` says whether it is the whole window |
+| `unknown` | Nothing was found, but the sources do not vouch for it: one did not answer (`unreachable_sources`), or none has been read yet |
+
+- **The events** come from the history of hazards the API keeps and from the hazards active now. An earthquake counts by the time it happened; any other hazard (a
+  storm, a flood, a volcano in alert) by the last time the API saw it active, because it lasts. A simulated alert never counts. A hazard is compared by its position: the extent of a storm
+  or a flood is not known, so one whose centre is farther than the radius is not listed.
+- **"Nothing happened" is proved, not assumed.** A point is `quiet` only if every one of the 7 hazard sources (USGS, EMSC, GDACS, the NWS, the USGS volcanoes, the NHC, the tsunami centres) answered at the last
+  reading (a stale answer served after a failure does not count), **and** each has been read without a gap longer than `VIGIE_QUIET_MAX_GAP_S` since `quiet_since_utc`. The history holds only what the API saw: an instance
+  started an hour ago says "nothing in the last hour" (`window_covered: false`), never "nothing in the last week". The runs are kept in SQLite (`source_runs`), so a restart does not forget them and a long stop breaks them.
+- **No part of the world is excused.** The NWS covers the United States and the NHC some oceans, but the API keeps no verified map of what each source could report where, so a source that is down stops
+  the claim everywhere: the safe side, not the most precise one.
+- The status is computed by Vigie, not reported by a source, and is not an official warning.
+
 ## Weather
 
 | Source | What is read | Cache (TTL) |
