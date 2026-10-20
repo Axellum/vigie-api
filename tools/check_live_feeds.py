@@ -31,6 +31,7 @@ import sys
 import weakref
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any, Optional
 
@@ -69,6 +70,7 @@ from app.collectors.metservice import EVENTS as METSERVICE_EVENTS  # noqa: E402
 from app.collectors.metservice import MetServiceCollector  # noqa: E402
 from app.collectors.seismic import EMSCCollector, USGSCollector  # noqa: E402
 from app.collectors.space_weather import NOAASWPCCollector  # noqa: E402
+from app.collectors.vigicrues import SIGNAL_URL as VIGICRUES_SIGNAL_URL  # noqa: E402
 from app.collectors.vigicrues import VigicruesCollector  # noqa: E402
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector, RainViewerCollector  # noqa: E402
 from app.services.geoindex import default_geometries, localization_of  # noqa: E402
@@ -304,6 +306,9 @@ async def check_meteoalarm_cap(client: httpx.AsyncClient) -> Result:
 
 # A flow of fewer sections than this is a truncated or a changed answer (the real one has about 337).
 VIGICRUES_MIN_SECTIONS = 100
+# The image of the publication is regenerated just after the flow (21 seconds on 2026-10-20): a gap beyond these means it does not follow it.
+VIGICRUES_IMAGE_BEFORE_S = 300
+VIGICRUES_IMAGE_AFTER_S = 1800
 
 # The kinds of ECCC alert that carry a colour (a statement or an ended alert does not).
 ECCC_COLOURED_KINDS = {"warning", "advisory", "watch"}
@@ -400,13 +405,41 @@ async def check_metservice(client: httpx.AsyncClient) -> Result:
     return Result("metservice_cap", "ok", f"{len(feed.vigilances)} warnings from {feed.items} items read")
 
 
+async def vigicrues_image_problem(client: httpx.AsyncClient, flow_updated: Optional[int]) -> Optional[str]:
+    """Why the publication image no longer tells when the flow changes (``None`` if it still does).
+
+    The collector reads the 2.2 MB flow only when the image of the national map changed (``app/collectors/vigicrues.py``).
+    That holds while the image has a validator and is regenerated with the flow: on 2026-10-20 the flow was published at
+    07:55:15 UTC and the image carried ``Last-Modified: 07:55:36``.
+    """
+    resp = await client.head(VIGICRUES_SIGNAL_URL)
+    if resp.status_code != 200:
+        return f"the publication image answers HTTP {resp.status_code}"
+    modified, tag = resp.headers.get("Last-Modified"), resp.headers.get("ETag")
+    if not (modified and tag):
+        return "the publication image has no Last-Modified or no ETag"
+    try:
+        stamp = parsedate_to_datetime(modified).timestamp()
+    except (TypeError, ValueError):
+        return f"the publication image has a Last-Modified that is not a date ({modified})"
+    if flow_updated is None:
+        return "the flow carries no date to compare the image with"
+    gap = stamp - flow_updated
+    if not -VIGICRUES_IMAGE_BEFORE_S <= gap <= VIGICRUES_IMAGE_AFTER_S:
+        return f"the publication image is dated {gap / 60:+.0f} minutes from the flow (it was +0.4 on 2026-10-20)"
+    return None
+
+
 async def check_vigicrues(client: httpx.AsyncClient) -> Result:
-    """Vigicrues flow: the whole flow must be there and every section above green must be read."""
+    """Vigicrues flow: the whole flow must be there, every section above green read, and the publication image still follow it."""
     flow = (await VigicruesCollector()._collect(client)).value
     if flow.sections < VIGICRUES_MIN_SECTIONS:
         return Result("vigicrues_flow", "FAIL", f"only {flow.sections} sections in the flow (it has had about 337)")
     if flow.skipped:
         return Result("vigicrues_flow", "FAIL", f"{flow.skipped} sections above green could not be read")
+    problem = await vigicrues_image_problem(client, flow.updated_utc)
+    if problem:
+        return Result("vigicrues_flow", "FAIL", f"{problem}: the collector would read the whole flow every hour instead of at each publication")
     if not flow.vigilances:
         return Result("vigicrues_flow", "empty", f"all {flow.sections} sections are green")
     counts = {name: sum(1 for v in flow.vigilances if v.level is not None and v.level.value == name) for name in ("YELLOW", "ORANGE", "RED")}

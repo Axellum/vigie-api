@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 import pytest
@@ -19,6 +19,7 @@ from tests import samples
 from tests import vigilance_samples as national
 from tests.test_dwd import archive, cap_document
 from tests.test_metservice import BASE, synthetic_cap, synthetic_feed
+from tests.test_vigicrues import recorded_image_headers
 from tools import check_live_feeds as tool
 
 GOOD_USGS = {
@@ -84,6 +85,17 @@ def full_vigicrues_flow() -> bytes:
     return json.dumps(payload).encode()
 
 
+def vigicrues_host(flow: bytes, image: Optional[dict[str, str]] = None, image_status: int = 200) -> Callable[[httpx.Request], httpx.Response]:
+    """Vigicrues as recorded: the flow, and the head of the publication image (stamped 21 seconds after the recorded flow)."""
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/ftp/img_france.png":
+            return httpx.Response(image_status, headers=recorded_image_headers() if image is None else image)
+        return httpx.Response(200, content=flow)
+
+    return answer
+
+
 def meteoalarm_answer(request: httpx.Request) -> httpx.Response:
     """The recorded Atom feed of France, and its recorded CAP document for any document asked."""
     if request.url.path.startswith("/api/v1/warnings/"):
@@ -111,7 +123,7 @@ def good_answers() -> dict[str, Callable[[httpx.Request], httpx.Response]]:
         "opendata.dwd.de": lambda r: httpx.Response(200, content=national.national_fixture("dwd", "status_district_mul.zip")),
         "api.weather.gc.ca": lambda r: httpx.Response(200, content=national.national_fixture("eccc", "weather_alerts_items.json")),
         "alerts.metservice.com": lambda r: httpx.Response(200, content=national.national_fixture("metservice", "rss_empty.xml")),
-        "www.vigicrues.gouv.fr": lambda r: httpx.Response(200, content=full_vigicrues_flow()),
+        "www.vigicrues.gouv.fr": vigicrues_host(full_vigicrues_flow()),
     }
 
 
@@ -409,17 +421,44 @@ async def test_vigicrues_a_calm_day_is_empty_a_short_flow_or_an_unreadable_secti
     calm = json.loads(full_vigicrues_flow())
     for feature in calm["features"]:
         feature["properties"]["NivInfViCr"] = 1
-    quiet = await national_run("www.vigicrues.gouv.fr", lambda r: httpx.Response(200, json=calm), "vigicrues_flow")
+    quiet = await national_run("www.vigicrues.gouv.fr", vigicrues_host(json.dumps(calm).encode()), "vigicrues_flow")
     assert quiet["vigicrues_flow"].outcome == "empty" and "all 341 sections are green" in quiet["vigicrues_flow"].detail
 
     short = await national_run(
         "www.vigicrues.gouv.fr",
-        lambda r: httpx.Response(200, content=national.national_fixture("vigicrues", "InfoVigiCru_subset.geojson")),
+        vigicrues_host(national.national_fixture("vigicrues", "InfoVigiCru_subset.geojson")),
         "vigicrues_flow",
     )
     assert short["vigicrues_flow"].outcome == "FAIL" and "only 31 sections" in short["vigicrues_flow"].detail
 
     broken = json.loads(full_vigicrues_flow())
     broken["features"][0]["geometry"] = None
-    unreadable = await national_run("www.vigicrues.gouv.fr", lambda r: httpx.Response(200, json=broken), "vigicrues_flow")
+    unreadable = await national_run("www.vigicrues.gouv.fr", vigicrues_host(json.dumps(broken).encode()), "vigicrues_flow")
     assert unreadable["vigicrues_flow"].outcome == "FAIL" and "could not be read" in unreadable["vigicrues_flow"].detail
+
+
+@pytest.mark.asyncio
+async def test_vigicrues_the_publication_image_must_still_follow_the_flow() -> None:
+    """The collector reads the 2.2 MB flow only when this image changed: the weekly run tells the day it stops being a signal."""
+    flow = full_vigicrues_flow()
+    kept = await national_run("www.vigicrues.gouv.fr", vigicrues_host(flow), "vigicrues_flow")
+    assert kept["vigicrues_flow"].outcome == "ok"  # 21 seconds after the flow, as recorded
+
+    for label, host, expected in (
+        ("gone", vigicrues_host(flow, image_status=404), "HTTP 404"),
+        ("no validator", vigicrues_host(flow, image={"Last-Modified": "Tue, 20 Oct 2026 07:55:36 GMT"}), "no Last-Modified or no ETag"),
+        ("not a date", vigicrues_host(flow, image={"Last-Modified": "yesterday", "ETag": '"x"'}), "not a date"),
+        (
+            "a day late",
+            vigicrues_host(flow, image={"Last-Modified": "Wed, 21 Oct 2026 07:55:36 GMT", "ETag": '"x"'}),
+            "+1440 minutes",
+        ),
+        (
+            "long before",
+            vigicrues_host(flow, image={"Last-Modified": "Tue, 20 Oct 2026 07:00:00 GMT", "ETag": '"x"'}),
+            "-55 minutes",
+        ),
+    ):
+        result = await national_run("www.vigicrues.gouv.fr", host, "vigicrues_flow")
+        assert result["vigicrues_flow"].outcome == "FAIL" and expected in result["vigicrues_flow"].detail, label
+        assert "every hour" in result["vigicrues_flow"].detail, label
