@@ -1,4 +1,6 @@
-"""The FIRMS MAP_KEY is in the URL of every request: it must not leave through an error, a log line or a response.
+"""The FIRMS MAP_KEY (optional) is in the URL of every request of the area API: it must not leave through an error, a log line or a response.
+
+The key is used only when the static file of a source could not be read, so every test here makes the file fail first (``static_fails``).
 
 The Vigie API of a public instance answers ``GET /v1/providers`` (``last_error``), ``GET /v1/health`` and the fire routes to anyone.
 ``httpx`` puts the URL in the text of some of its exceptions and in an INFO log line for each request, so the key is redacted at every
@@ -18,7 +20,7 @@ import pytest
 
 from app.collectors.base import CollectorUnavailableError
 from app.collectors.firms import FIRMSCollector, FIRMSError, _RedactingFilter
-from tests.firms_samples import EVENING, KEY, N20, N21, FirmsServer
+from tests.firms_samples import KEY, N20, N21, NOW, AreaServer, FirmsAnywhere, FirmsServer
 from tests.helpers import Provider, SimClock
 
 HOST_URL = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{KEY}/{N20}/world/1/2026-10-20"
@@ -43,10 +45,17 @@ def assert_clean(*texts: Any) -> None:
         assert KEY not in json.dumps(text, default=str)
 
 
+def static_fails(request: httpx.Request, answer: Any) -> httpx.Response:
+    """The file of FIRMS is down (it holds no key), the area API answers as ``answer`` says."""
+    if request.url.path.startswith("/data/"):
+        raise httpx.ConnectError("the file is not there", request=request)
+    return answer(request)  # type: ignore[no-any-return]
+
+
 def collector_with(answer: Any, sim_clock: SimClock, **kwargs: Any) -> FIRMSCollector:
-    sim_clock.EPOCH = EVENING
-    provider = Provider(answer=answer, latency_ticks=0)
-    return FIRMSCollector(KEY, http_client=provider.client(), sources=(N20,), **kwargs)
+    sim_clock.EPOCH = NOW
+    provider = Provider(answer=lambda request: static_fails(request, answer), latency_ticks=0)
+    return FIRMSCollector(KEY, http_client=provider.client(), sources=(N20,), window_hours=24, **kwargs)
 
 
 # ------------------------------------------------------------------------------------------------ the control
@@ -120,18 +129,18 @@ async def test_a_timeout_and_a_cut_connection_are_clean_too(sim_clock: SimClock)
 
 @pytest.mark.asyncio
 async def test_the_failure_of_one_source_in_a_set_is_clean(sim_clock: SimClock) -> None:
-    sim_clock.EPOCH = EVENING
-    server = FirmsServer()
+    sim_clock.EPOCH = NOW
+    server = FirmsServer(latency_ticks=0)
 
     def answer(request: httpx.Request) -> httpx.Response:
-        if N21 in request.url.path:
+        if "noaa-21" in request.url.path or N21 in request.url.path:  # both the file and the area API of that source are lost
             raise httpx.ReadError(f"connection lost on {request.url}", request=request)
         return server._respond(request)
 
-    collector = FIRMSCollector(KEY, http_client=Provider(answer=answer, latency_ticks=0).client())
+    collector = FIRMSCollector(KEY, http_client=Provider(answer=answer, latency_ticks=0).client(), window_hours=24)
     data = await collector.fetch()
-    assert data.failed == (N21,) and data.errors
-    assert_clean(data.errors, collector.last_error, collector.get_health().model_dump())
+    assert data.sources() == (N20,) and collector.failing() and collector.errors()
+    assert_clean(collector.errors(), collector.last_error, collector.get_health().model_dump())
 
 
 def test_the_base_class_redacts_whatever_it_records() -> None:
@@ -150,12 +159,13 @@ def test_a_message_the_error_class_builds_never_holds_the_key() -> None:
 
 @pytest.mark.asyncio
 async def test_the_log_records_of_httpx_do_not_hold_the_key(sim_clock: SimClock, caplog: pytest.LogCaptureFixture) -> None:
-    sim_clock.EPOCH = EVENING
+    sim_clock.EPOCH = NOW
     caplog.set_level(logging.DEBUG)
-    server = FirmsServer()
-    collector = FIRMSCollector(KEY, http_client=server.client())  # installs the filter on the loggers of httpx and httpcore
+    static, area = FirmsServer(latency_ticks=0), AreaServer(latency_ticks=0)
+    static.failing = {N20, N21}  # the files are down: the area API is asked, with the key in its URL
+    collector = FIRMSCollector(KEY, http_client=FirmsAnywhere(static, area).client(), window_hours=24)  # installs the filter on the loggers of httpx and httpcore
     await collector.fetch()
-    server.failing = {N20, N21}
+    area.failing = {N20, N21}
     sim_clock.advance(collector.ttl_seconds + 1)
     await collector.fetch_ex()
     assert "HTTP Request: GET https://firms.modaps.eosdis.nasa.gov/api/area/csv/REDACTED/" in caplog.text

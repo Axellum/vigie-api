@@ -1,7 +1,8 @@
 """What the API does with the FIRMS detections: the box, the hotspots, the grid and the summary around a point.
 
 Every figure is checked against an **independent** computation made from the recorded CSV rows (floats, plain loops, the great-circle
-formula written out here), not against the code under test. The detections are the recorded ones of ``tests/fixtures/firms``.
+formula written out here), not against the code under test. The detections are the recorded ones of ``tests/fixtures/firms`` (the static files
+of FIRMS of 2026-10-20: two UTC days each).
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ from typing import Any, Optional
 import httpx
 import pytest
 
-from app.collectors.firms import FireDay, FireSet, FIRMSCollector, parse_csv
+from app.collectors.firms import FireReading, FireSet, FIRMSCollector, parse_csv
 from app.services.fires import (
     CONFIDENCE_LEVELS,
     FireService,
@@ -26,34 +27,34 @@ from app.services.fires import (
     select,
 )
 from tests.firms_samples import (
-    EVENING,
     FIXTURE_DAY,
-    KEY,
     MIDNIGHT,
     N20,
     N21,
+    NOW,
     SINCE_ALL,
     FirmsServer,
-    csv_for,
     csv_rows,
     haversine,
     oracle_grid,
     oracle_ids,
     oracle_near,
     rows,
+    static_csv,
 )
 from tests.helpers import SimClock
 
 WORLD = parse_bbox("-180,-90,180,90")
 
 
-def day_of(source: str, date: str = FIXTURE_DAY, content: Optional[bytes] = None) -> FireDay:
-    table, stats = parse_csv(content if content is not None else csv_for(source, date), date)
-    return FireDay(source=source, date=date, read_utc=int(EVENING), bytes_read=0, skipped=stats.skipped, table=table)
+def reading_of(source: str, content: Optional[bytes] = None) -> FireReading:
+    """A source as FIRMS gave it: the recorded static file, or ``content`` (a made-up file in the layout of the area API, of ``FIXTURE_DAY``)."""
+    table, stats = parse_csv(static_csv(source)) if content is None else parse_csv(content, FIXTURE_DAY)
+    return FireReading(source=source, via="static", read_utc=int(NOW), published_utc=None, bytes_read=0, skipped=stats.skipped, table=table)
 
 
 def recorded_set() -> FireSet:
-    return FireSet(days=(day_of(N20), day_of(N21)), read_utc=int(EVENING))
+    return FireSet(readings=(reading_of(N20), reading_of(N21)), read_utc=int(NOW))
 
 
 # ------------------------------------------------------------------------------------------------ the box
@@ -113,7 +114,7 @@ def test_the_hotspots_of_a_box_are_those_of_an_independent_scan(box: str, min_co
 def test_the_box_across_the_antimeridian_holds_both_sides() -> None:
     _, kept = select(recorded_set(), parse_bbox("170,-25,-170,-10"), SINCE_ALL, 0, 0.0, 10_000)
     fs = recorded_set()
-    longitudes = sorted(fs.days[t].table.lon[row] / 1e5 for _, _, t, row in kept)
+    longitudes = sorted(fs.readings[t].table.lon[row] / 1e5 for _, _, t, row in kept)
     assert any(x > 170 for x in longitudes) and any(x < -170 for x in longitudes)
     assert not any(-170 <= x <= 170 for x in longitudes)
 
@@ -121,7 +122,7 @@ def test_the_box_across_the_antimeridian_holds_both_sides() -> None:
 def test_the_strongest_are_kept_first_and_the_total_still_counts_all() -> None:
     fs = recorded_set()
     total, kept = select(fs, WORLD, SINCE_ALL, 0, 0.0, 25)
-    assert total == len(rows()) == 258 + 218 and len(kept) == 25
+    assert total == len(rows()) == 237 + 235 and len(kept) == 25
     strongest = sorted((r["frp"] for r in rows() if not math.isnan(r["frp"])), reverse=True)[:25]
     assert [round(frp, 3) for frp, _, _, _ in kept] == [round(x, 3) for x in strongest]
     ordered = [(frp, acq) for frp, acq, _, _ in kept]
@@ -138,7 +139,7 @@ def test_the_window_keeps_the_detections_acquired_since_its_start() -> None:
 
 def test_a_detection_with_no_power_does_not_pass_a_minimum_power_and_sorts_last() -> None:
     body = csv_rows([(10.0, 20.0, 330, 5.0, "n"), (10.1, 20.1, 331, 9.0, "n")]).replace(b",5.0,D", b",,D")
-    fs = FireSet(days=(day_of(N20, content=body),), read_utc=0)
+    fs = FireSet(readings=(reading_of(N20, body),), read_utc=0)
     assert select(fs, WORLD, 0, 0, 1.0, 10)[0] == 1  # the one with a power of 9
     total, kept = select(fs, WORLD, 0, 0, 0.0, 10)
     assert total == 2 and [frp for frp, _, _, _ in kept] == [9.0, -1.0]
@@ -146,7 +147,7 @@ def test_a_detection_with_no_power_does_not_pass_a_minimum_power_and_sorts_last(
 
 def test_an_unknown_confidence_passes_only_the_lowest_threshold() -> None:
     body = csv_rows([(10.0, 20.0, 330, 5.0, "x"), (10.1, 20.1, 331, 9.0, "n")])
-    fs = FireSet(days=(day_of(N20, content=body),), read_utc=0)
+    fs = FireSet(readings=(reading_of(N20, body),), read_utc=0)
     assert select(fs, WORLD, 0, CONFIDENCE_LEVELS["low"], 0.0, 10)[0] == 2
     assert select(fs, WORLD, 0, CONFIDENCE_LEVELS["nominal"], 0.0, 10)[0] == 1
     assert select(fs, WORLD, 0, CONFIDENCE_LEVELS["high"], 0.0, 10)[0] == 0
@@ -159,7 +160,7 @@ def test_an_unknown_confidence_passes_only_the_lowest_threshold() -> None:
 def test_the_cells_are_those_of_an_independent_count(cell: float) -> None:
     result = grid_cells(recorded_set(), WORLD, SINCE_ALL, cell, 0, 0.0, 100_000)
     expected = oracle_grid(cell)
-    assert result.total_cells == len(expected) == len(result.features) and result.total_detections == 258 + 218
+    assert result.total_cells == len(expected) == len(result.features) and result.total_detections == len(rows())
     got = {}
     for feature in result.features:
         lon, lat = feature["geometry"]["coordinates"]
@@ -184,7 +185,7 @@ def test_the_busiest_cells_come_first_and_the_limit_keeps_them() -> None:
 
 def test_a_detection_on_the_edge_of_the_globe_is_in_the_last_cell_not_outside() -> None:
     body = csv_rows([(90.0, 180.0, 330, 5.0, "n"), (-90.0, -180.0, 330, 5.0, "n"), (0.0, 0.0, 330, 5.0, "n"), (0.5, 1.0, 330, 5.0, "n")])
-    result = grid_cells(FireSet(days=(day_of(N20, content=body),), read_utc=0), WORLD, 0, 1.0, 0, 0.0, 100)
+    result = grid_cells(FireSet(readings=(reading_of(N20, body),), read_utc=0), WORLD, 0, 1.0, 0, 0.0, 100)
     # (90, 180) is the last cell, (-90, -180) the first; (0, 0) and (0.5, 1.0) are in two cells that touch at longitude 1
     assert sorted(f["id"] for f in result.features) == sorted(["1_179_359", "1_0_0", "1_90_180", "1_90_181"])
     assert all(f["properties"]["count"] == 1 for f in result.features)
@@ -254,16 +255,16 @@ class GatedFirms:
 
 
 def service_with(sim_clock: SimClock, firms: GatedFirms, **kwargs: Any) -> tuple[FireService, FIRMSCollector]:
-    sim_clock.EPOCH = EVENING
-    collector = FIRMSCollector(KEY, http_client=firms.client, refresh_s=1800, **kwargs)
+    sim_clock.EPOCH = NOW
+    collector = FIRMSCollector(http_client=firms.client, refresh_s=1800, window_hours=24, **kwargs)
     return FireService(collector, None), collector
 
 
 @pytest.mark.asyncio
-async def test_without_a_key_the_routes_are_off_and_the_point_has_no_block(sim_clock: SimClock) -> None:
-    service = FireService(None, "VIGIE_FIRMS_MAP_KEY is not set")
+async def test_when_the_source_is_turned_off_the_routes_are_off_and_the_point_has_no_block(sim_clock: SimClock) -> None:
+    service = FireService(None, "NASA FIRMS is turned off on this instance (VIGIE_ENABLE_FIRMS=0)")
     assert service.enabled is False
-    with pytest.raises(FiresOff, match="VIGIE_FIRMS_MAP_KEY is not set"):
+    with pytest.raises(FiresOff, match="VIGIE_ENABLE_FIRMS=0"):
         await service.features(WORLD, 24.0, "low", 0.0, 10)
     with pytest.raises(FiresOff):
         await service.grid(WORLD, 24.0, 1.0, "low", 0.0, 10)
@@ -281,9 +282,9 @@ async def test_the_point_never_waits_for_the_first_reading_and_has_the_block_onc
     firms.open()
     await service.drain()
     nearby = await service.nearby(-16.6, 179.0, 500.0)
-    assert nearby is not None and nearby.count_24h == oracle_near(-16.6, 179.0, 500.0, int(EVENING) - 86400)[0] and nearby.stale is False
-    assert nearby.sources == [N20, N21] and nearby.data_read_utc == int(EVENING)
-    assert collector.get_health().calls_24h == 4
+    assert nearby is not None and nearby.count_24h == oracle_near(-16.6, 179.0, 500.0, int(NOW) - 86400)[0] and nearby.stale is False
+    assert nearby.sources == [N20, N21] and nearby.data_read_utc == int(NOW)
+    assert collector.get_health().calls_24h == 2  # one request for the file of each source
 
 
 @pytest.mark.asyncio
@@ -304,18 +305,18 @@ async def test_once_there_is_a_reading_it_is_served_at_once_while_the_next_one_i
     firms.open()
     service, collector = service_with(sim_clock, firms)
     await service.features(WORLD, 24.0, "low", 0.0, 1)
-    assert collector.get_health().calls_24h == 4
+    assert collector.get_health().calls_24h == 2
     sim_clock.advance(1801)  # the reading is past its lifetime
     firms.close()  # FIRMS is slow now
     before = await service.nearby(-16.6, 179.0, 500.0)
     answer = await service.grid(WORLD, 24.0, 5.0, "low", 0.0, 10)  # not waiting either
-    assert before is not None and before.data_read_utc == int(EVENING) and answer["metadata"]["data_read_utc"] == int(EVENING)
+    assert before is not None and before.data_read_utc == int(NOW) and answer["metadata"]["data_read_utc"] == int(NOW)
     assert answer["metadata"]["stale"] is False  # the last attempt did not fail: it is only running
     firms.open()
     await service.drain()
     after = await service.nearby(-16.6, 179.0, 500.0)
-    assert after is not None and after.data_read_utc == int(EVENING) + 1801
-    assert collector.get_health().calls_24h == 6  # one refresh, however many callers
+    assert after is not None and after.data_read_utc == int(NOW) + 1801  # the files had not changed: confirmed current, not read again
+    assert collector.get_health().calls_24h == 4  # one refresh (a request for each file), however many callers
 
 
 @pytest.mark.asyncio
@@ -327,7 +328,7 @@ async def test_many_callers_start_one_refresh(sim_clock: SimClock) -> None:
     sim_clock.advance(1801)
     await asyncio.gather(*(service.nearby(-16.6, 179.0, 500.0) for _ in range(50)), *(service.grid(WORLD, 24.0, 1.0, "low", 0.0, 10) for _ in range(5)))
     await service.drain()
-    assert collector.get_health().calls_24h == 4 + 2
+    assert collector.get_health().calls_24h == 2 + 2
 
 
 @pytest.mark.asyncio
@@ -341,7 +342,7 @@ async def test_a_failed_refresh_keeps_the_previous_reading_and_says_it_is_stale(
     await service.nearby(-16.6, 179.0, 500.0)
     await service.drain()
     nearby = await service.nearby(-16.6, 179.0, 500.0)
-    assert nearby is not None and nearby.stale is True and nearby.data_read_utc == int(EVENING)
+    assert nearby is not None and nearby.stale is True and nearby.data_read_utc == int(NOW)
     answer = await service.features(WORLD, 24.0, "low", 0.0, 1)
     assert answer["metadata"]["stale"] is True and answer["metadata"]["total_matching"] > 0
     assert collector.consecutive_failures >= 1 and collector.last_error is not None
@@ -399,3 +400,68 @@ async def test_the_answers_carry_the_credit_and_the_disclaimer_of_nasa(sim_clock
         assert answer["metadata"]["attribution"] == CREDITS["nasa_firms"].text and answer["metadata"]["disclaimer"] == FIRMS_DISCLAIMER
     nearby = await service.nearby(-16.6, 179.0, 500.0)
     assert nearby is not None and nearby.attribution == CREDITS["nasa_firms"].text and nearby.disclaimer == FIRMS_DISCLAIMER
+
+
+@pytest.mark.asyncio
+async def test_more_hours_than_the_files_this_instance_reads_are_refused(sim_clock: SimClock) -> None:
+    from app.services.fires import FiresWindowTooLong
+
+    firms = GatedFirms()
+    firms.open()
+    service, _ = service_with(sim_clock, firms)  # reads the files of 24 hours
+    assert service.window_hours == 24.0
+    await service.features(WORLD, 24.0, "low", 0.0, 1)  # the whole window of the files is fine
+    for call in (service.features(WORLD, 25.0, "low", 0.0, 1), service.grid(WORLD, 48.0, 1.0, "low", 0.0, 1)):
+        with pytest.raises(FiresWindowTooLong, match="at most 24 on this instance"):
+            await call
+    wide = FIRMSCollector(http_client=firms.client, refresh_s=1800, window_hours=48, sources=(N21,))
+    assert FireService(wide, None).window_hours == 48.0
+    assert (await FireService(wide, None).features(WORLD, 48.0, "low", 0.0, 1))["metadata"]["window_hours"] == 48.0
+
+
+@pytest.mark.asyncio
+async def test_each_source_says_how_it_was_read_and_when_its_file_was_written(sim_clock: SimClock) -> None:
+    from tests.firms_samples import PUBLISHED
+
+    firms = GatedFirms()
+    firms.open()
+    service, collector = service_with(sim_clock, firms)
+    answer = await service.features(WORLD, 24.0, "low", 0.0, 1)
+    assert answer["metadata"]["sources"] == [
+        {"source": N20, "read_utc": int(NOW), "ok": True, "via": "static", "published_utc": int(PUBLISHED[N20])},
+        {"source": N21, "read_utc": int(NOW), "ok": True, "via": "static", "published_utc": int(PUBLISHED[N21])},
+    ]
+    sim_clock.advance(1801)
+    firms.server.failing = {N20}
+    await service.nearby(-16.6, 179.0)  # starts the refresh: the file of N20 is not there, the one of N21 has not changed
+    await service.drain()
+    answer = await service.features(WORLD, 24.0, "low", 0.0, 1)
+    assert answer["metadata"]["stale"] is True
+    assert answer["metadata"]["sources"] == [
+        {"source": N20, "read_utc": int(NOW), "ok": False, "via": "static", "published_utc": int(PUBLISHED[N20])},  # its last reading, 30 minutes old
+        {"source": N21, "read_utc": int(NOW) + 1801, "ok": True, "via": "static", "published_utc": int(PUBLISHED[N21])},
+    ]
+    assert collector.failing()
+
+
+@pytest.mark.asyncio
+async def test_no_refresh_is_started_while_every_source_that_is_due_is_in_its_backoff(sim_clock: SimClock) -> None:
+    firms = GatedFirms()
+    firms.open()
+    service, collector = service_with(sim_clock, firms)
+    await service.features(WORLD, 24.0, "low", 0.0, 1)
+    sim_clock.advance(1801)
+    firms.server.failing = {N20, N21}
+    await service.nearby(-16.6, 179.0)
+    await service.drain()
+    asked = collector.get_health().calls_24h
+    for _ in range(20):  # the answers are served from the previous reading, and nothing is sent to FIRMS for a minute
+        await service.nearby(-16.6, 179.0)
+        await service.grid(WORLD, 24.0, 5.0, "low", 0.0, 10)
+    await service.drain()
+    assert collector.get_health().calls_24h == asked
+    sim_clock.advance(61)
+    firms.server.failing = set()
+    await service.nearby(-16.6, 179.0)  # a minute has passed: the next request starts one
+    await service.drain()
+    assert collector.get_health().calls_24h == asked + 2 and collector.failing() is False
