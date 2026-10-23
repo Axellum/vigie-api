@@ -1,7 +1,9 @@
 """``GET /v1/fires``, ``GET /v1/fires/grid``, the ``fires_nearby`` block of ``GET /v1/point`` and the health of the source.
 
-The detections are the recorded ones (``tests/fixtures/firms``) read through a simulated FIRMS; every figure is compared with an independent
-computation over the CSV rows (``tests/firms_samples.py``). An instance without a key has the source off, and says so.
+The detections are the recorded ones (``tests/fixtures/firms``, the static files of FIRMS) read through a simulated FIRMS; every figure is compared
+with an independent computation over the CSV rows (``tests/firms_samples.py``). An instance that turned the source off says so.
+
+The application's own collectors are shared by every test: nothing here leaves one of them failing (``_shared_collectors_untouched``).
 """
 
 from __future__ import annotations
@@ -19,25 +21,49 @@ from fastapi.testclient import TestClient
 
 from app.attribution import CREDITS, FIRMS_DISCLAIMER
 from app.collectors.firms import FIRMSCollector
-from app.main import aggregator, app
+from app.main import aggregator
 from app.models.fires import FiresCollection, FiresGrid
 from app.models.schemas import PointResponse
 from app.services.aggregator import AggregatorService
 from app.services.fires import FireService
 from tests.conftest import World
 from tests.firms_samples import (
-    EVENING,
     KEY,
-    MIDNIGHT,
     N20,
     N21,
+    NOW,
+    PUBLISHED,
     FirmsServer,
+    acq_of,
+    at,
     oracle_grid,
     oracle_ids,
     oracle_near,
     rows,
+    static_rows,
 )
 from tests.helpers import Provider, SimClock, make_service
+
+SINCE_24H = int(NOW - 24 * 3600) // 300 * 300  # the start of the default window at the time of the tests
+TURNED_OFF = "NASA FIRMS is turned off on this instance (VIGIE_ENABLE_FIRMS=0)"
+WORLD_BOX = "-180,-90,180,90"
+
+
+@pytest.fixture(autouse=True)
+def _shared_collectors_untouched() -> Iterator[None]:
+    """The collectors of the application are shared by every test of the suite: put back what a test here may have changed in them.
+
+    A test that reaches a route with a collector that is not mocked (the network is refused in the tests) leaves it with failures and, after
+    three, an open circuit; the tests that come after would then find a source that "did not answer" for a reason that is not theirs.
+    """
+    saved = [
+        (collector, collector.consecutive_failures, collector.circuit_state, collector.opened_at_monotonic, collector.last_error, collector.last_success_utc)
+        for collector in aggregator.get_all_collectors()
+    ]
+    yield
+    for collector, failures, circuit, opened_at, last_error, last_success in saved:
+        collector.consecutive_failures, collector.circuit_state, collector.opened_at_monotonic = failures, circuit, opened_at
+        collector.last_error, collector.last_success_utc = last_error, last_success
 
 
 @dataclass
@@ -50,10 +76,10 @@ class Fires:
 
 @pytest.fixture()
 def fires(world: World, sim_clock: SimClock, monkeypatch: pytest.MonkeyPatch) -> Iterator[Fires]:
-    """The application with a FIRMS key: the recorded detections are already read, so no request starts a refresh."""
-    sim_clock.EPOCH = EVENING
+    """The application reading FIRMS (the files of 24 hours): the recorded detections are already read, so no request starts a refresh."""
+    sim_clock.EPOCH = NOW
     server = FirmsServer(latency_ticks=0)
-    collector = FIRMSCollector(KEY, http_client=server.client())
+    collector = FIRMSCollector(http_client=server.client(), window_hours=24)
     monkeypatch.setattr(aggregator, "firms", collector)
     monkeypatch.setattr(aggregator, "fires", FireService(collector, None))
     asyncio.run(collector.fetch())
@@ -61,9 +87,9 @@ def fires(world: World, sim_clock: SimClock, monkeypatch: pytest.MonkeyPatch) ->
 
 
 @pytest.fixture()
-def no_key(world: World, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+def turned_off(world: World, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setattr(aggregator, "firms", None)
-    monkeypatch.setattr(aggregator, "fires", FireService(None, "VIGIE_FIRMS_MAP_KEY is not set"))
+    monkeypatch.setattr(aggregator, "fires", FireService(None, TURNED_OFF))
     return world.client
 
 
@@ -76,7 +102,7 @@ def test_the_hotspots_of_a_box_are_those_of_the_recording(fires: Fires) -> None:
     assert response.headers["cache-control"] == "public, max-age=60"
     body = response.json()
     FiresCollection.model_validate(body)  # the document describes the answer
-    expected = oracle_ids("-20,-35,50,15")
+    expected = oracle_ids("-20,-35,50,15", SINCE_24H)
     assert body["metadata"]["count"] == len(body["features"]) == body["metadata"]["total_matching"] == len(expected)
     assert body["metadata"]["truncated"] is False
     for feature in body["features"]:
@@ -88,19 +114,19 @@ def test_the_hotspots_of_a_box_are_those_of_the_recording(fires: Fires) -> None:
 
 
 def test_a_feature_is_the_detection_of_the_file_with_its_fields(fires: Fires) -> None:
-    body = fires.client.get("/v1/fires", params={"bbox": "33.07,28.85,33.08,28.86"}).json()
-    feature = next(f for f in body["features"] if f["properties"]["satellite"] == "N20")
-    assert feature["type"] == "Feature" and feature["geometry"] == {"type": "Point", "coordinates": [33.07164, 28.85126]}
+    body = fires.client.get("/v1/fires", params={"bbox": "116.2,-32,116.3,-31.9"}).json()  # near Perth, the last line of the recording of NOAA-21
+    feature = next(f for f in body["features"] if f["geometry"]["coordinates"] == [116.26122, -31.95362])
+    assert feature["type"] == "Feature" and feature["id"] == "N21_-31.95362_116.26122_" + str(int(at("2026-10-20", "16:20")))
     assert feature["properties"] == {
-        "acq_utc": MIDNIGHT + 60,
-        "satellite": "N20",
-        "instrument": "VIIRS",
+        "acq_utc": int(at("2026-10-20", "16:20")),
+        "satellite": "N21",
+        "instrument": None,  # the static files have no such column
         "confidence": "nominal",
-        "frp_mw": 1.42,
-        "bright_ti4_k": 314.28,
-        "bright_ti5_k": 294.59,
-        "scan_km": 0.41,
-        "track_km": 0.45,
+        "frp_mw": 1.46,
+        "bright_ti4_k": 297.04,
+        "bright_ti5_k": 282.08,
+        "scan_km": 0.61,
+        "track_km": 0.71,
         "daynight": "night",
         "version": "2.0NRT",
     }
@@ -117,32 +143,37 @@ def test_the_metadata_says_what_was_asked_and_what_was_read(fires: Fires) -> Non
     metadata = fires.client.get("/v1/fires", params={"bbox": "-6,35,10,45", "hours": 12, "min_confidence": "nominal", "min_frp": 2, "limit": 7}).json()["metadata"]
     assert metadata["bbox"] == [-6, 35, 10, 45] and metadata["window_hours"] == 12 and metadata["min_confidence"] == "nominal"
     assert metadata["min_frp_mw"] == 2 and metadata["limit"] == 7
-    assert metadata["generated_utc"] == int(EVENING) and metadata["data_read_utc"] == int(EVENING) and metadata["stale"] is False
-    assert metadata["since_utc"] == int(EVENING - 12 * 3600) // 300 * 300 and metadata["since_utc"] % 300 == 0
-    assert metadata["sources"] == [{"source": N20, "read_utc": int(EVENING), "ok": True}, {"source": N21, "read_utc": int(EVENING), "ok": True}]
+    assert metadata["generated_utc"] == int(NOW) and metadata["data_read_utc"] == int(NOW) and metadata["stale"] is False
+    assert metadata["since_utc"] == int(NOW - 12 * 3600) // 300 * 300 and metadata["since_utc"] % 300 == 0
+    assert metadata["sources"] == [
+        {"source": N20, "read_utc": int(NOW), "ok": True, "via": "static", "published_utc": int(PUBLISHED[N20])},
+        {"source": N21, "read_utc": int(NOW), "ok": True, "via": "static", "published_utc": int(PUBLISHED[N21])},
+    ]
     assert metadata["skipped_rows"] == 0
 
 
 def test_a_product_that_has_never_been_read_is_listed_with_no_time(world: World, sim_clock: SimClock, monkeypatch: pytest.MonkeyPatch) -> None:
     """The first reading of a real instance (2026-10-20): NOAA-20 timed out, NOAA-21 answered. The answer must not look like a complete one."""
-    sim_clock.EPOCH = EVENING
+    sim_clock.EPOCH = NOW
     server = FirmsServer(latency_ticks=0)
     server.failing = {N20}
-    collector = FIRMSCollector(KEY, http_client=server.client())
+    collector = FIRMSCollector(http_client=server.client(), window_hours=24)
     monkeypatch.setattr(aggregator, "firms", collector)
     monkeypatch.setattr(aggregator, "fires", FireService(collector, None))
     asyncio.run(collector.fetch())
     for path in ("/v1/fires?bbox=-180,-90,180,90", "/v1/fires/grid"):
         metadata = world.client.get(path).json()["metadata"]
         assert metadata["stale"] is True
-        assert metadata["sources"] == [{"source": N20, "read_utc": None, "ok": False}, {"source": N21, "read_utc": int(EVENING), "ok": True}]
-    assert KEY not in world.client.get("/v1/providers").text
+        assert metadata["sources"] == [
+            {"source": N20, "read_utc": None, "ok": False, "via": None, "published_utc": None},
+            {"source": N21, "read_utc": int(NOW), "ok": True, "via": "static", "published_utc": int(PUBLISHED[N21])},
+        ]
 
 
 def test_the_hotspots_beyond_the_limit_are_not_sent_and_the_answer_says_so(fires: Fires) -> None:
-    body = fires.client.get("/v1/fires", params={"bbox": "-180,-90,180,90", "limit": 10}).json()
-    assert len(body["features"]) == 10 and body["metadata"]["total_matching"] == 258 + 218 and body["metadata"]["truncated"] is True
-    strongest = sorted((r["frp"] for r in rows() if not math.isnan(r["frp"])), reverse=True)[:10]
+    body = fires.client.get("/v1/fires", params={"bbox": WORLD_BOX, "limit": 10}).json()
+    assert len(body["features"]) == 10 and body["metadata"]["total_matching"] == len(oracle_ids(WORLD_BOX, SINCE_24H)) and body["metadata"]["truncated"] is True
+    strongest = sorted((r["frp"] for r in rows() if r["acq"] >= SINCE_24H and not math.isnan(r["frp"])), reverse=True)[:10]
     assert [f["properties"]["frp_mw"] for f in body["features"]] == pytest.approx(strongest, abs=0.01)
 
 
@@ -150,26 +181,26 @@ def test_the_filters_of_confidence_power_and_window(fires: Fires) -> None:
     def count(**params: Any) -> int:
         return fires.client.get("/v1/fires", params={"bbox": "-180,-90,180,90", "limit": 5000, **params}).json()["metadata"]["total_matching"]
 
-    assert count() == 258 + 218
-    assert count(min_confidence="nominal") == len(oracle_ids("-180,-90,180,90", min_conf=2))
-    assert count(min_confidence="high") == len(oracle_ids("-180,-90,180,90", min_conf=3))
-    assert count(min_frp=10) == len(oracle_ids("-180,-90,180,90", min_frp=10.0))
-    since = int(EVENING - 6 * 3600) // 300 * 300
-    assert count(hours=6) == len(oracle_ids("-180,-90,180,90", since))
+    assert count() == len(oracle_ids(WORLD_BOX, SINCE_24H)) < len(rows())  # the files hold more than the 24 hours of the window
+    assert count(min_confidence="nominal") == len(oracle_ids(WORLD_BOX, SINCE_24H, min_conf=2))
+    assert count(min_confidence="high") == len(oracle_ids(WORLD_BOX, SINCE_24H, min_conf=3))
+    assert count(min_frp=10) == len(oracle_ids(WORLD_BOX, SINCE_24H, min_frp=10.0))
+    since = int(NOW - 6 * 3600) // 300 * 300
+    assert count(hours=6) == len(oracle_ids(WORLD_BOX, since))
     assert 0 < count(hours=6) < count()
 
 
 def test_the_window_moves_with_the_clock(fires: Fires, sim_clock: SimClock) -> None:
     sim_clock.advance(20 * 3600)  # 14:12 the next day: only the detections of the last 24 hours remain
     count = fires.client.get("/v1/fires", params={"bbox": "-180,-90,180,90", "limit": 5000}).json()["metadata"]["total_matching"]
-    since = int(EVENING + 20 * 3600 - 24 * 3600) // 300 * 300
-    assert count == len(oracle_ids("-180,-90,180,90", since)) < 258 + 218
+    since = int(NOW + 20 * 3600 - 24 * 3600) // 300 * 300
+    assert count == len(oracle_ids(WORLD_BOX, since)) < len(oracle_ids(WORLD_BOX, SINCE_24H))
 
 
 def test_a_box_across_the_antimeridian(fires: Fires) -> None:
     body = fires.client.get("/v1/fires", params={"bbox": "170,-25,-170,-10", "limit": 5000}).json()
     longitudes = [f["geometry"]["coordinates"][0] for f in body["features"]]
-    assert len(longitudes) == len(oracle_ids("170,-25,-170,-10")) > 0
+    assert len(longitudes) == len(oracle_ids("170,-25,-170,-10", SINCE_24H)) > 0
     assert any(x > 170 for x in longitudes) and any(x < -170 for x in longitudes) and not any(-170 <= x <= 170 for x in longitudes)
     assert body["metadata"]["bbox"] == [170, -25, -170, -10]
 
@@ -187,7 +218,8 @@ def test_a_box_across_the_antimeridian(fires: Fires) -> None:
         {"bbox": "0,0,10,91"},
         {"bbox": "0,0,541,5"},
         {"bbox": "0,0,10,10", "hours": 0},
-        {"bbox": "0,0,10,10", "hours": 49},
+        {"bbox": "0,0,10,10", "hours": 49},  # more than any instance reads
+        {"bbox": "0,0,10,10", "hours": 36},  # more than this one reads (the files of 24 hours)
         {"bbox": "0,0,10,10", "limit": 0},
         {"bbox": "0,0,10,10", "limit": 5001},
         {"bbox": "0,0,10,10", "min_confidence": "certain"},
@@ -209,10 +241,10 @@ def test_the_grid_counts_the_detections_of_each_cell(fires: Fires, cell: float) 
     assert response.status_code == 200
     body = response.json()
     FiresGrid.model_validate(body)
-    expected = oracle_grid(cell)
+    expected = oracle_grid(cell, since=SINCE_24H)
     metadata = body["metadata"]
     assert metadata["cell_deg"] == cell and metadata["total_cells"] == len(expected) == metadata["count"] and metadata["truncated"] is False
-    assert metadata["total_detections"] == 258 + 218 == sum(count for count, _, _ in expected.values())
+    assert metadata["total_detections"] == len(oracle_ids(WORLD_BOX, SINCE_24H)) == sum(count for count, _, _ in expected.values())
     for feature in body["features"]:
         lon, lat = feature["geometry"]["coordinates"]
         key = (math.floor((lat + 90) / cell), math.floor((lon + 180) / cell))
@@ -227,7 +259,7 @@ def test_the_grid_defaults_to_the_globe_in_one_degree_cells(fires: Fires) -> Non
 
 def test_the_grid_of_a_box_counts_only_its_detections(fires: Fires) -> None:
     body = fires.client.get("/v1/fires/grid", params={"bbox": "-20,-35,50,15", "cell_deg": 2}).json()
-    assert body["metadata"]["total_detections"] == len(oracle_ids("-20,-35,50,15"))
+    assert body["metadata"]["total_detections"] == len(oracle_ids("-20,-35,50,15", SINCE_24H))
     assert all(-21 <= f["geometry"]["coordinates"][0] <= 51 and -36 <= f["geometry"]["coordinates"][1] <= 16 for f in body["features"])
 
 
@@ -240,8 +272,8 @@ def test_the_grid_keeps_the_busiest_cells_when_there_are_too_many(fires: Fires) 
 
 def test_the_grid_has_the_same_filters_as_the_hotspots(fires: Fires) -> None:
     body = fires.client.get("/v1/fires/grid", params={"cell_deg": 1, "min_confidence": "high", "min_frp": 5, "hours": 12}).json()
-    since = int(EVENING - 12 * 3600) // 300 * 300
-    assert body["metadata"]["total_detections"] == len(oracle_ids("-180,-90,180,90", since, 3, 5.0))
+    since = int(NOW - 12 * 3600) // 300 * 300
+    assert body["metadata"]["total_detections"] == len(oracle_ids(WORLD_BOX, since, 3, 5.0))
 
 
 @pytest.mark.parametrize("params", [{"cell_deg": 0.1}, {"cell_deg": 3}, {"cell_deg": 0}, {"cell_deg": 20}, {"bbox": "0,0,1"}, {"limit": 0}, {"limit": 20001}, {"hours": 100}])
@@ -257,19 +289,19 @@ def test_the_point_carries_the_summary_of_the_fires_nearby(fires: Fires) -> None
     assert response.status_code == 200
     nearby = response.json()["fires_nearby"]
     PointResponse.model_validate(response.json())
-    count, nearest, strongest, latest = oracle_near(-16.6, 179.0, 300.0, int(EVENING) - 86400)
+    count, nearest, strongest, latest = oracle_near(-16.6, 179.0, 300.0, int(NOW) - 86400)
     assert count > 0
     assert nearby["radius_km"] == 300 and nearby["count_24h"] == count and nearby["latest_utc"] == latest
     assert nearby["nearest_km"] == pytest.approx(nearest, abs=0.06) and nearby["max_frp_mw"] == pytest.approx(strongest, abs=0.01)
-    assert nearby["data_read_utc"] == int(EVENING) and nearby["stale"] is False and nearby["sources"] == [N20, N21]
+    assert nearby["data_read_utc"] == int(NOW) and nearby["stale"] is False and nearby["sources"] == [N20, N21]
     assert nearby["derived"] == ["count_24h", "nearest_km", "max_frp_mw", "latest_utc"]
     assert nearby["attribution"] == CREDITS["nasa_firms"].text and nearby["disclaimer"] == FIRMS_DISCLAIMER
 
 
 def test_the_default_radius_is_fifty_kilometres(fires: Fires) -> None:
-    nearby = fires.client.get("/v1/point", params={"lat": 38.7, "lon": -9.1}).json()["fires_nearby"]
+    nearby = fires.client.get("/v1/point", params={"lat": -16.75, "lon": 178.73}).json()["fires_nearby"]
     assert nearby["radius_km"] == 50
-    assert nearby["count_24h"] == oracle_near(38.7, -9.1, 50.0, int(EVENING) - 86400)[0]
+    assert nearby["count_24h"] == oracle_near(-16.75, 178.73, 50.0, int(NOW) - 86400)[0] > 5
 
 
 def test_nothing_nearby_is_zero_with_unknown_distance_and_power(fires: Fires) -> None:
@@ -280,7 +312,7 @@ def test_nothing_nearby_is_zero_with_unknown_distance_and_power(fires: Fires) ->
 def test_the_fires_never_raise_the_alert_level_of_the_point(fires: Fires, monkeypatch: pytest.MonkeyPatch) -> None:
     params = {"lat": -16.6, "lon": 179.0, "radius_km": 600, "fire_radius_km": 500}
     with_fires = fires.client.get("/v1/point", params=params).json()
-    assert with_fires["fires_nearby"]["count_24h"] == oracle_near(-16.6, 179.0, 500.0, int(EVENING) - 86400)[0] > 20  # a lot of fire around
+    assert with_fires["fires_nearby"]["count_24h"] == oracle_near(-16.6, 179.0, 500.0, int(NOW) - 86400)[0] > 20  # a lot of fire around
     monkeypatch.setattr(aggregator, "fires", FireService(None, "off"))
     without = fires.client.get("/v1/point", params=params).json()
     assert without["fires_nearby"] is None
@@ -304,55 +336,80 @@ def test_the_summary_says_when_the_last_read_failed(fires: Fires, sim_clock: Sim
 
     asyncio.run(refresh_behind_the_reading())
     nearby = fires.client.get("/v1/point", params={"lat": -16.6, "lon": 179.0}).json()["fires_nearby"]
-    assert nearby["stale"] is True and nearby["data_read_utc"] == int(EVENING) and nearby["count_24h"] > 0
+    assert nearby["stale"] is True and nearby["data_read_utc"] == int(NOW) and nearby["count_24h"] > 0
 
 
-# ------------------------------------------------------------------------------------------------ an instance without a key
+# ------------------------------------------------------------------------------------------------ an instance that turned the source off
 
 
-def test_without_a_key_the_routes_say_the_source_is_off(no_key: TestClient) -> None:
+def test_when_the_source_is_turned_off_the_routes_say_so(turned_off: TestClient) -> None:
     for path in ("/v1/fires?bbox=0,0,10,10", "/v1/fires/grid"):
-        response = no_key.get(path)
-        assert response.status_code == 404 and response.json() == {"detail": "VIGIE_FIRMS_MAP_KEY is not set"}
+        response = turned_off.get(path)
+        assert response.status_code == 404 and response.json() == {"detail": TURNED_OFF}
 
 
-def test_without_a_key_the_point_has_no_fire_block_and_nothing_else_changes(no_key: TestClient) -> None:
-    response = no_key.get("/v1/point", params={"lat": 48.85, "lon": 2.35})
+def test_when_the_source_is_turned_off_the_point_has_no_fire_block_and_nothing_else_changes(turned_off: TestClient) -> None:
+    response = turned_off.get("/v1/point", params={"lat": 48.85, "lon": 2.35})
     assert response.status_code == 200 and response.json()["fires_nearby"] is None
 
 
-def test_without_a_key_the_health_lists_the_source_as_disabled_and_not_as_a_provider(no_key: TestClient) -> None:
-    health = no_key.get("/v1/health").json()
-    assert health["disabled_sources"] == [{"provider_id": "nasa_firms", "name": "NASA FIRMS (active fires)", "domain": "fires", "reason": "VIGIE_FIRMS_MAP_KEY is not set"}]
+def test_when_the_source_is_turned_off_the_health_lists_it_as_disabled_and_not_as_a_provider(turned_off: TestClient) -> None:
+    health = turned_off.get("/v1/health").json()
+    assert health["disabled_sources"] == [{"provider_id": "nasa_firms", "name": "NASA FIRMS (active fires)", "domain": "fires", "reason": TURNED_OFF}]
     assert "nasa_firms" not in {p["provider_id"] for p in health["providers"]}
-    assert "nasa_firms" not in {p["provider_id"] for p in no_key.get("/v1/providers").json()}
+    assert "nasa_firms" not in {p["provider_id"] for p in turned_off.get("/v1/providers").json()}
     assert health["providers_summary"]["total"] == len(health["providers"])
 
 
-def test_with_a_key_the_provider_is_listed_with_its_quota_and_nothing_is_disabled(fires: Fires) -> None:
+def test_the_provider_is_listed_with_its_calls_and_nothing_is_disabled(fires: Fires) -> None:
     health = fires.client.get("/v1/health").json()
     assert health["disabled_sources"] == []
     provider = next(p for p in fires.client.get("/v1/providers").json() if p["provider_id"] == "nasa_firms")
-    assert provider["healthy"] is True and provider["calls_24h"] == 4 and provider["weight_24h"] == 144 and provider["last_error"] is None
-    assert provider["quota"]["group"] == "nasa-firms" and provider["quota"]["limits"] == [{"window_s": 600, "limit": 5000.0, "budget": 4500.0, "used": 144.0}]
+    assert provider["healthy"] is True and provider["calls_24h"] == 2 and provider["weight_24h"] == 0 and provider["last_error"] is None  # two files, no transaction
+    assert provider["quota"]["group"] == "nasa-firms" and provider["quota"]["limits"] == [{"window_s": 600, "limit": 5000.0, "budget": 4500.0, "used": 0.0}]
 
 
-def test_a_service_built_from_the_environment_reads_the_key_from_it(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("VIGIE_FIRMS_MAP_KEY", raising=False)
+def test_a_service_built_from_the_environment_reads_the_files_with_no_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("VIGIE_ENABLE_FIRMS", "0")
     off = make_service(tmp_path / "off.db")
-    assert off.firms is None and off.fires.enabled is False and off.disabled_sources()[0]["reason"] == "VIGIE_FIRMS_MAP_KEY is not set"
+    assert off.firms is None and off.fires.enabled is False and "VIGIE_ENABLE_FIRMS=0" in off.disabled_sources()[0]["reason"]
     assert "nasa_firms" not in {c.provider_id for c in off.get_all_collectors()}
+
+    monkeypatch.delenv("VIGIE_ENABLE_FIRMS")  # on by default, and no key needed
+    monkeypatch.delenv("VIGIE_FIRMS_MAP_KEY", raising=False)
+    on = make_service(tmp_path / "on.db")
+    assert isinstance(on.firms, FIRMSCollector) and on.fires.enabled and on.disabled_sources() == [] and on.firms in on.get_all_collectors()
+    assert on.firms.sources == (N20, N21) and on.firms.ttl_seconds == 3600 and on.firms.window_hours == 48 and on.firms.secrets == ()
 
     monkeypatch.setenv("VIGIE_FIRMS_MAP_KEY", KEY)
     monkeypatch.setenv("VIGIE_FIRMS_SOURCES", N21)
-    monkeypatch.setenv("VIGIE_FIRMS_REFRESH_MINUTES", "60")
-    on = make_service(tmp_path / "on.db")
-    assert isinstance(on.firms, FIRMSCollector) and on.fires.enabled and on.disabled_sources() == []
-    assert on.firms.sources == (N21,) and on.firms.ttl_seconds == 3600 and on.firms in on.get_all_collectors()
+    monkeypatch.setenv("VIGIE_FIRMS_WINDOW_HOURS", "24")
+    keyed = make_service(tmp_path / "keyed.db")
+    assert keyed.firms is not None and keyed.firms.sources == (N21,) and keyed.firms.window_hours == 24 and keyed.firms.secrets == (KEY,)
 
     monkeypatch.setenv("VIGIE_FIRMS_MAP_KEY", "not a key")
-    bad = make_service(tmp_path / "bad.db")
-    assert bad.firms is None and "not a FIRMS key" in bad.disabled_sources()[0]["reason"] and "not a key" not in bad.disabled_sources()[0]["reason"]
+    bad = make_service(tmp_path / "bad.db")  # a key that is not one is not used, and the source is not turned off for it
+    assert bad.firms is not None and bad.firms.secrets == () and bad.disabled_sources() == []
+
+
+def test_more_hours_than_the_files_of_this_instance_are_refused_with_the_reason(fires: Fires) -> None:
+    for path in ("/v1/fires", "/v1/fires/grid"):
+        response = fires.client.get(path, params={"bbox": "0,0,10,10", "hours": 36})
+        assert response.status_code == 422 and response.json() == {"detail": "hours must be at most 24 on this instance (it reads the files of the last 24 hours; VIGIE_FIRMS_WINDOW_HOURS)"}
+
+
+def test_an_instance_that_reads_the_files_of_48_hours_answers_up_to_48_hours(world: World, sim_clock: SimClock, monkeypatch: pytest.MonkeyPatch) -> None:
+    sim_clock.EPOCH = NOW
+    collector = FIRMSCollector(http_client=FirmsServer(latency_ticks=0).client(), sources=(N21,), window_hours=48)
+    monkeypatch.setattr(aggregator, "firms", collector)
+    monkeypatch.setattr(aggregator, "fires", FireService(collector, None))
+    asyncio.run(collector.fetch())
+    body = world.client.get("/v1/fires", params={"bbox": WORLD_BOX, "hours": 48, "limit": 5000}).json()
+    since = int(NOW - 48 * 3600) // 300 * 300
+    assert body["metadata"]["window_hours"] == 48 and body["metadata"]["since_utc"] == since
+    days = {str(feature["properties"]["acq_utc"] // 86400) for feature in body["features"]}
+    expected = [row for row in static_rows(N21, 48) if acq_of(row) >= since]  # the file starts at 00:00 of the 18th: 68 hours back, the window 48
+    assert len(days) == 3 and body["metadata"]["total_matching"] == len(expected) < 241
 
 
 def test_the_routes_are_in_the_openapi_document(world: World) -> None:
@@ -369,17 +426,23 @@ def test_the_routes_are_in_the_openapi_document(world: World) -> None:
 
 
 @pytest.fixture()
-def failing_instance(sim_clock: SimClock, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    """The application with a FIRMS collector whose every read fails with an error that holds the URL."""
-    sim_clock.EPOCH = EVENING
+def failing_instance(world: World, sim_clock: SimClock, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
+    """The application with a FIRMS collector (and a key) whose every read, of the file and of the area API, fails with an error that holds the URL.
+
+    ``world`` mocks the other providers: without it the routes below reach collectors that are not mocked, which fail (the network is refused) and stay
+    failed for the tests that come after this one.
+    """
+    sim_clock.EPOCH = NOW
 
     def answer(request: httpx.Request) -> httpx.Response:
-        raise httpx.ConnectError(f"All connection attempts failed for {request.url}", request=request)
+        if request.url.path.startswith("/data/"):  # the file of FIRMS (no key in its address) is down...
+            raise httpx.ConnectError("connection refused", request=request)
+        raise httpx.ConnectError(f"All connection attempts failed for {request.url}", request=request)  # ...and so is the area API, whose URL holds the key
 
-    collector = FIRMSCollector(KEY, http_client=Provider(answer=answer, latency_ticks=0).client())
+    collector = FIRMSCollector(KEY, http_client=Provider(answer=answer, latency_ticks=0).client(), window_hours=24)
     monkeypatch.setattr(aggregator, "firms", collector)
     monkeypatch.setattr(aggregator, "fires", FireService(collector, None))
-    yield TestClient(app)
+    yield world.client
 
 
 def test_no_route_gives_the_key_when_firms_cannot_be_read(failing_instance: TestClient) -> None:
