@@ -5,7 +5,8 @@ the work itself) and these models describe it for the OpenAPI document and for t
 
 A detection is the source's own record: position, acquisition time, satellite, instrument, confidence, fire radiative power, brightness
 temperatures and pixel size, as the FIRMS CSV gives them. What Vigie adds is named: the acquisition time in epoch seconds (the CSV has a
-date and a ``HHMM`` time), the words of the confidence (``l`` / ``n`` / ``h``) and of ``daynight``, and the cell summaries of the grid.
+date and a ``HHMM`` time), the words of the confidence (the files write ``low`` / ``nominal`` / ``high`` or ``l`` / ``n`` / ``h``) and of
+``daynight``, and the cell summaries of the grid.
 A value FIRMS did not give is ``null``.
 """
 
@@ -23,10 +24,10 @@ class FireProperties(BaseModel):
 
     acq_utc: int = Field(..., description="Acquisition time, UTC epoch seconds (FIRMS gives a date and a HHMM time)")
     satellite: Optional[str] = Field(default=None, description="FIRMS satellite code: `N20` (NOAA-20), `N21` (NOAA-21)")
-    instrument: Optional[str] = Field(default=None, description="`VIIRS`")
+    instrument: Optional[str] = Field(default=None, description="`VIIRS` (null when the file has no such column: the static files of FIRMS have none)")
     confidence: Optional[Literal["low", "nominal", "high"]] = Field(
         default=None,
-        description="FIRMS confidence class of the VIIRS pixel (`l`, `n`, `h`). Low-confidence daytime pixels are mostly sun glint; FIRMS advises caution",
+        description="FIRMS confidence class of the VIIRS pixel. Low-confidence daytime pixels are mostly sun glint; FIRMS advises caution",
     )
     frp_mw: Optional[float] = Field(default=None, description="Fire radiative power of the pixel (megawatts)")
     bright_ti4_k: Optional[float] = Field(default=None, description="Brightness temperature of the VIIRS I-4 channel (kelvin)")
@@ -34,7 +35,7 @@ class FireProperties(BaseModel):
     scan_km: Optional[float] = Field(default=None, description="Pixel size across the scan (kilometres)")
     track_km: Optional[float] = Field(default=None, description="Pixel size along the track (kilometres)")
     daynight: Optional[Literal["day", "night"]] = Field(default=None, description="`D` / `N` of FIRMS")
-    version: Optional[str] = Field(default=None, description="FIRMS processing version, e.g. `2.0NRT`; `URT` = ultra real-time (United States and Canada)")
+    version: Optional[str] = Field(default=None, description="FIRMS processing version, e.g. `2.0NRT`; `URT` = ultra real-time (United States and Canada: only in what the area API gives, not in the static files)")
 
 
 class FireFeature(BaseModel):
@@ -46,15 +47,25 @@ class FireFeature(BaseModel):
 
 class FireSourceStatus(BaseModel):
     source: str = Field(..., description="FIRMS product, e.g. `VIIRS_NOAA20_NRT`")
-    read_utc: Optional[int] = Field(default=None, description="When the API last read it (UTC epoch seconds); null when it has not been read yet")
+    read_utc: Optional[int] = Field(
+        default=None,
+        description="When the API last confirmed this source's data (UTC epoch seconds): downloaded, or found unchanged by the file's validators; null when it has not been read yet",
+    )
     ok: bool = Field(..., description="False when the last attempt to read it failed (the previous reading, if any, is used)")
+    via: Optional[Literal["static", "area"]] = Field(
+        default=None,
+        description="`static`: the file of FIRMS (no key); `area`: the area API, read with a key when the file could not be (today and yesterday, so at least 24 hours back). Null when it has not been read yet",
+    )
+    published_utc: Optional[int] = Field(
+        default=None, description="When FIRMS wrote the file that was read (its `Last-Modified`, UTC epoch seconds): the detections are from before that; null when it has not been read or came from the area API"
+    )
 
 
 class FiresMetadata(BaseModel):
     standard: Literal["IETF RFC 7946 GeoJSON"] = "IETF RFC 7946 GeoJSON"
     generated_utc: int
     bbox: list[float] = Field(..., description="The box that was asked, as `[west, south, east, north]` (west greater than east: it crosses the antimeridian)")
-    window_hours: float = Field(..., description="Detections acquired in the last `window_hours` hours (counted back from `generated_utc`, the start rounded down to 5 minutes)")
+    window_hours: float = Field(..., description="Detections acquired in the last `window_hours` hours (counted back from `generated_utc`, the start rounded down to 5 minutes). At most the window of the files this instance reads (24 or 48 hours)")
     since_utc: int
     min_confidence: Literal["low", "nominal", "high"]
     min_frp_mw: float
@@ -63,7 +74,7 @@ class FiresMetadata(BaseModel):
     total_matching: int = Field(..., description="Detections in the box and the window that pass the filters")
     truncated: bool = Field(..., description="True when `total_matching` is more than `limit`: the strongest (highest FRP) are kept")
     order: str = "frp_mw descending, then most recent first"
-    data_read_utc: int = Field(..., description="When the API last read FIRMS")
+    data_read_utc: int = Field(..., description="When the API last confirmed the data of a source (the most recent `read_utc` of `sources`)")
     stale: bool = Field(..., description="True when the last attempt to read FIRMS failed: these are the detections of the previous reading")
     sources: list[FireSourceStatus]
     skipped_rows: int = Field(..., ge=0, description="Rows of the FIRMS files that had no readable position or time (not in the answer)")

@@ -29,7 +29,7 @@ Endpoints:
 - ``GET    /v1/geojson/hazards/{id}/forecast`` : the forecast of a hazard that has one (``has_forecast``): the cone and track
                                      of a tropical cyclone, the arrival times of a tsunami, as GeoJSON.
 - ``GET    /v1/fires``             : the active fires (NASA FIRMS hotspots) of a ``bbox`` and of the last hours, as GeoJSON.
-- ``GET    /v1/fires/grid``        : the same detections counted per cell, for small zooms. Both are off without ``VIGIE_FIRMS_MAP_KEY``.
+- ``GET    /v1/fires/grid``        : the same detections counted per cell, for small zooms. Both are off with ``VIGIE_ENABLE_FIRMS=0``.
 - ``GET    /v1/cap/alerts``        : OASIS CAP 1.2 (Common Alerting Protocol).
 - ``GET    /v1/vigilances``        : Official national weather warnings (MeteoAlarm, DWD, ECCC, MetService, NWS, the Vigicrues
                                      river floods of France, and the national services of the WMO registry) for a point
@@ -93,6 +93,7 @@ from app.services.fires import (
     WINDOW_MAX_H,
     FiresOff,
     FiresUnavailable,
+    FiresWindowTooLong,
     parse_bbox,
 )
 from app.services.geoindex import DEFAULT_RIVER_RADIUS_KM, MAX_RIVER_RADIUS_KM
@@ -216,7 +217,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     aggregator.places.faults()  # read once at the start, not by the first request that needs them
     if scheduler_enabled():
         scheduler.start()
-    aggregator.fires.warm_up()  # the first read of the fires (only when the instance has a FIRMS key) starts now, not at the first visitor
+    aggregator.fires.warm_up()  # the first read of the fires (unless the instance turned FIRMS off) starts now, not at the first visitor
     try:
         yield
     finally:
@@ -420,7 +421,7 @@ async def get_point_weather_and_hazards(
         default=NEARBY_RADIUS_DEFAULT_KM,
         gt=0.0,
         le=NEARBY_RADIUS_MAX_KM,
-        description="Radius (km) of the `fires_nearby` summary of active fires (NASA FIRMS; null when the instance has no key)",
+        description="Radius (km) of the `fires_nearby` summary of active fires (NASA FIRMS; null when the instance turned the source off)",
     ),
 ) -> PointResponse:
     """Weather at one position (15-minute rain, marine, river discharge, air, space weather), nearby hazards and the fires detected nearby."""
@@ -511,14 +512,16 @@ FIRES_DESCRIPTION = (
     "Active fires seen by the VIIRS instruments of NOAA-20 and NOAA-21, from NASA FIRMS (the near real-time product, 375 m pixels). "
     "A detection is a satellite pixel that looks like a fire: it is not an alert and not a confirmed fire, and no detection is not the "
     "absence of fire (a satellite passes a place a few times a day, clouds hide the ground, small fires are missed). The data is "
-    "published about 3 hours after the observation (the United States and Canada, within minutes). The instance reads FIRMS only when it "
-    "has a key (`VIGIE_FIRMS_MAP_KEY`); otherwise these routes answer 404 and `GET /v1/health` lists the source in `disabled_sources`. "
+    "published about 3 hours after the observation (the ultra real-time detections of the United States and Canada are not in the files "
+    "this API reads). The instance reads the static files of FIRMS, which need no key, and can go back as far as the file it reads (24 or "
+    "48 hours: asking for more is a 422); an instance that turned the source off (`VIGIE_ENABLE_FIRMS=0`) answers 404 and `GET /v1/health` "
+    "lists the source in `disabled_sources`. "
     "`bbox` is `west,south,east,north` in degrees; a west greater than the east crosses the antimeridian, and a span of 360 degrees or "
     "more is the whole globe. The credit (`attribution`) and the disclaimer NASA asks for are in the metadata of every answer."
 )
 FIRES_ERRORS: dict[int | str, dict[str, Any]] = {
-    404: {"description": "This instance has no FIRMS key: the source is off."},
-    422: {"description": "The box or a parameter is not valid."},
+    404: {"description": "This instance turned the FIRMS source off (`VIGIE_ENABLE_FIRMS=0`)."},
+    422: {"description": "The box or a parameter is not valid, or `hours` is beyond the window of the files this instance reads."},
     503: {"description": "FIRMS has not been read yet and could not be read now."},
 }
 FIRES_HEADERS = {"Cache-Control": "public, max-age=60"}
@@ -554,6 +557,8 @@ async def get_fires(
         content = await aggregator.fires.features(box, hours, min_confidence, min_frp, limit)
     except FiresOff as exc:
         raise HTTPException(status_code=404, detail=exc.reason) from None
+    except FiresWindowTooLong as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
     except FiresUnavailable:
         raise HTTPException(status_code=503, detail=FIRMS_UNAVAILABLE) from None
     return JSONResponse(content, headers=FIRES_HEADERS)
@@ -585,6 +590,8 @@ async def get_fires_grid(
         content = await aggregator.fires.grid(box, hours, cell_deg, min_confidence, min_frp, limit)
     except FiresOff as exc:
         raise HTTPException(status_code=404, detail=exc.reason) from None
+    except FiresWindowTooLong as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
     except FiresUnavailable:
         raise HTTPException(status_code=503, detail=FIRMS_UNAVAILABLE) from None
     return JSONResponse(content, headers=FIRES_HEADERS)
