@@ -72,7 +72,7 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
 | `GET /v1/fires?bbox=w,s,e,n`, `GET /v1/fires/grid` | The active fires seen by NASA FIRMS (VIIRS, NOAA-20 and NOAA-21): the detections of a box as GeoJSON, or counted per cell for small zooms. Needs `VIGIE_FIRMS_MAP_KEY` (404 without). See "Active fires" below. |
 | `GET /v1/cap/alerts` | Active hazards as OASIS CAP 1.2. |
 | `GET /v1/vigilances?lat=&lon=` or `?country=FR` or `?source=tsunami` | Official weather warnings that cover a point, or all those of a country (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues, and the national services of the WMO registry), or the tsunami messages in force, the issuer's words untouched. See below. |
-| `GET /v1/vigilances/countries` | The countries this instance serves with its settings, the sources that answer for each, and whether their licence is verified. |
+| `GET /v1/vigilances/countries` | The countries this instance serves with its settings, the sources that answer for each, and whether their licence is verified. With `?uncovered=true`, every other country of the world too, each with the reason nothing is read for it. |
 | `GET /v1/vigilances.geojson` | The same warnings as GeoJSON, the shape of each area as geometry. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Watched zones (the watchlist). A zone needs its `utc_offset_s`. |
 | `GET/POST /v1/watched-points`, `DELETE /v1/watched-points/{id}` | The points you watch (a place, a fault, a volcano...), each with a radius. **Personal**: listed here and in the status, never in the hazards. `POST` and `DELETE` are **off** (403) unless `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`. |
@@ -249,6 +249,27 @@ Real answer for Ibiza at 18:34 UTC on 2026-10-20 (the feeds were read live; cut)
   requests and 10.6 MB** for the 7 services of the default, **36,924 requests and 51 MB** for `all` with a followed point
   in each of the 94 countries (the worst case; the number of clients adds nothing). A ceiling of 50,000 requests a day
   covers the whole set. [`docs/data-sources.md`](docs/data-sources.md) has the rhythm and its reasons.
+
+### A country with no source says why
+
+The borders hold every country (Natural Earth, 244 of them), so a position in Japan, Australia or China finds its country. The answer names it
+and says why nothing is read there, in `uncovered` and in `note`, with a stable `reason_code` that a client can translate:
+
+```
+GET /v1/vigilances?lat=35.6762&lon=139.6503      Tokyo (cut)
+{
+  "countries": [], "vigilances": [], "coverage": [],
+  "uncovered": [{"country": "JP", "name": "Japan", "covered": false, "reason_code": "law_restricts",
+                 "reason": "Japanese law reserves the giving of warnings to the Japan Meteorological Agency (Meteorological Service Act, article 23): this instance reads none of its warnings."}],
+  "note": "Japan (JP): Japanese law reserves ... The countries this instance reads: GET /v1/vigilances/countries."
+}
+GET /v1/vigilances/countries?uncovered=true      every country, the ones with a source unchanged
+```
+
+The codes: `no_source` (no official warning feed is read for the country, and nothing more is known), `licence_unverified`, `terms_restrict`,
+`terms_contradictory`, `redistribution_forbidden`, `law_restricts` and `source_off`. **A reason is written only when it was read**: where, and what is
+not verified, is in [`SOURCES.md`](SOURCES.md), "Countries with no source". A position at sea, further than about 25 km from a coast, is in no country and
+says so.
 
 ## Storms and tsunamis
 

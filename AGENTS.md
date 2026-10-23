@@ -95,3 +95,6 @@ owner (no `&&`).
     was read without a gap ([ADR 0008](docs/decisions/0008-sensitive-points.md)); the compact `/v1/snapshot` and `/v1/point` carry no
     `near_places`. `POST` and `DELETE /v1/watched-points` are off unless `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1` and must not be reachable
     from the Internet on a public instance.
+16. **A country with no source says why, and only what was read.** A reason (`app/services/uncovered.py`, `reason_code` + one sentence) is
+    written for a country only with the evidence of what was read, and a row of `SOURCES.md` ("Countries with no source"); any other country is
+    `no_source`, which claims nothing more. Do not write that a service forbids something that its terms do not say.

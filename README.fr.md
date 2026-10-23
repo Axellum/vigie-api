@@ -80,7 +80,7 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
 | `GET /v1/fires?bbox=w,s,e,n`, `GET /v1/fires/grid` | Les feux actifs vus par NASA FIRMS (VIIRS, NOAA-20 et NOAA-21) : les détections d'une zone en GeoJSON, ou comptées par cellule pour les petits zooms. Demande `VIGIE_FIRMS_MAP_KEY` (404 sans). Voir « Feux actifs » plus bas. |
 | `GET /v1/cap/alerts` | Dangers actifs en OASIS CAP 1.2. |
 | `GET /v1/vigilances?lat=&lon=` ou `?country=FR` ou `?source=tsunami` | Vigilances météo officielles qui couvrent un point, ou toutes celles d'un pays (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues et les services nationaux du registre de l'OMM), ou les messages de tsunami en cours, avec les mots de l'émetteur intacts. Voir plus bas. |
-| `GET /v1/vigilances/countries` | Les pays que cette instance sert avec ses réglages, les sources qui répondent pour chacun, et si leur licence est vérifiée. |
+| `GET /v1/vigilances/countries` | Les pays que cette instance sert avec ses réglages, les sources qui répondent pour chacun, et si leur licence est vérifiée. Avec `?uncovered=true`, tous les autres pays du monde aussi, chacun avec la raison pour laquelle rien n'y est lu. |
 | `GET /v1/vigilances.geojson` | Les mêmes vigilances en GeoJSON, la forme de chaque zone en géométrie. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Zones surveillées (la liste de suivi). Une zone doit donner son `utc_offset_s`. |
 | `GET/POST /v1/watched-points`, `DELETE /v1/watched-points/{id}` | Les points que vous surveillez (un lieu, une faille, un volcan...), chacun avec un rayon. **Personnels** : listés ici et dans le statut, jamais dans les dangers. `POST` et `DELETE` sont **désactivés** (403) sauf si `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`. |
@@ -268,6 +268,27 @@ Vraie réponse pour Ibiza à 18 h 34 UTC le 2026-10-20 (les flux ont été lus e
   51 Mo** pour `all` avec un point suivi dans chacun des 94 pays (le pire cas ; le nombre de clients n'ajoute rien). Un
   plafond de 50 000 requêtes par jour couvre l'ensemble. [`docs/data-sources.md`](docs/data-sources.md) (en anglais) donne le
   rythme et ses raisons.
+
+### Un pays sans source dit pourquoi
+
+Les frontières couvrent tous les pays (Natural Earth, 244), donc un point au Japon, en Australie ou en Chine trouve son pays. La réponse le nomme et
+dit pourquoi rien n'y est lu, dans `uncovered` et dans `note`, avec un `reason_code` stable qu'un client peut traduire :
+
+```
+GET /v1/vigilances?lat=35.6762&lon=139.6503      Tokyo (abrégé)
+{
+  "countries": [], "vigilances": [], "coverage": [],
+  "uncovered": [{"country": "JP", "name": "Japan", "covered": false, "reason_code": "law_restricts",
+                 "reason": "Japanese law reserves the giving of warnings to the Japan Meteorological Agency (Meteorological Service Act, article 23): this instance reads none of its warnings."}],
+  "note": "Japan (JP): Japanese law reserves ... The countries this instance reads: GET /v1/vigilances/countries."
+}
+GET /v1/vigilances/countries?uncovered=true      tous les pays, ceux qui ont une source inchangés
+```
+
+Les codes : `no_source` (aucun flux d'alertes officiel n'est lu pour le pays, et rien de plus n'est connu), `licence_unverified`, `terms_restrict`,
+`terms_contradictory`, `redistribution_forbidden`, `law_restricts` et `source_off`. **Une raison n'est écrite que si elle a été lue** : où, et ce qui
+n'est pas vérifié, est dans [`SOURCES.md`](SOURCES.md) (en anglais), « Countries with no source ». Un point en mer, à plus de 25 km environ d'une côte,
+n'est dans aucun pays et le dit.
 
 ## Tempêtes et tsunamis
 

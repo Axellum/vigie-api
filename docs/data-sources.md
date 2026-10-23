@@ -268,6 +268,8 @@ A feed is asked **only for a country that is needed**; 39 MeteoAlarm feeds exist
 | any other country with a service of the registry, `VIGIE_WMO_SOURCES=all` only | that service | |
 
 - The country of a position is found **offline** (borders bundled in `app/data/`, see [`SOURCES.md`](../SOURCES.md)), without asking any service.
+  Every country has a border, also the ones the instance reads nothing for: a position there is answered with the country and why nothing is read
+  (`uncovered`, `note`; a stable `reason_code` and a sentence, from the table "Countries with no source" of [`SOURCES.md`](../SOURCES.md)), not with a bare "nothing".
 - A request for a position asks the feed of its country (two near a border); a request by `country=` asks that one.
 - The scheduler (`VIGIE_SCHEDULER=1`) keeps fresh, every 90 s cycle, the feeds of: the countries of the watched zones, of the positions that clients follow on the WebSocket, and of the 8 countries asked for in the last hour. A feed older than its 180 s is asked again at the next cycle, that is every 270 s: **320 requests a day** per feed.
 - A CAP document is asked only for a warning that an answer returns, once, and at most 40 new ones per request (the strongest warnings first); the rest come with the next request. The scheduler asks for none until a warning changes for a followed position.

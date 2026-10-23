@@ -155,8 +155,24 @@ All notable changes to this project are documented here. The format follows
 - **`tools/fake_instance.py`**: a fake instance (standard library only) that serves `/v1/health` and `/v1/vigilances`
   with warnings added and removed by hand, all labelled `SIMULATION`, to try the integration's entities and events.
   `POST /v1/simulate` cannot do it: it injects hazards, not official warnings.
+- **Every country has a border, and a country with no source says why.** `app/data/countries.geojson.gz` now holds every country of Natural
+  Earth (244 borders, 987 KiB gzipped instead of 701 KiB; read in about 120 ms at start instead of 79 ms, a point found in under 0.2 ms; same
+  tool, same simplification). A territory has its own ISO code (`PR`, `GL`...), the overseas departments of France are cut off from France under
+  `GF` `GP` `MQ` `RE` `YT`, three places with no code are joined to the country they lie in. A position in Japan, Australia or China finds its
+  country, and the answer names it and says why nothing is read there: **`uncovered`** (`country`, `name`, `covered: false`, a stable
+  `reason_code` for a client to translate, and a one-sentence `reason`) on `GET /v1/vigilances` and in the `metadata` of the GeoJSON, and the
+  `note` when nothing at all is read. The codes: `no_source`, `licence_unverified`, `terms_restrict`, `terms_contradictory`,
+  `redistribution_forbidden`, `law_restricts`, `source_off`. **A reason is written only when it was read** (Australia, Japan, Hong Kong, China,
+  and the registry's services from their own records: `SOURCES.md`, "Countries with no source"); any other country is `no_source`, which claims
+  nothing more. A position in no country (at sea, further than about 25 km from a coast) says so. The 404 of `?country=JP` gives the reason.
+- **`GET /v1/vigilances/countries?uncovered=true`** lists every country, the ones with a source exactly as before and the others as
+  `{country, name, covered: false, reason_code, reason}`, all sorted by code. Without the parameter the list is unchanged.
 
 ### Changed
+
+- **A position in a country without a source no longer reads "no official warning source covers this point".** It names the country and the reason
+  (above). Land near the border of a country with a source used to be given to that country if it was within about 25 km (Tashkent was read as
+  Kazakhstan); every country has a border now, so it is in its own.
 
 - **One storm or one tsunami is one hazard, whoever reports it.** A hazard can carry a private event key: a storm's name and season
   (the NHC and GDACS, whose event name ends with the year) or the VTEC code of a tsunami message (the centre and the NWS alert

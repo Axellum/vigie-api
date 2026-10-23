@@ -218,6 +218,37 @@ class VigilanceCountry(BaseModel):
     )
 
 
+ReasonCode = Literal[
+    "no_source",
+    "licence_unverified",
+    "terms_restrict",
+    "terms_contradictory",
+    "redistribution_forbidden",
+    "law_restricts",
+    "source_off",
+]
+
+
+class UncoveredCountry(BaseModel):
+    """A country this instance reads no source of official warnings for, and why (``app/services/uncovered.py``)."""
+
+    country: str = Field(..., description="ISO 3166-1 alpha-2 country (a territory has its own code: PR, GL, RE...)")
+    name: str = Field(..., description="English name of the country (Natural Earth)")
+    covered: Literal[False] = Field(default=False, description="Always false: this country has no source on this instance")
+    reason_code: ReasonCode = Field(
+        ...,
+        description=(
+            "Why, as a stable code a client can translate. `no_source`: no official warning feed is read for the country and "
+            "nothing more is known; `licence_unverified`: a national service exists but its reuse terms were not verified; "
+            "`terms_restrict`: the terms found ask for permission before the warnings are passed on; `terms_contradictory`: "
+            "the terms found contradict each other; `redistribution_forbidden`: the service does not allow its warnings to "
+            "be redistributed; `law_restricts`: a law of the country reserves the giving of warnings to its service; "
+            "`source_off`: a source exists but this instance turned it off"
+        ),
+    )
+    reason: str = Field(..., description="The same, as one short sentence in English")
+
+
 class VigilancesResponse(BaseModel):
     """The warnings for a point or a country."""
 
@@ -227,9 +258,16 @@ class VigilancesResponse(BaseModel):
     countries: list[str] = Field(default_factory=list, description="Countries whose warnings were read for this query")
     vigilances: list[Vigilance] = Field(default_factory=list)
     coverage: list[VigilanceCoverage] = Field(default_factory=list)
+    uncovered: list[UncoveredCountry] = Field(
+        default_factory=list,
+        description=(
+            "For a position: each country the position lies in (or within about 2 km of, or 25 km of at sea) that this instance reads "
+            "no source for, with the reason. Empty when every country of the position has a source, or when the position is at sea"
+        ),
+    )
     attribution: Optional[str] = Field(default=None, description="The credits of the sources used")
     disclaimer: Optional[str] = Field(default=None, description="Notice the sources ask to publish with their warnings")
-    note: Optional[str] = Field(default=None, description="Set when no source covers the point")
+    note: Optional[str] = Field(default=None, description="Set when no source covers the point: names the country and the reason")
 
 
 class VigilanceGeoJSONFeature(BaseModel):

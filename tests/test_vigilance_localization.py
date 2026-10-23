@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import gzip
 import json
+import re
 from pathlib import Path
 
 import pytest
+from shapely.geometry import shape
 
 from app.collectors.meteoalarm import COUNTRY_FEEDS
 from app.services.geoindex import (
@@ -42,10 +44,21 @@ from tests.vigilance_samples import warning
         ("San Francisco", samples.SAN_FRANCISCO, ["US"]),
         ("Kehl, on the German side of the Rhine, 2 km from France", (48.5734, 7.8152), ["DE", "FR"]),
         ("off Calais, 10 km at sea", (50.98, 1.7), ["FR"]),
-        ("Tokyo: no source", (35.6762, 139.6503), []),
+        # Every country has a border, whether or not the instance reads a source for it.
+        ("Tokyo", (35.6762, 139.6503), ["JP"]),
+        ("Sydney", (-33.8688, 151.2093), ["AU"]),
+        ("Beijing", (39.9042, 116.4074), ["CN"]),
+        ("Tashkent: it used to be 'at sea' in Kazakhstan, 25 km away", (41.2995, 69.2401), ["UZ"]),
+        ("San Juan, Puerto Rico: a territory has its own code", (18.4655, -66.1057), ["PR"]),
+        ("Saint-Denis, Reunion: an overseas department has its own code", (-20.8789, 55.4481), ["RE"]),
+        ("Pointe-a-Pitre: the overseas departments are not in the metropolitan feed", (16.2415, -61.5331), ["GP"]),
+        ("Kyrenia, Northern Cyprus: part of Cyprus", (35.3406, 33.3199), ["CY"]),
+        ("Hargeisa, Somaliland: part of Somalia", (9.5600, 44.0650), ["SO"]),
+        ("off Tokyo, 10 km at sea", (35.2, 140.1), ["JP"]),
+        # No country: at sea, further than about 25 km from a coast.
         ("middle of the North Sea", (56.0, 3.0), []),
         ("middle of the Atlantic", (40.0, -30.0), []),
-        ("Pointe-a-Pitre: the overseas departments are not in the metropolitan feed", (16.2415, -61.5331), []),
+        ("middle of the Pacific", (0.0, -150.0), []),
     ],
 )
 def test_the_country_of_a_point(place: str, point: tuple[float, float], countries: list[str]) -> None:
@@ -62,7 +75,29 @@ def test_every_country_a_source_answers_for_has_a_border() -> None:
     registry = {source.country for source in bundled_registry() if source.country and is_eligible(source, "all")}
     assert collectors <= borders
     assert registry <= borders, sorted(registry - borders)
-    assert borders == collectors | registry  # and no border without a source: it would be bytes for nothing
+
+
+def test_every_country_of_the_file_loads_with_a_name_and_a_border_a_point_can_fall_in() -> None:
+    """The file holds every country of Natural Earth (a country without a source has one too: the answer says why it is not read)."""
+    with gzip.open(DATA_DIR / "countries.geojson.gz", "rt", encoding="utf-8") as handle:
+        features = json.load(handle)["features"]
+    codes = [feature["properties"]["country"] for feature in features]
+    assert len(codes) == len(set(codes)) >= 240
+    assert {"JP", "AU", "CN", "KR", "HK", "PR", "GL", "GF", "RE", "YT", "AQ"} <= set(codes)  # none of these has a source by default
+    index = default_countries()
+    assert index.countries() == sorted(codes)
+    for feature in features:
+        code, name = feature["properties"]["country"], feature["properties"].get("name")
+        assert re.fullmatch(r"[A-Z]{2}", code) and isinstance(name, str) and name, code
+        border = shape(feature["geometry"])
+        # (Some borders have a touching self-intersection after the rounding of the coordinates: 9 of the 135 before, as GEOS measures a
+        # distance on them all the same, the test asks for a shape and a point inside it, not for a valid polygon.)
+        assert not border.is_empty and border.geom_type in ("Polygon", "MultiPolygon"), code
+        assert index.name(code) == name
+    # A point inside each border finds that country (a point in a small island may be within 2 km of a neighbour: it is still in the list).
+    for feature in features:
+        inside = shape(feature["geometry"]).representative_point()
+        assert feature["properties"]["country"] in index.countries_for_point(inside.y, inside.x), feature["properties"]["country"]
 
 
 def test_every_country_the_service_serves_has_a_border() -> None:
@@ -98,8 +133,9 @@ def test_the_shapes_keep_the_names_of_the_regions() -> None:
 def test_the_shapes_are_small_enough_to_live_in_the_repository() -> None:
     sizes = {path.name: path.stat().st_size for path in DATA_DIR.glob("*.geojson.gz")}
     assert set(sizes) == {"countries.geojson.gz", "geocodes-nuts.geojson.gz", "gem-active-faults.geojson.gz"}
-    # The shapes the warnings are localized with: 135 countries since the services of the WMO registry (it was 42).
-    assert sizes["countries.geojson.gz"] + sizes["geocodes-nuts.geojson.gz"] < 1024 * 1024, sizes
+    # The shapes the warnings are localized with: every country of Natural Earth, 244 borders (it was 135 for the countries with a source,
+    # 42 before the services of the WMO registry), about 990 KiB gzipped for the borders.
+    assert sizes["countries.geojson.gz"] + sizes["geocodes-nuts.geojson.gz"] < 1280 * 1024, sizes
     # The named active faults the earthquakes are compared with (tests/test_faults_file.py): a file of its own.
     assert sizes["gem-active-faults.geojson.gz"] < 300 * 1024, sizes
 

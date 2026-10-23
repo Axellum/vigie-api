@@ -61,6 +61,7 @@ from app.collectors.vigicrues import VigicruesCollector
 from app.geo import shape_to_geojson
 from app.models.schemas import SEVERITY_RANK, SeverityLevel
 from app.models.vigilance import (
+    UncoveredCountry,
     Vigilance,
     VigilanceChange,
     VigilanceCountry,
@@ -80,6 +81,7 @@ from app.services.geoindex import (
     geometry_of,
     localization_of,
 )
+from app.services.uncovered import reason_for, uncovered_country
 
 RECENT_COUNTRIES_MAX = 8
 RECENT_COUNTRIES_TTL_S = 3600
@@ -123,18 +125,11 @@ TSUNAMI_SOURCE = "tsunami"
 TSUNAMI_COUNTRIES = ("US", "CA")  # the countries the UGC zone codes of the domestic tsunami messages belong to
 FLOODING_WORD = "flooding"  # MeteoAlarm awareness type 12 (CAP profile v2.0): Météo-France's "inondation" (river floods)
 
-NO_SOURCE_NOTE = (
-    "No official warning source covers this point (MeteoAlarm: 39 European countries; DWD: Germany; ECCC: Canada; "
-    "MetService: New Zealand; NWS: the United States; the national services of the WMO registry that this instance reads: "
-    "see GET /v1/vigilances/countries)."
-)
-WMO_NOT_READ_NOTE = (
-    "The WMO registry lists a national service for this country that this instance does not read: it reads only the services whose "
-    "terms were verified (VIGIE_WMO_SOURCES=verified, SOURCES.md)."
-)
-METSERVICE_OFF_NOTE = (
-    "MetService (New Zealand) is turned off on this instance (VIGIE_ENABLE_METSERVICE=0): its terms of use are not settled "
-    "for an instance that relays the warnings to others (SOURCES.md), so no source answers for this point."
+COUNTRIES_POINTER = "The countries this instance reads: GET /v1/vigilances/countries."
+# A position in no country: at sea, further from a coast than ``COAST_MARGIN_DEG`` (about 25 km).
+NO_COUNTRY_NOTE = (
+    "No country was found for this point (it lies at sea, further than about 25 km from a coast), so no national warning source is "
+    f"read for it. {COUNTRIES_POINTER}"
 )
 ECCC_NOTE = (
     "Read from MSC GeoMet (the Datamart CAP files cannot be polled, see docs/data-sources.md): the CAP instruction and "
@@ -366,9 +361,30 @@ class VigilanceService:
         """The countries this instance has a source for: the collectors' (``SUPPORTED_COUNTRIES``) and the registry services it reads."""
         return sorted({*SUPPORTED_COUNTRIES, *self._swic_index()[0]})
 
-    def countries_listing(self) -> list[VigilanceCountry]:
-        """What this instance serves, country by country, with the settings it runs with (``GET /v1/vigilances/countries``)."""
-        listing: list[VigilanceCountry] = []
+    def _has_source(self, country: str) -> bool:
+        """Whether something is asked for a country (the NWS for the United States, else its plan)."""
+        return country == NWS_COUNTRY or bool(self._plan(country))
+
+    def uncovered_reason(self, country: str) -> Optional[UncoveredCountry]:
+        """Why this instance reads no source for a country (``None`` when it reads one): the country, its name and the reason."""
+        if self._has_source(country):
+            return None
+        # The registry's services never answer for a country that has a collector (``_swic_index``): they are no reason for it.
+        services = [] if self._covered(country) else [service for service in self._registry_now() if service.country == country]
+        reason = reason_for(country, services, self.swic_mode, metservice_off=self.metservice is None)
+        return uncovered_country(country, self.countries.name(country), reason)
+
+    def uncovered_of(self, countries: list[str]) -> list[UncoveredCountry]:
+        """The reasons for the countries of this list that have no source here, in the order given."""
+        return [found for country in countries if (found := self.uncovered_reason(country)) is not None]
+
+    def countries_listing(self, with_uncovered: bool = False) -> list[VigilanceCountry | UncoveredCountry]:
+        """What this instance serves, country by country, with the settings it runs with (``GET /v1/vigilances/countries``).
+
+        ``with_uncovered`` adds, after the same entries (unchanged), every other country of the borders with its reason, all sorted
+        by country code.
+        """
+        listing: list[VigilanceCountry | UncoveredCountry] = []
         for country in self.supported_countries():
             names = ["noaa_nws"] if country == NWS_COUNTRY else self._plan(country)
             if names and self.tsunami is not None and country in TSUNAMI_COUNTRIES:
@@ -379,6 +395,9 @@ class VigilanceService:
                 status_of(name.split(":", 1)[1]) == "verified" if name.startswith("swic:") else LICENCE_VERIFIED[name] for name in names
             )
             listing.append(VigilanceCountry(country=country, sources=names, licence_verified=verified))
+        if with_uncovered:
+            listing.extend(self.uncovered_of([country for country in self.countries.countries() if not self._has_source(country)]))
+            listing.sort(key=lambda item: item.country)
         return listing
 
     def _plan(self, country: str) -> list[str]:
@@ -769,7 +788,9 @@ class VigilanceService:
         sources: list[SourceData],
         vigilances: list[Vigilance],
         without_texts: int,
+        uncovered: Optional[list[UncoveredCountry]] = None,
     ) -> VigilancesResponse:
+        uncovered = uncovered or []
         coverage = [data.coverage for data in sources]
         used = {data.source for data in sources}
         answered = {data.source for data in sources if data.coverage.status != "unavailable"}  # a source that said nothing is not credited
@@ -785,19 +806,16 @@ class VigilanceService:
                     break
         note = None
         if not sources:
-            unread = self._swic_index()[1]
-            if "NZ" in countries and self.metservice is None:
-                note = METSERVICE_OFF_NOTE
-            elif any(country in unread for country in countries):
-                note = WMO_NOT_READ_NOTE
-            else:
-                note = NO_SOURCE_NOTE
+            # Nothing was asked: the note names each country and why (a position in no country is at sea).
+            reasons = " ".join(f"{item.name} ({item.country}): {item.reason}" for item in uncovered)
+            note = f"{reasons} {COUNTRIES_POINTER}" if reasons else NO_COUNTRY_NOTE
         return VigilancesResponse(
             server_utc=int(clock.wall()),
             query=query,
             countries=countries,
             vigilances=vigilances,
             coverage=coverage,
+            uncovered=uncovered,
             attribution=merge_credits(
                 *(credit_text(credit) for source, credit in CREDIT_KEYS.items() if source in answered and source != "swic"),
                 *service_credits,
@@ -845,7 +863,8 @@ class VigilanceService:
         """The warnings that cover the exact position (a polygon of the source, a code whose shape is known, or a river section within ``river_radius_km``)."""
         await self.ensure_registry()
         supported = set(self.supported_countries())
-        countries = [c for c in self.countries.countries_for_point(lat, lon) if c in supported]
+        at_point = self.countries.countries_for_point(lat, lon)
+        countries = [c for c in at_point if c in supported]
         for country in countries:
             self.remember(country)
         sources = await self._sources(countries)
@@ -858,7 +877,7 @@ class VigilanceService:
         enriched, without = await self._with_texts(ordered, languages)
         self._forget_unlinked_documents()
         query = VigilanceQuery(lat=lat, lon=lon, river_radius_km=river_radius_km)
-        return self._response(query, countries, sources, enriched, without)
+        return self._response(query, countries, sources, enriched, without, self.uncovered_of(at_point))
 
     async def for_country(self, country: str, languages: Optional[tuple[str, ...]] = None) -> VigilancesResponse:
         """Every warning of a country, whether or not its area can be matched to a point."""
@@ -875,7 +894,7 @@ class VigilanceService:
         ordered = self._sorted(self._without_covered_flooding(found))
         enriched, without = await self._with_texts(ordered, languages)
         self._forget_unlinked_documents()
-        return self._response(VigilanceQuery(country=country), [country], sources, enriched, without)
+        return self._response(VigilanceQuery(country=country), [country], sources, enriched, without, self.uncovered_of([country]))
 
     async def for_tsunami(self) -> VigilancesResponse:
         """Every tsunami message in force, whatever the coast it names (``source=tsunami``)."""
@@ -905,6 +924,7 @@ class VigilanceService:
                 "query": response.query.model_dump(),
                 "countries": response.countries,
                 "coverage": [item.model_dump() for item in response.coverage],
+                "uncovered": [item.model_dump() for item in response.uncovered],
                 "attribution": response.attribution,
                 "disclaimer": response.disclaimer,
                 "note": response.note,

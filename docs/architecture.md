@@ -48,6 +48,7 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | `app/models/vigilance.py` | The `Vigilance` model (an official warning) and the answers built on it. |
 | `app/geo.py`, `app/services/geoindex.py` | Polygons of a CAP message; the country of a point and the shape of a code (shapely), from the files of `app/data/`. |
 | `app/services/vigilance.py` | `VigilanceService`: the warnings of a point or a country, and the changes to push. |
+| `app/services/uncovered.py` | Why a country has no source on an instance: a stable code and one sentence per country, only for what was read ([`SOURCES.md`](../SOURCES.md), "Countries with no source"). |
 | `app/data/`, `tools/build_geometries.py`, `tools/build_faults.py` | The bundled reference files and the scripts that rebuild them: the borders and NUTS shapes, and the named active faults (CC BY-SA 4.0, with its notice; licences: [`SOURCES.md`](../SOURCES.md)). |
 | `app/models/places.py`, `app/services/places.py` | `near_places` of a hazard: the named active faults (`FaultIndex`, `shapely.STRtree`), and the volcanoes in alert (never the watched points: they are personal and the hazards are shared); the radii are settings (`PlaceSettings`). Calculated by Vigie, named in `derived`, never a severity ([ADR 0008](decisions/0008-sensitive-points.md)). |
 | `app/models/watch.py`, `app/services/watch.py` | The status of the watched points (`GET /v1/watched-points/status`): the events within each radius, and `quiet` only when every hazard source answered and has been read without a gap (`SourceReads`). |
@@ -111,6 +112,13 @@ Rules that hold the whole model:
   answers only for a country that has no collector, except Spain (AEMET gives polygons where MeteoAlarm gives codes);
   each such service is its own line of `coverage`, and one that never answered is silent for the push, it ends nothing.
   `GET /v1/vigilances/countries` lists what an instance serves with its settings (`VIGIE_WMO_SOURCES`).
+- **A country with no source says why.** The borders hold every country of Natural Earth (244, about 990 KiB), so a position in Japan, Australia
+  or China finds its country; the answer then carries it in `uncovered` (`country`, `name`, `covered: false`, a stable `reason_code` and a
+  one-sentence `reason`) and, when nothing at all is read for the position, in `note`. A position in no country (at sea, further than about 25 km
+  from a coast) says that. The reasons are written only when they were read: Australia (the Bureau does not allow redistribution), Japan
+  (a law reserves the giving of warnings to the JMA), the unverified or restrictive terms of the registry's services, Hong Kong and China (never
+  read); any other country is `no_source`, which claims nothing more. `GET /v1/vigilances/countries?uncovered=true` lists every country, the
+  served ones unchanged. A territory has its own code and is answered on its own.
 - **Sober on the providers.** One request per needed source, conditional where the source supports it (DWD,
   MetService), a CAP document once and only for a warning that is returned, no request of its own for the NWS
   ([`data-sources.md`](data-sources.md) has the measured figures).
