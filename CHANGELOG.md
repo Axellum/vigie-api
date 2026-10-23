@@ -21,27 +21,42 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- **Active fires, from NASA FIRMS** (`nasa_firms`), for an instance that has a free key (`VIGIE_FIRMS_MAP_KEY`). The detections of
-  the VIIRS instruments of NOAA-20 and NOAA-21 (375 m pixels, near real-time product), read as one world file per source and UTC
-  day every 60 minutes when someone asks (`VIGIE_FIRMS_REFRESH_MINUTES`, `VIGIE_FIRMS_SOURCES`), kept as typed columns (about 10 MB
-  for the four files) and served without ever making a request wait for FIRMS once something was read:
-  - `GET /v1/fires?bbox=w,s,e,n`: a GeoJSON FeatureCollection of the detections of a box and of the last hours (24 by default, 48 at
-    most), with the fields of the FIRMS file; `min_confidence`, `min_frp`, `limit` (1,000 by default, 5,000 at most, the strongest
-    first, `metadata.truncated` when cut). A west greater than the east crosses the antimeridian.
+- **Active fires, from NASA FIRMS** (`nasa_firms`), **with no key**. The detections of the VIIRS instruments of NOAA-20 and NOAA-21
+  (375 m pixels, near real-time product) are read from the **static world files** of FIRMS (the last 24 or 48 hours of each source,
+  `VIGIE_FIRMS_WINDOW_HOURS`, 48 by default), checked every 60 minutes when someone asks (`VIGIE_FIRMS_REFRESH_MINUTES`,
+  `VIGIE_FIRMS_SOURCES`), kept as typed columns and served without ever making a request wait for FIRMS once something was read. On by
+  default, off with `VIGIE_ENABLE_FIRMS=0`. A free key (`VIGIE_FIRMS_MAP_KEY`) is optional: it only lets a source whose file could not be
+  read be read from the area API instead.
+  - `GET /v1/fires?bbox=w,s,e,n`: a GeoJSON FeatureCollection of the detections of a box and of the last hours (24 by default, up to the
+    window of the files, a 422 beyond), with the fields of the FIRMS file; `min_confidence`, `min_frp`, `limit` (1,000 by default,
+    5,000 at most, the strongest first, `metadata.truncated` when cut). A west greater than the east crosses the antimeridian.
   - `GET /v1/fires/grid`: the same detections counted per cell of 0.25 to 10 degrees (`count`, `max_frp_mw`, `latest_utc`), for small
     zooms.
   - `fires_nearby` on `GET /v1/point` (`fire_radius_km`, 50 by default): count in 24 hours, nearest distance, highest power, named in
     `derived`, never part of `local_alert_level`.
   - The fires are not in `GET /v1/geojson/hazards`. A detection is a satellite pixel, not an alert and not a confirmed fire; every
-    answer carries NASA's acknowledgment and disclaimer word for word. Without a key the routes answer 404, `fires_nearby` is
-    null and `GET /v1/health` lists the source in `disabled_sources`.
-  - **The key is in the URL of every FIRMS request and is never shown**: it is redacted in every error, in `last_error` and in the
-    logs of `httpx`, and `tests/test_firms_secret.py` looks for it everywhere. A world read weighs 36 of the 5,000 transactions allowed
-    in 10 minutes (measured); FIRMS has no `ETag` or `Last-Modified`, so every read is a full read (about 5 MB, 47,000 to 59,000 rows,
-    0.15 s to parse): 60 reads and about 170 MB a day with 1,000 clients; nothing when nobody asks, apart from the read at start-up
+    answer carries NASA's acknowledgment and disclaimer word for word. With `VIGIE_ENABLE_FIRMS=0` the routes answer 404, `fires_nearby`
+    is null and `GET /v1/health` lists the source in `disabled_sources`.
+  - **A server that stalls does not stop the answers.** FIRMS stalls (14 % of 160 checks sent from one PC over four hours got no answer
+    in 40 seconds). A read ends when no byte comes for 25 seconds or after 90 in all; a download cut in the middle is continued with
+    `Range`; a source that failed is asked again after 1, 2, 5, then every 10 minutes, it alone, while its last reading keeps being
+    served with `stale` true. `metadata.sources[]` says for each source when it was confirmed current (`read_utc`, `null` while never
+    read), `ok`, `via` (`static` or `area`) and `published_utc` (when FIRMS wrote the file); `GET /v1/providers` gives the error of its
+    last read.
+  - **Few requests and bytes.** The static files have an `ETag` (the MD5 of the whole content) and `Last-Modified`, are rewritten once an
+    hour and only grow within a UTC day. A check is one request closed after its headers when the file is the one held; a file that grew
+    is read for the added bytes only (`Range`), and accepted only if the old bytes plus the new ones have the announced `ETag`, else read
+    whole. A day with 1,000 clients is about **86 requests and 56 MB, no key and no transaction** by simulation (36 MB with the files of
+    24 hours), against **60 reads, 2,160 transactions and about 170 MB** with the area API of the first version
     ([ADR 0007](docs/decisions/0007-active-fires-from-nasa-firms.md), `docs/data-sources.md`).
-  - `tools/check_live_feeds.py` reads one world day of FIRMS when it has the key and **skips it without** (new outcome `skipped`,
-    never a failure): the weekly workflow has no key, so it skips FIRMS.
+  - **A loss, said:** the static files hold the near real-time version only, so the ultra real-time detections of the United States and
+    Canada (within minutes) that the area API returns are not read.
+  - **The key, when used, is in the URL of the area API requests and is never shown**: it is redacted in every error, in `last_error` and
+    in the logs of `httpx`, and `tests/test_firms_secret.py` looks for it everywhere.
+  - `tools/check_live_feeds.py` reads one static file of FIRMS (8 to 17 MB, no key); with the key it also reads one world day of the area
+    API.
+  - Tests: the fire API tests (`tests/test_fires_api.py`) no longer leave the shared collectors of the application failing, which had made
+    eight tests of the watched points fail when the whole suite ran.
 - **What a hazard is close to: `near_places`** on every hazard of `/v1/geojson/hazards`, `/v1/history`, the stream and the full profile of
   `/v1/snapshot` and `/v1/point` (`compact=false`): `[{name, kind, distance_km, sources}]`, nearest first, at most 5, named in the new `derived`
   list of the hazard and credited in its `attribution`. **Calculated by Vigie, never a severity.** Two sets of reference places: the **named

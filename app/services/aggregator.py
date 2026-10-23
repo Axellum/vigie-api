@@ -205,11 +205,14 @@ class AggregatorService:
         self.tsunami = tsunami or TsunamiCollector()
         self.swic = swic or SwicCollector()
         self.swic_registry = swic_registry or SwicRegistryCollector()
-        # NASA FIRMS (active fires) is read only when ``VIGIE_FIRMS_MAP_KEY`` holds a key (or a collector is given): without one there
-        # is no collector, ``GET /v1/health`` lists the source as disabled and the fire routes say so.
+        # NASA FIRMS (active fires) is read from its static files, which need no key, unless ``VIGIE_ENABLE_FIRMS=0`` (or no collector is
+        # given): then there is no collector, ``GET /v1/health`` lists the source as disabled and the fire routes say so. An optional
+        # ``VIGIE_FIRMS_MAP_KEY`` lets a source whose file could not be read be read from the area API.
         firms_settings = load_firms_settings()
-        if firms is None and firms_settings.key is not None:
-            firms = FIRMSCollector(firms_settings.key, firms_settings.sources, firms_settings.refresh_s)
+        if firms_settings.key_problem is not None:
+            log.warning(firms_settings.key_problem)
+        if firms is None and firms_settings.enabled:
+            firms = FIRMSCollector(firms_settings.key, firms_settings.sources, firms_settings.refresh_s, firms_settings.window_hours)
         self.firms = firms
         self.fires = FireService(self.firms, None if self.firms is not None else firms_settings.off_reason)
         share_budgets(self.get_all_collectors())  # the four Open-Meteo APIs share one quota

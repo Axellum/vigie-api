@@ -16,10 +16,10 @@ Outcomes, one line per source:
   HTTP 400 / 404 / 410, items the parser drops although the answer has some). The exit code is 1.
 - ``unreachable``: no answer (timeout, connection error, HTTP 403 / 429 / 5xx). Reported, but it says nothing
   about the format, so it does not fail the run (use ``--strict`` to make it fail).
-- ``skipped``: nothing was asked, because the source needs a key this machine does not have (NASA FIRMS:
-  ``VIGIE_FIRMS_MAP_KEY``). It never fails the run, not even with ``--strict``: the weekly workflow has no secret,
-  so it always skips FIRMS. Run the tool yourself with the key to check it (it reads one world day, 36 of the 5,000
-  transactions that FIRMS allows in 10 minutes).
+- ``skipped``: nothing was asked, because the source is turned off on this machine (NASA FIRMS: ``VIGIE_ENABLE_FIRMS=0``).
+  It never fails the run, not even with ``--strict``. NASA FIRMS needs no key: the tool reads one static file of one source (8 to 15 MB);
+  with ``VIGIE_FIRMS_MAP_KEY`` set it also reads one world day of the area API (36 of the 5,000 transactions that FIRMS allows in
+  10 minutes), the way a source whose file cannot be read is read.
 
 It sends one request per source and waits between them (MeteoAlarm: the feed of France, then one CAP
 document it links to). Set ``VIGIE_CONTACT`` (an e-mail or a URL): MET Norway and NOAA require an identifying
@@ -52,7 +52,7 @@ from app.collectors.eccc import ITEMS_URL, ECCCCollector, parse_items  # noqa: E
 from app.collectors.eccc import LEVELS as ECCC_LEVELS  # noqa: E402
 from app.collectors.eccc import STATUSES as ECCC_STATUSES  # noqa: E402
 from app.collectors.eccc import is_ended as eccc_is_ended  # noqa: E402
-from app.collectors.firms import FIRMSCollector, FIRMSError, utc_dates  # noqa: E402
+from app.collectors.firms import FIRMSCollector, FIRMSError, parse_csv, utc_dates  # noqa: E402
 from app.collectors.firms import load_settings as load_firms_settings  # noqa: E402
 from app.collectors.flood_air import (  # noqa: E402
     OpenMeteoAirQualityCollector,
@@ -505,44 +505,71 @@ async def check_nhc(client: httpx.AsyncClient) -> Result:
     return Result("nhc_storms", "ok", f"{len(state.storms)} active storm(s) with their cone: {names}")
 
 
-# A full world day of one VIIRS satellite holds about 50,000 detections (55,239 and 47,048 on 2026-10-20): fewer than this is a cut or a changed file.
+# The file of one VIIRS satellite holds about 100,000 detections for 24 hours and 150,000 for 48 (102,540 and 149,942 on 2026-10-20): fewer than this is a
+# cut or a changed file.
 FIRMS_MIN_ROWS = 5_000
-# The share of rows that may be unreadable (no position or time), without a confidence in {l, n, h} or without a power: one in a hundred.
+# The share of rows that may be unreadable (no position or time), without a confidence the parser knows or without a power: one in a hundred.
 FIRMS_MAX_ODD_SHARE = 0.01
 # Statuses that say "busy, or not for this client" and not "the format changed" (the module docstring: 403 / 429 / 5xx).
 FIRMS_BUSY_STATUSES = {403, 429}
 
 
-async def check_firms(client: httpx.AsyncClient) -> Result:
-    """NASA FIRMS: yesterday's world file of one source must be the CSV the parser knows, full-sized, with its columns filled. Skipped without a key."""
-    settings = load_firms_settings()
-    if settings.key is None:
-        return Result("nasa_firms", "skipped", f"{settings.off_reason}: nothing was asked (the weekly workflow has no key; run the tool with one to check FIRMS)")
-    collector = FIRMSCollector(settings.key, settings.sources, settings.refresh_s)
-    source = settings.sources[0]
-    now = clock.wall()
-    date = utc_dates(now)[1]  # yesterday: the file of today is still short in the first hours
-    try:
-        day = await collector._read_day(client, source, date, now)
-    except FIRMSError as exc:  # its message never holds the key
-        busy = exc.transport or (exc.status is not None and (exc.status in FIRMS_BUSY_STATUSES or exc.status >= 500))
-        return Result("nasa_firms", "unreachable" if busy else "FAIL", str(exc))
-    table = day.table
+def _firms_problem(label: str, table: Any, skipped: int) -> Optional[Result]:
+    """``FAIL`` when what was read is not the file the parser knows: rows that cannot be read, too few of them, columns that are empty."""
     rows = len(table)
-    where = f"{source} {date}: {rows:,} detections, {day.bytes_read / 1_000_000:.1f} MB"
-    seen = rows + day.skipped
-    if day.skipped > FIRMS_MAX_ODD_SHARE * seen:
-        return Result("nasa_firms", "FAIL", f"{where}; {day.skipped:,} rows of {seen:,} could not be read")
+    seen = rows + skipped
+    if skipped > FIRMS_MAX_ODD_SHARE * seen:
+        return Result("nasa_firms", "FAIL", f"{label}; {skipped:,} rows of {seen:,} could not be read")
     if rows < FIRMS_MIN_ROWS:
-        return Result("nasa_firms", "FAIL", f"{where} (about 50,000 expected): the file is cut or changed")
+        return Result("nasa_firms", "FAIL", f"{label} (tens of thousands expected): the file is cut or changed")
     no_confidence = sum(1 for code in table.conf if code == 0)
     no_power = sum(1 for value in table.frp if value != value)
     if no_confidence > FIRMS_MAX_ODD_SHARE * rows:
-        return Result("nasa_firms", "FAIL", f"{where}; {no_confidence:,} rows without a confidence the parser knows (l, n, h)")
+        return Result("nasa_firms", "FAIL", f"{label}; {no_confidence:,} rows without a confidence the parser knows (low, nominal, high)")
     if no_power > FIRMS_MAX_ODD_SHARE * rows:
-        return Result("nasa_firms", "FAIL", f"{where}; {no_power:,} rows without a fire radiative power")
-    names = ", ".join(table.satellites) or "no satellite named"
-    return Result("nasa_firms", "ok", f"{where}, {day.skipped} skipped; satellites: {names}")
+        return Result("nasa_firms", "FAIL", f"{label}; {no_power:,} rows without a fire radiative power")
+    return None
+
+
+def _firms_unreachable_or_fail(exc: FIRMSError) -> Result:
+    busy = exc.transport or (exc.status is not None and (exc.status in FIRMS_BUSY_STATUSES or exc.status >= 500))
+    return Result("nasa_firms", "unreachable" if busy else "FAIL", str(exc))  # its message never holds the key
+
+
+async def check_firms(client: httpx.AsyncClient) -> Result:
+    """NASA FIRMS: the static file of one source must be the CSV the parser knows, full-sized, with its columns filled. With a key, one world day of the area API too."""
+    settings = load_firms_settings()
+    if not settings.enabled:
+        return Result("nasa_firms", "skipped", f"{settings.off_reason}: nothing was asked")
+    collector = FIRMSCollector(settings.key, settings.sources, settings.refresh_s, settings.window_hours)
+    source = settings.sources[0]
+    now = clock.wall()
+    try:
+        reading = await collector._read_static(client, source, collector._states[source], now)
+    except FIRMSError as exc:
+        return _firms_unreachable_or_fail(exc)
+    label = f"{source} {settings.window_hours} h file: {len(reading.table):,} detections, {reading.bytes_read / 1_000_000:.1f} MB"
+    problem = _firms_problem(label, reading.table, reading.skipped)
+    if problem is not None:
+        return problem
+    names = ", ".join(reading.table.satellites) or "no satellite named"
+    detail = f"{label}, {reading.skipped} skipped; satellites: {names}; written {reading.validators.last_modified if reading.validators else 'at an unknown time'}"
+    if settings.key is not None:  # the second way to the same data: one world day of the area API (yesterday: the file of today is still short in the first hours)
+        date = utc_dates(now)[1]
+        try:
+            content = await collector._read_day(client, source, date)
+            table, stats = parse_csv(content, date)
+        except FIRMSError as exc:
+            return _firms_unreachable_or_fail(exc)
+        except ValueError as exc:
+            snippet = " ".join(content[:100].decode("ascii", errors="replace").split())
+            return Result("nasa_firms", "FAIL", collector.redact(f"{source} {date}, area API: {exc} ({snippet!r})"))
+        area_label = f"{source} {date}, area API: {len(table):,} detections, {len(content) / 1_000_000:.1f} MB"
+        problem = _firms_problem(area_label, table, stats.skipped)
+        if problem is not None:
+            return problem
+        detail += f"; {area_label}"
+    return Result("nasa_firms", "ok", detail)
 
 
 # The registry of the WMO services: fewer than this is a truncated or a changed answer (140 on 2026-10-20).

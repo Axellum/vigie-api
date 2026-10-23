@@ -1,16 +1,17 @@
 """What the API does with the FIRMS detections: the hotspots of a box, their summary per cell, and the summary around a point.
 
-The detections are read by ``app/collectors/firms.py`` (a world read per source and day, every 60 minutes by default) and kept as typed
-columns sorted by latitude. This module answers the three questions asked of them:
+The detections are read by ``app/collectors/firms.py`` (the world file of each source, checked every 60 minutes by default and downloaded when it
+changed) and kept as typed columns sorted by latitude. This module answers the three questions asked of them:
 
 - ``features``: the detections of a box and of the last hours, as GeoJSON points, capped (the strongest, by fire radiative power, are kept);
 - ``grid``: the same detections counted per cell of ``cell_deg`` degrees (count, highest FRP, most recent time), for small zooms;
 - ``nearby``: the count, the distance of the nearest and the highest FRP within a radius of a point, for ``GET /v1/point``.
 
-**The request never waits for FIRMS once a reading exists.** FIRMS is slow and loses connections (measured 2026-10-20), a world day weighs
-about 5 MB and the answers of ``GET /v1/point`` feed displays: when the last reading is older than its lifetime, the previous one is served at
-once and a refresh starts in the background (one at a time, shared with the collector's own coalescing). Only the very first request, with
-nothing read yet, waits (``GET /v1/fires``) or answers without the block (``GET /v1/point``). ``stale`` says that the last attempt failed.
+**The request never waits for FIRMS once a reading exists.** FIRMS is slow and stalls (measured 2026-10-20), a world file weighs 8 to 15 MB and
+the answers of ``GET /v1/point`` feed displays: when the last reading is older than its lifetime, the previous one is served at once and a
+refresh starts in the background (one at a time, shared with the collector's own coalescing; none while every source that is not fresh is
+in its backoff). Only the very first request, with nothing read yet, waits (``GET /v1/fires``) or answers without the block
+(``GET /v1/point``). ``stale`` says that the last attempt to read a source failed.
 
 Nothing here is an alert and nothing raises a level: the numbers are our own counts of the satellites' pixels (``derived`` says which).
 """
@@ -32,7 +33,7 @@ from app.models.schemas import FiresNearby
 from app.services.geodesy import haversine_km
 
 WINDOW_DEFAULT_H = 24.0
-WINDOW_MAX_H = 48.0  # two UTC days are kept
+WINDOW_MAX_H = 48.0  # the longest window of any instance: the file of 48 hours (an instance that reads the 24 hour file stops at 24, see ``FireService.window_hours``)
 FEATURES_DEFAULT = 1000
 FEATURES_MAX = 5000
 CELLS_DEFAULT = 5000
@@ -47,7 +48,7 @@ GRID_CACHE_SIZE = 64
 
 
 class FiresOff(Exception):
-    """The source is off on this instance (no key); ``reason`` says why."""
+    """The source is turned off on this instance (``VIGIE_ENABLE_FIRMS=0``); ``reason`` says why."""
 
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
@@ -56,6 +57,14 @@ class FiresOff(Exception):
 
 class FiresUnavailable(Exception):
     """FIRMS has never been read successfully since the start, and could not be read now."""
+
+
+class FiresWindowTooLong(Exception):
+    """More hours were asked than the files this instance reads go back: ``max_hours`` is how far it can go."""
+
+    def __init__(self, max_hours: float) -> None:
+        super().__init__(f"hours must be at most {max_hours:g} on this instance (it reads the files of the last {max_hours:g} hours; VIGIE_FIRMS_WINDOW_HOURS)")
+        self.max_hours = max_hours
 
 
 # ------------------------------------------------------------------------------------------------ the box
@@ -139,8 +148,8 @@ def select(fs: FireSet, box: Box, since: int, min_confidence: int, min_frp: floa
     a1, b1, a2, b2 = _in_ranges(box.lon_ranges)
     heap: list[tuple[float, int, int, int]] = []
     total = 0
-    for table_index, day in enumerate(fs.days):
-        table = day.table
+    for table_index, reading in enumerate(fs.readings):
+        table = reading.table
         order, lon, acq, conf, frp = table.order, table.lon, table.acq, table.conf, table.frp
         for k in table.rows_between(box.lat_low, box.lat_high):
             i = order[k]
@@ -164,7 +173,7 @@ def select(fs: FireSet, box: Box, since: int, min_confidence: int, min_frp: floa
 
 def feature_of(fs: FireSet, table_index: int, row: int) -> dict[str, Any]:
     """One detection as a GeoJSON feature: the CSV's own fields, rounded to the precision the file has."""
-    table = fs.days[table_index].table
+    table = fs.readings[table_index].table
     lon, lat = table.lon[row] / SCALE, table.lat[row] / SCALE
     satellite = table.satellite(row)
     acq = int(table.acq[row])
@@ -207,8 +216,8 @@ def grid_cells(fs: FireSet, box: Box, since: int, cell_deg: float, min_confidenc
     a1, b1, a2, b2 = _in_ranges(box.lon_ranges)
     cells: dict[tuple[int, int], list[Any]] = {}
     total = 0
-    for day in fs.days:
-        table = day.table
+    for reading in fs.readings:
+        table = reading.table
         order, lat, lon, acq, conf, frp = table.order, table.lat, table.lon, table.acq, table.conf, table.frp
         for k in table.rows_between(box.lat_low, box.lat_high):
             i = order[k]
@@ -253,8 +262,8 @@ def near(fs: FireSet, lat: float, lon: float, radius_km: float, since: int) -> t
     nearest: Optional[float] = None
     strongest: Optional[float] = None
     latest: Optional[int] = None
-    for day in fs.days:
-        table = day.table
+    for reading in fs.readings:
+        table = reading.table
         order, tlat, tlon, acq, frp = table.order, table.lat, table.lon, table.acq, table.frp
         for k in table.rows_between(box.lat_low, box.lat_high):
             i = order[k]
@@ -294,12 +303,21 @@ class FireService:
     def enabled(self) -> bool:
         return self.collector is not None
 
+    @property
+    def window_hours(self) -> float:
+        """How far back this instance can go: the window of the files it reads (24 or 48 hours)."""
+        return float(self.collector.window_hours) if self.collector is not None else WINDOW_DEFAULT_H
+
+    def _check_window(self, hours: float) -> None:
+        if hours > self.window_hours:
+            raise FiresWindowTooLong(self.window_hours)
+
     # -- reading ---------------------------------------------------------------------------------
 
     def _kick(self) -> None:
-        """Start a refresh in the background unless one is running. It never raises: the collector records the failure."""
-        if self.collector is None:
-            return
+        """Start a refresh in the background unless one is running or none is due. It never raises: the collector records the failure."""
+        if self.collector is None or self.collector.waiting():
+            return  # (a source that failed is not asked again before its backoff has run out: nothing would be sent)
         task = self._task
         if task is not None and not task.done() and task.get_loop() is asyncio.get_running_loop():
             return  # one is running (a task of another, closed event loop is a leftover: never wait for it)
@@ -334,23 +352,38 @@ class FireService:
             if not wait:
                 self._kick()
                 return None
+            if collector.waiting():
+                raise FiresUnavailable(collector.last_error or "NASA FIRMS could not be read and is not asked again yet")
             try:
                 value = await collector.fetch(CACHE_KEY)
             except CollectorUnavailableError as exc:
                 raise FiresUnavailable(str(exc)) from None
-            return value, bool(value.failed)
+            return value, collector.failing()
         if not fresh:
             self._kick()
-        return value, collector.consecutive_failures > 0 or bool(value.failed)
+        return value, collector.failing() or collector.consecutive_failures > 0
 
     def _sources(self, fs: FireSet) -> list[dict[str, Any]]:
-        """The products the instance reads and how each stands: one that was never read (it failed every time so far) is listed too, with no time."""
-        read = fs.sources()
+        """The products the instance reads and how each stands: one that was never read (it failed every time so far) is listed too, with no time.
+
+        ``read_utc`` is when the source's data was last confirmed current (downloaded, or found unchanged by its validators), ``published_utc``
+        when FIRMS wrote the file (its ``Last-Modified``; ``null`` when read from the area API), ``via`` which way it was read, and ``ok`` whether
+        the last attempt to read it worked.
+        """
         configured = self.collector.sources if self.collector is not None else ()
-        return [
-            {"source": source, "read_utc": fs.newest_read_utc(source), "ok": source in read and source not in fs.failed}
-            for source in dict.fromkeys((*configured, *read))
-        ]
+        entries = []
+        for source in dict.fromkeys((*configured, *fs.sources())):
+            reading = fs.reading(source)
+            entries.append(
+                {
+                    "source": source,
+                    "read_utc": None if reading is None else reading.read_utc,
+                    "ok": reading is not None and (self.collector is None or self.collector.source_ok(source)),
+                    "via": None if reading is None else reading.via,
+                    "published_utc": None if reading is None else reading.published_utc,
+                }
+            )
+        return entries
 
     # -- the routes ------------------------------------------------------------------------------
 
@@ -359,9 +392,10 @@ class FireService:
         return int(now - hours * 3600.0) // SINCE_STEP_S * SINCE_STEP_S
 
     async def features(self, box: Box, hours: float, min_confidence: str, min_frp: float, limit: int) -> dict[str, Any]:
-        """The ``GET /v1/fires`` answer. Raises ``FiresOff`` or ``FiresUnavailable``."""
+        """The ``GET /v1/fires`` answer. Raises ``FiresOff``, ``FiresWindowTooLong`` or ``FiresUnavailable``."""
         if self.collector is None:
             raise FiresOff(self.off_reason)
+        self._check_window(hours)
         current = await self._current(wait=True)
         assert current is not None
         fs, stale = current
@@ -386,7 +420,7 @@ class FireService:
                 "data_read_utc": fs.read_utc,
                 "stale": stale,
                 "sources": self._sources(fs),
-                "skipped_rows": sum(day.skipped for day in fs.days),
+                "skipped_rows": sum(reading.skipped for reading in fs.readings),
                 "attribution": credit_text(*FIRES),
                 "disclaimer": FIRMS_DISCLAIMER,
             },
@@ -394,9 +428,10 @@ class FireService:
         }
 
     async def grid(self, box: Box, hours: float, cell_deg: float, min_confidence: str, min_frp: float, limit: int) -> dict[str, Any]:
-        """The ``GET /v1/fires/grid`` answer. Raises ``FiresOff`` or ``FiresUnavailable``."""
+        """The ``GET /v1/fires/grid`` answer. Raises ``FiresOff``, ``FiresWindowTooLong`` or ``FiresUnavailable``."""
         if self.collector is None:
             raise FiresOff(self.off_reason)
+        self._check_window(hours)
         current = await self._current(wait=True)
         assert current is not None
         fs, stale = current
@@ -432,7 +467,7 @@ class FireService:
                 "data_read_utc": fs.read_utc,
                 "stale": stale,
                 "sources": self._sources(fs),
-                "skipped_rows": sum(day.skipped for day in fs.days),
+                "skipped_rows": sum(reading.skipped for reading in fs.readings),
                 "attribution": credit_text(*FIRES),
                 "disclaimer": FIRMS_DISCLAIMER,
             },

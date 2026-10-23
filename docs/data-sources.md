@@ -1,6 +1,6 @@
 # Data sources
 
-Every provider is public and needs no API key, except NASA FIRMS (the active fires), which needs a free one. The Vigie API is a **personal, non-commercial**
+Every provider is public and needs no API key. (NASA FIRMS, the active fires, accepts an optional free one.) The Vigie API is a **personal, non-commercial**
 project. This page says **how each source is used**: what is read, how long it is cached and why, how many
 calls it costs. The **licence, terms, required credit and published quota** of each source are in
 [`SOURCES.md`](../SOURCES.md), the only list of them. Checked on **2026-10-20** by opening the pages
@@ -447,97 +447,151 @@ The DWD numbers are the ones of the profile's event table; the rules of ECCC com
 
 ## Active fires (NASA FIRMS)
 
-The only source that needs a key. The detections of the VIIRS instruments of NOAA-20 and NOAA-21 (375 m pixels, the near
-real-time product) are read from the area API of FIRMS, `firms.modaps.eosdis.nasa.gov/api/area/csv/{MAP_KEY}/{SOURCE}/world/1/{DATE}`,
-and served by `GET /v1/fires`, `GET /v1/fires/grid` and the `fires_nearby` block of `GET /v1/point`. They are not in
-`GET /v1/geojson/hazards`. Without `VIGIE_FIRMS_MAP_KEY` nothing is read (the routes answer 404 and `GET /v1/health` lists the
-source in `disabled_sources`). The decisions: [ADR 0007](decisions/0007-active-fires-from-nasa-firms.md). Licence, credit and
-what is not verified: [`SOURCES.md`](../SOURCES.md).
+The detections of the VIIRS instruments of NOAA-20 and NOAA-21 (375 m pixels, the near real-time product) are read from the **static
+files** of FIRMS, `firms.modaps.eosdis.nasa.gov/data/active_fire/{folder}/csv/{prefix}_Global_{24h|48h}.csv`, which need **no key**, and
+served by `GET /v1/fires`, `GET /v1/fires/grid` and the `fires_nearby` block of `GET /v1/point`. They are not in
+`GET /v1/geojson/hazards`. The source is on by default and off with `VIGIE_ENABLE_FIRMS=0` (the routes then answer 404 and
+`GET /v1/health` lists the source in `disabled_sources`). A free key (`VIGIE_FIRMS_MAP_KEY`) is optional: it only lets a source whose file
+could not be read be read from the area API instead (see "The key"). The decisions: [ADR 0007](decisions/0007-active-fires-from-nasa-firms.md).
+Licence, credit and what is not verified: [`SOURCES.md`](../SOURCES.md).
 
-**What is read.** One world file per source and UTC day: today at each refresh (60 minutes by default,
-`VIGIE_FIRMS_REFRESH_MINUTES`), yesterday until it has settled (4 hours after midnight) and once more. A detection is a satellite
-pixel that looks like a fire: it is not an alert, and no detection is not the absence of fire. Suomi NPP (deliveries cease on
-2026-11-02) and MODIS (another layout, 1 km) are not read.
+**What is read.** One file per source: the world, over the last 24 or 48 hours (`VIGIE_FIRMS_WINDOW_HOURS`, 48 by default; it is also how far
+back `hours` can go on this instance, and asking for more is a 422 that says so). The instance checks each file at each refresh (60 minutes
+by default, `VIGIE_FIRMS_REFRESH_MINUTES`) and downloads what changed. A detection is a satellite pixel that looks like a fire: it is not an
+alert, and no detection is not the absence of fire. The static files hold the near real-time version (`2.0NRT`) only: the ultra real-time
+detections of the United States and Canada, which the area API returns within minutes, are **not in them** (a loss for those two countries
+against the first version of this source). Suomi NPP (deliveries cease on 2026-11-02) and MODIS (another layout, 1 km) are not read.
 
-**What a world file is** (reads of 2026-10-20 through the HA host, the PC's own path to FIRMS being unreliable; the CSV is not
-compressed and is sent without `ETag`, `Last-Modified` or a size on a `HEAD`):
+**What a static file is** (measured on 2026-10-20 and again on 2026-10-23, from the development PC and, on the 20th, from a second machine of
+the same network):
 
-| File | Size | Rows | Taken at |
-| --- | ---: | ---: | --- |
-| NOAA-20, today | 4,622,753 bytes | 55,239 | 18:10 UTC |
-| NOAA-20, today | 4,748,580 bytes | 56,730 | 18:42 UTC |
-| NOAA-21, today | 3,944,231 bytes | 47,048 | 18:42 UTC |
-| NOAA-20, 2026-10-19 (whole day) | 4,969,942 bytes | 59,246 | 19:21 UTC |
-| NOAA-21, 2026-10-19 (whole day) | 4,662,308 bytes | 55,517 | 18:35 UTC |
+| Property | What FIRMS does |
+| --- | --- |
+| Validators | `ETag` (the MD5 of the whole content, equal to the `x-amz-meta-md5` header), `Last-Modified`, `Content-Length`, `Accept-Ranges: bytes` |
+| Conditional requests | `If-None-Match` and `If-Modified-Since` get **`200` and the whole file**, never `304` (checked on both days): a client cannot ask "has it changed?" with them, it reads the headers of an ordinary `GET` |
+| Compression | none, even with `Accept-Encoding: gzip` |
+| `Range` | honoured (`206`); a range that starts at the end of the file is a `416`. `If-Range` is **ignored**: a validator that is not the file's still got a `206` (2026-10-23), so the check of the content is ours |
+| Rhythm | each file is rewritten once an hour: NOAA-20 at about :40, NOAA-21 at about :43 (UTC), the 24 h and 48 h files of a source within 2 seconds. Seen over 4 to 5 consecutive writes each, 2026-10-20 from 19:43 to 23:43 UTC |
+| Growth | within a UTC day a file only grows: the new file is the old one and the rows added (the file of NOAA-20 written at 20:40 was the one of 19:40 plus 257,185 bytes, byte for byte), by 0.04 to 0.6 MB a write |
+| Window | the "24 h" file holds yesterday and the day so far (UTC days), the "48 h" file the two days before and the day so far: at 17:40 UTC on the 23rd the 24 h files began on the 22nd (00:30 and 00:01) and the 48 h files on the 21st (00:01 and 00:13). What happens at midnight was **not observed** |
 
-A refresh reads two such files (one per source): about 8.5 to 10 MB.
+| File | Size | Taken at |
+| --- | ---: | --- |
+| NOAA-21, 24 h | 8,541,352 bytes | 2026-10-20 19:43 UTC |
+| NOAA-21, 24 h | 9,543,118 bytes | 2026-10-20 23:43 UTC |
+| NOAA-20, 24 h | 10,107,672 to 10,409,664 bytes | 2026-10-20 20:40 to 23:40 UTC |
+| NOAA-21, 48 h | 12,495,866 to 13,497,632 bytes | 2026-10-20 19:43 to 23:43 UTC |
+| NOAA-20, 48 h | 14,353,778 to 14,655,770 bytes | 2026-10-20 20:40 to 23:40 UTC |
+| NOAA-20, 24 h and 48 h | 10,862,421 and 16,394,940 bytes | 2026-10-23 17:40 UTC |
+| NOAA-21, 24 h and 48 h | 10,941,334 and 16,687,574 bytes | 2026-10-23 17:44 UTC |
 
-**Parsing and memory** (the development PC, a Ryzen 9800X3D; the Steam Deck or a Raspberry Pi **not measured**): 0.13 to 0.16 s (best of 5) to parse a
-world file of 47,000 to 59,000 rows with the `csv` module, run in a thread so that the event loop is not held. The rows are kept as typed
-columns sorted by latitude, about 43 bytes a row, so 2.4 MB a file and about 10 MB for the four files kept (two sources, two days);
-the peak while parsing is 35 to 42 MB. A request is answered from these columns: a whole-world selection of the strongest 1,000
-detections takes 33 ms, a whole-world grid 60 ms, and a selection in Europe 1.2 ms.
+The columns are not the area API's: no `instrument`, another order, `confidence` in words (`low`, `nominal`, `high`), `acq_time` with a leading
+zero, `daynight` as `D` or `N`; the collector reads both.
 
-**When the data arrive.** NASA says up to 3 hours after the observation (the United States and Canada within minutes). Between
-two reads 46 minutes apart (18:10 and 18:56 UTC) the NOAA-20 file gained 1,493 detections: 1,425 acquired between 16:05 and 16:30
-over South America and the Atlantic, published between 18:10 and 18:42 (the file grew by 292 detections by 18:30 and by 1,199
-more by 18:42), so 2 to 2.5 hours after the pass; and 68 acquired in the last minutes over the Americas. The delay over the other
-regions was **not measured**. A new refresh each hour is therefore not slower than the data. A file has no validator, so each
-refresh is a full read; this is why the default is 60 minutes and not 30.
+**How a refresh reads them.** Each source is handled on its own, and the two at the same time:
 
-**Transactions.** FIRMS allows 5,000 transactions in 10 minutes per key and weighs a request by its size ("larger transactions may
-count as multiple requests"). A world read of one day was measured at **36** with `mapkey_status`: with the counter at 0
-(`current_transactions`, nothing sent for 20 minutes), one read of NOAA-20 for 2026-10-19 (4,969,942 bytes) left it at 36
-(2026-10-20 19:21 UTC; a read that failed before the answer left it at 0). `app/collectors/budget.py` knows it (the quota `nasa-firms`, 90 % of 5,000, so 125 reads in 10 minutes). A refresh is 2 reads (4 when
-yesterday is read again).
+1. One `GET` is sent. If the `ETag` is the one held, the connection is closed before the body: the file did not change, and the cost is one
+   request and its headers (about 770 bytes).
+2. If it changed and the file is the one held plus rows added, **only the added bytes are read** (`Range` from the size held, with `If-Range`): what is held
+   plus what came must be the file whose `ETag` was announced (its MD5), or the whole file is read. A wrong file is never assembled. It is the
+   `ETag` check that protects, since the server ignores `If-Range`.
+3. Otherwise (the first reading, the oldest day that left at midnight, a rewritten file, a server that does not honour `Range`) the file is read
+   whole, once.
 
-**What it costs a day** (`tests/test_fires_sobriety.py`: a simulated day with the sizes above and the arrival of the detections taken
-from the recorded files):
+The file is parsed in a thread; the rows are kept as typed columns sorted by latitude, and the bytes of the last file of each source are kept
+too (they are what an added read is checked against).
 
-| Day | Reads | Transactions | At most in 10 minutes | Bytes |
-| --- | ---: | ---: | ---: | ---: |
-| Nobody asks | 0 | 0 | 0 | 0 |
-| 1,000 clients (or 100: the same), refresh of 60 minutes | 60 | 2,160 | 144 | about 170 MB (289 MB at most) |
-| 1,000 clients, refresh of 30 minutes | 116 | 4,176 | 144 | about 320 MB (559 MB at most) |
-| FIRMS down all day (503) | 284 requests, all refused | 10,224 as the budget counts them (a refused request may cost nothing at FIRMS: **not verified**) | 216 (6 requests) | none |
+**When FIRMS stalls.** It does, on any day, and the static files as much as the area API: of 160 `HEAD` requests sent from the development PC to
+the four files, one round every 5 minutes from 20:27 to 00:10 UTC (2026-10-20), 22 (14 %) got no answer in 40 seconds, 11 of them in the first
+28; the others answered in 2.9 s at the median and 34.5 s at the worst. What the collector does:
 
-The reading at start-up (4 reads, about 18 MB) comes on top, when the instance has a key. A failing source is not asked again for
-its other day in the same refresh, and the circuit breaker opens after 3 failures for 10 minutes.
+- a read ends when **no byte comes for 25 s** (`READ_TIMEOUT_S`) or after **90 s in all** (`TOTAL_DEADLINE_S`), and the source that stalled is
+  said to have failed;
+- a download that stopped in the middle is **kept** (for 15 minutes at most) and continued with `Range`, not started again;
+- a source that failed is asked again after **1, 2, 5, then every 10 minutes**, **it alone**: the other is neither delayed nor read again;
+  nothing is asked at all while every source that is not fresh is waiting, so a visitor never costs FIRMS a request in that time;
+- the last good reading of a source is **kept and served**, and `stale` is true in the metadata while the last attempt failed; a request never waits
+  for FIRMS once something was read (only the first one does, for 90 seconds at most);
+- `metadata.sources[]` says, for each source, when it was last confirmed current (`read_utc`, `null` while never read), `ok`, how (`via`:
+  `static` or `area`) and when the file was written (`published_utc`, the detections are from before it); `GET /v1/providers` gives the
+  error of the last failed read, the key never in it.
 
-**When FIRMS fails.** FIRMS loses connections and answers slowly (many of the requests of the day of the measures timed out).
-The connect timeout is 12 s, with one more try on a connection error; a request never waits for FIRMS once something was read:
-the previous reading is served, `stale` is true if the last attempt failed, and the next attempt is made in 5 minutes. A read
-that ends cleanly but holds under 90 % of the rows of the previous one of the same day (a cut connection) is refused. A row with
-no readable position or time is skipped and counted (`skipped_rows`).
+A body shorter than the `Content-Length` announced is an error (and is continued, see above), an answer that is not a FIRMS CSV (an HTML page, a CSV
+with no position or time column, more than 16 distinct dates) is refused rather than taken for "no fire", and a row with no readable position or
+time is skipped and counted (`skipped_rows`). The generic circuit breaker of the collectors is not used for FIRMS: its rhythm
+(three failures, ten minutes) would have overridden the backoff of the source that failed.
 
-**The key.** It is in the URL of every request. It is never printed: not in an error, in `last_error` of `GET /v1/providers`, in
-the logs of `httpx`, or in any answer. `tests/test_firms_secret.py` looks for it in all of them.
+**What it costs a day** (`tests/test_fires_sobriety.py`: a simulated day of 1,000 clients on 50 points, the files written hourly and growing by
+appended rows, their sizes those of 2026-10-20; the real files of 2026-10-23 weigh about a fifth more, so the byte figures below grow by about as much; not simulated):
+
+| Day | Requests | Transactions of a key | Bytes |
+| --- | ---: | ---: | ---: |
+| Nobody asks | 0 | 0 | 0 |
+| 1,000 clients (or 100: the same), refresh of 60 minutes, files of 48 hours | 86 (38 of them for the added bytes only) | 0 | 55.5 MB |
+| The same with the files of 24 hours | 89 | 0 | 36.2 MB |
+| The same with a refresh of 30 minutes | 134 | 0 | 55.5 MB |
+| The same with a server that answers every range with the whole file | not counted | 0 | 508.8 MB |
+| FIRMS down all day (503) | 284 (a head each) | 0 | none |
+
+The first version (one world day of the area API per source, read each hour, 36 transactions of the key each) cost **60 reads, 2,160
+transactions and about 170 MB a day** (289 MB at most). This one needs no key and no transaction. How the bytes are made up is in the test: the
+first reading of each file, the file read whole once after midnight (the oldest day leaves it), and what is added in between; checking a file
+that did not change costs its headers. A refresh every 30 minutes costs requests and no byte: FIRMS writes once an hour. The same day with a
+server that did not honour `Range` would cost about ten times as many bytes. Nobody asking, nothing is read: the fires are read when a visitor
+asks, not on a timer.
+
+**Seen on a real run** (2026-10-23, a local instance with no key, a refresh every 10 minutes, the files of 48 hours, the development PC): the first reading of
+the two files (33.1 MB) took 3.6 s (`latency_ms` of `GET /v1/providers`) and a check that found them unchanged 2.8 s (two requests, each closed after its headers).
+At the next writes of FIRMS (18:40:31 UTC for NOAA-20, 18:43:46 for NOAA-21) the instance sent its `GET`, saw a new `ETag`, asked for the bytes after the ones
+held (`206`) and read **245,128 and 371,274 bytes**, 616 kB instead of the two files of 16.6 and 17.1 MB, in 2.9 s, with the `ETag` check passing (a second
+instance, started nine minutes earlier, took 3.1 s for the same refresh and counted the two extra requests of the ranged read). `GET /v1/fires/grid` for the whole world answered in 0.22 s and `GET /v1/fires?bbox=` for Europe in 0.15 s,
+counted from the client, both without key and from the files. One such refresh is what a normal hour costs; the table below is the day.
+
+**Memory and parsing** (the development PC, a Ryzen 9800X3D; a Raspberry Pi or another small machine **not measured**): parsing a file takes 0.36 s (the 24 hour file, 131,000 rows) to 0.58 s (the 48 hour file, 200,000 rows) with the `csv` module (best of 3, 2026-10-23), run in a thread so that the event loop is not held. The rows are kept as typed columns sorted by latitude, 41 bytes a row: 5.4 MB for a file of 24 hours, 8.2 MB for 48 hours. Measured on a local instance with no key, a few minutes after its first reading (the files of 48 hours, 33 MB for the two): the process held **150 MB**, against **96 MB** for the same instance with `VIGIE_ENABLE_FIRMS=0`, so about 54 MB (the columns, 16 MB, and the bytes of the last file of each source, 33 MB), and its **peak was 246 MB** against 113 MB (the first reading, while the file is parsed). A request is answered from the columns: on the same files, the world grid took 0.22 s, a box over Europe 0.15 s, a box over Africa 0.18 s, all three counted from the client.
+
+**When the data arrive.** NASA says up to 3 hours after the observation. In the files read, the newest detection was 2.3 to 3.4 hours older than the
+file (2026-10-20 and 2026-10-23, both sources). On the area API, between two reads 46 minutes apart (2026-10-20, 18:10 and 18:56 UTC) the NOAA-20 file gained 1,493
+detections: 1,425 acquired between 16:05 and 16:30 over South America and the Atlantic, published between 18:10 and 18:42, so 2 to 2.5 hours after
+the pass. The delay over the other regions was **not measured**. A refresh each hour is therefore not slower than the data, since the files are
+written once an hour.
+
+**The key.** None is needed. With `VIGIE_FIRMS_MAP_KEY` set (8 to 64 letters and digits; a value that is not a FIRMS key is not used, and the
+reason, which never holds it, is logged), a source whose file could not be read is read from the **area API** instead of being left without data:
+`firms.modaps.eosdis.nasa.gov/api/area/csv/{MAP_KEY}/{SOURCE}/world/1/{DATE}`, today and yesterday, so at least 24 hours back. That is a second
+path to the same near real-time detections (the ultra real-time ones are not merged), **not proven more reliable** (it is the path that stalled
+for the deployed instance on a small home server), and it is the only thing that costs transactions: FIRMS allows 5,000 in 10 minutes per key and weighs a
+request by its size ("larger transactions may count as multiple requests"); a world day was measured at **36** with `mapkey_status` (2026-10-20
+19:21 UTC, the counter at 0 before, 36 after one read of 4,969,942 bytes). `app/collectors/budget.py` knows it (the quota `nasa-firms`, 90 % of
+5,000, so 125 reads in 10 minutes). The key is in the URL path of every such request, so it is **never printed**: not in an error, in
+`last_error` of `GET /v1/providers`, in the logs of `httpx`, or in any answer. `tests/test_firms_secret.py` looks for it in all of them. Without
+a key the area API is never asked.
 
 **The routes.**
 
 | | `GET /v1/fires` | `GET /v1/fires/grid` |
 | --- | --- | --- |
 | `bbox` | `west,south,east,north`, required | the same, the whole globe by default |
-| Window | `hours`, 24 by default, up to 48 | the same |
+| Window | `hours`, 24 by default, up to the window of the files (48 by default; `VIGIE_FIRMS_WINDOW_HOURS`) | the same |
 | Filters | `min_confidence` (`low`, `nominal`, `high`), `min_frp` (MW) | the same |
 | Cap | `limit`, 1,000 by default, 5,000 at most; the strongest first | `limit` cells, 5,000 by default, 20,000 at most; the busiest first |
 | Cell | | `cell_deg`: 0.25, 0.5, 1, 2, 5 or 10 |
 | Answer | a FeatureCollection of points with the fields of the FIRMS file | a FeatureCollection of cell centres: `count`, `max_frp_mw`, `latest_utc` |
 
 A `bbox` must have `-90 <= south < north <= 90` and longitudes within -540 and 540; a west greater than the east crosses the
-antimeridian, and a span of 360 degrees or more is the whole globe. Anything else is a 422. The metadata of every answer says how
+antimeridian, and a span of 360 degrees or more is the whole globe. Anything else is a 422, and so is an `hours` beyond the window of the files
+this instance reads (the answer never claims to cover more than the file does). The metadata of every answer says how
 many detections matched (`total_matching`) and whether the answer was cut (`truncated`), when FIRMS was read (`data_read_utc`),
-whether the last attempt failed (`stale`), and carries NASA's credit (`attribution`) and disclaimer (`disclaimer`). The answers
-are sent with `Cache-Control: public, max-age=60`.
+whether the last attempt failed (`stale`), the state of each source (`sources`), and carries NASA's credit (`attribution`) and disclaimer
+(`disclaimer`). The answers are sent with `Cache-Control: public, max-age=60`.
 
 `fires_nearby` of `GET /v1/point` (`fire_radius_km`, 50 by default and 500 at most) gives `count_24h`, `nearest_km`,
 `max_frp_mw` and `latest_utc` of the detections of the last 24 hours within that radius. It is listed in `derived`, it is ours, and
-it never raises `local_alert_level`. It is `null` when the instance has no key or nothing has been read yet (the point never waits
+it never raises `local_alert_level`. It is `null` when the instance turned the source off or nothing has been read yet (the point never waits
 for FIRMS).
 
 ## Call volume
 
-NASA FIRMS adds nothing when nobody asks the fire routes, and with someone asking 60 world reads a day (2,160 of its transactions, about 170 MB) at the refresh of an hour (see "Active fires").
+NASA FIRMS adds nothing when nobody asks the fire routes, and with someone asking 86 requests and about 56 MB a day at the refresh of an hour, with no key and no transaction (the first version cost 60 world reads, 2,160 transactions and about 170 MB: see "Active fires").
 
 The services of the WMO registry add, per service that is read, 240 requests a day (a conditional request each 6 minutes), documents
 once each and the registry once a day: 2,010 requests and 10.6 MB a day for the 7 services read by default, 36,924 and 51 MB with
@@ -589,7 +643,7 @@ hours and reported by `GET /v1/providers` (`calls_24h`, `weight_24h`, `quota`). 
 **publishes a quota** also has a budget; the quotas are declared in one place,
 `app/collectors/budget.py` (`QUOTAS`), and listed with their source page in [`SOURCES.md`](../SOURCES.md):
 Open-Meteo (one quota for its four APIs: forecast, air quality, river discharge, marine), MET Norway,
-RainViewer and ECCC (a usage-policy line of 86,400 requests a day: a threshold to tell ECCC about, kept as a limit all the same) have one. NASA FIRMS has one too, in transactions: 5,000 in 10 minutes, and a world read of a day weighs 36. NOAA NWS has a limit that "is not public information", and USGS, EMSC, GDACS,
+RainViewer and ECCC (a usage-policy line of 86,400 requests a day: a threshold to tell ECCC about, kept as a limit all the same) have one. NASA FIRMS has one too for its area API, in transactions: 5,000 in 10 minutes, and a world read of a day weighs 36 (this API reads that API only as a fallback, with a key; the static files weigh nothing). NOAA NWS has a limit that "is not public information", and USGS, EMSC, GDACS,
 USGS Volcano, NOAA SWPC, the NHC, the tsunami centres, MeteoAlarm, the DWD, MetService and Vigicrues publish none: no budget for them (**not verified**), their calls are only counted. The services of the WMO registry publish none either; the set has a ceiling of 50,000 requests a day (`wmo_swic`), which is ours and not a published limit.
 
 The budget lets through 90 % of each limit (`VIGIE_BUDGET_FRACTION`): a margin for another program on

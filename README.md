@@ -69,7 +69,7 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
 | `GET /v1/point?lat=&lon=` | Weather at one GPS position, marine (`marine=true`), river discharge, air quality, space weather, nearby hazards. |
 | `GET /v1/geojson/hazards` | Active hazards as GeoJSON (RFC 7946): one point each. `has_forecast` says whether a storm or a tsunami has a forecast; `near_places` and `derived` say what an earthquake or a volcanic event is close to (calculated by Vigie). See "Places near a hazard" below. |
 | `GET /v1/geojson/hazards/{id}/forecast` | The forecast of a hazard as GeoJSON: the cone, track and positions of a tropical cyclone, the epicentre and arrival times of a tsunami. See "Storms and tsunamis" below. |
-| `GET /v1/fires?bbox=w,s,e,n`, `GET /v1/fires/grid` | The active fires seen by NASA FIRMS (VIIRS, NOAA-20 and NOAA-21): the detections of a box as GeoJSON, or counted per cell for small zooms. Needs `VIGIE_FIRMS_MAP_KEY` (404 without). See "Active fires" below. |
+| `GET /v1/fires?bbox=w,s,e,n`, `GET /v1/fires/grid` | The active fires seen by NASA FIRMS (VIIRS, NOAA-20 and NOAA-21): the detections of a box as GeoJSON, or counted per cell for small zooms. No key needed (404 only on an instance that turned the source off with `VIGIE_ENABLE_FIRMS=0`). See "Active fires" below. |
 | `GET /v1/cap/alerts` | Active hazards as OASIS CAP 1.2. |
 | `GET /v1/vigilances?lat=&lon=` or `?country=FR` or `?source=tsunami` | Official weather warnings that cover a point, or all those of a country (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues, and the national services of the WMO registry), or the tsunami messages in force, the issuer's words untouched. See below. |
 | `GET /v1/vigilances/countries` | The countries this instance serves with its settings, the sources that answer for each, and whether their licence is verified. With `?uncovered=true`, every other country of the world too, each with the reason nothing is read for it. |
@@ -311,9 +311,10 @@ GET /v1/vigilances?source=tsunami                         every tsunami message 
 ## Active fires
 
 `GET /v1/fires` and `GET /v1/fires/grid` serve the active fires seen by the VIIRS instruments of NOAA-20 and NOAA-21 (the near
-real-time product of [NASA FIRMS](https://www.earthdata.nasa.gov/data/tools/firms), 375 m pixels). **They need a free key**
-(`VIGIE_FIRMS_MAP_KEY`, see "Configuration"): without it they answer 404 and `GET /v1/health` lists the source in
-`disabled_sources`. The fires are not in `GET /v1/geojson/hazards`, which a map loads whole.
+real-time product of [NASA FIRMS](https://www.earthdata.nasa.gov/data/tools/firms), 375 m pixels). **They need no key**: the
+instance reads the static files that FIRMS publishes. An instance that turned the source off (`VIGIE_ENABLE_FIRMS=0`, see "Configuration")
+answers 404 and `GET /v1/health` lists the source in `disabled_sources`. The fires are not in `GET /v1/geojson/hazards`, which a map loads
+whole.
 
 ```
 GET /v1/fires?bbox=28,-22,38,-12                          the detections of a box, the strongest first (at most 1,000)
@@ -325,19 +326,25 @@ GET /v1/point?lat=-15.4&lon=28.3&fire_radius_km=50        fires_nearby: count, n
 - **The fields are the file's**: `acq_utc`, `satellite`, `instrument`, `confidence` (`low`, `nominal`, `high`), `frp_mw` (fire radiative
   power), `bright_ti4_k`, `bright_ti5_k`, `scan_km`, `track_km`, `daynight`, `version`. A value the file does not give is `null`.
 - **The limits**: `bbox` is `west,south,east,north` (a west greater than the east crosses the antimeridian; latitudes within -90
-  and 90, `south < north`); `hours` up to 48; `limit` 1,000 by default and 5,000 at most (the grid: 5,000 and 20,000); `cell_deg` 0.25,
+  and 90, `south < north`); `hours` up to the window of the files the instance reads (48 by default, `VIGIE_FIRMS_WINDOW_HOURS`; more is a 422); `limit` 1,000 by default and 5,000 at most (the grid: 5,000 and 20,000); `cell_deg` 0.25,
   0.5, 1, 2, 5 or 10. Anything else is a 422. `metadata` says how many detections matched and whether the answer was cut.
 - **A detection is not an alert.** It is a satellite pixel that looks like a fire: no detection is not the absence of fire (a satellite
   passes a few times a day, clouds hide the ground), and NASA does not advise these data for tactical decisions or local conditions.
-  The data are published about 3 hours after the observation (the United States and Canada within minutes). `fires_nearby` is
-  named in `derived` and never raises `local_alert_level`.
+  The data are published about 3 hours after the observation; the static files hold the near real-time version only, so the
+  ultra real-time detections of the United States and Canada (within minutes) are not in them. `fires_nearby` is named in `derived` and
+  never raises `local_alert_level`.
 - **The credit** NASA asks for (`attribution`) and its disclaimer (`disclaimer`) are in every answer.
-- **Few requests.** FIRMS has no `ETag` or `Last-Modified`, so every read is a full read of about 5 MB: one per source and UTC day, at
-  most every 60 minutes (`VIGIE_FIRMS_REFRESH_MINUTES`), only when someone asks (and once at start-up). A day with 1,000 clients is 60 reads, 2,160 of the
-  5,000 transactions allowed in 10 minutes at most 144 at a time, and about 170 MB. A request never waits for FIRMS once something
-  was read. [ADR 0007](docs/decisions/0007-active-fires-from-nasa-firms.md).
-- **The key is never shown**: it is in the URL of every FIRMS request, and it is redacted from every error, from `last_error` and from
-  the logs. Keep it out of the repository and of the commands you share.
+- **Few requests, and a server that stalls.** FIRMS writes each file once an hour, and its server stalls at times (14 % of the
+  checks sent from one PC got no answer in 40 seconds). The instance checks a file at most every 60 minutes
+  (`VIGIE_FIRMS_REFRESH_MINUTES`), only when someone asks (and once at start-up), with one request that is closed after its headers when
+  nothing changed, and reads only the bytes added to a file that grew (checked against its `ETag`). A day with 1,000 clients is about 86
+  requests and 56 MB by simulation, with no key and no transaction (the first version: 60 reads, 2,160 transactions, 170 MB). A read that
+  gets no byte for 25 seconds fails; that source is asked again after 1, 2, 5, then every 10 minutes, and its last reading is still served,
+  with `stale` true. A request never waits for FIRMS once something was read.
+  [ADR 0007](docs/decisions/0007-active-fires-from-nasa-firms.md).
+- **The key is optional, and never shown.** With `VIGIE_FIRMS_MAP_KEY`, a source whose file could not be read is read from the area API
+  instead. The key is in the URL of those requests: it is redacted from every error, from `last_error` and from the logs. Keep it out of
+  the repository and of the commands you share.
 
 ## Places near a hazard, and watched points
 
@@ -417,7 +424,8 @@ docker run --rm -p 8080:8080 -v vigie-data:/data -e VIGIE_CONTACT=you@example.or
 
 The image (`python:3.13-slim`, built for linux/amd64 by the CI) runs as a non-root user, keeps its
 database in the `/data` volume and has a health check on `/v1/health`. RainViewer is off in the image; add
-`-e VIGIE_ENABLE_RAINVIEWER=1` for a personal instance. The publication workflow pushes
+`-e VIGIE_ENABLE_RAINVIEWER=1` for a personal instance. NASA FIRMS (the active fires) is on, also in the image:
+it downloads about 56 MB a day when someone asks the fire routes, and `-e VIGIE_ENABLE_FIRMS=0` turns it off. The publication workflow pushes
 `ghcr.io/axellum/vigie-api` when a version tag (`v*`) is created; until a tag exists, build the image
 yourself.
 
@@ -449,11 +457,13 @@ All settings are optional environment variables.
 | `VIGIE_WATCHED_POINTS_MAX` | `50` | The most watched points the instance keeps (1 to 500). A new one over the limit is answered 409. |
 | `VIGIE_QUIET_MAX_GAP_S` | `900` | A hazard source not read for longer than this (seconds, 60 to 86,400) breaks the run of readings that a watched point's `quiet` rests on. |
 | `VIGIE_BUDGET_FRACTION` | `0.9` | Part of each published provider quota (Open-Meteo 10,000 calls a day, MET Norway, RainViewer) the API lets through. Beyond it the cache is served, flagged stale. |
-| `VIGIE_FIRMS_MAP_KEY` | none | The free `MAP_KEY` of [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/api/map_key/). Without it the active fires are off: `GET /v1/fires` and `GET /v1/fires/grid` answer 404, `fires_nearby` of `/v1/point` is null and `GET /v1/health` lists the source in `disabled_sources`. The key is in the URL of every FIRMS request: the API never prints it (errors, `last_error`, logs), but keep it out of the repository, of your shell history and of the commands you share. A value that is not letters and digits turns the source off. |
+| `VIGIE_ENABLE_FIRMS` | `1` | `0` turns the active fires off: `GET /v1/fires` and `GET /v1/fires/grid` answer 404, `fires_nearby` of `/v1/point` is null and `GET /v1/health` lists the source in `disabled_sources`. On by default: the instance then downloads about 56 MB a day when someone asks the fire routes (`docs/data-sources.md`). |
+| `VIGIE_FIRMS_MAP_KEY` | none | Optional. The free `MAP_KEY` of [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/api/map_key/). The static files need no key, so without it nothing is missing; with it, a source whose file could not be read is read from the area API instead (today and yesterday, 72 of the 5,000 transactions the key is allowed in 10 minutes). The key is in the URL of every such request: the API never prints it (errors, `last_error`, logs), but keep it out of the repository, of your shell history and of the commands you share. A value that is not letters and digits is not used, and the log says so. |
 | `VIGIE_FIRMS_SOURCES` | `VIIRS_NOAA20_NRT,VIIRS_NOAA21_NRT` | The FIRMS products read: one of them, or both (one halves the volume). Anything else is ignored (Suomi NPP stops on 2026-11-02, MODIS has another layout). |
-| `VIGIE_FIRMS_REFRESH_MINUTES` | `60` | How long a reading of the fires is kept before the next one, 10 to 360. A reading is two files of about 5 MB each, so 60 minutes cost about 170 MB a day when someone asks, 30 minutes twice that (`docs/data-sources.md`). Once the start-up reading is done, nobody asking costs nothing. |
+| `VIGIE_FIRMS_WINDOW_HOURS` | `48` | The file read: `24` or `48` hours. It is also how far back `hours` can go on this instance (more is a 422). The files of 24 hours cost about two thirds of the bytes (36 MB a day against 56). Anything else is ignored. |
+| `VIGIE_FIRMS_REFRESH_MINUTES` | `60` | How long a reading of the fires is kept before the next check, 10 to 360. FIRMS writes its files once an hour, so 30 minutes cost more requests (134 a day against 86) and no more bytes (`docs/data-sources.md`). Once the start-up reading is done, nobody asking costs nothing. |
 
-No API key is needed by any provider except the optional NASA FIRMS (the active fires: `VIGIE_FIRMS_MAP_KEY`). A grid value outside 0.0001 to 10 degrees is ignored (the
+No API key is needed by any provider (NASA FIRMS accepts an optional one: `VIGIE_FIRMS_MAP_KEY`). A grid value outside 0.0001 to 10 degrees is ignored (the
 default is used). Only the request sent to the provider and the cache key use the snapped point: the
 response still reports the exact position of the client, and the distances to the hazards use it.
 

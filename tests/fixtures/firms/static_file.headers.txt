@@ -1,0 +1,50 @@
+The answers of the static file of NOAA-21 (https://firms.modaps.eosdis.nasa.gov/data/active_fire/noaa-21-viirs-c2/csv/J2_VIIRS_C2_Global_24h.csv),
+read on 2026-10-20 from a second machine of the same network (curl, HTTP/2). Only the request ids are left out.
+
+== HEAD (20:17 UTC): 200, the validators and the size ==
+HTTP/2 200
+server: nginx
+date: Tue, 20 Oct 2026 20:17:56 GMT
+content-type: application/octet-stream
+content-length: 8541352
+accept-ranges: bytes
+last-modified: Tue, 20 Oct 2026 19:43:17 GMT
+x-rgw-object-type: Normal
+etag: "644399737c597320b1e075faab41d530"
+x-amz-meta-md5: 644399737c597320b1e075faab41d530
+x-amz-meta-sha256: 953af5df212cbc6723894e96ce513067990c384fde6174eab51675fe9f85ed28
+strict-transport-security: max-age=31536000; includeSubDomains
+
+== GET with "If-Modified-Since: Tue, 20 Oct 2026 19:43:17 GMT" (20:19 UTC): 200 and the WHOLE file (8,541,352 bytes in 2.7 s), not 304 ==
+HTTP/2 200
+server: nginx
+date: Tue, 20 Oct 2026 20:19:06 GMT
+content-type: text/csv
+content-length: 8541352
+accept-ranges: bytes
+last-modified: Tue, 20 Oct 2026 19:43:17 GMT
+x-rgw-object-type: Normal
+etag: "644399737c597320b1e075faab41d530"
+x-amz-meta-md5: 644399737c597320b1e075faab41d530
+x-amz-meta-sha256: 953af5df212cbc6723894e96ce513067990c384fde6174eab51675fe9f85ed28
+strict-transport-security: max-age=31536000; includeSubDomains
+
+(the same with "If-None-Match: \"644399737c597320b1e075faab41d530\"" a few minutes later: 200 and the whole file; with "Accept-Encoding: gzip": no
+ content-encoding, the same 8,541,352 bytes)
+
+== GET with "Range: bytes=0-299" (20:19 UTC): 206 ==
+HTTP/2 206
+server: nginx
+date: Tue, 20 Oct 2026 20:19:37 GMT
+content-type: text/csv
+content-length: 300
+content-range: bytes 0-299/8541352
+accept-ranges: bytes
+last-modified: Tue, 20 Oct 2026 19:43:17 GMT
+x-rgw-object-type: Normal
+etag: "644399737c597320b1e075faab41d530"
+x-amz-meta-md5: 644399737c597320b1e075faab41d530
+x-amz-meta-sha256: 953af5df212cbc6723894e96ce513067990c384fde6174eab51675fe9f85ed28
+strict-transport-security: max-age=31536000; includeSubDomains
+
+(that request took 34.7 s to give its first byte: the server stalls from time to time, with no connection to what is asked)

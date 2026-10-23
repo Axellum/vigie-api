@@ -1,35 +1,47 @@
-"""NASA FIRMS: the active fires (hotspots) that the VIIRS instruments of NOAA-20 and NOAA-21 detect, read once per refresh.
+"""NASA FIRMS: the active fires (hotspots) that the VIIRS instruments of NOAA-20 and NOAA-21 detect, read from the static files of FIRMS.
 
-FIRMS (Fire Information for Resource Management System, NASA LANCE) serves the detections as CSV through an "area" API that needs a
-free ``MAP_KEY``, given in the URL path::
+FIRMS (Fire Information for Resource Management System, NASA LANCE) publishes the detections of the last 24 hours, 48 hours and 7 days as
+CSV files, one per product and region, that need no key and no account::
 
-    https://firms.modaps.eosdis.nasa.gov/api/area/csv/{MAP_KEY}/{SOURCE}/world/{DAY_RANGE}/{DATE}
+    https://firms.modaps.eosdis.nasa.gov/data/active_fire/{FOLDER}/csv/{PREFIX}_Global_{24|48}h.csv
 
-(read on 2026-10-20, https://firms.modaps.eosdis.nasa.gov/api/area/: ``DAY_RANGE`` 1 to 5, ``DATE`` ``YYYY-MM-DD`` optional, the area
-``world`` or ``west,south,east,north``). The key is read from the environment variable ``VIGIE_FIRMS_MAP_KEY``; without it there is no
-FIRMS collector at all (``load_settings`` says why) and every answer that would use it says the source is off.
+(the list of the files is the "Text Files (CSV)" table of https://firms.modaps.eosdis.nasa.gov/active_fire/, read on 2026-10-20). They are
+objects of a store behind a plain web server: nothing is generated when they are asked, and they carry a ``Content-Length``, an ``ETag``, a
+``Last-Modified`` and ``Accept-Ranges: bytes``. They do **not** answer ``304`` to a conditional request (measured on 2026-10-20 and 2026-10-23: the
+whole file comes back with a ``200``), so "has it changed?" is answered here by reading the headers of the answer and closing the connection
+before the body when they are those already held. What is read, and why (the measurements are in ``docs/data-sources.md``):
 
-What is asked, and why (measurements in ``docs/data-sources.md``):
+- **Products**: ``VIIRS_NOAA20_NRT`` and ``VIIRS_NOAA21_NRT`` (375 m pixels, near real-time: global data about 3 hours after the
+  observation). The ultra-real-time detections of the United States and Canada (within minutes) are **not** in these files: FIRMS says
+  they will come "soon". Suomi NPP is left out on purpose (NASA stops its deliveries on 2026-11-02); MODIS (1 km) is not read.
+- **Window**: the file "24h" holds the detections of the UTC day that began 24 hours before it was written, and of the days after (40 hours
+  at 20:00 UTC, 24 at 00:30 UTC: at least 24 hours at any time); the file "48h" the same for 48 hours. ``window_hours`` (24 or 48) says which
+  one is read, and so how far back ``GET /v1/fires`` can go.
+- **A reading per source and refresh**: each source is asked on its own (at the same time as the other), checked at each refresh
+  (``VIGIE_FIRMS_REFRESH_MINUTES``, 60 by default) and downloaded only when its validators changed.
 
-- **Sources**: ``VIIRS_NOAA20_NRT`` and ``VIIRS_NOAA21_NRT`` (375 m pixels, near real-time: global data within 3 hours of the
-  observation, 2.6 to 2.8 hours measured, plus ultra-real-time detections of the United States and Canada within minutes). Suomi NPP
-  is left out on purpose: NASA announces that its deliveries cease on 2026-11-02. MODIS (1 km, another CSV layout) is not read.
-- **One "world" read per source and day**: the data of today (UTC) is read again at each refresh, the data of yesterday once it has
-  settled (4 hours after midnight, UTC), so the rows of the last 24 hours are there at any time of the day. The area API has no
-  validator (no ``ETag``, no ``Last-Modified``, no ``Content-Length`` on a ``HEAD``; ``Cache-Control: no-cache``): a read is always a
-  full read, so the refresh is the cache lifetime (60 minutes by default, ``VIGIE_FIRMS_REFRESH_MINUTES``).
-- **Transactions**: FIRMS allows 5,000 transactions per 10 minutes per key and says a large request counts as several. A world read
-  of one day was measured at 36 transactions; the budget counts it so (``WORLD_DAY_TRANSACTIONS``).
+**A server that stalls.** FIRMS answers slowly and sometimes not at all (measured on 2026-10-20: a first byte after 35 s or never, on the
+web pages as well as on the files, from three machines). So a read is bounded twice: no byte for ``READ_TIMEOUT_S`` seconds ends it, and
+so does ``TOTAL_DEADLINE_S`` seconds in all. A source that failed is asked again after 1, 2, 5 then 10 minutes (``BACKOFF_S``), **it alone**
+(the other source is not delayed, and not read again), and keeps serving its last reading (marked ``stale``). A download that stopped
+in the middle is kept (it is at most 15 minutes old) and continued with a ``Range`` request. ``If-Range`` is sent, but the server ignores it (a validator
+that is not the file's still gets a ``206``, 2026-10-23): what guards the continuation is the ``ETag``, which is the MD5 of the whole file.
 
-The rows are kept compactly (``HotspotTable``: typed arrays, about 43 bytes a row measured, sorted by latitude through an index) and parsed in a
-thread, so the event loop is never held. A value the CSV does not give is ``None``; a row without a readable position or time is skipped
-and counted. **The key never leaves this module**: every error that is raised, recorded (``last_error`` of ``GET /v1/providers``) or
-logged has it replaced by ``REDACTED`` (``tests/test_firms_secret.py``).
+**The key is optional.** With ``VIGIE_FIRMS_MAP_KEY`` the area API (``/api/area/csv/{MAP_KEY}/{SOURCE}/world/1/{DATE}``, one world day per
+request, generated by the server, 36 transactions of the key) is the second way to the same detections: a source whose file could not be
+read is read from it, today and yesterday, instead of being left without data. The key is in the URL path of every such request, so it never
+leaves this module: every error that is raised, recorded (``last_error`` of ``GET /v1/providers``) or logged has it replaced by ``REDACTED``
+(``tests/test_firms_secret.py``). Without a key the area API is never asked.
+
+The rows are kept compactly (``HotspotTable``: typed arrays, 41 bytes a row measured, sorted by latitude through an index) and parsed in a
+thread, so the event loop is never held. A value the CSV does not give is ``None``; a row without a readable position or time is skipped and counted.
 """
 
 from __future__ import annotations
 
+import asyncio
 import csv
+import hashlib
 import io
 import logging
 import math
@@ -38,50 +50,67 @@ import re
 from array import array
 from bisect import bisect_left, bisect_right
 from calendar import timegm
-from dataclasses import dataclass
+from collections.abc import Sequence
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 import httpx
 
 from app import clock
-from app.collectors.base import BaseCollector, CacheEntry, Collected
+from app.collectors.base import BaseCollector, Collected, http_date_to_epoch
 from app.collectors.budget import BudgetExhaustedError
 
 HOST = "firms.modaps.eosdis.nasa.gov"
+STATIC_URL = f"https://{HOST}/data/active_fire"
 AREA_URL = f"https://{HOST}/api/area/csv"
 CACHE_KEY = "global"  # the default key of ``fetch``: one entry holds everything
-ACCEPT = {"Accept": "text/csv, text/plain, */*"}
+ACCEPT = {"Accept": "text/csv, text/plain, */*", "Accept-Encoding": "identity"}  # a range of bytes is a range of the file, not of its compression
 
-# The sources read by default, and the only ones that can be asked (the VIIRS CSV layout). Suomi NPP stops on 2026-11-02.
-DEFAULT_SOURCES: tuple[str, ...] = ("VIIRS_NOAA20_NRT", "VIIRS_NOAA21_NRT")
+# The sources (the names of the area API, which are the ones this API shows) and where their static files are: ``(folder, file prefix)``.
+# Suomi NPP stops on 2026-11-02, MODIS has another layout: neither is read.
+FILES: dict[str, tuple[str, str]] = {
+    "VIIRS_NOAA20_NRT": ("noaa-20-viirs-c2", "J1_VIIRS_C2"),
+    "VIIRS_NOAA21_NRT": ("noaa-21-viirs-c2", "J2_VIIRS_C2"),
+}
+DEFAULT_SOURCES: tuple[str, ...] = tuple(FILES)
 ALLOWED_SOURCES: tuple[str, ...] = DEFAULT_SOURCES
+WINDOWS_HOURS: tuple[int, ...] = (24, 48)  # the files that exist and that the routes can use (a 7 day file is 34 MB, and nothing asks for it)
+DEFAULT_WINDOW_HOURS = 48
 
 DEFAULT_REFRESH_MINUTES = 60
 MIN_REFRESH_MINUTES = 10
 MAX_REFRESH_MINUTES = 360
-RETRY_S = 300.0  # a source that could not be read is asked again after five minutes, the others are left alone
-SHRINK_RATIO = 0.9  # a day's file only grows as the day goes on: an answer with under 90 % of the rows of the last reading is a cut answer
-SETTLE_S = 4 * 3600  # the NRT data of a day is complete 3 hours after it ends; one more hour of margin
+REFRESH_SLACK_S = 60  # a source whose reading is within a minute of its lifetime is read along with another that is due
 
-# Transactions a world read of one day costs on a MAP_KEY: measured on 2026-10-20 with ``/mapserver/mapkey_status/`` (36 for each
-# read of one source; 108 after three reads).
+# What a stalled server costs. A file is 8 to 15 MB and arrives in 2 to 3 seconds when FIRMS answers (2026-10-20, from a second machine of the same network):
+# 25 seconds without a byte is a stall, and 90 seconds is more than a slow link needs for a file.
+CONNECT_TIMEOUT_S = 12.0
+READ_TIMEOUT_S = 25.0
+TOTAL_DEADLINE_S = 90.0
+TIMEOUT = httpx.Timeout(connect=CONNECT_TIMEOUT_S, read=READ_TIMEOUT_S, write=10.0, pool=10.0)
+BACKOFF_S: tuple[float, ...] = (60.0, 120.0, 300.0, 600.0)  # after the 1st, 2nd, 3rd failure in a row (then the last one, until it works)
+PARTIAL_KEEP_S = 900.0  # an interrupted download is continued if it is at most this old
+STATIC_WEIGHT = 0.0  # a static file needs no key and costs no transaction: the request is counted, not weighed against the quota
+MAX_BODY_BYTES = 200 * 1024 * 1024  # a window of 48 hours is about 15 MB; this only stops a mistake
+
+# The area API (the fallback, with a key): a world day is generated by the server, which can take a minute, and counts for 36 transactions
+# of the 5,000 per 10 minutes the key is allowed (measured on 2026-10-20 with ``/mapserver/mapkey_status/``).
 WORLD_DAY_TRANSACTIONS = 36.0
-
-# FIRMS answers slowly and, from some networks, loses connections (2026-10-20: handshakes that never finish, a request that took 35 s):
-# a short connect timeout and one new attempt on the connect phase, a long read (a world day is about 5 MB).
-TIMEOUT = httpx.Timeout(connect=12.0, read=60.0, write=30.0, pool=10.0)
-
-MAX_BODY_BYTES = 200 * 1024 * 1024  # a world day is about 5 MB; this only stops a mistake
+AREA_TIMEOUT = httpx.Timeout(connect=12.0, read=60.0, write=30.0, pool=10.0)
 KEY_SHAPE = re.compile(r"^[A-Za-z0-9]{8,64}$")
+NO_BREAKER = 1_000_000_000  # the circuit breaker of the base class is not used here: every source has its own backoff
 
 REQUIRED_COLUMNS = ("latitude", "longitude", "acq_date", "acq_time")
-CONFIDENCE_CODES: dict[str, int] = {"l": 1, "n": 2, "h": 3}  # VIIRS: low, nominal, high
+# The static files write the class in full (``low``, ``nominal``, ``high``), the area API with its first letter.
+CONFIDENCE_CODES: dict[str, int] = {"l": 1, "low": 1, "n": 2, "nominal": 2, "h": 3, "high": 3}
 CONFIDENCE_NAMES: tuple[Optional[str], ...] = (None, "low", "nominal", "high")
 DAYNIGHT_NAMES: tuple[Optional[str], ...] = (None, "day", "night")
 SCALE = 100_000  # positions are kept in 1e-5 degrees (about 1 m; the CSV has 5 decimals)
+MAX_DATES = 16  # a window holds at most 8 days (the 7 day file): more distinct dates is not a FIRMS file
 
 NAN = float("nan")
+logger = logging.getLogger(__name__)
 
 
 class FIRMSError(RuntimeError):
@@ -97,35 +126,49 @@ class FIRMSError(RuntimeError):
         self.transport = transport
 
 
+def static_url(source: str, window_hours: int) -> str:
+    """The address of the world file of ``source`` for the last ``window_hours`` hours (24 or 48)."""
+    folder, prefix = FILES[source]
+    return f"{STATIC_URL}/{folder}/csv/{prefix}_Global_{window_hours}h.csv"
+
+
 # ------------------------------------------------------------------------------------------------ settings
 
 
 @dataclass(frozen=True)
 class Settings:
-    """What the environment says about FIRMS: the key (``None`` when the source is off, and then ``off_reason`` says why)."""
+    """What the environment says about FIRMS. ``enabled`` is false (and ``off_reason`` says why) when an instance turned the source off."""
 
-    key: Optional[str]
+    enabled: bool
     off_reason: Optional[str]
+    key: Optional[str]  # the optional MAP_KEY of the area API; ``None`` when there is none or it is not one
+    key_problem: Optional[str]  # why a key that is set is not used (never holds its value)
     sources: tuple[str, ...]
     refresh_s: int
+    window_hours: int
+
+
+def fires_enabled_from_env(environ: Optional[dict[str, str]] = None) -> bool:
+    """Whether FIRMS is read: on unless ``VIGIE_ENABLE_FIRMS`` is ``0`` / ``false`` / ``no`` / ``off`` (a copy of 20 MB an hour is not for every instance)."""
+    env = os.environ if environ is None else environ
+    return (env.get("VIGIE_ENABLE_FIRMS") or "1").strip().lower() not in {"0", "false", "no", "off"}
 
 
 def load_settings(environ: Optional[dict[str, str]] = None) -> Settings:
-    """``VIGIE_FIRMS_MAP_KEY`` (the key), ``VIGIE_FIRMS_SOURCES`` (comma-separated, default both) and ``VIGIE_FIRMS_REFRESH_MINUTES``.
+    """``VIGIE_ENABLE_FIRMS`` (on by default), ``VIGIE_FIRMS_SOURCES`` (comma-separated, default both), ``VIGIE_FIRMS_REFRESH_MINUTES``,
+    ``VIGIE_FIRMS_WINDOW_HOURS`` (24 or 48) and the optional ``VIGIE_FIRMS_MAP_KEY``.
 
-    A key that is missing or does not look like a FIRMS key (letters and digits only) turns the source off; the reason never holds the
-    value. An unusable list of sources or refresh falls back to the default.
+    A key that does not look like a FIRMS key (letters and digits only) is not used, and the reason, which never holds the value, is in
+    ``key_problem``. An unusable list of sources, refresh or window falls back to the default.
     """
     env = os.environ if environ is None else environ
     raw = (env.get("VIGIE_FIRMS_MAP_KEY") or "").strip()
     key: Optional[str] = None
-    reason: Optional[str] = None
-    if not raw:
-        reason = "VIGIE_FIRMS_MAP_KEY is not set"
-    elif not KEY_SHAPE.fullmatch(raw):
-        reason = "VIGIE_FIRMS_MAP_KEY is set but is not a FIRMS key (8 to 64 letters and digits)"
-    else:
+    problem: Optional[str] = None
+    if raw and KEY_SHAPE.fullmatch(raw):
         key = raw
+    elif raw:
+        problem = "VIGIE_FIRMS_MAP_KEY is set but is not a FIRMS key (8 to 64 letters and digits): it is not used"
 
     sources = tuple(dict.fromkeys(part.strip() for part in (env.get("VIGIE_FIRMS_SOURCES") or "").split(",") if part.strip()))
     if not sources or any(source not in ALLOWED_SOURCES for source in sources):
@@ -137,7 +180,24 @@ def load_settings(environ: Optional[dict[str, str]] = None) -> Settings:
         minutes = DEFAULT_REFRESH_MINUTES
     if not MIN_REFRESH_MINUTES <= minutes <= MAX_REFRESH_MINUTES:
         minutes = DEFAULT_REFRESH_MINUTES
-    return Settings(key=key, off_reason=reason, sources=sources, refresh_s=minutes * 60)
+
+    try:
+        window = int((env.get("VIGIE_FIRMS_WINDOW_HOURS") or "").strip() or DEFAULT_WINDOW_HOURS)
+    except ValueError:
+        window = DEFAULT_WINDOW_HOURS
+    if window not in WINDOWS_HOURS:
+        window = DEFAULT_WINDOW_HOURS
+
+    enabled = fires_enabled_from_env(env)
+    return Settings(
+        enabled=enabled,
+        off_reason=None if enabled else "NASA FIRMS is turned off on this instance (VIGIE_ENABLE_FIRMS=0)",
+        key=key,
+        key_problem=problem,
+        sources=sources,
+        refresh_s=minutes * 60,
+        window_hours=window,
+    )
 
 
 # ------------------------------------------------------------------------------------------------ the rows
@@ -161,7 +221,7 @@ class _Palette:
 
 
 class HotspotTable:
-    """The detections of one source for one UTC day, as typed columns; ``order`` lists the rows by latitude.
+    """The detections of one source over a window, as typed columns; ``order`` lists the rows by latitude.
 
     Immutable once built. A number the CSV did not give is ``nan`` (``None`` in the answers); ``confidence`` and ``daynight`` are 0 when
     unknown. ``acq`` is the acquisition time in epoch seconds (UTC).
@@ -231,120 +291,161 @@ def _number(row: list[str], index: Optional[int]) -> float:
     return value if math.isfinite(value) else NAN
 
 
-def parse_csv(content: bytes, date: str) -> tuple[HotspotTable, ParseStats]:
-    """The detections of a FIRMS area CSV (VIIRS layout) for the day ``date`` (``YYYY-MM-DD``).
-
-    Raises ``ValueError`` when the answer is not that CSV (an error message, an HTML page, a CSV without position or time columns): the
-    caller must not take it for "no fire". A header and no row is a valid empty day.
-    """
-    text = content.decode("utf-8", errors="replace")
-    reader = csv.reader(io.StringIO(text))
+def _midnight(day: str) -> Optional[int]:
+    """Epoch seconds of 00:00 UTC of ``YYYY-MM-DD``; ``None`` when it is not a date."""
     try:
-        header = [column.strip().lower() for column in next(reader)]
-    except StopIteration:
-        raise ValueError("empty answer") from None
-    columns = {name: position for position, name in enumerate(header)}
-    missing = [name for name in REQUIRED_COLUMNS if name not in columns]
-    if missing:
-        raise ValueError("not a FIRMS CSV (missing columns: " + ", ".join(missing) + ")")
-    try:
-        midnight = timegm(datetime.strptime(date, "%Y-%m-%d").timetuple())
+        return timegm(datetime.strptime(day, "%Y-%m-%d").timetuple())
     except ValueError:
-        raise ValueError("bad date asked") from None
+        return None
 
-    i_lat, i_lon, i_date, i_time = (columns[name] for name in REQUIRED_COLUMNS)
-    i_ti4, i_ti5, i_frp = columns.get("bright_ti4"), columns.get("bright_ti5"), columns.get("frp")
-    i_scan, i_track = columns.get("scan"), columns.get("track")
-    i_conf, i_dn = columns.get("confidence"), columns.get("daynight")
-    i_sat, i_inst, i_ver = columns.get("satellite"), columns.get("instrument"), columns.get("version")
-    need = max(i_lat, i_lon, i_date, i_time)
 
+def parse_csv(content: bytes, date: Optional[str] = None) -> tuple[HotspotTable, ParseStats]:
+    """The detections of a FIRMS CSV (VIIRS layout): every row of a static file, or those of the day ``date`` (``YYYY-MM-DD``) of an area read."""
+    return parse_csvs(((content, date),))
+
+
+def parse_csvs(parts: Sequence[tuple[bytes, Optional[str]]]) -> tuple[HotspotTable, ParseStats]:
+    """The detections of one or several FIRMS CSV files (VIIRS layout) in one table.
+
+    The columns are found by their names (the static files and the area API do not list them in the same order, and only the second has
+    ``instrument``); the time of a row is its own ``acq_date`` and ``acq_time`` (``HHMM``, with or without a leading zero). A part with a
+    ``date`` keeps only the rows of that day (the file of one day of the area API: a row of another day belongs to that day's own read).
+
+    Raises ``ValueError`` when an answer is not that CSV (an error message, an HTML page, a CSV without position or time columns): the
+    caller must not take it for "no fire". A header and no row is a valid empty window.
+    """
     table = HotspotTable()
     satellites, instruments, versions = _Palette(), _Palette(), _Palette()
+    midnights: dict[str, Optional[int]] = {}
     skipped = 0
     latest: Optional[int] = None
     sort_keys: list[int] = []
-    for row in reader:
-        if len(row) <= need:
-            skipped += 1
-            continue
+    for content, date in parts:
+        text = content.decode("utf-8", errors="replace")
+        reader = csv.reader(io.StringIO(text))
         try:
-            lat, lon = float(row[i_lat]), float(row[i_lon])
-            hhmm = int(row[i_time])
-        except ValueError:
-            skipped += 1
-            continue
-        hour, minute = divmod(hhmm, 100)
-        if row[i_date].strip() != date or not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0) or not (0 <= hour <= 23 and 0 <= minute <= 59):
-            skipped += 1  # also a NaN position, and a row of another day (it belongs to that day's own read)
-            continue
-        acq = midnight + hour * 3600 + minute * 60
-        lat_e5 = round(lat * SCALE)
-        table.lat.append(lat_e5)
-        table.lon.append(round(lon * SCALE))
-        table.acq.append(acq)
-        table.frp.append(_number(row, i_frp))
-        table.ti4.append(_number(row, i_ti4))
-        table.ti5.append(_number(row, i_ti5))
-        table.scan.append(_number(row, i_scan))
-        table.track.append(_number(row, i_track))
-        table.conf.append(CONFIDENCE_CODES.get(row[i_conf].strip().lower(), 0) if i_conf is not None and i_conf < len(row) else 0)
-        table.dn.append({"d": 1, "n": 2}.get(row[i_dn].strip().lower(), 0) if i_dn is not None and i_dn < len(row) else 0)
-        table.sat.append(satellites.code(row[i_sat].strip()) if i_sat is not None and i_sat < len(row) else 0)
-        table.inst.append(instruments.code(row[i_inst].strip()) if i_inst is not None and i_inst < len(row) else 0)
-        table.ver.append(versions.code(row[i_ver].strip()) if i_ver is not None and i_ver < len(row) else 0)
-        sort_keys.append(lat_e5)
-        if latest is None or acq > latest:
-            latest = acq
+            header = [column.strip().lower() for column in next(reader)]
+        except StopIteration:
+            raise ValueError("empty answer") from None
+        columns = {name: position for position, name in enumerate(header)}
+        missing = [name for name in REQUIRED_COLUMNS if name not in columns]
+        if missing:
+            raise ValueError("not a FIRMS CSV (missing columns: " + ", ".join(missing) + ")")
+        if date is not None and _midnight(date) is None:
+            raise ValueError("bad date asked")
+
+        i_lat, i_lon, i_date, i_time = (columns[name] for name in REQUIRED_COLUMNS)
+        i_ti4, i_ti5, i_frp = columns.get("bright_ti4"), columns.get("bright_ti5"), columns.get("frp")
+        i_scan, i_track = columns.get("scan"), columns.get("track")
+        i_conf, i_dn = columns.get("confidence"), columns.get("daynight")
+        i_sat, i_inst, i_ver = columns.get("satellite"), columns.get("instrument"), columns.get("version")
+        need = max(i_lat, i_lon, i_date, i_time)
+
+        for row in reader:
+            if len(row) <= need:
+                skipped += 1
+                continue
+            day = row[i_date].strip()
+            if date is not None and day != date:
+                skipped += 1  # a row of another day: it belongs to that day's own read
+                continue
+            if day not in midnights:
+                if len(midnights) >= MAX_DATES:
+                    raise ValueError("not a FIRMS CSV (more than %d distinct dates)" % MAX_DATES)
+                midnights[day] = _midnight(day)
+            midnight = midnights[day]
+            try:
+                lat, lon = float(row[i_lat]), float(row[i_lon])
+                hhmm = int(row[i_time])
+            except ValueError:
+                skipped += 1
+                continue
+            hour, minute = divmod(hhmm, 100)
+            if midnight is None or not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0) or not (0 <= hour <= 23 and 0 <= minute <= 59):
+                skipped += 1  # also a NaN position
+                continue
+            acq = midnight + hour * 3600 + minute * 60
+            lat_e5 = round(lat * SCALE)
+            table.lat.append(lat_e5)
+            table.lon.append(round(lon * SCALE))
+            table.acq.append(acq)
+            table.frp.append(_number(row, i_frp))
+            table.ti4.append(_number(row, i_ti4))
+            table.ti5.append(_number(row, i_ti5))
+            table.scan.append(_number(row, i_scan))
+            table.track.append(_number(row, i_track))
+            table.conf.append(CONFIDENCE_CODES.get(row[i_conf].strip().lower(), 0) if i_conf is not None and i_conf < len(row) else 0)
+            table.dn.append({"d": 1, "n": 2}.get(row[i_dn].strip().lower(), 0) if i_dn is not None and i_dn < len(row) else 0)
+            table.sat.append(satellites.code(row[i_sat].strip()) if i_sat is not None and i_sat < len(row) else 0)
+            table.inst.append(instruments.code(row[i_inst].strip()) if i_inst is not None and i_inst < len(row) else 0)
+            table.ver.append(versions.code(row[i_ver].strip()) if i_ver is not None and i_ver < len(row) else 0)
+            sort_keys.append(lat_e5)
+            if latest is None or acq > latest:
+                latest = acq
     table.order = array("I", sorted(range(len(sort_keys)), key=sort_keys.__getitem__))
     table.satellites, table.instruments, table.versions = tuple(satellites.names), tuple(instruments.names), tuple(versions.names)
     return table, ParseStats(rows=len(table), skipped=skipped, latest_acq_utc=latest)
 
 
+# ------------------------------------------------------------------------------------------------ what a file says about itself
+
+
 @dataclass(frozen=True)
-class FireDay:
-    """One source for one UTC day, as read at ``read_utc``."""
+class Validators:
+    """What FIRMS says about the file it served: enough to know that it is the one already held."""
+
+    etag: Optional[str] = None
+    last_modified: Optional[str] = None
+    length: Optional[int] = None
+
+    @staticmethod
+    def of(headers: httpx.Headers, length: Optional[int]) -> "Validators":
+        return Validators((headers.get("ETag") or "").strip() or None, (headers.get("Last-Modified") or "").strip() or None, length)
+
+    def same_as(self, other: "Validators") -> bool:
+        """The ETag decides when both have one; else the modification date and the size, both present."""
+        if self.etag and other.etag:
+            return self.etag == other.etag
+        return self.last_modified is not None and self.last_modified == other.last_modified and self.length is not None and self.length == other.length
+
+
+@dataclass(frozen=True)
+class FireReading:
+    """One source as last read: its detections over the window, and what was asked to get them."""
 
     source: str
-    date: str
-    read_utc: int
-    bytes_read: int
+    via: str  # "static" (the file of FIRMS) or "area" (the area API, with a key, when the file could not be read)
+    read_utc: int  # when it was last confirmed current: downloaded, or found unchanged by its validators
+    published_utc: Optional[int]  # the file's ``Last-Modified`` (static files only)
+    bytes_read: int  # what the last download brought
     skipped: int
     table: HotspotTable
-
-    @property
-    def settle_utc(self) -> int:
-        """When the data of this day is complete in FIRMS: ``SETTLE_S`` after its end."""
-        return day_end_utc(self.date) + SETTLE_S
+    validators: Optional[Validators] = None
 
 
 @dataclass(frozen=True)
 class FireSet:
-    """Everything read: the tables of today and yesterday (UTC) for each source, and which source could not be read this time."""
+    """Everything served: the reading of each source that has one."""
 
-    days: tuple[FireDay, ...]
-    read_utc: int  # when the last read of this set finished
-    failed: tuple[str, ...] = ()  # sources whose last read failed (their previous table, if any, is still in ``days``)
-    errors: tuple[str, ...] = ()  # the messages of those failures (the key redacted)
+    readings: tuple[FireReading, ...]
+    read_utc: int  # the most recent confirmation of any source
 
     def sources(self) -> tuple[str, ...]:
-        return tuple(dict.fromkeys(day.source for day in self.days))
+        return tuple(dict.fromkeys(reading.source for reading in self.readings))
+
+    def reading(self, source: str) -> Optional[FireReading]:
+        return next((reading for reading in self.readings if reading.source == source), None)
 
     def newest_read_utc(self, source: str) -> Optional[int]:
-        reads = [day.read_utc for day in self.days if day.source == source]
-        return max(reads) if reads else None
+        reading = self.reading(source)
+        return None if reading is None else reading.read_utc
 
     def total_rows(self) -> int:
-        return sum(len(day.table) for day in self.days)
-
-
-def day_end_utc(date: str) -> int:
-    """Epoch seconds of the end (the next midnight, UTC) of the day ``date``."""
-    return timegm(datetime.strptime(date, "%Y-%m-%d").timetuple()) + 86_400
+        return sum(len(reading.table) for reading in self.readings)
 
 
 def utc_dates(now: float) -> tuple[str, str]:
-    """``(today, yesterday)`` as ``YYYY-MM-DD``, UTC, at the epoch time ``now``."""
+    """``(today, yesterday)`` as ``YYYY-MM-DD``, UTC, at the epoch time ``now`` (the two days the area API is asked for)."""
     today = datetime.fromtimestamp(now, tz=timezone.utc)
     return today.strftime("%Y-%m-%d"), (today - timedelta(days=1)).strftime("%Y-%m-%d")
 
@@ -368,22 +469,87 @@ class _RedactingFilter(logging.Filter):
 
 def _install_log_filter(secret: str) -> None:
     for name in ("httpx", "httpcore"):
-        logger = logging.getLogger(name)
-        if not any(isinstance(f, _RedactingFilter) and f._secret == secret for f in logger.filters):
-            logger.addFilter(_RedactingFilter(secret))
+        logger_ = logging.getLogger(name)
+        if not any(isinstance(f, _RedactingFilter) and f._secret == secret for f in logger_.filters):
+            logger_.addFilter(_RedactingFilter(secret))
 
 
 # ------------------------------------------------------------------------------------------------ the collector
 
 
+@dataclass
+class _Partial:
+    """A download that stopped in the middle, and what it takes to continue it."""
+
+    etag: str
+    total: int
+    data: bytes
+    at: float  # monotonic time it was kept
+
+
+@dataclass
+class _Progress:
+    """What an attempt has got so far (kept outside the attempt, so that a failure can still save it)."""
+
+    buffer: bytearray = field(default_factory=bytearray)
+    etag: Optional[str] = None
+    total: Optional[int] = None
+    resumable: bool = False
+
+
+@dataclass(frozen=True)
+class _Download:
+    content: Optional[bytes]  # ``None``: the file is the one already held (or, with ``tail_from``, one that only grew)
+    validators: Validators
+    bytes_read: int = 0  # what this download really pulled (the added bytes only, for a file that grew)
+    tail_from: Optional[int] = None  # the file looks like the held one with bytes added: the offset of the first added byte
+
+
+@dataclass
+class _SourceState:
+    """What the collector knows of one source: its last reading and how it is going."""
+
+    reading: Optional[FireReading] = None
+    failures: int = 0  # failed attempts in a row
+    retry_at: float = 0.0  # wall clock: not asked again before
+    error: Optional[str] = None  # the last failure, the key redacted
+    partial: Optional[_Partial] = None
+    raw: Optional[bytes] = None  # the file of the last reading, kept to read only what is added to it next time (see ``_append``)
+
+
+def _md5_of(etag: Optional[str]) -> Optional[str]:
+    """The MD5 an ETag is, when it is one (the ETag of a file of FIRMS is the MD5 of its whole content: checked on 4 files on 2026-10-20)."""
+    match = re.fullmatch(r'"([0-9a-f]{32})"', (etag or "").strip())
+    return None if match is None else match.group(1)
+
+
+def _joined_if_md5(raw: bytes, tail: bytes, wanted: str) -> Optional[bytes]:
+    """``raw + tail`` when its MD5 is ``wanted``, else ``None`` (run in a thread: 10 to 15 MB)."""
+    digest = hashlib.md5(usedforsecurity=False)
+    digest.update(raw)
+    digest.update(tail)
+    return raw + tail if digest.hexdigest() == wanted else None
+
+
+def _content_range(value: Optional[str]) -> Optional[tuple[int, int, int]]:
+    """``(first, last, total)`` of ``Content-Range: bytes 100-199/8541352``."""
+    match = re.fullmatch(r"bytes (\d+)-(\d+)/(\d+)", (value or "").strip())
+    return None if match is None else (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+
+
 class FIRMSCollector(BaseCollector[FireSet]):
-    """Reads the FIRMS detections of the last two UTC days; one cache entry (``CACHE_KEY``) holds everything."""
+    """Reads the FIRMS detections of each source; one cache entry (``CACHE_KEY``) holds everything.
+
+    The cache entry lasts until the first source falls due (a lifetime after its reading, or after its backoff): the sources are asked
+    together only when they are due together.
+    """
 
     def __init__(
         self,
-        map_key: str,
+        map_key: Optional[str] = None,
         sources: tuple[str, ...] = DEFAULT_SOURCES,
         refresh_s: int = DEFAULT_REFRESH_MINUTES * 60,
+        window_hours: int = DEFAULT_WINDOW_HOURS,
         http_client: Optional[httpx.AsyncClient] = None,
     ) -> None:
         super().__init__(
@@ -391,15 +557,25 @@ class FIRMSCollector(BaseCollector[FireSet]):
             name="NASA FIRMS (active fires)",
             domain="fires",
             ttl_seconds=refresh_s,
-            failure_threshold=3,
+            failure_threshold=NO_BREAKER,
             recovery_timeout_seconds=600,
             timeout_seconds=TIMEOUT,
             http_client=http_client,
         )
+        if window_hours not in WINDOWS_HOURS:
+            raise ValueError(f"window_hours must be one of {WINDOWS_HOURS}")
+        if not sources or any(source not in FILES for source in sources):
+            raise ValueError(f"sources must be some of {tuple(FILES)}")
         self._key = map_key
-        self.secrets = (map_key,)
+        self.secrets = (map_key,) if map_key else ()
         self.sources = tuple(sources)
-        _install_log_filter(map_key)
+        self.window_hours = window_hours
+        self.deadline_s = TOTAL_DEADLINE_S  # a test shortens it
+        self._states: dict[str, _SourceState] = {source: _SourceState() for source in self.sources}
+        if map_key:
+            _install_log_filter(map_key)
+
+    # -- what the service asks ---------------------------------------------------------------------
 
     def cached(self) -> tuple[Optional[FireSet], bool]:
         """The last set read and whether it is still within its lifetime; ``(None, False)`` before the first read."""
@@ -408,30 +584,221 @@ class FIRMSCollector(BaseCollector[FireSet]):
             return None, False
         return entry.value, clock.monotonic() <= entry.fresh_until
 
-    def _needs_read(self, old: Optional[FireDay], date: str, today: str, now: float) -> bool:
-        if old is None:
-            return True
-        age = now - old.read_utc
-        if date == today:
-            return age >= self.ttl_seconds - 60
-        if old.read_utc >= old.settle_utc:
-            return False  # yesterday, read after it settled: final
-        return now >= old.settle_utc or age >= self.ttl_seconds - 60
+    def failing(self) -> bool:
+        """Whether the last attempt to read any source failed (what ``stale`` says)."""
+        return any(state.failures for state in self._states.values())
 
-    async def _read_day(self, client: httpx.AsyncClient, source: str, date: str, now: float) -> FireDay:
-        """One world read of one day. Raises ``FIRMSError`` (the key redacted) or ``BudgetExhaustedError``."""
+    def source_ok(self, source: str) -> bool:
+        """Whether ``source`` has a reading and its last attempt did not fail."""
+        state = self._states.get(source)
+        return state is not None and state.reading is not None and state.failures == 0
+
+    def waiting(self) -> bool:
+        """True when no source is due: a refresh now would ask nothing (the failed ones are in their backoff)."""
+        now = clock.wall()
+        return not any(self._is_due(source, now) for source in self.sources)
+
+    def errors(self) -> list[str]:
+        """The last failure of each source that failed (each message starts with the source), the key redacted."""
+        return [state.error for state in self._states.values() if state.failures and state.error]
+
+    # -- when -------------------------------------------------------------------------------------
+
+    def _is_due(self, source: str, now: float) -> bool:
+        state = self._states[source]
+        if state.failures:
+            return now >= state.retry_at
+        if state.reading is None:
+            return True
+        return now - state.reading.read_utc >= self.ttl_seconds - REFRESH_SLACK_S
+
+    def _fresh_for(self, now: float) -> float:
+        """Seconds until the first source falls due: how long the set stays fresh."""
+        waits = []
+        for source in self.sources:
+            state = self._states[source]
+            if state.failures:
+                waits.append(state.retry_at - now)
+            elif state.reading is not None:
+                waits.append(state.reading.read_utc + self.ttl_seconds - now)
+        return max(1.0, min(waits)) if waits else float(self.ttl_seconds)
+
+    def _set(self, now: float) -> FireSet:
+        readings = tuple(state.reading for source in self.sources if (state := self._states[source]).reading is not None)
+        return FireSet(readings=readings, read_utc=max((reading.read_utc for reading in readings), default=int(now)))
+
+    # -- the static file ----------------------------------------------------------------------------
+
+    async def _pull(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        headers: dict[str, str],
+        held: Optional[Validators],
+        resume: Optional[_Partial],
+        progress: _Progress,
+        raw: Optional[bytes] = None,
+    ) -> _Download:
+        """One request for the file: what comes of it is the file, a continuation of it, "unchanged" or, with ``raw`` (the held file), "it
+        grew": the headers are those of a longer file and the body is not read, ``_append`` asks for what was added. Raises ``FIRMSError``."""
+        self._spend({}, STATIC_WEIGHT)  # every request is counted
+        async with client.stream("GET", url, headers=headers) as response:
+            status = response.status_code
+            if status == 304 and held is not None:
+                return _Download(None, held)
+            if status not in (200, 206):
+                raise FIRMSError(f"HTTP {status} from {HOST}", status=status)
+            encoded = (response.headers.get("Content-Encoding") or "identity").strip().lower() != "identity"
+            if status == 200:
+                declared = response.headers.get("Content-Length", "")
+                total: Optional[int] = int(declared) if declared.isdigit() else None
+                validators = Validators.of(response.headers, total)
+                if held is not None and resume is None and validators.same_as(held):
+                    return _Download(None, validators)  # the connection is closed here: the body is not read
+                if total is not None and total > MAX_BODY_BYTES:
+                    raise FIRMSError(f"answer of {total} bytes is too large")
+                if (
+                    raw is not None
+                    and held is not None
+                    and resume is None
+                    and not encoded
+                    and total is not None
+                    and total > len(raw)
+                    and _md5_of(validators.etag) is not None
+                    and "bytes" in (response.headers.get("Accept-Ranges") or "").lower()
+                ):
+                    return _Download(None, validators, tail_from=len(raw))  # closed here too: _append asks for the added bytes only
+            else:
+                span = _content_range(response.headers.get("Content-Range"))
+                total = None if span is None else span[2]
+                validators = Validators.of(response.headers, total)
+                if resume is None or span is None or span[0] != len(resume.data) or total != resume.total or validators.etag != resume.etag:
+                    raise FIRMSError("the server did not answer the range that was asked")
+                progress.buffer = bytearray(resume.data)
+            progress.etag = validators.etag
+            progress.total = None if encoded else total
+            progress.resumable = (
+                not encoded
+                and total is not None
+                and validators.etag is not None
+                and not validators.etag.startswith("W/")
+                and (status == 206 or "bytes" in (response.headers.get("Accept-Ranges") or "").lower())
+            )
+            async for chunk in response.aiter_bytes():
+                progress.buffer += chunk
+                if len(progress.buffer) > MAX_BODY_BYTES:
+                    raise FIRMSError(f"answer is larger than {MAX_BODY_BYTES} bytes")
+            if progress.total is not None and len(progress.buffer) != progress.total:
+                raise FIRMSError(f"the answer holds {len(progress.buffer)} bytes of the {progress.total} announced")
+            return _Download(bytes(progress.buffer), validators)
+
+    async def _append(self, client: httpx.AsyncClient, url: str, raw: bytes, validators: Validators) -> Optional[_Download]:
+        """The file as it is now, when it is the held one with rows added at its end: only the added bytes are read.
+
+        The files of FIRMS grow within a UTC day (on 2026-10-20 the file of NOAA-20 written at 20:40 was the one of 19:40 and 257,185 bytes more,
+        the first one a prefix of the second), and their ``ETag`` is the MD5 of the whole content. So what is held plus what was added is
+        checked against the ``ETag``: when it is that file, bit for bit, nothing else was read; when it is not (a day that rolled over, a
+        file written again), ``None`` and the caller reads the whole file. A wrong file is never assembled.
+        """
+        wanted = _md5_of(validators.etag)
+        assert wanted is not None and validators.etag is not None and validators.length is not None
+        headers = dict(ACCEPT)
+        headers["Range"] = f"bytes={len(raw)}-"
+        headers["If-Range"] = validators.etag
+        tail = bytearray()
+        self._spend({}, STATIC_WEIGHT)
+        async with client.stream("GET", url, headers=headers) as response:
+            if response.status_code != 206:
+                return None  # 200: the file changed again, or the ranges are not honoured
+            span = _content_range(response.headers.get("Content-Range"))
+            if span is None or span[0] != len(raw) or span[2] != validators.length or Validators.of(response.headers, None).etag != validators.etag:
+                return None
+            async for chunk in response.aiter_bytes():
+                tail += chunk
+                if len(raw) + len(tail) > validators.length:
+                    return None
+        if len(raw) + len(tail) != validators.length:
+            return None
+        content = await clock.run_blocking(_joined_if_md5, raw, bytes(tail), wanted)
+        return None if content is None else _Download(content, validators, bytes_read=len(tail))
+
+    async def _download(self, client: httpx.AsyncClient, source: str, state: _SourceState) -> _Download:
+        """The static file of ``source``, read once: bounded in time, conditional when a reading is held, continued when one was cut short,
+        and when it only grew, read for what was added."""
+        url = static_url(source, self.window_hours)
+        partial, state.partial = state.partial, None
+        resume = partial if partial is not None and clock.monotonic() - partial.at <= PARTIAL_KEEP_S else None
+        held = state.reading.validators if state.reading is not None and state.reading.via == "static" else None
+        headers = dict(ACCEPT)
+        if resume is not None:
+            headers["Range"] = f"bytes={len(resume.data)}-"
+            headers["If-Range"] = resume.etag
+        elif held is not None:
+            if held.etag:
+                headers["If-None-Match"] = held.etag
+            if held.last_modified:
+                headers["If-Modified-Since"] = held.last_modified
+        progress = _Progress()
+        try:
+            async with asyncio.timeout(self.deadline_s):
+                download = await self._pull(client, url, headers, held, resume, progress, state.raw)
+                if download.tail_from is not None and state.raw is not None:
+                    appended = await self._append(client, url, state.raw, download.validators)
+                    download = appended if appended is not None else await self._pull(client, url, dict(ACCEPT), None, None, progress)
+                return download
+        except FIRMSError as exc:
+            problem, status, transport = str(exc), exc.status, exc.transport
+        except TimeoutError:
+            problem, status, transport = f"no complete answer within {self.deadline_s:g} s", None, True
+        except httpx.HTTPError as exc:
+            what = type(exc).__name__
+            problem = f"{what}: {exc}" if str(exc) else (f"no data for {READ_TIMEOUT_S:g} s ({what})" if isinstance(exc, httpx.ReadTimeout) else what)
+            status, transport = None, isinstance(exc, httpx.TransportError)
+        if progress.resumable and progress.etag is not None and progress.total is not None and 0 < len(progress.buffer) < progress.total:
+            state.partial = _Partial(progress.etag, progress.total, bytes(progress.buffer), clock.monotonic())
+            problem += f" (after {len(progress.buffer)} of {progress.total} bytes, kept to continue)"
+        raise FIRMSError(f"{source}: {self.redact(problem)}", status=status, transport=transport)
+
+    async def _read_static(self, client: httpx.AsyncClient, source: str, state: _SourceState, now: float) -> FireReading:
+        download = await self._download(client, source, state)
+        validators = download.validators
+        if download.content is None:
+            assert state.reading is not None
+            logger.info("NASA FIRMS %s: the file is the one held (written %s)", source, validators.last_modified)
+            return replace(state.reading, read_utc=int(now))
+        try:
+            table, stats = await clock.run_blocking(parse_csv, download.content)
+        except ValueError as exc:
+            snippet = " ".join(download.content[:100].decode("ascii", errors="replace").split())
+            raise FIRMSError(f"{source}: {exc} ({snippet!r})") from None
+        state.raw = download.content if _md5_of(validators.etag) is not None else None  # only a file whose ETag can check what is added to it
+        if download.bytes_read and download.bytes_read < len(download.content):
+            logger.info("NASA FIRMS %s: %d bytes added to the file held, %d in all (written %s)", source, download.bytes_read, len(download.content), validators.last_modified)
+        else:
+            logger.info("NASA FIRMS %s: file of %d bytes read (written %s)", source, len(download.content), validators.last_modified)
+        return FireReading(
+            source=source,
+            via="static",
+            read_utc=int(now),
+            published_utc=None if validators.last_modified is None else _epoch(validators.last_modified),
+            bytes_read=download.bytes_read or len(download.content),
+            skipped=stats.skipped,
+            table=table,
+            validators=validators,
+        )
+
+    # -- the area API (with a key) -----------------------------------------------------------------
+
+    async def _read_day(self, client: httpx.AsyncClient, source: str, date: str) -> bytes:
+        """One world read of one day of the area API. Raises ``FIRMSError`` (the key redacted) or ``BudgetExhaustedError``."""
         url = f"{AREA_URL}/{self._key}/{source}/world/1/{date}"
         problem: Optional[str] = None
         status: Optional[int] = None
         transport = False
         content = b""
+        self._spend({}, WORLD_DAY_TRANSACTIONS)
         try:
-            try:
-                response = await self._get(client, url, headers=ACCEPT, weight=WORLD_DAY_TRANSACTIONS)
-            except (httpx.ConnectTimeout, httpx.ConnectError):
-                response = await self._get(client, url, headers=ACCEPT, weight=WORLD_DAY_TRANSACTIONS)  # another address may answer
-        except BudgetExhaustedError:
-            raise
+            response = await client.get(url, headers=ACCEPT, timeout=AREA_TIMEOUT)
         except Exception as exc:  # httpx exceptions can hold the URL, so the message is cleaned before it leaves
             problem = self.redact(f"{type(exc).__name__}: {exc}")
             transport = isinstance(exc, httpx.TransportError)
@@ -444,58 +811,79 @@ class FIRMSCollector(BaseCollector[FireSet]):
                 problem = f"answer of {len(content)} bytes is too large"
         if problem is not None:
             raise FIRMSError(f"{source} {date}: {problem}", status=status, transport=transport)
+        return content
+
+    async def _read_area(self, client: httpx.AsyncClient, source: str, now: float) -> FireReading:
+        """The source read from the area API: today and yesterday, in one table."""
+        today, yesterday = utc_dates(now)
+        parts = [(await self._read_day(client, source, date), date) for date in (today, yesterday)]
         try:
-            table, stats = await clock.run_blocking(parse_csv, content, date)
+            table, stats = await clock.run_blocking(parse_csvs, parts)
         except ValueError as exc:
-            snippet = " ".join(content[:100].decode("ascii", errors="replace").split())
-            raise FIRMSError(self.redact(f"{source} {date}: {exc} ({snippet!r})")) from None
-        return FireDay(source=source, date=date, read_utc=int(now), bytes_read=len(content), skipped=stats.skipped, table=table)
+            snippet = " ".join(parts[0][0][:100].decode("ascii", errors="replace").split())
+            raise FIRMSError(self.redact(f"{source}: {exc} ({snippet!r})")) from None
+        return FireReading(
+            source=source,
+            via="area",
+            read_utc=int(now),
+            published_utc=None,
+            bytes_read=sum(len(content) for content, _ in parts),
+            skipped=stats.skipped,
+            table=table,
+        )
+
+    # -- a refresh --------------------------------------------------------------------------------
+
+    async def _read_source(self, client: httpx.AsyncClient, source: str, state: _SourceState, now: float) -> FireReading:
+        """The file of FIRMS, else (with a key) the area API."""
+        try:
+            return await self._read_static(client, source, state, now)
+        except FIRMSError as static_error:
+            if self._key is None:
+                raise
+            try:
+                reading = await self._read_area(client, source, now)
+                state.raw = None  # what is held of the file is no longer the reading
+                return reading
+            except FIRMSError as area_error:
+                raise FIRMSError(f"{static_error}; then from the area API: {area_error}", status=area_error.status, transport=area_error.transport) from None
+
+    async def _refresh(self, client: httpx.AsyncClient, source: str, now: float) -> str:
+        """Read one source and record how it went: ``"ok"``, ``"failed"`` or ``"budget"`` (it never raises, so the other source goes on)."""
+        state = self._states[source]
+        try:
+            state.reading = await self._read_source(client, source, state, now)
+        except BudgetExhaustedError:
+            outcome, message = "budget", f"{source}: call budget used up"
+        except FIRMSError as exc:
+            outcome, message = "failed", str(exc)
+        except Exception as exc:  # a bug in one source does not take the other with it
+            logger.warning("NASA FIRMS %s: unexpected %s", source, type(exc).__name__)
+            outcome, message = "failed", f"{source}: {type(exc).__name__}: {exc}"
+        else:
+            state.failures, state.error, state.retry_at = 0, None, 0.0
+            return "ok"
+        state.failures += 1
+        state.error = self.redact(message)
+        state.retry_at = now + BACKOFF_S[min(state.failures, len(BACKOFF_S)) - 1]
+        return outcome
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> Collected[FireSet]:
-        previous: Optional[CacheEntry[FireSet]] = kwargs.get("previous")
         now = clock.wall()
-        today, yesterday = utc_dates(now)
-        prior = {(day.source, day.date): day for day in previous.value.days} if previous is not None else {}
-
-        days: list[FireDay] = []
-        failed: list[str] = []
-        errors: list[str] = []
-        budget_hit = False
-        new_reads = 0
-        for source in self.sources:
-            for date in (today, yesterday):
-                old = prior.get((source, date))
-                if not self._needs_read(old, date, today, now):
-                    if old is not None:
-                        days.append(old)
-                    continue
-                try:
-                    day = await self._read_day(client, source, date, now)
-                    if old is not None and len(day.table) < SHRINK_RATIO * len(old.table):
-                        # FIRMS loses connections: a cut answer that ends cleanly is a valid CSV with fewer rows. The day's file only grows.
-                        raise FIRMSError(f"{source} {date}: {len(day.table)} rows after a reading of {len(old.table)}, the previous one is kept")
-                except (FIRMSError, BudgetExhaustedError) as exc:
-                    failed.append(source)
-                    if isinstance(exc, BudgetExhaustedError):
-                        budget_hit = True
-                        errors.append(f"{source} {date}: call budget used up")
-                    else:
-                        errors.append(str(exc))
-                    if old is not None:
-                        days.append(old)  # the previous reading of the same day is better than none
-                    if date == today and (source, yesterday) in prior:
-                        days.append(prior[(source, yesterday)])
-                    break  # a source that does not answer is not asked again for its other day in the same refresh
-                days.append(day)
-                new_reads += 1
-        if failed and new_reads == 0:
-            if budget_hit and all(error.endswith("call budget used up") for error in errors):
-                raise BudgetExhaustedError("; ".join(errors))  # the base class counts the refusal and serves the last set
-            raise FIRMSError("; ".join(errors))
-        if budget_hit:
+        due = [source for source in self.sources if self._is_due(source, now)]
+        if not due:
+            if self.failing():  # every source that is not fresh is in its backoff: nothing is asked
+                wait = min(state.retry_at for state in self._states.values() if state.failures) - now
+                raise FIRMSError("; ".join(self.errors()) + f" (next attempt in {max(0.0, wait):.0f} s)")
+            return Collected(value=self._set(now), fresh_for_s=self._fresh_for(now))  # a refresh that nothing asked for (``force_refresh``)
+        outcomes = await asyncio.gather(*(self._refresh(client, source, now) for source in due))
+        if "ok" not in outcomes:
+            if all(outcome == "budget" for outcome in outcomes):
+                raise BudgetExhaustedError("; ".join(self.errors()))  # the base class counts the refusal and serves the last set
+            raise FIRMSError("; ".join(self.errors()))
+        if "budget" in outcomes:
             self.budget_refusals += 1  # some reads were made: the base class does not see the refusal, so it is counted here
-        value = FireSet(days=tuple(days), read_utc=int(now), failed=tuple(failed), errors=tuple(errors))
-        return Collected(value=value, fresh_for_s=RETRY_S if failed else float(self.ttl_seconds))
+        return Collected(value=self._set(now), fresh_for_s=self._fresh_for(now))
 
     def _record_success(
         self,
@@ -506,5 +894,12 @@ class FIRMSCollector(BaseCollector[FireSet]):
         validators: Optional[dict[str, str]] = None,
     ) -> None:
         super()._record_success(elapsed_ms, cache_key, data, ttl_seconds, validators)
-        if data.errors:  # a source could not be read: the other one did, and the set says so
-            self.last_error = self.redact("; ".join(data.errors))[:240]
+        errors = self.errors()
+        if errors:  # a source could not be read: the other one did, and the provider says so
+            self.last_error = self.redact("; ".join(errors))[:240]
+
+
+def _epoch(http_date: str) -> Optional[int]:
+    """The epoch seconds of an HTTP date, ``None`` when it is not one."""
+    value = http_date_to_epoch(http_date)
+    return None if value is None else int(value)

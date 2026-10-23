@@ -21,6 +21,7 @@ import json
 import math
 import random
 from collections import Counter
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -53,8 +54,10 @@ from app.services.aggregator import AggregatorService
 from app.services.scheduler import BackgroundAlertScheduler
 from app.services.storage_wal import DEFAULT_WATCHLIST_SEED
 from tests import samples, storm_samples
-from tests.firms_samples import KEY as FIRMS_KEY
-from tests.firms_samples import csv_for as firms_csv
+from tests.firms_samples import STATIC_PATHS as FIRMS_STATIC_PATHS
+from tests.firms_samples import csv_for as firms_area_csv
+from tests.firms_samples import md5_etag as firms_etag
+from tests.firms_samples import static_csv as firms_static_csv
 from tests.helpers import SimClock, http_date
 from tests.swic_upstream import SwicWorld
 
@@ -113,14 +116,23 @@ METSERVICE_LAST_MODIFIED = "Tue, 20 Oct 2026 11:55:21 GMT"
 TSUNAMI_304_HEAD_BYTES = 239
 NHC_304_HEAD_BYTES = 484
 
-# NASA FIRMS, measured on 2026-10-20 (docs/data-sources.md): a world read of one day costs 36 transactions of the key (5,000 per 10 minutes),
-# is never compressed and has no validator, so every read is a full read. The size of a read is the size of the file at that moment: the full
+# NASA FIRMS, measured on 2026-10-20 (docs/data-sources.md). The static files (``/data/active_fire/{folder}/csv/{prefix}_Global_{24|48}h.csv``)
+# need no key and weigh nothing against it: only the rare read of the area API (the fallback, with a key) costs 36 transactions of the 5,000
+# per 10 minutes. A file is written once an hour (NOAA-20 at 19:40:30 and 20:40:27, NOAA-21 at 19:43:17 and 20:43:36 UTC), holds the rows of the UTC
+# days from the one that began ``window`` hours before it was written to now, and each one is the previous one with rows added at its end until
+# the day rolls over (the file of NOAA-20 of 20:40 is the one of 19:40 and 257,185 bytes more: checked byte for byte). The server sends the validators
+# of the file, honours ``Range`` and ``If-Range``, and answers 200 with the whole file, not 304, to a conditional request.
+#
+# The size of a file at a moment is the sum, for each UTC day it holds, of the size of the world file of that day at that moment: the full
 # files of 2026-10-19 weigh 4,969,942 bytes (NOAA-20, 59,246 rows) and 4,662,308 bytes (NOAA-21, 55,517 rows), and the share of a day's
 # detections that are in the file at an hour of that day is taken from the share of the same day's detections acquired before that hour
-# (cumulative, at the hours 0 to 24). Checked on four reads of 2026-10-20: NOAA-20 at 18:10 (4,622,753 bytes read, 4,333,126 by the model,
-# -6.3 %) and at 18:42 (4,748,580; 4,439,152; -6.5 %), NOAA-21 at 18:33 and at 18:42 (3,944,231 both times; 3,923,495 and 3,962,448;
-# -0.5 % and +0.5 %). The model can only be as good as one day's shape: it is an estimate, and the tests also give the upper bound
-# (every read at the size of a full day).
+# (cumulative, at the hours 0 to 24). Checked on the files of 2026-10-20 (read, model): NOAA-21 24 h at 19:43 (8,541,352; 8.78 million, +2.8 %),
+# NOAA-20 24 h at 19:40 (9,850,487; 9.49 million, -3.7 %) and at 20:40 (10,107,672; 9.56 million, -5.4 %), NOAA-21 48 h at 19:43 (12,495,866;
+# 13.44 million, +7.5 %), NOAA-20 48 h at 20:40 (14,353,778; 14.53 million, +1.2 %). The model is an estimate: lumpy from hour to hour (it was drawn
+# from a few reads: the files grew by 257,185 bytes for NOAA-20 24 h from 19:40 to 20:40 and 310,530 for NOAA-21 48 h from 19:43 to 20:43, where
+# it says 40 to 50 thousand) and right on the day, whose file ends at the same size whatever the lumps. The body the simulated server sends is a few
+# hundred rows of the recording, cut to the share of the model, and the bytes the client pulls are counted at the size of the model: what is counted is what the collector
+# really read (a connection closed after the head pulls none of the body).
 FIRMS_WORLD_DAY_TRANSACTIONS = 36.0
 FIRMS_DAY_BYTES = {"VIIRS_NOAA20_NRT": 4_969_942, "VIIRS_NOAA21_NRT": 4_662_308}
 FIRMS_ARRIVAL = {
@@ -129,6 +141,9 @@ FIRMS_ARRIVAL = {
     "VIIRS_NOAA21_NRT": (0.0, 0.0017, 0.0101, 0.0119, 0.0745, 0.0896, 0.1626, 0.1685, 0.1905, 0.1918, 0.2067, 0.3969, 0.3978, 0.66, 0.6731, 0.6853,
                          0.6912, 0.7587, 0.8109, 0.8666, 0.8885, 0.8927, 0.912, 0.9158, 1.0),
 }
+FIRMS_PUBLICATION_OFFSET_S = {"VIIRS_NOAA20_NRT": 40 * 60 + 30, "VIIRS_NOAA21_NRT": 43 * 60 + 20}  # seconds after each hour a file is written
+FIRMS_HEAD_BYTES = 598 + 172  # the head of the answer (598) and of the request (172, curl's) of a range read of a file, 2026-10-20; the TLS handshake is not counted
+FIRMS_FILE_BYTES_MAX = {24: 2 * max(FIRMS_DAY_BYTES.values()), 48: 3 * max(FIRMS_DAY_BYTES.values())}  # a file of that window at its fullest, for the body's cut
 
 
 def firms_read_bytes(product: str, date: str, now: float) -> int:
@@ -139,6 +154,43 @@ def firms_read_bytes(product: str, date: str, now: float) -> int:
     curve = FIRMS_ARRIVAL[product]
     share = curve[low] + (curve[low + 1] - curve[low]) * (hours - low)
     return int(share * FIRMS_DAY_BYTES[product])
+
+
+def firms_publication(product: str, now: float) -> float:
+    """The epoch time at which the file of ``product`` was last written (once an hour, ``FIRMS_PUBLICATION_OFFSET_S`` after the hour)."""
+    offset = FIRMS_PUBLICATION_OFFSET_S[product]
+    return (now - offset) // 3600 * 3600 + offset
+
+
+def firms_file_bytes(product: str, window_hours: int, published: float) -> int:
+    """The size of the file of ``window_hours`` hours written at ``published``: its UTC days, each as it was then."""
+    first = datetime.fromtimestamp(published - window_hours * 3600, tz=timezone.utc).date()
+    last = datetime.fromtimestamp(published, tz=timezone.utc).date()
+    days = [first.fromordinal(n).isoformat() for n in range(first.toordinal(), last.toordinal() + 1)]
+    return sum(firms_read_bytes(product, day, published) for day in days)
+
+
+@dataclass(frozen=True)
+class FirmsRequest:
+    """One request the simulated FIRMS received: when, which file (or ``area`` for the area API), and how it was asked."""
+
+    second: float
+    product: str
+    window: int  # 24 or 48 for a static file, 0 for the area API
+    ranged: bool  # it carried a ``Range`` (the added bytes, or the rest of a download that stopped)
+    conditional: bool  # it carried the validators of the file held
+
+
+def firms_body(source: str, size: int, window: int) -> bytes:
+    """The body the simulated server sends for a file of ``size`` bytes: the first rows of the recorded file, as many as the share of its size.
+
+    Two bodies of one day are one the beginning of the other, as two files of FIRMS are; when the day rolls over the file gets shorter (the oldest
+    day leaves), and the new body is shorter than the one held.
+    """
+    lines = firms_static_csv(source).split(b"\n")
+    header, rows = lines[0], [line for line in lines[1:] if line]
+    count = max(1, min(len(rows), int(len(rows) * size / FIRMS_FILE_BYTES_MAX[window])))
+    return b"\n".join([header, *rows[:count]]) + b"\n"
 
 
 OPEN_METEO_SOURCES = ("open_meteo_hd", "open_meteo_aqi", "open_meteo_flood", "open_meteo_marine")
@@ -189,8 +241,9 @@ class Upstream:
         # Bytes the providers send back (the body; plus the head for a HEAD). The Vigicrues flow is counted at its real weight.
         self.bytes: Counter[str] = Counter()
         self.methods: Counter[tuple[str, str]] = Counter()  # (source, HTTP method)
-        self.firms_reads: list[tuple[float, str, str]] = []  # (simulated second, product, date) of each FIRMS request
+        self.firms_reads: list[FirmsRequest] = []  # every request FIRMS received
         self.firms_down = False  # FIRMS answers 503 to everything
+        self.firms_ranges = True  # FIRMS honours ``Range`` (it does)
         # The times (seconds on the simulated clock) at which Vigicrues publishes: by default 07:55:15 and 13:55:15 UTC every day.
         self.vigicrues_publications: list[float] = self._daily_publications()
         # The WMO registry and the feeds of its services (hosts of their own, so routed by what the registry lists, not by ``HOST_TO_SOURCE``).
@@ -270,14 +323,46 @@ class Upstream:
         return httpx.Response(404, text="Not found")
 
     def _firms(self, request: httpx.Request) -> httpx.Response:
-        """A world read of one day: the recorded rows with the date asked, counted at the size the file has at that moment."""
+        """A static file of FIRMS as it is at this moment: the recorded rows cut to the model's size, with its validators, ranges and no 304."""
+        found = {path: key for key, path in FIRMS_STATIC_PATHS.items()}.get(request.url.path)
+        if found is None:
+            return httpx.Response(404, text="Not found")
+        product, window = found
+        self.firms_reads.append(FirmsRequest(self.clock.now, product, window, "range" in request.headers, "if-none-match" in request.headers))
+        if self.firms_down:
+            return httpx.Response(503, text="Service Unavailable")
+        published = firms_publication(product, self.clock.time())
+        size = firms_file_bytes(product, window, published)
+        body = firms_body(product, size, window)
+        scale = size / len(body)
+        etag, modified = firms_etag(body), http_date(published)
+        headers = {"Content-Type": "text/csv", "ETag": etag, "Last-Modified": modified, "Accept-Ranges": "bytes", "Content-Length": str(len(body))}
+        code, start = 200, 0
+        asked = request.headers.get("Range", "")
+        if asked.startswith("bytes=") and asked.endswith("-") and self.firms_ranges and request.headers.get("If-Range", etag) == etag:
+            start = int(asked[len("bytes=") : -1])
+            code = 206
+            headers["Content-Range"] = f"bytes {start}-{len(body) - 1}/{len(body)}"
+            headers["Content-Length"] = str(len(body) - start)
+        self.bytes["nasa_firms"] += FIRMS_HEAD_BYTES
+
+        async def pulled() -> AsyncIterator[bytes]:
+            for position in range(start, len(body), 2048):
+                chunk = body[position : position + 2048]
+                self.bytes["nasa_firms"] += round(len(chunk) * scale)  # what the client pulls, at the size of the model
+                yield chunk
+
+        return httpx.Response(code, headers=headers, content=pulled())
+
+    def _firms_area(self, request: httpx.Request) -> httpx.Response:
+        """The area API (the fallback with a key): a world day, generated by the server, counted at the size the file has at that moment."""
         parts = request.url.path.split("/")  # '', 'api', 'area', 'csv', key, product, 'world', '1', date
         product, date = parts[5], parts[8]
-        self.firms_reads.append((self.clock.now, product, date))
+        self.firms_reads.append(FirmsRequest(self.clock.now, product, 0, False, False))
         if self.firms_down:
             return httpx.Response(503, text="Service Unavailable")
         self.bytes["nasa_firms"] += firms_read_bytes(product, date, self.clock.time())
-        return httpx.Response(200, content=firms_csv(product, date), headers={"Content-Type": "text/plain;charset=UTF-8"})
+        return httpx.Response(200, content=firms_area_csv(product, date), headers={"Content-Type": "text/plain;charset=UTF-8"})
 
     async def _handler(self, request: httpx.Request) -> httpx.Response:
         if self.swic.knows(request):
@@ -297,7 +382,7 @@ class Upstream:
             self.per_hour[int(self.clock.now // 3600)] += weight
             self.per_minute[int(self.clock.now // 60)] += weight
         elif source == "nasa_firms":
-            weight = FIRMS_WORLD_DAY_TRANSACTIONS
+            weight = FIRMS_WORLD_DAY_TRANSACTIONS if request.url.path.startswith("/api/") else 0.0  # a static file costs no transaction
         else:
             weight = 1.0
         self.weight[source] += weight
@@ -339,7 +424,7 @@ class Upstream:
         if source == "nhc_storms":
             return self._nhc(request)
         if source == "nasa_firms":
-            return self._firms(request)
+            return self._firms_area(request) if request.url.path.startswith("/api/") else self._firms(request)
         return httpx.Response(200, json=self._payload(source, params))
 
     def _payload(self, source: str, params: dict[str, str]) -> Any:
@@ -508,6 +593,7 @@ class Simulation:
         zones: Optional[list[dict[str, Any]]] = None,
         wmo_sources: Optional[str] = None,
         firms_refresh_s: Optional[int] = None,
+        firms_window_hours: Optional[int] = None,
     ) -> None:
         # ``clock`` must be installed as the time source of the collectors (the ``sim_clock`` fixture).
         self.clock = clock
@@ -539,7 +625,11 @@ class Simulation:
             swic=SwicCollector(http_client=http),
             swic_registry=SwicRegistryCollector(http_client=http),
             wmo_sources=wmo_sources,
-            firms=FIRMSCollector(FIRMS_KEY, http_client=http, **({} if firms_refresh_s is None else {"refresh_s": firms_refresh_s})),
+            firms=FIRMSCollector(
+                http_client=http,
+                **({} if firms_refresh_s is None else {"refresh_s": firms_refresh_s}),
+                **({} if firms_window_hours is None else {"window_hours": firms_window_hours}),
+            ),
             storage=FakeStorage(zones),  # type: ignore[arg-type]
         )
         self.scheduler = BackgroundAlertScheduler(

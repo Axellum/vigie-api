@@ -31,8 +31,11 @@ for _name in (
     "VIGIE_ENABLE_SIMULATION",
     "VIGIE_ENABLE_WATCHED_POINTS_WRITE",
     "VIGIE_ADMIN_TOKEN",
+    "VIGIE_FIRMS_MAP_KEY",
 ):
     os.environ.pop(_name, None)
+# The application of the tests does not read NASA FIRMS (it is on by default, 20 MB an hour): the tests of the fires build their own collector.
+os.environ["VIGIE_ENABLE_FIRMS"] = "0"
 
 from app import clock as app_clock  # noqa: E402
 from app.attribution import AIR_QUALITY, FLOOD, SPACE_WEATHER, credit_text  # noqa: E402
