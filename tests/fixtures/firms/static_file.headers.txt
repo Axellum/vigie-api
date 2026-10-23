@@ -1,5 +1,5 @@
 The answers of the static file of NOAA-21 (https://firms.modaps.eosdis.nasa.gov/data/active_fire/noaa-21-viirs-c2/csv/J2_VIIRS_C2_Global_24h.csv),
-read on 2026-10-20 from the Home Assistant host (curl, HTTP/2). Only the request ids are left out.
+read on 2026-10-20 from a second machine of the same network (curl, HTTP/2). Only the request ids are left out.
 
 == HEAD (20:17 UTC): 200, the validators and the size ==
 HTTP/2 200
