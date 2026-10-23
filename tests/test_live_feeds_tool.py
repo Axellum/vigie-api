@@ -602,9 +602,10 @@ async def test_the_wmo_registry_fails_when_it_is_truncated_or_a_verified_service
         only=["wmo_swic_registry"],
     )
     assert moved["wmo_swic_registry"].outcome == "FAIL" and "mx-smn-es" in moved["wmo_swic_registry"].detail
-    japan = {"sourceId": "jp-jma-en", "authorityCountry": "JP", "capAlertFeed": "https://example.org/jp.xml", "byLanguage": [{"name": "JMA"}]}
-    no_border = await run(swic_samples.wmo_hosts(registry=swic_samples.registry_json(extra=[japan])), only=["wmo_swic_registry"])
-    assert no_border["wmo_swic_registry"].outcome == "FAIL" and "JP" in no_border["wmo_swic_registry"].detail
+    # Bonaire is the one place of the registry's countries that Natural Earth draws inside another country: it has no border of its own.
+    bonaire = {"sourceId": "bq-met-en", "authorityCountry": "BQ", "capAlertFeed": "https://example.org/bq.xml", "byLanguage": [{"name": "Meteo Bonaire"}]}
+    no_border = await run(swic_samples.wmo_hosts(registry=swic_samples.registry_json(extra=[bonaire])), only=["wmo_swic_registry"])
+    assert no_border["wmo_swic_registry"].outcome == "FAIL" and "BQ" in no_border["wmo_swic_registry"].detail
     assert "--countries-only" in no_border["wmo_swic_registry"].detail
     not_a_registry = await run({"severeweather.wmo.int": lambda r: httpx.Response(200, json={"error": "maintenance"})}, only=["wmo_swic_registry"])
     assert not_a_registry["wmo_swic_registry"].outcome == "FAIL"

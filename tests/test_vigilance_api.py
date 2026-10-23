@@ -132,10 +132,12 @@ def test_a_country_without_a_source_is_a_404_that_lists_the_countries(recorded: 
     assert "JP" in detail and "/v1/vigilances/countries" in detail  # the list of the countries is a route of its own
 
 
-def test_a_point_nobody_covers_is_a_200_with_a_note(recorded: World) -> None:
+def test_a_point_nobody_covers_is_a_200_that_names_the_country_and_why(recorded: World) -> None:
     body = recorded.client.get("/v1/vigilances", params={"lat": 35.6762, "lon": 139.6503}).json()
     assert body["vigilances"] == [] and body["countries"] == [] and body["coverage"] == []
-    assert "No official warning source covers this point" in body["note"]
+    [japan] = body["uncovered"]
+    assert (japan["country"], japan["name"], japan["covered"], japan["reason_code"]) == ("JP", "Japan", False, "law_restricts")
+    assert body["note"].startswith(f"Japan (JP): {japan['reason']}")
     assert body["attribution"] is None and body["disclaimer"] is None
 
 

@@ -3,9 +3,10 @@
 Two small sets of shapes are read from ``app/data/`` (built by ``tools/build_geometries.py``, whose docstring
 says where each comes from and under which licence). Nothing is fetched at run time.
 
-- ``countries.geojson.gz``: the borders of the countries with a warning source, to find the country of a point
-  **offline**, without asking any service. A point that lies in a country, or within 0.02 degree (about 2 km) of
-  its border, belongs to it; a point at sea belongs to the nearest country within 0.25 degree (about 25 km).
+- ``countries.geojson.gz``: the borders of **every country** of Natural Earth (a country the instance has no source for has one
+  too: the answer then says why, ``app/services/uncovered.py``), to find the country of a point **offline**, without asking any
+  service. A point that lies in a country, or within 0.02 degree (about 2 km) of its border, belongs to it; a point at sea belongs
+  to the nearest country within 0.25 degree (about 25 km).
 - ``geocodes-*.geojson.gz``: the shapes of the codes a warning can name its area with (NUTS3 for France, NUTS2 for
   Belgium). They are simplified. A point that lies in a shape belongs to that shape only (the exact answer); a point
   that lies in none of the shapes of a code system (the coast, a gap of the simplification) belongs to those within
@@ -64,23 +65,32 @@ def _load_features(path: Path) -> list[dict[str, Any]]:
 
 
 class CountryIndex:
-    """The borders of the countries with a warning source, to tell where a point is without any request."""
+    """The borders of the countries, to tell where a point is without any request."""
 
-    def __init__(self, borders: dict[str, BaseGeometry]) -> None:
+    def __init__(self, borders: dict[str, BaseGeometry], names: Optional[dict[str, str]] = None) -> None:
         self._borders = borders
+        self._names = names or {}
         self._bounds = {country: geometry.bounds for country, geometry in borders.items()}
 
     @classmethod
     def from_file(cls, path: Path = DATA_DIR / "countries.geojson.gz") -> "CountryIndex":
         borders: dict[str, BaseGeometry] = {}
+        names: dict[str, str] = {}
         for item in _load_features(path):
-            country = (item.get("properties") or {}).get("country")
+            properties = item.get("properties") or {}
+            country = properties.get("country")
             if isinstance(country, str) and item.get("geometry"):
                 borders[country] = shape(item["geometry"])
-        return cls(borders)
+                if isinstance(properties.get("name"), str) and properties["name"]:
+                    names[country] = properties["name"]
+        return cls(borders, names)
 
     def countries(self) -> list[str]:
         return sorted(self._borders)
+
+    def name(self, country: str) -> str:
+        """The English name of a country (Natural Earth); the code itself when the file has none."""
+        return self._names.get(country, country)
 
     def countries_for_point(self, lat: float, lon: float) -> list[str]:
         """The countries a point belongs to: its own (and a neighbour within 2 km of the border), else the nearest at sea."""

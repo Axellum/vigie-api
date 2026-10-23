@@ -37,7 +37,8 @@ Endpoints:
                                      warning centres (``source=tsunami``).
 - ``GET    /v1/vigilances.geojson``: The same, as GeoJSON.
 - ``GET    /v1/vigilances/countries``: The countries this instance has a source for, with the sources and whether their
-                                     reuse terms were verified.
+                                     reuse terms were verified; with ``uncovered=true``, the other countries too, each with
+                                     the reason nothing is read for it.
 - ``POST   /v1/simulate``          : Inject a simulated scenario (always labelled as a simulation). Off unless
                                      ``VIGIE_ENABLE_SIMULATION=1``: it answers 403 otherwise.
 - ``WS     /v1/stream``            : Real-time WebSocket stream for connected terminals.
@@ -77,9 +78,10 @@ from app.models.schemas import (
     SimulationResponse,
     SnapshotResponse,
 )
-from app.models.vigilance import VigilanceCountry, VigilanceGeoJSONCollection, VigilancesResponse
+from app.models.vigilance import UncoveredCountry, VigilanceCountry, VigilanceGeoJSONCollection, VigilancesResponse
 from app.models.watch import WatchedPointsStatus
 from app.routers.dashboard import router as dashboard_router
+from app.security import AdminTokenMiddleware, admin_token, document_admin_token
 from app.services.aggregator import AggregatorService
 from app.services.fires import (
     CELL_SIZES,
@@ -242,6 +244,8 @@ app = FastAPI(
     ),
 )
 
+# The admin token is checked inside the CORS middleware (the CORS one is added after it, so it is the outermost): a 401 carries the CORS headers a browser needs to read it.
+app.add_middleware(AdminTokenMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -251,6 +255,16 @@ app.add_middleware(
 )
 
 app.include_router(dashboard_router)
+
+_default_openapi = app.openapi
+
+
+def openapi_with_admin_token() -> dict[str, Any]:
+    """The OpenAPI document, with the optional admin token documented on every write operation."""
+    return document_admin_token(_default_openapi())
+
+
+app.openapi = openapi_with_admin_token  # type: ignore[method-assign]
 
 
 @app.exception_handler(RequestValidationError)
@@ -276,6 +290,7 @@ async def get_health() -> dict[str, Any]:
         "watched_points_count": len(aggregator.watched_points),
         "active_faults_loaded": len(faults) if (faults := aggregator.places.faults()) is not None else None,
         "watched_points_write_enabled": watched_points_write_enabled(),
+        "admin_token_set": admin_token() is not None,
         "simulation_enabled": simulation_enabled(),
         "simulation_active": aggregator.simulation_active,
         "active_scenario": aggregator.active_scenario.value,
@@ -638,11 +653,13 @@ def _vigilance_request(lat: Optional[float], lon: Optional[float], country: Opti
     if lat is None and country is None:
         raise HTTPException(status_code=422, detail="Ask for a position (`lat` and `lon`), a `country` or `source=tsunami`")
     if country is not None and country.upper() not in aggregator.vigilances.supported_countries():
+        why = aggregator.vigilances.uncovered_reason(country.upper())
         raise HTTPException(
             status_code=404,
             detail=(
-                f"No official warning source for country '{country.upper()}' on this instance. "
-                "Countries with a source: GET /v1/vigilances/countries"
+                f"No official warning source for country '{country.upper()}'"
+                + (f" ({why.name}): {why.reason}" if why is not None else "")
+                + " on this instance. Countries with a source: GET /v1/vigilances/countries"
             ),
         )
 
@@ -727,20 +744,25 @@ async def get_vigilances_geojson(
 
 @app.get(
     "/v1/vigilances/countries",
-    response_model=list[VigilanceCountry],
+    response_model=list[VigilanceCountry | UncoveredCountry],
     tags=["Vigilances"],
     description=(
         "The countries this instance has a source of official warnings for, with the settings it runs with: by default the "
         "MeteoAlarm countries, Germany, Canada, New Zealand (unless turned off), the United States and the services of the WMO "
         "registry whose reuse terms were verified; with `VIGIE_WMO_SOURCES=all` every service of the registry that is not excluded. "
         "`sources` names what is asked for the country (the id of a registry service is the one of `coverage[].source_id`); "
-        "`licence_verified` is true when the reuse terms of every one of them were read and allow relaying its warnings (SOURCES.md)."
+        "`licence_verified` is true when the reuse terms of every one of them were read and allow relaying its warnings (SOURCES.md). "
+        "With `uncovered=true` the list holds every other country of the world too, sorted with the rest: an entry without a "
+        "source has `covered: false`, its `name` and the reason nothing is read for it (`reason_code`, a stable code to translate, "
+        "and `reason`, one English sentence). The entries of the countries with a source do not change."
     ),
 )
-async def get_vigilance_countries() -> list[VigilanceCountry]:
-    """The countries with a source of official warnings on this instance."""
+async def get_vigilance_countries(
+    uncovered: bool = Query(default=False, description="Also list the countries this instance reads no source for, each with the reason"),
+) -> list[VigilanceCountry | UncoveredCountry]:
+    """The countries with a source of official warnings on this instance (and, on request, the ones without, with the reason)."""
     await aggregator.vigilances.ensure_registry()
-    return aggregator.vigilances.countries_listing()
+    return aggregator.vigilances.countries_listing(with_uncovered=uncovered)
 
 
 @app.post(

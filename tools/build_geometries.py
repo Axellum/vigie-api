@@ -11,10 +11,12 @@ shape of that code. This script builds the files it reads; nothing is read at ru
 
 What the default build writes, and the licence of every input (checked on 2026-10-20, see ``SOURCES.md``):
 
-- ``app/data/countries.geojson.gz``: the borders of the countries the API has a warning source for
-  (the MeteoAlarm countries, the United States, Canada, New Zealand, and the countries of the national services of the WMO
-  registry that an instance can read, taken from the bundled snapshot ``app/data/swic_registry.json.gz``), to find the country of
-  a point without a network call.
+- ``app/data/countries.geojson.gz``: the borders of **every country** of Natural Earth, to find the country of a point without a
+  network call: a point in a country the instance has no source for still gets its country, and the answer says why nothing is read
+  there (``app/services/uncovered.py``). Territories keep their own ISO code (Puerto Rico ``PR``, Greenland ``GL``...), and so do the
+  overseas departments of France that Natural Earth draws inside France (``GF``, ``GP``, ``MQ``, ``RE``, ``YT``). Three places Natural
+  Earth draws with no code are joined to the country they lie in (``MERGED_INTO``); the others with no code (the British sovereign
+  bases, disputed reefs and glaciers) are not written, and the tool lists them.
   Input: Natural Earth ``ne_10m_admin_0_countries``, **public domain**
   (https://www.naturalearthdata.com/about/terms-of-use/). Simplified with a tolerance of 0.01 degree
   (about 1 km), coordinates rounded to 3 decimals.
@@ -71,30 +73,31 @@ NUTS_TOLERANCE_DEG = 0.005
 EMMA_TOLERANCE_DEG = 0.005
 DECIMALS = 3
 
-# The countries the API has a collector for: the 39 MeteoAlarm feeds, the NWS (United States), Environment and
-# Climate Change Canada and MetService (New Zealand). Germany has the DWD as well as MeteoAlarm.
-COLLECTOR_COUNTRIES = (
-    "AD AT BA BE BG HR CY CZ DK EE FI FR DE GR HU IS IE IL IT LV LT LU MT MD ME NL MK NO PL PT RO RS SK SI ES SE CH UA GB"
-    " US"
-    " CA NZ"
-).split()
-
-
-def registry_countries() -> list[str]:
-    """The countries of the services of the WMO registry that an instance can read (every one that is not excluded)."""
-    from app.collectors.swic_registry import bundled_registry
-    from app.collectors.swic_terms import is_eligible
-
-    return sorted({source.country for source in bundled_registry() if source.country and is_eligible(source, "all")})
-
-
-# Every country an instance can have a source for. A country with a source and no border here could not be found from a position.
-COUNTRIES = COLLECTOR_COUNTRIES + [code for code in registry_countries() if code not in COLLECTOR_COUNTRIES]
+# Natural Earth draws a few places with no ISO code (``-99``). Three of them lie inside a country that has one, and are joined to it
+# (by their ``ADM0_A3``): a point there is in that country. The others with no code (the British sovereign base areas of Akrotiri and
+# Dhekelia, the Guantanamo Bay lease, and disputed glaciers, banks and reefs) are not written: ``build_countries`` reports them.
+MERGED_INTO: dict[str, str] = {
+    "SOL": "SO",  # Somaliland
+    "CYN": "CY",  # Northern Cyprus
+    "CNM": "CY",  # the United Nations buffer zone of Cyprus
+}
 
 # Where a country's warnings apply, when it is only part of the country Natural Earth draws: France is drawn with
 # its overseas departments, but the MeteoAlarm feed of France covers the metropole (and Corsica) only.
 # (min lon, min lat, max lon, max lat) of the polygons to keep, by their centroid.
 COUNTRY_EXTENT: dict[str, tuple[float, float, float, float]] = {"FR": (-10.0, 40.0, 12.0, 52.0)}
+
+# The parts of such a country that are cut off, kept apart under their own ISO 3166-1 code and English name, by the bounding box
+# that holds the centroid of their polygons: the overseas departments of France.
+SPLIT_PARTS: dict[str, dict[str, tuple[str, tuple[float, float, float, float]]]] = {
+    "FR": {
+        "GF": ("French Guiana", (-55.0, 2.0, -51.0, 6.0)),
+        "GP": ("Guadeloupe", (-62.0, 15.7, -60.9, 16.6)),
+        "MQ": ("Martinique", (-61.3, 14.3, -60.7, 15.0)),
+        "RE": ("Réunion", (55.0, -21.5, 56.0, -20.7)),
+        "YT": ("Mayotte", (44.9, -13.1, 45.4, -12.5)),
+    }
+}
 
 # NUTS levels to take per country, and the pattern of the code at that level.
 NUTS_LEVELS: dict[str, tuple[str, re.Pattern[str]]] = {
@@ -178,36 +181,65 @@ def country_code(properties: dict[str, Any]) -> Optional[str]:
     return None
 
 
+def country_name(properties: dict[str, Any]) -> str:
+    """The English name of a Natural Earth country: ``NAME_EN`` (spelled out), else the abbreviated ``NAME``."""
+    return str(properties.get("NAME_EN") or properties.get("NAME") or properties.get("ADMIN") or "")
+
+
+def polygons_of(geometry: BaseGeometry) -> list[Polygon]:
+    """The polygons of a (Multi)Polygon."""
+    return list(geometry.geoms) if hasattr(geometry, "geoms") else [geometry]
+
+
+def in_box(polygon: Polygon, box: tuple[float, float, float, float]) -> bool:
+    """Whether the centroid of a polygon lies in ``(min lon, min lat, max lon, max lat)``."""
+    min_lon, min_lat, max_lon, max_lat = box
+    return min_lon <= polygon.centroid.x <= max_lon and min_lat <= polygon.centroid.y <= max_lat
+
+
 def build_countries(source: Path) -> list[dict[str, Any]]:
-    """The borders of ``COUNTRIES`` (a country with several features is merged into one)."""
+    """The borders of every country of Natural Earth, by ISO 3166-1 alpha-2 code, sorted by code.
+
+    A country that Natural Earth draws in several features (Australia and its islands, France and Clipperton...) is merged into one;
+    ``MERGED_INTO`` joins the places with no code to the country they lie in; ``COUNTRY_EXTENT`` and ``SPLIT_PARTS`` cut the
+    overseas departments off France. The places left with no code are named on the standard error.
+    """
     data = json.loads(source.read_text(encoding="utf-8"))
     parts: dict[str, list[BaseGeometry]] = {}
-    names: dict[str, str] = {}
+    names: dict[str, tuple[float, str]] = {}  # the name of the largest feature that holds the code
+    left_out: list[str] = []
     for item in data["features"]:
         props = item.get("properties") or {}
-        code = country_code(props)
-        if code in COUNTRIES and item.get("geometry"):
-            parts.setdefault(code, []).append(shape(item["geometry"]))
-            names[code] = str(props.get("NAME") or props.get("ADMIN") or code)
-    missing = [code for code in COUNTRIES if code not in parts]
-    if missing:
-        raise SystemExit(f"countries not found in Natural Earth: {missing}")
+        if not item.get("geometry"):
+            continue
+        geometry = shape(item["geometry"])
+        code = country_code(props) or MERGED_INTO.get(str(props.get("ADM0_A3")))
+        if code is None:
+            left_out.append(str(props.get("NAME") or props.get("ADMIN") or props.get("ADM0_A3")))
+            continue
+        parts.setdefault(code, []).append(geometry)
+        if country_code(props) is not None and geometry.area >= names.get(code, (-1.0, ""))[0]:
+            names[code] = (geometry.area, country_name(props))
+    if left_out:
+        print(f"places with no ISO code, not written: {', '.join(sorted(left_out))}", file=sys.stderr)
+    cut_off: dict[str, list[Polygon]] = {}
     features = []
-    for code in COUNTRIES:
-        polygons: list[Polygon] = [
-            polygon for part in parts[code] for polygon in (part.geoms if hasattr(part, "geoms") else [part])
-        ]
+    for code in sorted(parts):
+        polygons = [polygon for part in parts[code] for polygon in polygons_of(part)]
         extent = COUNTRY_EXTENT.get(code)
         if extent is not None:
-            min_lon, min_lat, max_lon, max_lat = extent
-            polygons = [
-                polygon
-                for polygon in polygons
-                if min_lon <= polygon.centroid.x <= max_lon and min_lat <= polygon.centroid.y <= max_lat
-            ]
+            for part_code, (_, box) in SPLIT_PARTS.get(code, {}).items():
+                cut_off.setdefault(part_code, []).extend(polygon for polygon in polygons if in_box(polygon, box))
+            polygons = [polygon for polygon in polygons if in_box(polygon, extent)]
         merged = polygons[0] if len(polygons) == 1 else MultiPolygon(polygons)
-        features.append(feature(simplify(merged, COUNTRY_TOLERANCE_DEG), {"country": code, "name": names[code]}))
-    return features
+        features.append(feature(simplify(merged, COUNTRY_TOLERANCE_DEG), {"country": code, "name": names.get(code, (0.0, code))[1]}))
+    for code, (name, _) in (item for split in SPLIT_PARTS.values() for item in split.items()):
+        polygons = cut_off.get(code, [])
+        if not polygons:
+            raise SystemExit(f"no polygon of {name} ({code}) found in Natural Earth")
+        merged = polygons[0] if len(polygons) == 1 else MultiPolygon(polygons)
+        features.append(feature(simplify(merged, COUNTRY_TOLERANCE_DEG), {"country": code, "name": name}))
+    return sorted(features, key=lambda item: item["properties"]["country"])
 
 
 def fetch_nuts_codes(cache: Path, fetch: Callable[..., Path] = download) -> list[tuple[str, str]]:
@@ -291,7 +323,7 @@ def run(argv: Optional[list[str]] = None, fetch: Callable[..., Path] = download)
     write_collection(
         args.out_dir / "countries.geojson.gz",
         countries,
-        "Borders from Natural Earth (public domain), simplified; to find the country of a point",
+        "Borders of every country of Natural Earth (public domain), simplified; to find the country of a point",
     )
     if args.countries_only:
         return 0

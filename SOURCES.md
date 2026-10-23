@@ -94,7 +94,7 @@ on 2026-10-20); nothing is read from these sources while the API runs.
 
 | Data | Used for | Licence | Size, simplification | What it does not do |
 | --- | --- | --- | --- | --- |
-| Natural Earth `ne_10m_admin_0_countries` ([terms](https://www.naturalearthdata.com/about/terms-of-use/)) | `countries.geojson.gz`: the country of a point, offline, so that only the needed feeds are asked. | **Public domain** (stated on the terms page). | 701 KiB gzipped, 135 countries (the 42 of before and every country a service of the WMO registry answers for, checked by a test), tolerance 0.01 degree (about 1 km), 3 decimals. Canada alone is about 131 KiB (its coast has 25,593 points at that tolerance); at 0.03 degree it would be 64 KiB: a question for the owner. France is the metropole and Corsica only (the feed of France does not cover the overseas departments). | A point within 0.02 degree of a border belongs to both countries; a point at sea belongs to the nearest country within 0.25 degree, else to none. |
+| Natural Earth `ne_10m_admin_0_countries` ([terms](https://www.naturalearthdata.com/about/terms-of-use/)) | `countries.geojson.gz`: the country of a point, offline, so that only the needed feeds are asked, and so that a country with no source is named in the answer ("Countries with no source" below). | **Public domain** (stated on the terms page). | 987 KiB gzipped, **244 borders: every country of Natural Earth** (it was 701 KiB and 135 countries, the ones with a source), read in about 120 ms at start (79 ms before) and a point found in under 0.2 ms; same tolerance, 0.01 degree (about 1 km), 3 decimals. A territory has its own ISO code (Puerto Rico `PR`, Greenland `GL`...), the overseas departments of France are cut off from France under theirs (`GF` `GP` `MQ` `RE` `YT`), Somaliland and Northern Cyprus and the buffer zone of Cyprus are joined to Somalia and Cyprus, and ten places Natural Earth draws with no ISO code (the British sovereign base areas of Akrotiri and Dhekelia, the Guantanamo Bay lease, disputed glaciers, banks and reefs) are not written: the tool names them. A few borders have a touching self-intersection after the rounding of the coordinates (9 of the 135 before, 15 of the 244 now): a distance is measured on them all the same. Canada alone is about 131 KiB (its coast has 25,593 points at that tolerance); at 0.03 degree it would be 64 KiB: a question for the owner. France is the metropole and Corsica only (the feed of France does not cover the overseas departments). | A point within 0.02 degree of a border belongs to both countries; a point at sea belongs to the nearest country within 0.25 degree, else to none. |
 | Natural Earth `ne_10m_admin_1_states_provinces` (same terms) with the NUTS codes of **Wikidata** (property P605 joined on ISO 3166-2; [licensing](https://www.wikidata.org/wiki/Wikidata:Licensing)) | `geocodes-nuts.geojson.gz`: the shapes of the French departments (NUTS3, old and new codes, 100) and of the Belgian provinces (NUTS2, 11). | Natural Earth: **public domain**. Wikidata: **CC0**. | 46 KiB gzipped, tolerance 0.005 degree (about 500 m), 3 decimals. All the codes of the French feed of 2026-10-20 resolve, and their names equal the feed's (`tests/test_vigilance_localization.py`). | A point in no shape of a code system belongs to the shapes within 0.02 degree (the coast, a gap of the simplification); a point inside a shape belongs to that shape only. |
 | **Not bundled:** Eurostat GISCO NUTS shapes ([terms](https://ec.europa.eu/eurostat/web/gisco/geodata/administrative-units)) | Would give Romania and Croatia (NUTS3 in their feeds). | The terms grant a non-exclusive, non-transferable right to use, **not for commercial purposes**, with the notice "(c) EuroGeographics for the administrative boundaries". The metadata states no other licence. | Not downloaded. | A public repository cannot hand that right on: **a question for the owner**. |
 | **Not bundled:** MeteoAlarm `EMMA_ID` shapes (`MeteoAlarm_Geocodes_2026_07_31.json`, 2,006 shapes, 33 MB, in the public repository [meteoalarm-pm-group/documents](https://gitlab.com/meteoalarm-pm-group/documents)) | Would give Austria, Czechia, Germany, Italy, Poland, Portugal, Spain, Finland, Slovakia and others (they name their areas with `EMMA_ID` only). | **None stated**: the repository has no licence file, and the terms give the reuse licence to the Information, not to the Content (maps, downloadable data). | Not downloaded by default. An operator can build it for his own instance (`tools/build_geometries.py --emma`, written to `app/data/local/`, git-ignored, or the path in `VIGIE_EMMA_GEOMETRIES`). | **A question for the owner:** write to meteoalarm@geosphere.at (the contact of the terms) to ask for a licence. |
@@ -176,6 +176,39 @@ the China Meteorological Administration (`cn-cma-xx`, a feed of 1,000 items and 
 The borders used to tell the country of a position (Natural Earth, public domain) are in the table "Shapes" above; a warning that
 names only codes (the Philippines, India) is listed by `country=` and counted in `warnings_not_matchable`, it is not matched to a point.
 
+## Countries with no source (and why)
+
+The borders (`app/data/countries.geojson.gz`, Natural Earth, public domain: the table "Shapes" above) hold **every country**, so a
+position finds its country whether or not the instance reads a source for it. A position in a country with no source is answered with
+the country and the reason (`uncovered` and `note` of `GET /v1/vigilances`; `GET /v1/vigilances/countries?uncovered=true` lists all of
+them): a stable `reason_code`, for a client to translate, and one English sentence. A territory has its own ISO code (Puerto Rico `PR`,
+Greenland `GL`, the overseas departments of France `GF` `GP` `MQ` `RE` `YT`...) and is answered on its own.
+
+**A reason is written only when it was read.** A country nothing is known about is `no_source`: "No official warning feed is read by
+this instance for this country." It says neither that the country has no warning service nor that its terms forbid anything.
+
+| Code | Means |
+| --- | --- |
+| `no_source` | No official warning feed is read for the country, and nothing more is known. |
+| `licence_unverified` | A national service exists (the WMO registry lists it, or the research of 2026-10-20 names it), but its reuse terms were not verified, or none were found. A service of the registry is then read only with `VIGIE_WMO_SOURCES=all`. |
+| `terms_restrict` | The terms found for the service ask for its permission before its warnings are passed on (Indonesia, Vanuatu, South Africa: the rows of their services above). |
+| `terms_contradictory` | The terms found contradict each other, for example a feed that says "public domain" and a site that restricts copying (Kuwait, Kazakhstan, Singapore, Thailand, Trinidad and Tobago: the rows of their services above; Hong Kong, below). |
+| `redistribution_forbidden` | The service does not allow its warnings to be redistributed (Australia, below). |
+| `law_restricts` | A law of the country reserves the giving of warnings to its service (Japan, below). |
+| `source_off` | A source exists but this instance turned it off: MetService (`VIGIE_ENABLE_METSERVICE=0`), or the whole registry (`VIGIE_WMO_SOURCES=off`). |
+
+The reason of a country of the WMO registry comes from the row of its service in the table above (`restriction` of its record in
+[`app/collectors/swic_terms.py`](app/collectors/swic_terms.py)); a service that no record looked at is `licence_unverified` and says that
+its terms were not looked at. The other reasons, read on 2026-10-20 ([`app/services/uncovered.py`](app/services/uncovered.py)):
+
+| Country | Name | Code | Sentence in the answer | Read in |
+| --- | --- | --- | --- | --- |
+| AU | Australia | `redistribution_forbidden` | The Bureau of Meteorology does not allow its warnings to be redistributed without the paid status of registered user: this instance reads none. | The research of 2026-10-20 (a web search): no redistribution without the paid status of registered user. The Bureau's own pages (bom.gov.au) answered HTTP 403 to an automated reader on 2026-10-20, so the wording was **not read again**: **not verified**. A search summary of that day gave the Bureau's RSS terms (a free service for personal and non-commercial use only) and a Data Licence Agreement for its warnings with fees; the clause on redistribution was not read. |
+| JP | Japan | `law_restricts` | Japanese law reserves the giving of warnings to the Japan Meteorological Agency (Meteorological Service Act, article 23): this instance reads none of its warnings. | [Meteorological Service Act (Act No. 165 of 1952)](https://www.japaneselawtranslation.go.jp/en/laws/view/1968/en), English translation, read 2026-10-20: article 23, "No person other than the Japan Meteorological Agency may give warnings" of the phenomena it lists, except in cases specified by Cabinet Order. The Cabinet Order was not read, and whether passing on an unchanged warning is "giving" one was not examined. The research of 2026-10-20 also sets the JMA aside because its warnings come in its own XML, not CAP: not read again. |
+| KR | South Korea | `licence_unverified` | The reuse terms of the national weather service of Korea were not verified: this instance reads none. | None: no terms were read. The plan of 2026-10-20 lists Korea among the licences **not verified**. |
+| HK | Hong Kong | `terms_contradictory` | The terms of the Hong Kong Observatory contradict each other: this instance never reads it. | `hk-hko-xx`, never read whatever the setting: contradictory terms, the owner's decision of 2026-10-20 (`EXCLUDED` in `swic_terms.py`). The two texts that contradict each other were not kept in this repository. |
+| CN | China | `licence_unverified` | No reuse terms were found for the China Meteorological Administration, and its feed (1,000 items, about 1 MB) is too heavy to read: this instance never reads it. | `cn-cma-xx`, never read whatever the setting: a feed of 1,000 items and about 1 MB with a 89 KiB document each, measured on 2026-10-20, and no terms found (`EXCLUDED` in `swic_terms.py`). |
+
 ## Reference data: what a hazard is close to
 
 `near_places` (the places an earthquake or a volcanic event is close to, calculated by Vigie; [`docs/data-sources.md`](docs/data-sources.md),
@@ -229,7 +262,8 @@ This project was built for one person's home. Each of these points comes from th
    of the content or intent of an alert; MetService's Code of Practice asks for no modification either.
 5. Leave the simulator off (`VIGIE_ENABLE_SIMULATION` unset) and do not expose the unauthenticated routes
    (`POST /v1/zones`, `POST` and `DELETE /v1/watched-points`, `POST /v1/scheduler/trigger`) to the Internet; the watched-point writes
-   are also off unless `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`.
+   are also off unless `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`. Set `VIGIE_ADMIN_TOKEN` as well: every route that changes something then asks for
+   `Authorization: Bearer <token>` (behind TLS, since the token is a shared secret in a header).
 6. MetService (New Zealand): the feed says CC BY 4.0 and its use is subject to a Code of Practice, but the website terms
    it points to allow personal use only and forbid resupply (see its row above). For one person's home that is no
    problem; before relaying New Zealand's warnings to other people, ask MetService (the CAP page gives an address for

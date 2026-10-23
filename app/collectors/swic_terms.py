@@ -32,6 +32,10 @@ from app.collectors.swic_registry import SwicSource
 
 Status = Literal["verified", "unverified"]
 EvidenceKind = Literal["terms page", "own feed", "none found"]
+# What the terms read say, for an unverified service: nothing found or a bare line (``""``), a restriction on passing the warnings on
+# (``"restricts"``), or a feed line and a site that contradict each other (``"contradictory"``). The answer says it for a country that
+# is not read (``app/services/uncovered.py``).
+Restriction = Literal["", "restricts", "contradictory"]
 
 
 @dataclass(frozen=True)
@@ -48,6 +52,7 @@ class SwicTerms:
     credit: str  # the credit the API puts on the service's warnings (never holds the separator " | ")
     note: str = ""  # what is not verified, or why it is not
     feed_marker: str = ""  # a verified licence read in a feed: the words (lower case) the weekly check looks for in it
+    restriction: Restriction = ""  # for an unverified service: what the terms read say (see ``Restriction``)
 
 
 _CC_BY_URL = "https://creativecommons.org/licenses/by/4.0/"
@@ -176,6 +181,7 @@ TERMS: tuple[SwicTerms, ...] = (
         "Source: BMKG (Badan Meteorologi, Klimatologi, dan Geofisika), Indonesia. Reuse terms not verified",
         "The page (updated 8 July 2026) does not mention CAP; a relay is probably \"repackaging\": to confirm with BMKG. The feed "
         "answered 403 with a bot-detection page on 2026-10-20: the API does not get round it.",
+        restriction="restricts",
     ),
     SwicTerms(
         "kz-kazhydromet-ru", "KZ", "Kazhydromet", "unverified",
@@ -184,6 +190,7 @@ TERMS: tuple[SwicTerms, ...] = (
         "https://meteoalert.meteoinfo.ru/kazakhstan/cap-feed/en/atom.xml", "own feed",
         "Source: Kazhydromet (Kazakhstan). Reuse terms not verified",
         "The two statements contradict each other; the line in the feed is the host's.",
+        restriction="contradictory",
     ),
     SwicTerms(
         "kw-dom-en", "KW", "Meteorological Department of Kuwait (DGCA)", "unverified",
@@ -192,6 +199,7 @@ TERMS: tuple[SwicTerms, ...] = (
         "https://met.gov.kw/aboutus.php?lang=eng", "terms page",
         "Source: Meteorological Department, Kuwait (DGCA). Reuse terms not verified",
         "The notice speaks of the site, not of the alerts by name.",
+        restriction="contradictory",
     ),
     SwicTerms(
         "mv-met-en", "MV", "Maldives Meteorological Service", "unverified",
@@ -218,6 +226,7 @@ TERMS: tuple[SwicTerms, ...] = (
         "Source: Meteorological Service Singapore (MSS). Reuse terms not verified",
         "The terms speak of the site's contents; they mention neither the CAP feed nor the Singapore Open Data Licence. Fine for "
         "an instance only its owner uses, not for a relay.",
+        restriction="contradictory",
     ),
     SwicTerms(
         "th-tmd-th", "TH", "Thai Meteorological Department (TMD)", "unverified",
@@ -227,6 +236,7 @@ TERMS: tuple[SwicTerms, ...] = (
         "Source: Thai Meteorological Department (TMD). Reuse terms not verified",
         "Both pages speak of the site's content, not of the alerts. Some documents date themselves in the Buddhist era (year "
         "2568): the API reads them as Gregorian.",
+        restriction="contradictory",
     ),
     SwicTerms(
         "tt-ttms-en", "TT", "Trinidad and Tobago Meteorological Service (TTMS)", "unverified",
@@ -236,6 +246,7 @@ TERMS: tuple[SwicTerms, ...] = (
         "Source: Trinidad and Tobago Meteorological Service (TTMS). Reuse terms not verified",
         "The terms page was read through a summarising tool only (the raw page timed out). The feed lists 848 items in 641 KB "
         "and took 44 s to read, with no validator: only the items of the last 14 days are read.",
+        restriction="contradictory",
     ),
     SwicTerms(
         "uy-inumet-es", "UY", "Instituto Uruguayo de Meteorología (INUMET)", "unverified",
@@ -288,6 +299,7 @@ TERMS: tuple[SwicTerms, ...] = (
         "https://www.vmgd.gov.vu/terms-and-conditions", "terms page",
         "Source: Vanuatu Meteorology and Geo-hazards Department (VMGD). Reuse terms not verified",
         "The terms speak of the website. The alert server did not answer from the author's PC on 2026-10-20.",
+        restriction="restricts",
     ),
     SwicTerms(
         "za-saws-en", "ZA", "South African Weather Service (SAWS)", "unverified",
@@ -297,6 +309,7 @@ TERMS: tuple[SwicTerms, ...] = (
         "Source: South African Weather Service (SAWS). Reuse terms not verified",
         "A third party's copy of the Act, not the Service's own terms (its sites could not be read). The article speaks of data "
         "supplied to a client, not of the public feed. The feed's certificate did not verify from the author's PC: not read.",
+        restriction="restricts",
     ),
 )
 

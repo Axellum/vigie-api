@@ -50,6 +50,7 @@ async def test_a_point_in_a_warned_departement_gets_the_warning_with_the_words_o
 ) -> None:
     answer = await service.for_point(*samples.VALENCE)
     assert answer.countries == ["FR"] and (answer.query.lat, answer.query.lon) == samples.VALENCE
+    assert answer.uncovered == [] and answer.note is None  # a country with a source is unchanged: no reason, no note
     assert [w.area.description for w in answer.vigilances] == ["Drôme"]
     drome = answer.vigilances[0]
     assert (drome.level, drome.phenomenon_original, drome.area.localization) == (SeverityLevel.YELLOW, "Flooding", "geocode")
@@ -111,9 +112,17 @@ async def test_a_point_in_a_country_whose_areas_have_no_shape_says_so(service: V
 
 
 async def test_a_point_nobody_covers_gets_a_note_and_no_request(service: VigilanceService, upstream: Upstream) -> None:
-    answer = await service.for_point(35.6762, 139.6503)
+    answer = await service.for_point(35.6762, 139.6503)  # Tokyo: Japan has a border, and no source
     assert answer.vigilances == [] and answer.countries == [] and answer.coverage == [] and answer.disclaimer is None
-    assert "No official warning source covers this point" in (answer.note or "")
+    assert [(u.country, u.name, u.reason_code) for u in answer.uncovered] == [("JP", "Japan", "law_restricts")]
+    assert (answer.note or "").startswith("Japan (JP): Japanese law reserves the giving of warnings")  # the country and why, not a bare "nothing"
+    assert upstream.meteoalarm.count == 0 and upstream.nws_provider.count == 0
+
+
+async def test_a_point_at_sea_is_in_no_country_and_says_so(service: VigilanceService, upstream: Upstream) -> None:
+    answer = await service.for_point(0.0, -150.0)
+    assert answer.countries == [] and answer.uncovered == [] and answer.coverage == []
+    assert "No country was found for this point" in (answer.note or "") and "at sea" in (answer.note or "")
     assert upstream.meteoalarm.count == 0 and upstream.nws_provider.count == 0
 
 

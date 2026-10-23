@@ -95,3 +95,11 @@ owner (no `&&`).
     was read without a gap ([ADR 0008](docs/decisions/0008-sensitive-points.md)); the compact `/v1/snapshot` and `/v1/point` carry no
     `near_places`. `POST` and `DELETE /v1/watched-points` are off unless `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1` and must not be reachable
     from the Internet on a public instance.
+16. **A country with no source says why, and only what was read.** A reason (`app/services/uncovered.py`, `reason_code` + one sentence) is
+    written for a country only with the evidence of what was read, and a row of `SOURCES.md` ("Countries with no source"); any other country is
+    `no_source`, which claims nothing more. Do not write that a service forbids something that its terms do not say.
+17. **Every route that changes something asks for the admin token when the instance sets one, and a new route cannot escape it.**
+    `VIGIE_ADMIN_TOKEN` is checked by a middleware on the request method (`app/security.py`: anything but `GET`, `HEAD` and `OPTIONS` needs
+    `Authorization: Bearer <token>`), not by a dependency on each route; nothing to add on a new route, and no route is to be exempted.
+    `tests/test_admin_token.py` walks the routes of the application and fails if one with a write method answers without the token. The
+    token appears in no log, answer or document (`GET /v1/health` only says `admin_token_set`); never write one in the repository.
