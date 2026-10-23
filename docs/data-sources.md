@@ -143,6 +143,7 @@ the catalogues are uncertain (by how much, for these feeds: not verified). They 
 | `VIGIE_NEAR_MAX_PLACES` | 5 | At most this many places under a hazard, the nearest first (1 to 20) |
 | `VIGIE_WATCHED_POINTS_MAX` | 50 | The most watched points an instance keeps (1 to 500); a new one over the limit is a 409 |
 | `VIGIE_ENABLE_WATCHED_POINTS_WRITE` | 0 (off) | `1` enables `POST` and `DELETE` of `/v1/watched-points` (403 otherwise; the reads always work). Not a radius: a switch, listed here with its siblings |
+| `VIGIE_ADMIN_TOKEN` | none | When set, every request that is not a read (`POST`, `PUT`, `PATCH`, `DELETE`) must carry `Authorization: Bearer <token>`, else 401; the reads never need it. Not a radius: a secret, listed here with the switches. See "Security" in [`architecture.md`](architecture.md) |
 | `VIGIE_QUIET_MAX_GAP_S` | 900 | A source not read for longer than this breaks the run of readings that "nothing happened" rests on (60 to 86,400) |
 
 A value that is not a number, or is outside its range, means the default. The radius of a watched point is its own: up to 500 km, 50 by default.
@@ -268,6 +269,8 @@ A feed is asked **only for a country that is needed**; 39 MeteoAlarm feeds exist
 | any other country with a service of the registry, `VIGIE_WMO_SOURCES=all` only | that service | |
 
 - The country of a position is found **offline** (borders bundled in `app/data/`, see [`SOURCES.md`](../SOURCES.md)), without asking any service.
+  Every country has a border, also the ones the instance reads nothing for: a position there is answered with the country and why nothing is read
+  (`uncovered`, `note`; a stable `reason_code` and a sentence, from the table "Countries with no source" of [`SOURCES.md`](../SOURCES.md)), not with a bare "nothing".
 - A request for a position asks the feed of its country (two near a border); a request by `country=` asks that one.
 - The scheduler (`VIGIE_SCHEDULER=1`) keeps fresh, every 90 s cycle, the feeds of: the countries of the watched zones, of the positions that clients follow on the WebSocket, and of the 8 countries asked for in the last hour. A feed older than its 180 s is asked again at the next cycle, that is every 270 s: **320 requests a day** per feed.
 - A CAP document is asked only for a warning that an answer returns, once, and at most 40 new ones per request (the strongest warnings first); the rest come with the next request. The scheduler asks for none until a warning changes for a followed position.

@@ -23,18 +23,33 @@ def square(lon: float, lat: float, size: float = 1.0) -> dict[str, Any]:
     return {"type": "Polygon", "coordinates": [ring]}
 
 
+def multi(*squares: dict[str, Any]) -> dict[str, Any]:
+    return {"type": "MultiPolygon", "coordinates": [square["coordinates"] for square in squares]}
+
+
 def natural_earth_countries() -> dict[str, Any]:
-    """One square per wanted country (spread over the globe), France with an overseas part, Norway with ISO_A2 = -99."""
+    """What the tool reads from Natural Earth, in miniature: ordinary countries, France drawn with its overseas departments,
+    Norway with ISO_A2 = -99, Australia in two features, three places with no code that lie in a country, and two that do not."""
     features = []
-    for n, code in enumerate(tool.COUNTRIES):
-        props: dict[str, Any] = {"ISO_A2_EH": code, "ISO_A2": code, "NAME": f"Country {code}"}
-        geometry = square(-170.0 + 8 * (n % 40), -60.0 + 8 * (n // 40) * 3)
-        if code == "FR":
-            geometry = {"type": "MultiPolygon", "coordinates": [square(2.0, 46.0)["coordinates"], square(-61.5, 16.0)["coordinates"]]}
-        if code == "NO":
-            props["ISO_A2"] = "-99"  # Natural Earth's own oddity: ISO_A2_EH fixes it
-        features.append({"type": "Feature", "properties": props, "geometry": geometry})
-    features.append({"type": "Feature", "properties": {"ISO_A2_EH": "JP", "NAME": "Japan"}, "geometry": square(139.0, 35.0)})
+
+    def add(properties: dict[str, Any], geometry: dict[str, Any]) -> None:
+        features.append({"type": "Feature", "properties": properties, "geometry": geometry})
+
+    for n, code in enumerate(("DE", "CH", "JP", "SO", "CY", "MC")):
+        add({"ISO_A2_EH": code, "ISO_A2": code, "NAME": f"Short {code}", "NAME_EN": f"Country {code}", "ADM0_A3": code}, square(-170.0 + 8 * n, 50.0))
+    add({"ISO_A2_EH": "NO", "ISO_A2": "-99", "NAME": "Norway", "ADM0_A3": "NOR"}, square(10.0, 60.0))  # Natural Earth's own oddity
+    add(  # the metropole, then French Guiana, Reunion, Guadeloupe (two islands), Martinique and Mayotte
+        {"ISO_A2_EH": "FR", "ISO_A2": "-99", "NAME": "France", "NAME_EN": "France", "ADM0_A3": "FRA"},
+        multi(square(2.0, 46.0), square(-53.0, 4.0), square(55.4, -21.1, 0.4), square(-61.7, 16.1, 0.3), square(-61.4, 16.2, 0.3), square(-61.1, 14.6, 0.3), square(45.0, -12.9, 0.3)),
+    )
+    add({"ISO_A2_EH": "FR", "ISO_A2": "-99", "NAME": "Clipperton I.", "ADM0_A3": "CLP"}, square(-109.0, 10.0, 0.1))  # a feature of its own, far from the metropole
+    add({"ISO_A2_EH": "AU", "ISO_A2": "AU", "NAME": "Australia", "ADM0_A3": "AUS"}, square(113.0, -40.0, 30.0))
+    add({"ISO_A2_EH": "AU", "ISO_A2": "-99", "NAME": "Coral Sea Is.", "ADM0_A3": "CSI"}, square(150.0, -20.0, 0.5))
+    for name, adm0 in (("Somaliland", "SOL"), ("N. Cyprus", "CYN"), ("Cyprus U.N. Buffer Zone", "CNM")):
+        add({"ISO_A2_EH": "-99", "ISO_A2": "-99", "WB_A2": "-99", "NAME": name, "ADM0_A3": adm0}, square(-100.0, -20.0 - len(name), 0.5))
+    add({"ISO_A2_EH": "-99", "ISO_A2": "-99", "NAME": "Akrotiri", "ADM0_A3": "WSB"}, square(32.9, 34.6, 0.1))
+    add({"ISO_A2_EH": "-99", "ISO_A2": "-99", "NAME": "Siachen Glacier", "ADM0_A3": "KAS"}, square(77.0, 35.0, 0.1))
+    add({"ISO_A2_EH": "JP", "NAME": "no geometry"}, None)  # type: ignore[arg-type]
     return {"type": "FeatureCollection", "features": features}
 
 
@@ -98,24 +113,59 @@ def test_the_country_code_of_a_natural_earth_feature(properties: dict[str, Any],
     assert tool.country_code(properties) == code
 
 
-def test_the_countries_are_the_wanted_ones_and_france_is_the_metropole(tmp_path: Path) -> None:
+def built(tmp_path: Path, data: dict[str, Any] | None = None) -> dict[str, dict[str, Any]]:
+    """The properties and geometry of each border the tool writes for a Natural Earth file, by country code."""
     source = tmp_path / "countries.geojson"
-    source.write_text(json.dumps(natural_earth_countries()), encoding="utf-8")
+    source.write_text(json.dumps(data or natural_earth_countries()), encoding="utf-8")
     features = tool.build_countries(source)
-    assert [f["properties"]["country"] for f in features] == tool.COUNTRIES and len(features) == len(tool.COUNTRIES)
-    france = next(f for f in features if f["properties"]["country"] == "FR")
-    assert france["geometry"]["type"] == "Polygon"  # the overseas part (centroid at -61 degrees) is dropped
-    assert france["properties"]["name"] == "Country FR"
-    assert all(f["properties"]["country"] != "JP" for f in features)  # a country with no source is not kept
+    codes = [f["properties"]["country"] for f in features]
+    assert codes == sorted(codes) and len(set(codes)) == len(codes)  # one border a country, sorted: the same input, the same file
+    return {f["properties"]["country"]: f for f in features}
 
 
-def test_a_missing_country_stops_the_build(tmp_path: Path) -> None:
+def test_every_country_of_natural_earth_has_a_border_not_only_the_ones_with_a_source(tmp_path: Path) -> None:
+    borders = built(tmp_path)
+    assert {"DE", "CH", "JP", "NO", "AU", "MC", "SO", "CY", "FR"} <= set(borders)  # Japan and Monaco: no source, and a border all the same
+    assert borders["JP"]["properties"]["name"] == "Country JP"  # the spelled-out English name, not the abbreviated one
+    assert borders["NO"]["properties"]["name"] == "Norway"  # no NAME_EN: the short name
+
+
+def test_france_is_the_metropole_and_each_overseas_department_has_its_own_code(tmp_path: Path) -> None:
+    borders = built(tmp_path)
+    assert borders["FR"]["geometry"]["type"] == "Polygon"  # the overseas parts are cut off, and Clipperton (a feature of its own) is dropped
+    assert {code: borders[code]["properties"]["name"] for code in ("GF", "GP", "MQ", "RE", "YT")} == {
+        "GF": "French Guiana",
+        "GP": "Guadeloupe",
+        "MQ": "Martinique",
+        "RE": "Réunion",
+        "YT": "Mayotte",
+    }
+    assert borders["GP"]["geometry"]["type"] == "MultiPolygon"  # both islands of the department are in
+    assert borders["GF"]["geometry"]["coordinates"][0][0] == [-53.0, 4.0]
+
+
+def test_an_overseas_department_missing_from_the_file_stops_the_build(tmp_path: Path) -> None:
     data = natural_earth_countries()
-    data["features"] = [f for f in data["features"] if f["properties"]["ISO_A2_EH"] != "CH"]
-    source = tmp_path / "countries.geojson"
-    source.write_text(json.dumps(data), encoding="utf-8")
-    with pytest.raises(SystemExit, match="CH"):
-        tool.build_countries(source)
+    france = next(f for f in data["features"] if f["properties"].get("ADM0_A3") == "FRA")
+    france["geometry"]["coordinates"] = [part for part in france["geometry"]["coordinates"] if part[0][0] != [55.4, -21.1]]  # no Reunion
+    with pytest.raises(SystemExit, match="Réunion"):
+        built(tmp_path, data)
+
+
+def test_a_country_drawn_in_several_features_is_one_border_named_after_the_largest(tmp_path: Path) -> None:
+    australia = built(tmp_path)["AU"]
+    assert australia["properties"]["name"] == "Australia"  # not "Coral Sea Is.", which comes after it in the file
+    assert australia["geometry"]["type"] == "MultiPolygon" and len(australia["geometry"]["coordinates"]) == 2
+
+
+def test_places_with_no_code_are_joined_to_their_country_or_reported(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    borders = built(tmp_path)
+    assert borders["SO"]["geometry"]["type"] == "MultiPolygon"  # Somaliland, joined to Somalia
+    assert borders["CY"]["geometry"]["type"] == "MultiPolygon" and len(borders["CY"]["geometry"]["coordinates"]) == 3  # N. Cyprus and the buffer zone
+    assert set(tool.MERGED_INTO.values()) == {"SO", "CY"}
+    reported = capsys.readouterr().err
+    assert "Akrotiri" in reported and "Siachen Glacier" in reported  # not written, and said
+    assert "Somaliland" not in reported and "N. Cyprus" not in reported
 
 
 def test_paris_collectivity_code_is_the_department_code() -> None:
@@ -188,7 +238,9 @@ def test_run_builds_both_files_without_the_network(tmp_path: Path, monkeypatch: 
     assert sorted(path.name for path in out.iterdir()) == ["countries.geojson.gz", "geocodes-nuts.geojson.gz"]
     assert len(asked) == 3 and all(url.startswith("https://") for url in asked)
     assert "Natural Earth" in json.loads(gzip.decompress((out / "countries.geojson.gz").read_bytes()))["note"]
-    assert len(CountryIndex.from_file(out / "countries.geojson.gz").countries()) == len(tool.COUNTRIES)
+    index = CountryIndex.from_file(out / "countries.geojson.gz")
+    assert {"JP", "FR", "RE", "AU"} <= set(index.countries()) and index.name("RE") == "Réunion"
+    assert index.countries_for_point(50.5, -153.5) == ["JP"]  # inside the square of Japan
     assert GeometryIndex.from_disk(out).has("NUTS3", "FR713")
 
 

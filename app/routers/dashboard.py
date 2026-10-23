@@ -257,8 +257,30 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       return (value === null || value === undefined) ? 'n/a' : esc(value) + (unit ? ' ' + unit : '');
     }
 
+    // An instance that sets VIGIE_ADMIN_TOKEN asks for it on every write: it is asked once, kept for this tab only, and sent as a Bearer header.
+    function adminToken() {
+      try { return sessionStorage.getItem('vigie-admin-token') || ''; } catch (e) { return ''; }
+    }
+
+    async function writeRequest(url, options) {
+      const send = () => {
+        const token = adminToken();
+        const headers = Object.assign({}, options.headers || {}, token ? {'Authorization': 'Bearer ' + token} : {});
+        return fetch(url, Object.assign({}, options, {headers}));
+      };
+      let response = await send();
+      if (response.status === 401) {
+        const entered = window.prompt('This instance asks for its admin token to change anything (VIGIE_ADMIN_TOKEN):');
+        if (entered && entered.trim()) {
+          try { sessionStorage.setItem('vigie-admin-token', entered.trim()); } catch (e) { /* kept for this request only */ }
+          response = await send();
+        }
+      }
+      return response;
+    }
+
     async function triggerSim(scenario) {
-      await fetch('/v1/simulate', {
+      await writeRequest('/v1/simulate', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({scenario})
@@ -267,7 +289,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     }
 
     async function triggerScheduler() {
-      await fetch('/v1/scheduler/trigger', {method: 'POST'});
+      await writeRequest('/v1/scheduler/trigger', {method: 'POST'});
       await refreshAll();
     }
 

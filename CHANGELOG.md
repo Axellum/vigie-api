@@ -155,8 +155,33 @@ All notable changes to this project are documented here. The format follows
 - **`tools/fake_instance.py`**: a fake instance (standard library only) that serves `/v1/health` and `/v1/vigilances`
   with warnings added and removed by hand, all labelled `SIMULATION`, to try the integration's entities and events.
   `POST /v1/simulate` cannot do it: it injects hazards, not official warnings.
+- **Every country has a border, and a country with no source says why.** `app/data/countries.geojson.gz` now holds every country of Natural
+  Earth (244 borders, 987 KiB gzipped instead of 701 KiB; read in about 120 ms at start instead of 79 ms, a point found in under 0.2 ms; same
+  tool, same simplification). A territory has its own ISO code (`PR`, `GL`...), the overseas departments of France are cut off from France under
+  `GF` `GP` `MQ` `RE` `YT`, three places with no code are joined to the country they lie in. A position in Japan, Australia or China finds its
+  country, and the answer names it and says why nothing is read there: **`uncovered`** (`country`, `name`, `covered: false`, a stable
+  `reason_code` for a client to translate, and a one-sentence `reason`) on `GET /v1/vigilances` and in the `metadata` of the GeoJSON, and the
+  `note` when nothing at all is read. The codes: `no_source`, `licence_unverified`, `terms_restrict`, `terms_contradictory`,
+  `redistribution_forbidden`, `law_restricts`, `source_off`. **A reason is written only when it was read** (Australia, Japan, Hong Kong, China,
+  and the registry's services from their own records: `SOURCES.md`, "Countries with no source"); any other country is `no_source`, which claims
+  nothing more. A position in no country (at sea, further than about 25 km from a coast) says so. The 404 of `?country=JP` gives the reason.
+  [ADR 0009](docs/decisions/0009-every-border-a-reason-per-country-and-the-admin-token.md).
+- **`GET /v1/vigilances/countries?uncovered=true`** lists every country, the ones with a source exactly as before and the others as
+  `{country, name, covered: false, reason_code, reason}`, all sorted by code. Without the parameter the list is unchanged.
+- **An optional admin token, `VIGIE_ADMIN_TOKEN`.** When it is set, every request that is not a read (`POST`, `PUT`, `PATCH`, `DELETE`; today
+  `/v1/zones`, `/v1/watched-points`, `/v1/scheduler/trigger` and `/v1/simulate`) must carry `Authorization: Bearer <token>`, else the answer is
+  401 and the body is not read. Not set (or blank), nothing changes. It is a middleware on the method, not a list of routes, so a route added
+  later is covered; `tests/test_admin_token.py` walks the routes of the application (included routers too) and fails if one with a write method answers
+  without the token. It is checked before the switches (`VIGIE_ENABLE_SIMULATION`, `VIGIE_ENABLE_WATCHED_POINTS_WRITE`): a disabled route stays 403.
+  Compared in constant time; in no log, no answer, not in `GET /v1/health` (`admin_token_set`). The reads, `HEAD`, `OPTIONS` and the WebSocket never
+  need it. The OpenAPI document describes it, the dashboard asks for it once and sends it with its two writes, and the Home Assistant integration (it
+  only reads) needs nothing. [ADR 0009](docs/decisions/0009-every-border-a-reason-per-country-and-the-admin-token.md).
 
 ### Changed
+
+- **A position in a country without a source no longer reads "no official warning source covers this point".** It names the country and the reason
+  (above). Land near the border of a country with a source used to be given to that country if it was within about 25 km (Tashkent was read as
+  Kazakhstan); every country has a border now, so it is in its own.
 
 - **One storm or one tsunami is one hazard, whoever reports it.** A hazard can carry a private event key: a storm's name and season
   (the NHC and GDACS, whose event name ends with the year) or the VTEC code of a tsunami message (the centre and the NWS alert

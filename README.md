@@ -72,7 +72,7 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
 | `GET /v1/fires?bbox=w,s,e,n`, `GET /v1/fires/grid` | The active fires seen by NASA FIRMS (VIIRS, NOAA-20 and NOAA-21): the detections of a box as GeoJSON, or counted per cell for small zooms. Needs `VIGIE_FIRMS_MAP_KEY` (404 without). See "Active fires" below. |
 | `GET /v1/cap/alerts` | Active hazards as OASIS CAP 1.2. |
 | `GET /v1/vigilances?lat=&lon=` or `?country=FR` or `?source=tsunami` | Official weather warnings that cover a point, or all those of a country (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues, and the national services of the WMO registry), or the tsunami messages in force, the issuer's words untouched. See below. |
-| `GET /v1/vigilances/countries` | The countries this instance serves with its settings, the sources that answer for each, and whether their licence is verified. |
+| `GET /v1/vigilances/countries` | The countries this instance serves with its settings, the sources that answer for each, and whether their licence is verified. With `?uncovered=true`, every other country of the world too, each with the reason nothing is read for it. |
 | `GET /v1/vigilances.geojson` | The same warnings as GeoJSON, the shape of each area as geometry. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Watched zones (the watchlist). A zone needs its `utc_offset_s`. |
 | `GET/POST /v1/watched-points`, `DELETE /v1/watched-points/{id}` | The points you watch (a place, a fault, a volcano...), each with a radius. **Personal**: listed here and in the status, never in the hazards. `POST` and `DELETE` are **off** (403) unless `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`. |
@@ -85,9 +85,12 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
 | `GET /dashboard` | Web supervision page. |
 | `GET /docs` | Interactive OpenAPI documentation. |
 
-**The API has no authentication.** Run it on a trusted network. Do not expose it to the Internet as is:
+**The API has no authentication by default.** Run it on a trusted network. Do not expose it to the Internet as is:
 anyone who can reach it can add or delete watched zones and watched points and trigger collection cycles. Put a reverse proxy
-that authenticates in front of it if you must.
+that authenticates in front of it if you must. **`VIGIE_ADMIN_TOKEN`** is a first step: when it is set, every route that changes something
+(`POST`, `PUT`, `PATCH`, `DELETE`: today `/v1/zones`, `/v1/watched-points`, `/v1/scheduler/trigger` and `/v1/simulate`) needs
+`Authorization: Bearer <token>` and answers 401 without it; the reads never need it. Not set, nothing changes. The token is a shared secret in
+a header: put TLS in front of an instance that is not on a trusted network ([`docs/architecture.md`](docs/architecture.md), [ADR 0009](docs/decisions/0009-every-border-a-reason-per-country-and-the-admin-token.md)).
 
 **On a public instance, `POST` and `DELETE` of `/v1/watched-points` must not be reachable from the Internet**, like `POST /v1/zones` and
 `POST /v1/simulate`: put the instance behind a reverse proxy that blocks them (the reads can stay open). Because a watched point is personal
@@ -250,6 +253,27 @@ Real answer for Ibiza at 18:34 UTC on 2026-10-20 (the feeds were read live; cut)
   in each of the 94 countries (the worst case; the number of clients adds nothing). A ceiling of 50,000 requests a day
   covers the whole set. [`docs/data-sources.md`](docs/data-sources.md) has the rhythm and its reasons.
 
+### A country with no source says why
+
+The borders hold every country (Natural Earth, 244 of them), so a position in Japan, Australia or China finds its country. The answer names it
+and says why nothing is read there, in `uncovered` and in `note`, with a stable `reason_code` that a client can translate:
+
+```
+GET /v1/vigilances?lat=35.6762&lon=139.6503      Tokyo (cut)
+{
+  "countries": [], "vigilances": [], "coverage": [],
+  "uncovered": [{"country": "JP", "name": "Japan", "covered": false, "reason_code": "law_restricts",
+                 "reason": "Japanese law reserves the giving of warnings to the Japan Meteorological Agency (Meteorological Service Act, article 23): this instance reads none of its warnings."}],
+  "note": "Japan (JP): Japanese law reserves ... The countries this instance reads: GET /v1/vigilances/countries."
+}
+GET /v1/vigilances/countries?uncovered=true      every country, the ones with a source unchanged
+```
+
+The codes: `no_source` (no official warning feed is read for the country, and nothing more is known), `licence_unverified`, `terms_restrict`,
+`terms_contradictory`, `redistribution_forbidden`, `law_restricts` and `source_off`. **A reason is written only when it was read**: where, and what is
+not verified, is in [`SOURCES.md`](SOURCES.md), "Countries with no source". A position at sea, further than about 25 km from a coast, is in no country and
+says so. [ADR 0009](docs/decisions/0009-every-border-a-reason-per-country-and-the-admin-token.md).
+
 ## Storms and tsunamis
 
 `GET /v1/geojson/hazards` also lists the **tropical cyclones** of the National Hurricane Center (NHC) and the **tsunami
@@ -407,6 +431,7 @@ All settings are optional environment variables.
 | `VIGIE_SCHEDULER` | `0` | `1` starts the background scheduler (refresh every 90 s, WebSocket push). |
 | `VIGIE_ENABLE_SIMULATION` | `0` | `1` enables `POST /v1/simulate` (and the dashboard buttons). The route has no authentication and writes the simulated alerts into the hazard history: enable it only on an instance that trusted clients alone can reach. |
 | `VIGIE_ENABLE_WATCHED_POINTS_WRITE` | `0` | `1` enables `POST` and `DELETE` of `/v1/watched-points` (403 otherwise; the reads always work). The routes have no authentication and a watched point is personal: enable it only on an instance that trusted clients alone can reach, and block the two routes in the reverse proxy of a public instance. |
+| `VIGIE_ADMIN_TOKEN` | none | When set, every request that is not a read (`POST`, `PUT`, `PATCH`, `DELETE`) must carry `Authorization: Bearer <token>`, else the answer is 401; the reads never need it. Unset or blank: nothing changes (the network is trusted). It stacks with the two switches above: a disabled route stays 403. Compared in constant time; it appears in no log and no answer (`GET /v1/health` only says `admin_token_set`). A shared secret in a header: put TLS in front of any instance that is not on a trusted network. |
 | `VIGIE_ENABLE_RAINVIEWER` | `1`; `0` in the Docker image | `0` stops asking RainViewer (the radar fields of `/v1/point` stay unknown). Its free API is for personal and educational use: set `0` on an instance that serves other people. |
 | `VIGIE_ENABLE_METSERVICE` | `1` (also in the Docker image) | `0` stops asking MetService (New Zealand): a position there then gets no source, and the answer says it is turned off. Its feed says CC BY 4.0 but the website terms it points to allow personal use only and forbid resupply, and which one governs is not verified: set `0` on an instance that serves other people unless MetService agrees. |
 | `VIGIE_WMO_SOURCES` | `verified` | Which national services of the WMO registry are read for the countries that have no source of their own: `verified` (only those whose own terms were read and allow relaying them), `all` (every service that is not excluded, for an instance only its owner uses) or `off`. An unknown value means `verified`. See "More countries, through the WMO registry". |

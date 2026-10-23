@@ -187,6 +187,8 @@ authentication: run it on a trusted network.
 ## Limits
 
 - **You need an instance**, and it must be reachable from Home Assistant. The integration does not start one.
+- **It only reads.** It asks `GET` routes and follows its place on the stream; it sends no `POST`, `PUT`, `PATCH` or `DELETE` (a test checks it), so an
+  instance that sets `VIGIE_ADMIN_TOKEN` (every write then asks for it) needs nothing in the integration.
 - **Some warnings cannot be matched to a point.** Warnings that name only MeteoAlarm `EMMA_ID` codes (Italy, Spain,
   Austria, Poland...) have no bundled shape ([`SOURCES.md`](../SOURCES.md)), and the NWS alerts that name zones (UGC) instead of a
   polygon are not matched either. For such a place the sensor is *unknown* while the sources list some (`not_matchable`

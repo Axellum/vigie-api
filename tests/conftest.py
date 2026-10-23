@@ -24,7 +24,14 @@ from fastapi.testclient import TestClient
 # Must be set before ``app.main`` is imported: it builds the aggregator at import time.
 _TEST_DIR = Path(tempfile.mkdtemp(prefix="vigie-tests-"))
 os.environ["VIGIE_DB_PATH"] = str(_TEST_DIR / "vigie-tests.db")
-for _name in ("VIGIE_SCHEDULER", "VIGIE_CAP_SENDER", "VIGIE_CONTACT", "VIGIE_ENABLE_SIMULATION", "VIGIE_ENABLE_WATCHED_POINTS_WRITE"):
+for _name in (
+    "VIGIE_SCHEDULER",
+    "VIGIE_CAP_SENDER",
+    "VIGIE_CONTACT",
+    "VIGIE_ENABLE_SIMULATION",
+    "VIGIE_ENABLE_WATCHED_POINTS_WRITE",
+    "VIGIE_ADMIN_TOKEN",
+):
     os.environ.pop(_name, None)
 
 from app import clock as app_clock  # noqa: E402
