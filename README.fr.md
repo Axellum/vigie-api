@@ -99,7 +99,7 @@ cycles de collecte. Si vous devez l'exposer, placez devant elle un proxy inverse
 premier pas : quand il est défini, toute route qui modifie quelque chose (`POST`, `PUT`, `PATCH`, `DELETE` : aujourd'hui `/v1/zones`,
 `/v1/watched-points`, `/v1/scheduler/trigger` et `/v1/simulate`) exige `Authorization: Bearer <jeton>` et répond 401 sans lui ; les lectures
 n'en ont jamais besoin. Non défini, rien ne change. Le jeton est un secret partagé dans un en-tête : mettez TLS devant une instance qui n'est pas
-sur un réseau de confiance ([`docs/architecture.md`](docs/architecture.md), en anglais).
+sur un réseau de confiance ([`docs/architecture.md`](docs/architecture.md) et [ADR 0009](docs/decisions/0009-every-border-a-reason-per-country-and-the-admin-token.md), en anglais).
 
 **Sur une instance publique, `POST` et `DELETE` de `/v1/watched-points` ne doivent pas être atteignables depuis Internet**, comme `POST /v1/zones` et
 `POST /v1/simulate` : placez l'instance derrière un proxy inverse qui les bloque (les lectures peuvent rester ouvertes). Comme un point surveillé est
@@ -292,7 +292,7 @@ GET /v1/vigilances/countries?uncovered=true      tous les pays, ceux qui ont une
 Les codes : `no_source` (aucun flux d'alertes officiel n'est lu pour le pays, et rien de plus n'est connu), `licence_unverified`, `terms_restrict`,
 `terms_contradictory`, `redistribution_forbidden`, `law_restricts` et `source_off`. **Une raison n'est écrite que si elle a été lue** : où, et ce qui
 n'est pas vérifié, est dans [`SOURCES.md`](SOURCES.md) (en anglais), « Countries with no source ». Un point en mer, à plus de 25 km environ d'une côte,
-n'est dans aucun pays et le dit.
+n'est dans aucun pays et le dit. [ADR 0009](docs/decisions/0009-every-border-a-reason-per-country-and-the-admin-token.md).
 
 ## Tempêtes et tsunamis
 

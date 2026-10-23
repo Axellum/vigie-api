@@ -90,7 +90,7 @@ anyone who can reach it can add or delete watched zones and watched points and t
 that authenticates in front of it if you must. **`VIGIE_ADMIN_TOKEN`** is a first step: when it is set, every route that changes something
 (`POST`, `PUT`, `PATCH`, `DELETE`: today `/v1/zones`, `/v1/watched-points`, `/v1/scheduler/trigger` and `/v1/simulate`) needs
 `Authorization: Bearer <token>` and answers 401 without it; the reads never need it. Not set, nothing changes. The token is a shared secret in
-a header: put TLS in front of an instance that is not on a trusted network ([`docs/architecture.md`](docs/architecture.md)).
+a header: put TLS in front of an instance that is not on a trusted network ([`docs/architecture.md`](docs/architecture.md), [ADR 0009](docs/decisions/0009-every-border-a-reason-per-country-and-the-admin-token.md)).
 
 **On a public instance, `POST` and `DELETE` of `/v1/watched-points` must not be reachable from the Internet**, like `POST /v1/zones` and
 `POST /v1/simulate`: put the instance behind a reverse proxy that blocks them (the reads can stay open). Because a watched point is personal
@@ -272,7 +272,7 @@ GET /v1/vigilances/countries?uncovered=true      every country, the ones with a 
 The codes: `no_source` (no official warning feed is read for the country, and nothing more is known), `licence_unverified`, `terms_restrict`,
 `terms_contradictory`, `redistribution_forbidden`, `law_restricts` and `source_off`. **A reason is written only when it was read**: where, and what is
 not verified, is in [`SOURCES.md`](SOURCES.md), "Countries with no source". A position at sea, further than about 25 km from a coast, is in no country and
-says so.
+says so. [ADR 0009](docs/decisions/0009-every-border-a-reason-per-country-and-the-admin-token.md).
 
 ## Storms and tsunamis
 

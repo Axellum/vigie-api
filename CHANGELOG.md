@@ -165,6 +165,7 @@ All notable changes to this project are documented here. The format follows
   `redistribution_forbidden`, `law_restricts`, `source_off`. **A reason is written only when it was read** (Australia, Japan, Hong Kong, China,
   and the registry's services from their own records: `SOURCES.md`, "Countries with no source"); any other country is `no_source`, which claims
   nothing more. A position in no country (at sea, further than about 25 km from a coast) says so. The 404 of `?country=JP` gives the reason.
+  [ADR 0009](docs/decisions/0009-every-border-a-reason-per-country-and-the-admin-token.md).
 - **`GET /v1/vigilances/countries?uncovered=true`** lists every country, the ones with a source exactly as before and the others as
   `{country, name, covered: false, reason_code, reason}`, all sorted by code. Without the parameter the list is unchanged.
 - **An optional admin token, `VIGIE_ADMIN_TOKEN`.** When it is set, every request that is not a read (`POST`, `PUT`, `PATCH`, `DELETE`; today
@@ -174,7 +175,7 @@ All notable changes to this project are documented here. The format follows
   without the token. It is checked before the switches (`VIGIE_ENABLE_SIMULATION`, `VIGIE_ENABLE_WATCHED_POINTS_WRITE`): a disabled route stays 403.
   Compared in constant time; in no log, no answer, not in `GET /v1/health` (`admin_token_set`). The reads, `HEAD`, `OPTIONS` and the WebSocket never
   need it. The OpenAPI document describes it, the dashboard asks for it once and sends it with its two writes, and the Home Assistant integration (it
-  only reads) needs nothing.
+  only reads) needs nothing. [ADR 0009](docs/decisions/0009-every-border-a-reason-per-country-and-the-admin-token.md).
 
 ### Changed
 
