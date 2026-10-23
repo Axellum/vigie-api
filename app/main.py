@@ -81,6 +81,7 @@ from app.models.schemas import (
 from app.models.vigilance import UncoveredCountry, VigilanceCountry, VigilanceGeoJSONCollection, VigilancesResponse
 from app.models.watch import WatchedPointsStatus
 from app.routers.dashboard import router as dashboard_router
+from app.security import AdminTokenMiddleware, admin_token, document_admin_token
 from app.services.aggregator import AggregatorService
 from app.services.fires import (
     CELL_SIZES,
@@ -242,6 +243,8 @@ app = FastAPI(
     ),
 )
 
+# The admin token is checked inside the CORS middleware (the CORS one is added after it, so it is the outermost): a 401 carries the CORS headers a browser needs to read it.
+app.add_middleware(AdminTokenMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -251,6 +254,16 @@ app.add_middleware(
 )
 
 app.include_router(dashboard_router)
+
+_default_openapi = app.openapi
+
+
+def openapi_with_admin_token() -> dict[str, Any]:
+    """The OpenAPI document, with the optional admin token documented on every write operation."""
+    return document_admin_token(_default_openapi())
+
+
+app.openapi = openapi_with_admin_token  # type: ignore[method-assign]
 
 
 @app.exception_handler(RequestValidationError)
@@ -276,6 +289,7 @@ async def get_health() -> dict[str, Any]:
         "watched_points_count": len(aggregator.watched_points),
         "active_faults_loaded": len(faults) if (faults := aggregator.places.faults()) is not None else None,
         "watched_points_write_enabled": watched_points_write_enabled(),
+        "admin_token_set": admin_token() is not None,
         "simulation_enabled": simulation_enabled(),
         "simulation_active": aggregator.simulation_active,
         "active_scenario": aggregator.active_scenario.value,

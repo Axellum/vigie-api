@@ -93,9 +93,13 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
 | `GET /dashboard` | Page web de supervision. |
 | `GET /docs` | Documentation OpenAPI interactive. |
 
-**L'API n'a aucune authentification.** Utilisez-la sur un réseau de confiance. Ne l'exposez pas telle quelle
+**L'API n'a aucune authentification par défaut.** Utilisez-la sur un réseau de confiance. Ne l'exposez pas telle quelle
 sur Internet : quiconque peut l'atteindre peut ajouter ou supprimer des zones et des points surveillés et déclencher des
-cycles de collecte. Si vous devez l'exposer, placez devant elle un proxy inverse qui authentifie.
+cycles de collecte. Si vous devez l'exposer, placez devant elle un proxy inverse qui authentifie. **`VIGIE_ADMIN_TOKEN`** est un
+premier pas : quand il est défini, toute route qui modifie quelque chose (`POST`, `PUT`, `PATCH`, `DELETE` : aujourd'hui `/v1/zones`,
+`/v1/watched-points`, `/v1/scheduler/trigger` et `/v1/simulate`) exige `Authorization: Bearer <jeton>` et répond 401 sans lui ; les lectures
+n'en ont jamais besoin. Non défini, rien ne change. Le jeton est un secret partagé dans un en-tête : mettez TLS devant une instance qui n'est pas
+sur un réseau de confiance ([`docs/architecture.md`](docs/architecture.md), en anglais).
 
 **Sur une instance publique, `POST` et `DELETE` de `/v1/watched-points` ne doivent pas être atteignables depuis Internet**, comme `POST /v1/zones` et
 `POST /v1/simulate` : placez l'instance derrière un proxy inverse qui les bloque (les lectures peuvent rester ouvertes). Comme un point surveillé est
@@ -454,6 +458,7 @@ Tous les réglages sont des variables d'environnement facultatives.
 | `VIGIE_ENABLE_WATCHED_POINTS_WRITE` | `0` | `1` active `POST` et `DELETE` de `/v1/watched-points` (403 sinon ; les lectures marchent toujours). Les routes n'ont pas d'authentification et un point surveillé est personnel : ne l'activez que sur une instance que seuls des clients de confiance peuvent atteindre, et bloquez ces deux routes dans le proxy inverse d'une instance publique. |
 | `VIGIE_ENABLE_RAINVIEWER` | `1` ; `0` dans l'image Docker | `0` cesse d'interroger RainViewer (les champs radar de `/v1/point` restent inconnus). Son API gratuite est réservée à un usage personnel et pédagogique : mettez `0` sur une instance qui sert d'autres personnes. |
 | `VIGIE_ENABLE_METSERVICE` | `1` (aussi dans l'image Docker) | `0` cesse d'interroger MetService (Nouvelle-Zélande) : une position là-bas n'a alors aucune source, et la réponse dit que la source est désactivée. Son flux indique CC BY 4.0 mais les conditions du site auxquelles il renvoie n'autorisent qu'un usage personnel et interdisent la rediffusion, et on n'a pas vérifié laquelle prévaut : mettez `0` sur une instance qui sert d'autres personnes, sauf accord de MetService. |
+| `VIGIE_ADMIN_TOKEN` | aucun | Quand il est défini, toute requête qui n'est pas une lecture (`POST`, `PUT`, `PATCH`, `DELETE`) doit porter `Authorization: Bearer <jeton>`, sinon la réponse est 401 ; les lectures n'en ont jamais besoin. Non défini ou vide : rien ne change (le réseau est de confiance). Il s'ajoute aux deux interrupteurs ci-dessus : une route désactivée reste en 403. Comparé en temps constant ; il n'apparaît dans aucun journal ni aucune réponse (`GET /v1/health` dit seulement `admin_token_set`). Un secret partagé dans un en-tête : mettez TLS devant toute instance qui n'est pas sur un réseau de confiance. |
 | `VIGIE_CONTACT` | aucune | Adresse e-mail ou URL ajoutée au `User-Agent` envoyé aux sources. MET Norway et NOAA exigent un contact identifiable : renseignez-la. |
 | `VIGIE_CAP_SENDER` | `vigie-api` | `sender` des alertes CAP. |
 | `VIGIE_GRID_FORECAST_DEG` | `0.05` | Grille (en degrés, environ 5 km) sur laquelle la position est arrondie avant d'interroger la prévision Open-Meteo et MET Norway. |

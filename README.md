@@ -85,9 +85,12 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
 | `GET /dashboard` | Web supervision page. |
 | `GET /docs` | Interactive OpenAPI documentation. |
 
-**The API has no authentication.** Run it on a trusted network. Do not expose it to the Internet as is:
+**The API has no authentication by default.** Run it on a trusted network. Do not expose it to the Internet as is:
 anyone who can reach it can add or delete watched zones and watched points and trigger collection cycles. Put a reverse proxy
-that authenticates in front of it if you must.
+that authenticates in front of it if you must. **`VIGIE_ADMIN_TOKEN`** is a first step: when it is set, every route that changes something
+(`POST`, `PUT`, `PATCH`, `DELETE`: today `/v1/zones`, `/v1/watched-points`, `/v1/scheduler/trigger` and `/v1/simulate`) needs
+`Authorization: Bearer <token>` and answers 401 without it; the reads never need it. Not set, nothing changes. The token is a shared secret in
+a header: put TLS in front of an instance that is not on a trusted network ([`docs/architecture.md`](docs/architecture.md)).
 
 **On a public instance, `POST` and `DELETE` of `/v1/watched-points` must not be reachable from the Internet**, like `POST /v1/zones` and
 `POST /v1/simulate`: put the instance behind a reverse proxy that blocks them (the reads can stay open). Because a watched point is personal
@@ -428,6 +431,7 @@ All settings are optional environment variables.
 | `VIGIE_SCHEDULER` | `0` | `1` starts the background scheduler (refresh every 90 s, WebSocket push). |
 | `VIGIE_ENABLE_SIMULATION` | `0` | `1` enables `POST /v1/simulate` (and the dashboard buttons). The route has no authentication and writes the simulated alerts into the hazard history: enable it only on an instance that trusted clients alone can reach. |
 | `VIGIE_ENABLE_WATCHED_POINTS_WRITE` | `0` | `1` enables `POST` and `DELETE` of `/v1/watched-points` (403 otherwise; the reads always work). The routes have no authentication and a watched point is personal: enable it only on an instance that trusted clients alone can reach, and block the two routes in the reverse proxy of a public instance. |
+| `VIGIE_ADMIN_TOKEN` | none | When set, every request that is not a read (`POST`, `PUT`, `PATCH`, `DELETE`) must carry `Authorization: Bearer <token>`, else the answer is 401; the reads never need it. Unset or blank: nothing changes (the network is trusted). It stacks with the two switches above: a disabled route stays 403. Compared in constant time; it appears in no log and no answer (`GET /v1/health` only says `admin_token_set`). A shared secret in a header: put TLS in front of any instance that is not on a trusted network. |
 | `VIGIE_ENABLE_RAINVIEWER` | `1`; `0` in the Docker image | `0` stops asking RainViewer (the radar fields of `/v1/point` stay unknown). Its free API is for personal and educational use: set `0` on an instance that serves other people. |
 | `VIGIE_ENABLE_METSERVICE` | `1` (also in the Docker image) | `0` stops asking MetService (New Zealand): a position there then gets no source, and the answer says it is turned off. Its feed says CC BY 4.0 but the website terms it points to allow personal use only and forbid resupply, and which one governs is not verified: set `0` on an instance that serves other people unless MetService agrees. |
 | `VIGIE_WMO_SOURCES` | `verified` | Which national services of the WMO registry are read for the countries that have no source of their own: `verified` (only those whose own terms were read and allow relaying them), `all` (every service that is not excluded, for an instance only its owner uses) or `off`. An unknown value means `verified`. See "More countries, through the WMO registry". |

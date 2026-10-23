@@ -49,6 +49,7 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | `app/geo.py`, `app/services/geoindex.py` | Polygons of a CAP message; the country of a point and the shape of a code (shapely), from the files of `app/data/`. |
 | `app/services/vigilance.py` | `VigilanceService`: the warnings of a point or a country, and the changes to push. |
 | `app/services/uncovered.py` | Why a country has no source on an instance: a stable code and one sentence per country, only for what was read ([`SOURCES.md`](../SOURCES.md), "Countries with no source"). |
+| `app/security.py` | The optional admin token (`VIGIE_ADMIN_TOKEN`): a middleware that asks every request that is not a read for `Authorization: Bearer <token>`. |
 | `app/data/`, `tools/build_geometries.py`, `tools/build_faults.py` | The bundled reference files and the scripts that rebuild them: the borders and NUTS shapes, and the named active faults (CC BY-SA 4.0, with its notice; licences: [`SOURCES.md`](../SOURCES.md)). |
 | `app/models/places.py`, `app/services/places.py` | `near_places` of a hazard: the named active faults (`FaultIndex`, `shapely.STRtree`), and the volcanoes in alert (never the watched points: they are personal and the hazards are shared); the radii are settings (`PlaceSettings`). Calculated by Vigie, named in `derived`, never a severity ([ADR 0008](decisions/0008-sensitive-points.md)). |
 | `app/models/watch.py`, `app/services/watch.py` | The status of the watched points (`GET /v1/watched-points/status`): the events within each radius, and `quiet` only when every hazard source answered and has been read without a gap (`SourceReads`). |
@@ -237,6 +238,17 @@ Tables: `monitored_zones` (the watchlist, seeded with five cities), `watched_poi
   (`GET /v1/health` reports `simulation_enabled`). Enable it only where trusted clients alone can reach
   the API. The rest of the API is not authenticated either (`POST /v1/zones`, `POST /v1/scheduler/trigger`):
   do not expose it to the Internet without a reverse proxy that does.
+- **The admin token (optional).** With `VIGIE_ADMIN_TOKEN` set, **every request that is not a read** (anything but `GET`, `HEAD` and `OPTIONS`:
+  `POST`, `PUT`, `PATCH`, `DELETE`) must carry `Authorization: Bearer <token>`, else the answer is 401 and the body is not read: today
+  `POST /v1/zones`, `DELETE /v1/zones/{id}`, `POST /v1/scheduler/trigger`, `POST` and `DELETE /v1/watched-points` and `POST /v1/simulate`. Without the
+  setting nothing changes: the network is trusted, as before. It is a middleware on the method (`app/security.py`), not a list of routes, so a route
+  added later is covered without anyone remembering it, and `tests/test_admin_token.py` walks the routes of the application and fails if one with a write
+  method answers without the token. The token is checked before the switches above (`VIGIE_ENABLE_SIMULATION`, `VIGIE_ENABLE_WATCHED_POINTS_WRITE`): it
+  does not turn a route on, a disabled route stays 403. It is compared in constant time and appears nowhere: not in a log, not in an answer, not in
+  `GET /v1/health` (which says `admin_token_set`). The reads never need it, nor does the WebSocket `/v1/stream` (a client following positions changes nothing
+  on the instance). It is a shared secret in a header: over plain HTTP it can be read on the network, so on anything but a trusted network put TLS in front
+  (a reverse proxy). The dashboard asks for it once, keeps it for the tab, and sends it with its two writes. The Home Assistant integration only reads
+  (`GET` and the stream) and needs none.
 - **Watched points.** A watched point is personal (a home, for example): it is listed by `GET /v1/watched-points` and its status only, and
   never in the hazards, which every client shares. `POST` and `DELETE /v1/watched-points` have no authentication either, so like `/v1/zones` and
   `/v1/simulate` **they must not be reachable from the Internet on a public instance: put the instance behind a reverse proxy that blocks

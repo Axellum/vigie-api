@@ -167,6 +167,14 @@ All notable changes to this project are documented here. The format follows
   nothing more. A position in no country (at sea, further than about 25 km from a coast) says so. The 404 of `?country=JP` gives the reason.
 - **`GET /v1/vigilances/countries?uncovered=true`** lists every country, the ones with a source exactly as before and the others as
   `{country, name, covered: false, reason_code, reason}`, all sorted by code. Without the parameter the list is unchanged.
+- **An optional admin token, `VIGIE_ADMIN_TOKEN`.** When it is set, every request that is not a read (`POST`, `PUT`, `PATCH`, `DELETE`; today
+  `/v1/zones`, `/v1/watched-points`, `/v1/scheduler/trigger` and `/v1/simulate`) must carry `Authorization: Bearer <token>`, else the answer is
+  401 and the body is not read. Not set (or blank), nothing changes. It is a middleware on the method, not a list of routes, so a route added
+  later is covered; `tests/test_admin_token.py` walks the routes of the application (included routers too) and fails if one with a write method answers
+  without the token. It is checked before the switches (`VIGIE_ENABLE_SIMULATION`, `VIGIE_ENABLE_WATCHED_POINTS_WRITE`): a disabled route stays 403.
+  Compared in constant time; in no log, no answer, not in `GET /v1/health` (`admin_token_set`). The reads, `HEAD`, `OPTIONS` and the WebSocket never
+  need it. The OpenAPI document describes it, the dashboard asks for it once and sends it with its two writes, and the Home Assistant integration (it
+  only reads) needs nothing.
 
 ### Changed
 

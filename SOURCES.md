@@ -262,7 +262,8 @@ This project was built for one person's home. Each of these points comes from th
    of the content or intent of an alert; MetService's Code of Practice asks for no modification either.
 5. Leave the simulator off (`VIGIE_ENABLE_SIMULATION` unset) and do not expose the unauthenticated routes
    (`POST /v1/zones`, `POST` and `DELETE /v1/watched-points`, `POST /v1/scheduler/trigger`) to the Internet; the watched-point writes
-   are also off unless `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`.
+   are also off unless `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`. Set `VIGIE_ADMIN_TOKEN` as well: every route that changes something then asks for
+   `Authorization: Bearer <token>` (behind TLS, since the token is a shared secret in a header).
 6. MetService (New Zealand): the feed says CC BY 4.0 and its use is subject to a Code of Practice, but the website terms
    it points to allow personal use only and forbid resupply (see its row above). For one person's home that is no
    problem; before relaying New Zealand's warnings to other people, ask MetService (the CAP page gives an address for
