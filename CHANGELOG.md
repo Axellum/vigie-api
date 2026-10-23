@@ -21,6 +21,17 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **A measure of the forecast: does the mean of several models beat `best_match`? Yes for the minimum temperature and for the maximum
+  from the fourth day, no for the rest. Nothing in the application changes.** Open-Meteo's Previous Runs API at a fixed lead of 1 to 5 days,
+  `best_match` against eight models and their mean, over 61 days (21 August to 20 October 2026) and 20 official stations (12 in France against
+  Meteo-France's daily files, 8 elsewhere against METAR), scored with a 95 % interval by bootstrap over whole days. The minimum error falls by
+  0.19 to 0.32 degC at every lead, the maximum by 0.29 and 0.31 degC at J+4 and J+5 (nothing shown at J+1, slightly worse in France); the rain
+  and the wind are not a case for the mean, and the probability of precipitation cannot be scored at a fixed lead. The tool
+  (`tools/measure_forecast_models.py`) counts every weighted call in a ledger before it is sent (1,356.2 of the 1,500 allowed for this run),
+  caches every answer and re-scores without the network; the report is [`docs/measurements/forecast-models-2026-10.md`](docs/measurements/forecast-models-2026-10.md)
+  and the proposal, with its cost (+38.4 weighted calls a day per cell) and what it leaves open, is
+  [ADR 0010](docs/decisions/0010-forecast-model-blend.md).
+
 - **Active fires, from NASA FIRMS** (`nasa_firms`), **with no key**. The detections of the VIIRS instruments of NOAA-20 and NOAA-21
   (375 m pixels, near real-time product) are read from the **static world files** of FIRMS (the last 24 or 48 hours of each source,
   `VIGIE_FIRMS_WINDOW_HOURS`, 48 by default), checked every 60 minutes when someone asks (`VIGIE_FIRMS_REFRESH_MINUTES`,

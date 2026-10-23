@@ -225,7 +225,7 @@ from the Internet, like `POST /v1/zones` and `POST /v1/simulate`, so put the ins
 
 | Source | What is read | Cache (TTL) |
 | --- | --- | --- |
-| **Open-Meteo** forecast ([docs](https://open-meteo.com/en/docs)) | **Primary.** Current conditions, 4 x 15-minute precipitation (`minutely_15`, the only source of the frame's short-term rain; Open-Meteo documents that it is native only in Central Europe and North America and interpolated from hourly data elsewhere), daily forecast (weather code, min/max, precipitation sum and probability, wind, UV). | 15 minutes per cell (0.05 degree): the [docs](https://open-meteo.com/en/docs) say "Current conditions are based on 15-minutely weather model data", and list the model updates (GFS, HRRR, AROME every hour, ICON every 3 hours, IFS every 6 hours); they do not say how often `current` changes. The 4 x 15-minute rain of the frame is at most one TTL old. |
+| **Open-Meteo** forecast ([docs](https://open-meteo.com/en/docs)) | **Primary.** Current conditions, 4 x 15-minute precipitation (`minutely_15`, the only source of the frame's short-term rain; Open-Meteo documents that it is native only in Central Europe and North America and interpolated from hourly data elsewhere), daily forecast (weather code, min/max, precipitation sum and probability, wind, UV). | 15 minutes per cell (0.05 degree): the [docs](https://open-meteo.com/en/docs) say "Current conditions are based on 15-minutely weather model data", and list the model updates (GFS, HRRR, AROME every hour, ICON every 3 hours, IFS every 6 hours); they do not say how often `current` changes. The 4 x 15-minute rain of the frame is at most one TTL old. Which model blend to ask for (`best_match`, or the mean of several) was measured against observations: [ADR 0010](decisions/0010-forecast-model-blend.md). |
 | **Open-Meteo Marine** ([docs](https://open-meteo.com/en/docs/marine-weather-api)) | Waves, swell, ocean current at a GPS position. | 1 hour per cell (0.1 degree): the [docs](https://open-meteo.com/en/docs/marine-weather-api) list hourly (some 3-hourly) data from models updated every 6 to 24 hours. |
 | **Open-Meteo Flood API**, based on Copernicus GloFAS ([docs](https://open-meteo.com/en/docs/flood-api)) | Daily river discharge, ensemble mean and maximum. | 6 hours per cell (0.1 degree): the [docs](https://open-meteo.com/en/docs/flood-api) list the GloFAS forecast as updated daily. |
 | **Open-Meteo Air Quality**, based on Copernicus CAMS ([docs](https://open-meteo.com/en/docs/air-quality-api)) | European AQI, US AQI, PM2.5, PM10, UV, dust. | 1 hour per cell (0.1 degree): the [docs](https://open-meteo.com/en/docs/air-quality-api) list hourly values (Europe, updated every 24 hours) and 3-hourly ones (global, updated every 12 hours). |
@@ -618,6 +618,11 @@ weight = locations x days / 14 x variables / 10, the variables being the sum of 
 current ones). The API applies `max(1, variables / 10) x max(1, days / 14)` per location
 (`app/collectors/weights.py`; the 15-minute variables are counted too, which can only over-estimate).
 The limit of 10,000 calls a day is a limit on this weight, not on the number of requests.
+
+The rule does not know the `models` parameter. Open-Meteo multiplies the variables of a request by the number of models before it computes the
+weight (in its source, `ForecastapiController.swift` and `ForecastApiResult.swift`, `calculateQueryWeight`): the two temperatures of eight models
+weigh 1.6, not 1.0. The API asks for no `models` today, so the rule is right for what it sends; it has to learn the models before a request with a
+`models` list is added ([ADR 0010](decisions/0010-forecast-model-blend.md)).
 
 | Request | Variables | Days | Weight |
 | --- | --- | --- |

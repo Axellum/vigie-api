@@ -60,6 +60,7 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | `app/routers/dashboard.py` | Supervision page. |
 | `tools/capture_frame.py` | Captures a real frame to a file. |
 | `tools/check_live_feeds.py` | Asks each real provider once and checks the parsers still read the answer (weekly workflow). |
+| `tools/measure_forecast_models.py` | A measure, not part of the application: scores `best_match` and several Open-Meteo models and their mean against observations at a fixed lead time (ledger of weighted calls, disk cache, no network to re-score). Report: [`measurements/forecast-models-2026-10.md`](measurements/forecast-models-2026-10.md); decision: [ADR 0010](decisions/0010-forecast-model-blend.md). |
 | `scripts/run.ps1` | Starts the API on Windows. |
 | `custom_components/vigie/`, `hacs.json`, `tests_ha/` | The Home Assistant integration (a client of `GET /v1/vigilances`, with `WS /v1/stream` as a hint to read again), its tests, and their CI. See [`home-assistant.md`](home-assistant.md). |
 | `tools/fake_instance.py` | A fake instance (`/v1/health`, `/v1/vigilances`) with warnings added by hand, labelled `SIMULATION`, to try the integration. |
@@ -87,7 +88,8 @@ JSON or GeoJSON. The embedded frame is **not changed**: the warnings have their 
 
 The decisions and their reasons: [ADR 0002](decisions/0002-official-warnings-kept-intact-and-localized-offline.md),
 [ADR 0003](decisions/0003-national-source-preferred-rivers-are-lines.md) (one source per country, a river is a line),
-[ADR 0006](decisions/0006-wmo-registry-services.md) (the WMO registry: more countries, only the terms that were read).
+[ADR 0006](decisions/0006-wmo-registry-services.md) (the WMO registry: more countries, only the terms that were read),
+[ADR 0010](decisions/0010-forecast-model-blend.md) (the forecast models: measured, the mean of eight for the minimum and the far maximum).
 Rules that hold the whole model:
 
 - **The official words stay intact.** The identifier, the times, the original level and phenomenon, the
