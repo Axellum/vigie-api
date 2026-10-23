@@ -424,7 +424,8 @@ docker run --rm -p 8080:8080 -v vigie-data:/data -e VIGIE_CONTACT=you@example.or
 
 The image (`python:3.13-slim`, built for linux/amd64 by the CI) runs as a non-root user, keeps its
 database in the `/data` volume and has a health check on `/v1/health`. RainViewer is off in the image; add
-`-e VIGIE_ENABLE_RAINVIEWER=1` for a personal instance. The publication workflow pushes
+`-e VIGIE_ENABLE_RAINVIEWER=1` for a personal instance. NASA FIRMS (the active fires) is on, also in the image:
+it downloads about 56 MB a day when someone asks the fire routes, and `-e VIGIE_ENABLE_FIRMS=0` turns it off. The publication workflow pushes
 `ghcr.io/axellum/vigie-api` when a version tag (`v*`) is created; until a tag exists, build the image
 yourself.
 

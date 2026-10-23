@@ -12,7 +12,8 @@ LABEL org.opencontainers.image.title="Vigie API" \
       org.opencontainers.image.licenses="MIT AND CC-BY-SA-4.0"
 
 # RainViewer's free API is for personal and educational use only: off in the image, on again with
-# -e VIGIE_ENABLE_RAINVIEWER=1 for a personal instance (see SOURCES.md).
+# -e VIGIE_ENABLE_RAINVIEWER=1 for a personal instance (see SOURCES.md). NASA FIRMS (the active fires) is on, also in the image:
+# it downloads about 56 MB a day when someone asks the fire routes; -e VIGIE_ENABLE_FIRMS=0 turns it off.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
