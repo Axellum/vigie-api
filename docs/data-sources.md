@@ -510,7 +510,9 @@ the four files, one round every 5 minutes from 20:27 to 00:10 UTC (2026-10-20), 
 - a download that stopped in the middle is **kept** (for 15 minutes at most) and continued with `Range`, not started again;
 - a source that failed is asked again after **1, 2, 5, then every 10 minutes**, **it alone**: the other is neither delayed nor read again;
   nothing is asked at all while every source that is not fresh is waiting, so a visitor never costs FIRMS a request in that time;
-- the last good reading of a source is **kept and served**, and `stale` is true in the metadata while the last attempt failed; a request never waits
+- the last good reading of a source is **kept and served**, and `stale` is true in the metadata while the last attempt failed, and also when a
+  source was not confirmed for longer than its lifetime plus `TOTAL_DEADLINE_S` (the readings are refreshed by requests, not by a timer: the
+  first request after hours without one gets the old reading, flagged, and starts the refresh); a request never waits
   for FIRMS once something was read (only the first one does, for 90 seconds at most);
 - `metadata.sources[]` says, for each source, when it was last confirmed current (`read_utc`, `null` while never read), `ok`, how (`via`:
   `static` or `area`) and when the file was written (`published_utc`, the detections are from before it); `GET /v1/providers` gives the
@@ -586,8 +588,9 @@ whether the last attempt failed (`stale`), the state of each source (`sources`),
 
 `fires_nearby` of `GET /v1/point` (`fire_radius_km`, 50 by default and 500 at most) gives `count_24h`, `nearest_km`,
 `max_frp_mw` and `latest_utc` of the detections of the last 24 hours within that radius. It is listed in `derived`, it is ours, and
-it never raises `local_alert_level`. It is `null` when the instance turned the source off or nothing has been read yet (the point never waits
-for FIRMS).
+it never raises `local_alert_level`. It is `null` when the instance turned the source off, nothing has been read yet (the point never waits
+for FIRMS), or the oldest reading is older than those 24 hours (it would hold none of them: a count of zero would be made up; the request
+starts the refresh).
 
 ## Call volume
 

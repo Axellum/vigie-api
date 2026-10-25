@@ -11,7 +11,10 @@ changed) and kept as typed columns sorted by latitude. This module answers the t
 the answers of ``GET /v1/point`` feed displays: when the last reading is older than its lifetime, the previous one is served at once and a
 refresh starts in the background (one at a time, shared with the collector's own coalescing; none while every source that is not fresh is
 in its backoff). Only the very first request, with nothing read yet, waits (``GET /v1/fires``) or answers without the block
-(``GET /v1/point``). ``stale`` says that the last attempt to read a source failed.
+(``GET /v1/point``). ``stale`` says that the last attempt to read a source failed, or that a source was not confirmed for longer than its
+lifetime and the longest a read may take (``overdue``): the reading is not refreshed by a timer, so the first request after a quiet day gets
+the old one while the next is read. ``GET /v1/point`` has no block when the oldest reading is older than the 24 hours it sums up: it would
+say nothing of them.
 
 Nothing here is an alert and nothing raises a level: the numbers are our own counts of the satellites' pixels (``derived`` says which).
 """
@@ -28,11 +31,20 @@ from typing import Any, Optional
 from app import clock
 from app.attribution import FIRES, FIRMS_DISCLAIMER, credit_text
 from app.collectors.base import CollectorUnavailableError
-from app.collectors.firms import CACHE_KEY, CONFIDENCE_NAMES, DAYNIGHT_NAMES, SCALE, FireSet, FIRMSCollector
+from app.collectors.firms import (
+    CACHE_KEY,
+    CONFIDENCE_NAMES,
+    DAYNIGHT_NAMES,
+    SCALE,
+    TOTAL_DEADLINE_S,
+    FireSet,
+    FIRMSCollector,
+)
 from app.models.schemas import FiresNearby
 from app.services.geodesy import haversine_km
 
 WINDOW_DEFAULT_H = 24.0
+NEARBY_WINDOW_S = 24 * 3600  # the window of ``count_24h``
 WINDOW_MAX_H = 48.0  # the longest window of any instance: the file of 48 hours (an instance that reads the 24 hour file stops at 24, see ``FireService.window_hours``)
 FEATURES_DEFAULT = 1000
 FEATURES_MAX = 5000
@@ -361,7 +373,18 @@ class FireService:
             return value, collector.failing()
         if not fresh:
             self._kick()
-        return value, collector.failing() or collector.consecutive_failures > 0
+        return value, collector.failing() or collector.consecutive_failures > 0 or self.overdue(value)
+
+    def overdue(self, fs: FireSet) -> bool:
+        """Whether a source of ``fs`` was last confirmed longer ago than its lifetime and the longest a read may take (``TOTAL_DEADLINE_S``).
+
+        A reading only a little past its lifetime is the normal case while the next one is read; one far past it was not refreshed (nobody
+        asked for the fires in that time, or the refreshes never ended): its detections are not current.
+        """
+        if self.collector is None or not fs.readings:
+            return False
+        oldest = min(reading.read_utc for reading in fs.readings)
+        return clock.wall() - oldest > self.collector.ttl_seconds + TOTAL_DEADLINE_S
 
     def _sources(self, fs: FireSet) -> list[dict[str, Any]]:
         """The products the instance reads and how each stands: one that was never read (it failed every time so far) is listed too, with no time.
@@ -475,12 +498,16 @@ class FireService:
         }
 
     async def nearby(self, lat: float, lon: float, radius_km: float = NEARBY_RADIUS_DEFAULT_KM) -> Optional[FiresNearby]:
-        """The summary of ``GET /v1/point``; ``None`` when the source is off or nothing has been read yet (it never waits)."""
+        """The summary of ``GET /v1/point``; ``None`` when the source is off, nothing has been read yet (it never waits), or a reading is
+        older than the 24 hours it sums up (a count of them would be made up; the refresh is on its way)."""
         current = await self._current(wait=False)
         if current is None:
             return None
         fs, stale = current
-        since = int(clock.wall() - 24 * 3600)
+        now = clock.wall()
+        if fs.readings and now - min(reading.read_utc for reading in fs.readings) > NEARBY_WINDOW_S:
+            return None
+        since = int(now - NEARBY_WINDOW_S)
         count, nearest, strongest, latest = near(fs, lat, lon, radius_km, since)
         return FiresNearby(
             radius_km=radius_km,

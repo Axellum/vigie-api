@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **`fires_nearby` no longer passes an old reading of FIRMS for a current one.** FIRMS is refreshed by requests, not by a timer: on
+  2026-10-25 an instance that nobody had asked for the fires for 37 hours answered the first `/v1/point` with the reading of its start
+  (`data_read_utc` 37 hours old) and `stale: false`. `stale` (of `fires_nearby` and of the `/v1/fires` metadata) is now also true when a
+  source was not confirmed for longer than its lifetime and the longest a read may take, and `fires_nearby` is `null` when the reading is
+  older than the 24 hours it counts, instead of a count of zero.
+
 - **A number JSON cannot carry is a 422, not a 500.** Python's parser accepts `NaN` and `Infinity`; the validation error that quoted the value
   could not be encoded, so any route with a number (`POST /v1/zones`, the new `POST /v1/watched-points`...) answered 500. The value is now
   written as text in the error.
