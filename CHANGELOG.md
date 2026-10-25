@@ -7,10 +7,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- **An unofficial pre-alert pilot for Turkey, off by default and shown to no one** (`VIGIE_PREALERT_TR=1`): each new NOAA GFS run is
-  turned into a level per province and stored, to be scored against the criteria written before any score
-  ([ADR 0011](docs/decisions/0011-unofficial-pre-alert-turkey-shadow-pilot.md)). The Docker image gains ecCodes (about 9 MB) to decode
-  the GFS files.
+- **An unofficial pre-alert pilot for Turkey, off by default and experimental** (`VIGIE_PREALERT_TR=1`): each new ECMWF open data run
+  is turned into a level per province with thresholds frozen on 2026-10-25, stored, and answered by
+  `GET /v1/experimental/prealert?lat=&lon=` for testers, labelled unofficial and not a warning
+  ([ADR 0011](docs/decisions/0011-unofficial-pre-alert-turkey-shadow-pilot.md) and its amendment). The Docker image gains ecCodes
+  (about 9 MB) to decode the forecast files.
 - **`GET /v1/earthquakes?lat=&lon=`**: the earthquakes (USGS and EMSC, one event when both report it) within `radius_km` (300 by
   default, up to 3000) of a position over the last `hours` (24, up to 168), of at least `min_magnitude`, the strongest first, with
   their distance and bearing (calculated by Vigie, named in `derived`). An earthquake the feeds no longer list comes from the

@@ -16,6 +16,7 @@ import json
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
 from shapely.geometry import Point, shape
@@ -64,3 +65,23 @@ def provinces_on_grid(lats: np.ndarray, lons: np.ndarray, path: Path = PROVINCES
             cols = [int(np.argmin(np.abs(lons - inside.x)))]
         out.append(Province(code, name, tuple(rows), tuple(cols), nearest_only))
     return out
+
+
+@lru_cache(maxsize=1)
+def _prepared(path: Path = PROVINCES_PATH) -> tuple[tuple[str, str, BaseGeometry, object], ...]:
+    return tuple((code, name, geometry, prep(geometry)) for code, name, geometry in _shapes(path))
+
+
+def province_at(lat: float, lon: float, margin_deg: float = 0.05) -> Optional[tuple[str, str]]:
+    """``(code, name)`` of the province a point is in; a point within ``margin_deg`` of one (a coast, the simplification) belongs to
+    the nearest. ``None`` outside Turkey."""
+    point = Point(lon, lat)
+    nearest: Optional[tuple[float, str, str]] = None
+    for code, name, geometry, prepared in _prepared():
+        if prepared.contains(point):  # type: ignore[attr-defined]
+            return code, name
+        distance = geometry.distance(point)
+        if distance <= margin_deg and (nearest is None or distance < nearest[0]):
+            nearest = (distance, code, name)
+    return None if nearest is None else (nearest[1], nearest[2])
+
