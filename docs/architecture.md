@@ -90,7 +90,9 @@ JSON or GeoJSON. The embedded frame is **not changed**: the warnings have their 
 The decisions and their reasons: [ADR 0002](decisions/0002-official-warnings-kept-intact-and-localized-offline.md),
 [ADR 0003](decisions/0003-national-source-preferred-rivers-are-lines.md) (one source per country, a river is a line),
 [ADR 0006](decisions/0006-wmo-registry-services.md) (the WMO registry: more countries, only the terms that were read),
-[ADR 0010](decisions/0010-forecast-model-blend.md) (the forecast models: measured, the mean of eight for the minimum and the far maximum).
+[ADR 0010](decisions/0010-forecast-model-blend.md) (the forecast models: measured, the mean of eight for the minimum and the far maximum),
+[ADR 0011](decisions/0011-unofficial-pre-alert-turkey-shadow-pilot.md) (an unofficial pre-alert for Turkey: a shadow pilot, and the
+criteria it must meet before anyone sees it).
 Rules that hold the whole model:
 
 - **The official words stay intact.** The identifier, the times, the original level and phenomenon, the
