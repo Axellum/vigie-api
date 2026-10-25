@@ -16,7 +16,7 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClien
 
 from custom_components.vigie.const import DOMAIN
 
-from .payloads import HEALTH_NO_PUSH, URL, response
+from .payloads import HEALTH_NO_PUSH, URL, earthquakes_response, response
 
 FIXTURES = Path(__file__).parent / "fixtures"
 HOME = {CONF_LATITUDE: 45.0, CONF_LONGITUDE: 5.0}
@@ -46,12 +46,21 @@ def mock_entry() -> MockConfigEntry:
 
 @pytest.fixture
 def mock_instance(aioclient_mock: AiohttpClientMocker) -> Callable[..., None]:
-    """Make the instance answer ``payload`` on `/v1/vigilances` (and `health` on `/v1/health`); call again to change it."""
+    """Make the instance answer ``payload`` on `/v1/vigilances`, `quakes` on `/v1/earthquakes` (no earthquake by default) and
+    `health` on `/v1/health`; call again to change it."""
 
-    def mock(payload: Any = None, *, health: dict[str, Any] | None = None, status: int = 200) -> None:
+    def mock(
+        payload: Any = None,
+        *,
+        health: dict[str, Any] | None = None,
+        status: int = 200,
+        quakes: Any = None,
+        quakes_status: int = 200,
+    ) -> None:
         aioclient_mock.clear_requests()
         aioclient_mock.get(f"{URL}/v1/health", json=HEALTH_NO_PUSH if health is None else health)
         aioclient_mock.get(f"{URL}/v1/vigilances", json=response() if payload is None else payload, status=status)
+        aioclient_mock.get(f"{URL}/v1/earthquakes", json=earthquakes_response() if quakes is None else quakes, status=quakes_status)
 
     return mock
 

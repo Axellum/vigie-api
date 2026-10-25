@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Surveiller un lieu",
-        "description": "L'adresse d'une instance de l'API Vigie et le lieu dont vous voulez les vigilances météo officielles. Le lieu est votre zone Maison par défaut. Ce n'est pas un service d'alerte officiel : suivez les vigilances de vos autorités nationales.",
+        "description": "L'adresse d'une instance de l'API Vigie et le lieu dont vous voulez les vigilances météo officielles, et les séismes proches. L'instance publique et votre zone Maison sont proposées. Ce n'est pas un service d'alerte officiel : suivez les vigilances de vos autorités nationales.",
         "data": {
           "name": "Nom",
           "url": "Adresse de l'instance",
@@ -11,7 +11,7 @@
         },
         "data_description": {
           "name": "Nomme l'appareil et ses entités.",
-          "url": "Par exemple {example} (l'adresse de la machine qui fait tourner l'API Vigie, et son port).",
+          "url": "L'instance publique, {public}, est proposée ; ou l'adresse de votre propre instance, par exemple {example} (la machine qui fait tourner l'API Vigie, et son port).",
           "location": "Le point dont les vigilances sont lues : une vigilance compte quand sa zone le contient."
         }
       },
@@ -25,7 +25,7 @@
         },
         "data_description": {
           "name": "Nomme l'appareil et ses entités.",
-          "url": "Par exemple {example}",
+          "url": "Par exemple {public} ou {example}",
           "location": "Le point dont les vigilances sont lues."
         }
       }
@@ -46,11 +46,15 @@
         "title": "Options de Vigie",
         "data": {
           "scan_interval": "Intervalle de relève",
-          "river_radius_km": "Rayon des rivières"
+          "river_radius_km": "Rayon des rivières",
+          "quake_radius_km": "Rayon des séismes",
+          "quake_min_magnitude": "Magnitude minimale des séismes"
         },
         "data_description": {
           "scan_interval": "Minutes entre deux lectures de l'instance (1 à 60). Un envoi de l'instance, quand elle en propose un, fait lire plus tôt.",
-          "river_radius_km": "À quelle distance du lieu un tronçon de rivière compte encore, en kilomètres (France, Vigicrues ; 1 à 50)."
+          "river_radius_km": "À quelle distance du lieu un tronçon de rivière compte encore, en kilomètres (France, Vigicrues ; 1 à 50).",
+          "quake_radius_km": "À quelle distance du lieu un séisme compte, en kilomètres (10 à 3000). Les séismes sont une couche à part (USGS, EMSC), pas des vigilances officielles.",
+          "quake_min_magnitude": "La plus petite magnitude montrée et annoncée (4,5 à 9). Les sources que lit l'API ne listent rien sous 4,5."
         }
       }
     }
@@ -65,6 +69,9 @@
           "orange": "Orange",
           "red": "Rouge"
         }
+      },
+      "strongest_earthquake": {
+        "name": "Séisme le plus fort"
       }
     },
     "binary_sensor": {
@@ -81,6 +88,16 @@
               "new": "Nouvelle",
               "upgraded": "Aggravée",
               "ended": "Terminée"
+            }
+          }
+        }
+      },
+      "earthquake": {
+        "name": "Séisme",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "new_earthquake": "Nouveau séisme"
             }
           }
         }

@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Watch a place",
-        "description": "The address of a Vigie API instance and the place whose official weather warnings you want. The place is your home zone by default. This is not an official warning service: follow the warnings of your national authorities.",
+        "description": "The address of a Vigie API instance and the place whose official weather warnings you want, and the earthquakes near it. The public instance and your home zone are suggested. This is not an official warning service: follow the warnings of your national authorities.",
         "data": {
           "name": "Name",
           "url": "Address of the instance",
@@ -11,7 +11,7 @@
         },
         "data_description": {
           "name": "Names the device and its entities.",
-          "url": "For example {example} (the address of the machine that runs the Vigie API, and its port).",
+          "url": "The public instance, {public}, is suggested; or the address of your own instance, for example {example} (the machine that runs the Vigie API, and its port).",
           "location": "The point whose warnings are read: a warning counts when its area contains it."
         }
       },
@@ -25,7 +25,7 @@
         },
         "data_description": {
           "name": "Names the device and its entities.",
-          "url": "For example {example}",
+          "url": "For example {public} or {example}",
           "location": "The point whose warnings are read."
         }
       }
@@ -46,11 +46,15 @@
         "title": "Vigie options",
         "data": {
           "scan_interval": "Poll interval",
-          "river_radius_km": "River radius"
+          "river_radius_km": "River radius",
+          "quake_radius_km": "Earthquake radius",
+          "quake_min_magnitude": "Earthquake minimum magnitude"
         },
         "data_description": {
           "scan_interval": "Minutes between two reads of the instance (1 to 60). A push from the instance, when it offers one, reads sooner.",
-          "river_radius_km": "How far from the place a river section still counts, in kilometres (France, Vigicrues; 1 to 50)."
+          "river_radius_km": "How far from the place a river section still counts, in kilometres (France, Vigicrues; 1 to 50).",
+          "quake_radius_km": "How far from the place an earthquake counts, in kilometres (10 to 3000). The earthquakes are a layer of their own (USGS, EMSC), not official warnings.",
+          "quake_min_magnitude": "The smallest magnitude shown and announced (4.5 to 9). The sources the API reads list nothing below 4.5."
         }
       }
     }
@@ -65,6 +69,9 @@
           "orange": "Orange",
           "red": "Red"
         }
+      },
+      "strongest_earthquake": {
+        "name": "Strongest earthquake"
       }
     },
     "binary_sensor": {
@@ -81,6 +88,16 @@
               "new": "New",
               "upgraded": "Upgraded",
               "ended": "Ended"
+            }
+          }
+        }
+      },
+      "earthquake": {
+        "name": "Earthquake",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "new_earthquake": "New earthquake"
             }
           }
         }

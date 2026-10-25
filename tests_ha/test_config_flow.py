@@ -15,7 +15,15 @@ from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from custom_components.vigie.const import CONF_LOCATION, CONF_RIVER_RADIUS_KM, CONF_SCAN_INTERVAL_MIN, DOMAIN
+from custom_components.vigie.const import (
+    CONF_LOCATION,
+    CONF_QUAKE_MIN_MAGNITUDE,
+    CONF_QUAKE_RADIUS_KM,
+    CONF_RIVER_RADIUS_KM,
+    CONF_SCAN_INTERVAL_MIN,
+    DOMAIN,
+    PUBLIC_INSTANCE_URL,
+)
 
 from .conftest import HOME, setup_entry
 from .payloads import URL, response, vigilance
@@ -33,13 +41,14 @@ async def start(hass: HomeAssistant) -> dict[str, Any]:
     return await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
 
 
-async def test_the_form_suggests_the_home_zone_and_a_name(hass: HomeAssistant) -> None:
+async def test_the_form_suggests_the_public_instance_the_home_zone_and_a_name(hass: HomeAssistant) -> None:
     hass.states.async_set("zone.home", "0", {CONF_LATITUDE: 43.1234, CONF_LONGITUDE: 5.4321})
     result = await start(hass)
     assert result["type"] is FlowResultType.FORM and result["step_id"] == "user"
     assert suggested(result, CONF_LOCATION) == {CONF_LATITUDE: 43.1234, CONF_LONGITUDE: 5.4321}
     assert suggested(result, CONF_NAME).startswith("Vigie ")
-    assert result["description_placeholders"] == {"example": "http://vigie.local:8080"}  # the help of the address field
+    assert suggested(result, CONF_URL) == PUBLIC_INSTANCE_URL == "https://vigie.auxfilsdesidees.fr"  # another house needs no instance of its own
+    assert result["description_placeholders"] == {"example": "http://vigie.local:8080", "public": PUBLIC_INSTANCE_URL}  # the help of the address field
 
 
 async def test_without_a_home_zone_the_location_of_home_assistant_is_suggested(hass: HomeAssistant) -> None:
@@ -121,7 +130,7 @@ async def test_another_place_on_the_same_instance_is_a_second_entry(
     assert len(hass.config_entries.async_entries(DOMAIN)) == 2
 
 
-async def test_the_options_set_the_poll_and_the_river_radius_and_reload_the_entry(
+async def test_the_options_set_the_poll_the_river_radius_and_the_earthquakes_and_reload_the_entry(
     hass: HomeAssistant, mock_instance: Callable[..., None], mock_entry: MockConfigEntry, aioclient_mock: AiohttpClientMocker, no_stream: None
 ) -> None:
     mock_instance()
@@ -132,29 +141,50 @@ async def test_the_options_set_the_poll_and_the_river_radius_and_reload_the_entr
     form = await hass.config_entries.options.async_init(mock_entry.entry_id)
     assert form["type"] is FlowResultType.FORM and form["step_id"] == "init"
     assert suggested(form, CONF_SCAN_INTERVAL_MIN) == 5 and suggested(form, CONF_RIVER_RADIUS_KM) == 5
-    result = await hass.config_entries.options.async_configure(form["flow_id"], {CONF_SCAN_INTERVAL_MIN: 2, CONF_RIVER_RADIUS_KM: 12})
+    assert suggested(form, CONF_QUAKE_RADIUS_KM) == 300 and suggested(form, CONF_QUAKE_MIN_MAGNITUDE) == 4.5
+    result = await hass.config_entries.options.async_configure(
+        form["flow_id"], {CONF_SCAN_INTERVAL_MIN: 2, CONF_RIVER_RADIUS_KM: 12, CONF_QUAKE_RADIUS_KM: 800, CONF_QUAKE_MIN_MAGNITUDE: 5.04}
+    )
     await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert mock_entry.options == {CONF_SCAN_INTERVAL_MIN: 2, CONF_RIVER_RADIUS_KM: 12}
+    assert mock_entry.options == {CONF_SCAN_INTERVAL_MIN: 2, CONF_RIVER_RADIUS_KM: 12, CONF_QUAKE_RADIUS_KM: 800, CONF_QUAKE_MIN_MAGNITUDE: 5.0}
     assert mock_entry.state is ConfigEntryState.LOADED
     assert mock_entry.runtime_data.coordinator.update_interval.total_seconds() == 120
     last = [call for call in aioclient_mock.mock_calls if str(call[1]).startswith(f"{URL}/v1/vigilances")][-1][1]
     assert last.query["river_radius_km"] == "12"
+    quakes = [call for call in aioclient_mock.mock_calls if str(call[1]).startswith(f"{URL}/v1/earthquakes")][-1][1]
+    assert quakes.query["radius_km"] == "800" and quakes.query["min_magnitude"] == "5" and quakes.query["hours"] == "24"
+    assert mock_entry.runtime_data.quakes.update_interval.total_seconds() == 120
 
 
-@pytest.mark.parametrize(("stored", "minutes", "radius"), [(0, 1, 1), (999, 60, 50), ("x", 5, 5), (True, 5, 5)])
+@pytest.mark.parametrize(
+    ("stored", "minutes", "radius", "quake_radius", "magnitude"),
+    [(0, 1, 1, 10, 4.5), (999, 60, 50, 999, 9.0), (99_999, 60, 50, 3000, 9.0), ("x", 5, 5, 300, 4.5), (True, 5, 5, 300, 4.5)],
+)
 async def test_options_out_of_range_are_held_in_range(
-    hass: HomeAssistant, mock_instance: Callable[..., None], mock_entry: MockConfigEntry, no_stream: None, stored: Any, minutes: int, radius: int
+    hass: HomeAssistant,
+    mock_instance: Callable[..., None],
+    mock_entry: MockConfigEntry,
+    no_stream: None,
+    stored: Any,
+    minutes: int,
+    radius: int,
+    quake_radius: float,
+    magnitude: float,
 ) -> None:
     mock_instance()
     mock_entry.add_to_hass(hass)
-    hass.config_entries.async_update_entry(mock_entry, options={CONF_SCAN_INTERVAL_MIN: stored, CONF_RIVER_RADIUS_KM: stored})
+    hass.config_entries.async_update_entry(
+        mock_entry,
+        options={CONF_SCAN_INTERVAL_MIN: stored, CONF_RIVER_RADIUS_KM: stored, CONF_QUAKE_RADIUS_KM: stored, CONF_QUAKE_MIN_MAGNITUDE: stored},
+    )
     await hass.config_entries.async_setup(mock_entry.entry_id)
     await hass.async_block_till_done()
     coordinator = mock_entry.runtime_data.coordinator
     assert coordinator.update_interval.total_seconds() == minutes * 60
     assert coordinator.river_radius_km == radius
+    assert mock_entry.runtime_data.quakes.radius_km == quake_radius and mock_entry.runtime_data.quakes.min_magnitude == magnitude
 
 
 async def test_reconfigure_changes_the_place_and_the_address_and_keeps_the_entities(

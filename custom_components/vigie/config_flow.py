@@ -1,4 +1,5 @@
-"""Config flow: the address of an instance and the place to watch; options: the poll and the river radius."""
+"""Config flow: the address of an instance (the public one is suggested) and the place to watch; options: the poll, the river
+radius, and the radius and minimum magnitude of the earthquakes."""
 
 from __future__ import annotations
 
@@ -23,19 +24,28 @@ from homeassistant.helpers.selector import (
 from .api import VigieClient, VigieConnectionError, VigieResponseError, normalize_url
 from .const import (
     CONF_LOCATION,
+    CONF_QUAKE_MIN_MAGNITUDE,
+    CONF_QUAKE_RADIUS_KM,
     CONF_RIVER_RADIUS_KM,
     CONF_SCAN_INTERVAL_MIN,
+    DEFAULT_QUAKE_MIN_MAGNITUDE,
+    DEFAULT_QUAKE_RADIUS_KM,
     DEFAULT_RIVER_RADIUS_KM,
     DEFAULT_SCAN_INTERVAL_MIN,
     DOMAIN,
+    MAX_QUAKE_MIN_MAGNITUDE,
+    MAX_QUAKE_RADIUS_KM,
     MAX_RIVER_RADIUS_KM,
     MAX_SCAN_INTERVAL_MIN,
+    MIN_QUAKE_MIN_MAGNITUDE,
+    MIN_QUAKE_RADIUS_KM,
     MIN_RIVER_RADIUS_KM,
     MIN_SCAN_INTERVAL_MIN,
     NAME,
+    PUBLIC_INSTANCE_URL,
 )
 
-# Shown in the help of the address field (through a placeholder: a translated string may not hold a URL).
+# Shown in the help of the address field (through placeholders: a translated string may not hold a URL).
 EXAMPLE_URL = "http://vigie.local:8080"
 
 
@@ -98,11 +108,11 @@ class VigieConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id=step_id,
             data_schema=self.add_suggested_values_to_schema(schema, defaults),
             errors=errors,
-            description_placeholders={"example": EXAMPLE_URL},  # hassfest: no URL in a translated string
+            description_placeholders={"example": EXAMPLE_URL, "public": PUBLIC_INSTANCE_URL},  # hassfest: no URL in a translated string
         )
 
     def _defaults(self, user_input: dict[str, Any] | None, entry: ConfigEntry | None) -> dict[str, Any]:
-        """What the form shows: what was just typed, else the entry, else the home zone of Home Assistant."""
+        """What the form shows: what was just typed, else the entry, else the public instance and the home zone of Home Assistant."""
         if user_input is not None:
             return user_input
         if entry is not None:
@@ -116,6 +126,7 @@ class VigieConfigFlow(ConfigFlow, domain=DOMAIN):
         longitude = home.attributes.get(CONF_LONGITUDE) if home else None
         return {
             CONF_NAME: f"{NAME} {self.hass.config.location_name}",
+            CONF_URL: PUBLIC_INSTANCE_URL,
             CONF_LOCATION: {
                 CONF_LATITUDE: latitude if latitude is not None else self.hass.config.latitude,
                 CONF_LONGITUDE: longitude if longitude is not None else self.hass.config.longitude,
@@ -134,7 +145,7 @@ class VigieConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class VigieOptionsFlow(OptionsFlowWithReload):
-    """The poll interval and the river radius; the entry is reloaded when they change."""
+    """The poll interval, the river radius, and the earthquakes' radius and minimum magnitude; the entry is reloaded when they change."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Show or save the options."""
@@ -143,6 +154,8 @@ class VigieOptionsFlow(OptionsFlowWithReload):
                 data={
                     CONF_SCAN_INTERVAL_MIN: int(round(user_input[CONF_SCAN_INTERVAL_MIN])),
                     CONF_RIVER_RADIUS_KM: int(round(user_input[CONF_RIVER_RADIUS_KM])),
+                    CONF_QUAKE_RADIUS_KM: int(round(user_input[CONF_QUAKE_RADIUS_KM])),
+                    CONF_QUAKE_MIN_MAGNITUDE: round(float(user_input[CONF_QUAKE_MIN_MAGNITUDE]), 1),
                 }
             )
         schema = vol.Schema(
@@ -165,11 +178,30 @@ class VigieOptionsFlow(OptionsFlowWithReload):
                         unit_of_measurement="km",
                     )
                 ),
+                vol.Required(CONF_QUAKE_RADIUS_KM): NumberSelector(
+                    NumberSelectorConfig(
+                        min=MIN_QUAKE_RADIUS_KM,
+                        max=MAX_QUAKE_RADIUS_KM,
+                        step=10,
+                        mode=NumberSelectorMode.BOX,
+                        unit_of_measurement="km",
+                    )
+                ),
+                vol.Required(CONF_QUAKE_MIN_MAGNITUDE): NumberSelector(
+                    NumberSelectorConfig(
+                        min=MIN_QUAKE_MIN_MAGNITUDE,
+                        max=MAX_QUAKE_MIN_MAGNITUDE,
+                        step=0.1,
+                        mode=NumberSelectorMode.BOX,
+                    )
+                ),
             }
         )
         current = {
             CONF_SCAN_INTERVAL_MIN: DEFAULT_SCAN_INTERVAL_MIN,
             CONF_RIVER_RADIUS_KM: DEFAULT_RIVER_RADIUS_KM,
+            CONF_QUAKE_RADIUS_KM: DEFAULT_QUAKE_RADIUS_KM,
+            CONF_QUAKE_MIN_MAGNITUDE: DEFAULT_QUAKE_MIN_MAGNITUDE,
             **self.config_entry.options,
         }
         return self.async_show_form(step_id="init", data_schema=self.add_suggested_values_to_schema(schema, current))

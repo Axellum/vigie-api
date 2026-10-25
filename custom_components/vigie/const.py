@@ -14,6 +14,11 @@ CONF_LOCATION: Final = "location"
 # Config entry options.
 CONF_SCAN_INTERVAL_MIN: Final = "scan_interval"
 CONF_RIVER_RADIUS_KM: Final = "river_radius_km"
+CONF_QUAKE_RADIUS_KM: Final = "quake_radius_km"
+CONF_QUAKE_MIN_MAGNITUDE: Final = "quake_min_magnitude"
+
+# The public instance, suggested in the address field of a new entry (any other instance can be typed instead).
+PUBLIC_INSTANCE_URL: Final = "https://vigie.auxfilsdesidees.fr"
 
 # Polling: the poll is the fallback of the push, and the whole mechanism when the instance has no scheduler.
 DEFAULT_SCAN_INTERVAL_MIN: Final = 5
@@ -25,9 +30,23 @@ DEFAULT_RIVER_RADIUS_KM: Final = 5
 MIN_RIVER_RADIUS_KM: Final = 1
 MAX_RIVER_RADIUS_KM: Final = 50
 
+# The earthquakes near the place (`/v1/earthquakes`, USGS and EMSC): a layer of their own, never mixed with the warnings.
+# The feeds the API reads list nothing below magnitude 4.5, so a smaller minimum would find nothing more.
+DEFAULT_QUAKE_RADIUS_KM: Final = 300
+MIN_QUAKE_RADIUS_KM: Final = 10
+MAX_QUAKE_RADIUS_KM: Final = 3000
+DEFAULT_QUAKE_MIN_MAGNITUDE: Final = 4.5
+MIN_QUAKE_MIN_MAGNITUDE: Final = 4.5
+MAX_QUAKE_MIN_MAGNITUDE: Final = 9.0
+QUAKE_WINDOW_HOURS: Final = 24
+EVENT_NEW_EARTHQUAKE: Final = "new_earthquake"
+MAX_LISTED_QUAKES: Final = 10
+QUAKE_ATTRIBUTES_BUDGET_BYTES: Final = 8_000
+
 # Time given to an answer. The first read of a country can fetch a feed and up to 40 CAP documents.
 HEALTH_TIMEOUT_S: Final = 10
 VIGILANCES_TIMEOUT_S: Final = 60
+EARTHQUAKES_TIMEOUT_S: Final = 30
 
 # The push stream: re-asked after a failure with a growing delay (seconds), and looked at again from time to time
 # when the instance does not run its scheduler (no push is sent then).

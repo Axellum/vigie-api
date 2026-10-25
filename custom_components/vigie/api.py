@@ -1,4 +1,4 @@
-"""The client of a Vigie API instance: three calls, no state."""
+"""The client of a Vigie API instance: four calls, no state."""
 
 from __future__ import annotations
 
@@ -7,11 +7,12 @@ from typing import Any
 import aiohttp
 from yarl import URL
 
-from .const import HEALTH_TIMEOUT_S, STREAM_HEARTBEAT_S, VIGILANCES_TIMEOUT_S
+from .const import EARTHQUAKES_TIMEOUT_S, HEALTH_TIMEOUT_S, STREAM_HEARTBEAT_S, VIGILANCES_TIMEOUT_S
 
 HEALTH_PATH = "/v1/health"
 VIGILANCES_PATH = "/v1/vigilances"
 STREAM_PATH = "/v1/stream"
+EARTHQUAKES_PATH = "/v1/earthquakes"
 
 # Decimals of the position sent to the API: about one metre. The stream rounds a followed point to four.
 POSITION_DECIMALS = 5
@@ -95,6 +96,17 @@ class VigieClient:
             "river_radius_km": f"{river_radius_km:g}",
         }
         return await self._get_json(VIGILANCES_PATH, params, VIGILANCES_TIMEOUT_S)
+
+    async def earthquakes(self, lat: float, lon: float, radius_km: float, min_magnitude: float, hours: float) -> Any:
+        """``GET /v1/earthquakes`` around a point: the raw JSON (the caller parses it). No weather is asked of the instance."""
+        params = {
+            "lat": f"{lat:.{POSITION_DECIMALS}f}",
+            "lon": f"{lon:.{POSITION_DECIMALS}f}",
+            "radius_km": f"{radius_km:g}",
+            "min_magnitude": f"{min_magnitude:g}",
+            "hours": f"{hours:g}",
+        }
+        return await self._get_json(EARTHQUAKES_PATH, params, EARTHQUAKES_TIMEOUT_S)
 
     def stream_url(self) -> str:
         """The WebSocket address of the push stream."""

@@ -1,7 +1,7 @@
 """Vigie: the official weather warnings of a place, from a Vigie API instance.
 
-A personal project, shared in case it helps. It reads an instance of the Vigie API (its `/v1/vigilances` route) and
-does not issue any warning: it is not an official warning service, follow the warnings of your national authorities.
+A personal project, shared in case it helps. It reads an instance of the Vigie API (its `/v1/vigilances` route, and
+`/v1/earthquakes` for the earthquakes near the place, a layer of its own) and does not issue any warning: it is not an official warning service, follow the warnings of your national authorities.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import VigieClient
-from .coordinator import VigieConfigEntry, VigieCoordinator, VigieRuntimeData
+from .coordinator import VigieConfigEntry, VigieCoordinator, VigieQuakeCoordinator, VigieRuntimeData
 from .stream import VigieStream
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.EVENT]
@@ -22,8 +22,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: VigieConfigEntry) -> boo
     client = VigieClient(async_get_clientsession(hass), entry.data[CONF_URL])
     coordinator = VigieCoordinator(hass, entry, client)
     await coordinator.async_config_entry_first_refresh()
+    # The earthquakes never hold the entry back: an instance that cannot give them leaves their entities unavailable.
+    quakes = VigieQuakeCoordinator(hass, entry, client)
+    await quakes.async_refresh()
     stream = VigieStream(client, coordinator.latitude, coordinator.longitude, coordinator.async_request_refresh)
-    entry.runtime_data = VigieRuntimeData(client=client, coordinator=coordinator, stream=stream)
+    entry.runtime_data = VigieRuntimeData(client=client, coordinator=coordinator, stream=stream, quakes=quakes)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # Cancelled with the entry when it is unloaded.
