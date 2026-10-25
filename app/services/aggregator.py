@@ -56,6 +56,7 @@ from app.collectors.weather import (
     as_stale_bundle,
     rainviewer_enabled_from_env,
 )
+from app.models.earthquakes import EarthquakesQuery, EarthquakesResponse
 from app.models.forecast import HazardForecast
 from app.models.places import WatchedPoint, WatchedPointUpsertRequest
 from app.models.schemas import (
@@ -92,6 +93,7 @@ from app.models.schemas import (
     ZoneWeather,
 )
 from app.models.watch import WatchedPointsStatus, WatchedSource
+from app.services.earthquakes import build_earthquakes, ids_within
 from app.services.embedded_frame import serialize_embedded_frame
 from app.services.fires import NEARBY_RADIUS_DEFAULT_KM, FireService
 from app.services.forecasts import empty as empty_forecast
@@ -921,6 +923,30 @@ class AggregatorService:
             history = self.storage.hazards_by_ids(candidate_ids(points, positions))
         active = [h for h in hazards if not h.id.startswith(SIMULATED_ID_PREFIX)]
         return build_status(points, history, active, sources, now_utc, window_days)
+
+    async def earthquakes_near(self, query: EarthquakesQuery, limit: int) -> EarthquakesResponse:
+        """The earthquakes within ``query.radius_km`` of a position in the last ``query.hours`` hours, strongest first.
+
+        The hazards are read as every other route reads them (the feeds behind their cache, so no client adds a request to a
+        provider), and the history the API kept gives the earthquakes the feeds no longer list. No weather provider is asked.
+        """
+        hazards, _, _ = await self.collect_hazards_with_status()
+        now_utc = int(clock.wall())
+        positions = self.storage.hazard_positions_since(now_utc - int(query.hours * 3600))
+        history = self.storage.hazards_by_ids(ids_within(positions, query.lat, query.lon, query.radius_km))
+        reads = self.source_reads()
+        seismic = [self.usgs, self.emsc]
+        sources = [
+            WatchedSource(
+                provider_id=c.provider_id,
+                name=c.name,
+                answered=reads.answered.get(c.provider_id, False),
+                observed_since_utc=reads.run_since(c.provider_id),
+            )
+            for c in seismic
+        ]
+        credits = [credit_text(key) for c, key in zip(seismic, ("usgs", "emsc"), strict=True) if reads.answered.get(c.provider_id, False)]
+        return build_earthquakes(query, hazards, history, sources, now_utc, limit, merge_credits(*credits))
 
     def hazards_with_forecast(self) -> set[str]:
         """The ids of the hazards that have a forecast to draw (``/v1/geojson/hazards/{id}/forecast``), from the last answers read."""

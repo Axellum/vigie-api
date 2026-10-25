@@ -25,6 +25,8 @@ Endpoints:
                                      display profile (``waveshare-7b``, ``tab5``, ``marine``, ``web``).
 - ``GET    /v1/embedded/frame``    : Compact text frame for the ESP32-P4 displays
                                      (contract: ``docs/embedded-frame.md``).
+- ``GET    /v1/earthquakes``       : The earthquakes (USGS, EMSC) within a radius of a position over the last hours, strongest
+                                     first; no weather provider is asked. Not an official warning.
 - ``GET    /v1/geojson/hazards``   : IETF RFC 7946 GeoJSON (``FeatureCollection``): one point per hazard.
 - ``GET    /v1/geojson/hazards/{id}/forecast`` : the forecast of a hazard that has one (``has_forecast``): the cone and track
                                      of a tropical cyclone, the arrival times of a tsunami, as GeoJSON.
@@ -60,6 +62,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app import __version__
+from app.models.earthquakes import EarthquakesQuery, EarthquakesResponse
 from app.models.fires import FiresCollection, FiresGrid
 from app.models.forecast import HazardForecast
 from app.models.places import WatchedPoint, WatchedPointUpsertRequest
@@ -82,6 +85,7 @@ from app.models.vigilance import UncoveredCountry, VigilanceCountry, VigilanceGe
 from app.models.watch import WatchedPointsStatus
 from app.routers.dashboard import router as dashboard_router
 from app.security import AdminTokenMiddleware, admin_token, document_admin_token
+from app.services import earthquakes as quakes
 from app.services.aggregator import AggregatorService
 from app.services.fires import (
     CELL_SIZES,
@@ -493,6 +497,38 @@ async def get_embedded_frame(
         max_hazards=max_hazards,
     )
     return PlainTextResponse(content=frame_str, media_type="text/plain; charset=utf-8")
+
+
+@app.get(
+    "/v1/earthquakes",
+    response_model=EarthquakesResponse,
+    tags=["Embedded & GPS"],
+    description=(
+        "The earthquakes the seismic sources reported (USGS and EMSC, one event when both report it) within `radius_km` of a "
+        "position over the last `hours` hours, the strongest first. The feeds keep a short window (USGS the last day, EMSC its "
+        "last 40 events) and list nothing below magnitude 4.5 (`feeds_min_magnitude`); an earthquake they no longer list comes "
+        "from the history the instance kept (`listed_now` false), so an instance started recently knows less. `sources` says "
+        "whether each source answered and since when it has been read without a gap. No weather provider is asked: this route "
+        "costs no call per client. A magnitude is not an official warning."
+    ),
+)
+async def get_earthquakes(
+    lat: float = Query(..., ge=-90.0, le=90.0, description="Latitude of the position (WGS84)"),
+    lon: float = Query(..., ge=-180.0, le=180.0, description="Longitude of the position (WGS84)"),
+    radius_km: float = Query(
+        default=quakes.DEFAULT_RADIUS_KM, gt=0.0, le=quakes.MAX_RADIUS_KM, description="Radius around the position (km)"
+    ),
+    min_magnitude: float = Query(
+        default=quakes.FEEDS_MIN_MAGNITUDE, ge=0.0, le=10.0, description="Keep the earthquakes of at least this magnitude"
+    ),
+    hours: float = Query(
+        default=quakes.DEFAULT_HOURS, gt=0.0, le=quakes.MAX_HOURS, description="Earthquakes of the last `hours` hours"
+    ),
+    limit: int = Query(default=quakes.DEFAULT_LIMIT, ge=1, le=quakes.MAX_LIMIT, description="Most earthquakes returned"),
+) -> EarthquakesResponse:
+    """The earthquakes near a position, strongest first."""
+    query = EarthquakesQuery(lat=round(lat, 4), lon=round(lon, 4), radius_km=radius_km, min_magnitude=min_magnitude, hours=hours)
+    return await aggregator.earthquakes_near(query, limit)
 
 
 @app.get("/v1/geojson/hazards", response_model=GeoJSONFeatureCollection, tags=["Standards"])
