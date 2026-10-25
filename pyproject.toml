@@ -20,6 +20,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# The unofficial pre-alert pilot (app/prealert, ADR 0011): decoding the GRIB2 files of the GFS model. Not needed by the API itself.
+prealert = [
+    "numpy>=1.26",
+    "eccodes>=2.50",
+    # The wheel of eccodes bundles the library on Windows only; elsewhere the library is the eccodeslib wheel.
+    "eccodeslib>=2.50; sys_platform != 'win32'",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
