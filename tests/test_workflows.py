@@ -166,7 +166,7 @@ def test_hassfest_and_hacs_are_run_with_the_category_and_ignores_stated() -> Non
     assert any("home-assistant/actions/hassfest@" in str(step.get("uses", "")) for step in workflow["jobs"]["hassfest"]["steps"])
     hacs = next(step for step in workflow["jobs"]["hacs"]["steps"] if "hacs/action@" in str(step.get("uses", "")))
     assert hacs["with"]["category"] == "integration"
-    assert set(hacs["with"]["ignore"].split()) == {"brands", "topics"}  # no brand image and no topics yet
+    assert set(hacs["with"]["ignore"].split()) == {"brands"}  # no brand image yet; the topics are checked
     assert str(hacs["with"]["comment"]).lower() == "false"  # read-only job
     # The action refuses a private repository: the job runs only once the repository is public.
     assert "github.event.repository.private" in workflow["jobs"]["hacs"]["if"]
