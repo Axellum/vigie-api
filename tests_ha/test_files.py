@@ -75,11 +75,15 @@ def test_no_translated_string_holds_a_url() -> None:
 
 
 def test_every_state_and_event_type_the_code_can_produce_is_translated() -> None:
-    from custom_components.vigie.const import EVENT_TYPES, MAX_LEVEL_STATES
+    from custom_components.vigie.const import EVENT_NEW_EARTHQUAKE, EVENT_TYPES, MAX_LEVEL_STATES
 
     english = load(COMPONENT / "translations" / "en.json")["entity"]
     assert set(english["sensor"]["max_level"]["state"]) == set(MAX_LEVEL_STATES)
     assert set(english["event"]["vigilance"]["state_attributes"]["event_type"]["state"]) == set(EVENT_TYPES)
+    assert set(english["event"]["earthquake"]["state_attributes"]["event_type"]["state"]) == {EVENT_NEW_EARTHQUAKE}
+    french = load(COMPONENT / "translations" / "fr.json")["entity"]
+    assert french["sensor"]["strongest_earthquake"]["name"] == "Séisme le plus fort"
+    assert french["event"]["earthquake"]["state_attributes"]["event_type"]["state"][EVENT_NEW_EARTHQUAKE] == "Nouveau séisme"
     icons = load(COMPONENT / "icons.json")["entity"]
     assert set(icons["sensor"]["max_level"]["state"]) == set(MAX_LEVEL_STATES)
 
@@ -87,6 +91,10 @@ def test_every_state_and_event_type_the_code_can_produce_is_translated() -> None
 @pytest.mark.parametrize("path", sorted(COMPONENT.rglob("*.py")) + sorted(COMPONENT.rglob("*.json")), ids=lambda p: p.name)
 def test_nothing_private_in_the_integration(path: Path) -> None:
     content = path.read_text(encoding="utf-8")
+    if path.name == "const.py":  # the address of the public instance is public: it is the one thing allowed, once, in one file
+        public = 'PUBLIC_INSTANCE_URL: Final = "https://vigie.auxfilsdesidees.fr"\n'
+        assert content.count(public) == 1
+        content = content.replace(public, "")
     assert not re.search(r"\b(?:192\.168|10\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}\b", content), path.name
     assert not re.search(r"@(?:gmail|hotmail|outlook)\.", content, re.IGNORECASE), path.name
     assert not re.search(r"auxfilsdesidees|[A-Z]:\\\\(?:Users|AuxFils)", content, re.IGNORECASE), path.name

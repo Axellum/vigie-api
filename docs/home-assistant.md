@@ -10,34 +10,39 @@ API (`GET /v1/vigilances`, see [the README](../README.md#official-weather-warnin
 
 - a **maximum level** sensor (`none`, `yellow`, `orange`, `red`) with the list of the warnings in its attributes;
 - a **warning active** binary sensor (yellow or above);
-- a **vigilance** event entity that fires `new`, `upgraded` or `ended`, to start automations.
+- a **vigilance** event entity that fires `new`, `upgraded` or `ended`, to start automations;
+- and, as a layer of their own, the **earthquakes** near the place (`GET /v1/earthquakes`, USGS and EMSC): a **strongest
+  earthquake** sensor and an **earthquake** event entity that fires `new_earthquake` once per earthquake. They are not
+  official warnings and never change the three entities above.
 
-It needs no screen, no key and no package beyond what Home Assistant ships. It does not issue anything: you run the
-API yourself ([README, "Run"](../README.md#run)), on a network you trust (the API has no authentication).
+It needs no screen, no key and no package beyond what Home Assistant ships. It does not issue anything: it reads the public
+instance, or one you run yourself ([README, "Run"](../README.md#run)).
 
-Its tests run against Home Assistant 2026.10.2. **It has not been tried on a running Home Assistant installation yet**: the
-first real run is the proof the tests cannot give (see "Develop" for what the tests do and do not cover).
+Its tests run against Home Assistant 2026.10.2. The warnings were tried on one running Home Assistant installation on
+2026-10-20; see "Develop" for what the tests do and do not cover.
 
 ## Install
 
-The repository is private for now, and HACS only adds public GitHub repositories as custom repositories
-([HACS, private repositories](https://www.hacs.xyz/docs/faq/private_repositories/)). Until it is public:
+**With HACS** (the repository is public): HACS, the three dots, *Custom repositories*, the address of this repository
+(`https://github.com/Axellum/vigie-api`), category *Integration*. Then find "Vigie" in HACS, download it, and **restart
+Home Assistant**. HACS installs and updates the folder `custom_components/vigie`; `hacs.json` at the root of the
+repository is for that.
+
+**By hand**:
 
 1. Copy the folder `custom_components/vigie` of this repository into the `custom_components` folder of your Home
    Assistant configuration (create `custom_components` if it does not exist). Home Assistant's configuration folder is the
    one that holds `configuration.yaml`. The result is `custom_components/vigie/manifest.json`.
 2. **Restart Home Assistant** (a new custom integration is only found at start).
-3. Settings, Devices & services, Add integration, "Vigie".
 
-Once the repository is public, it can be added to HACS as a custom repository (category *Integration*) with its address;
-HACS then installs and updates the same folder. `hacs.json` at the root of the repository is for that.
+Then: Settings, Devices & services, Add integration, "Vigie".
 
 ## Configure
 
 | Field | Meaning |
 | --- | --- |
 | Name | Names the device and its entities. Prefilled with "Vigie" and the name of your home. |
-| Address of the instance | For example `http://vigie.local:8080`. It is checked by a read of `/v1/health` (it must answer like a Vigie API); a missing `http://` is added. |
+| Address of the instance | Prefilled with the public instance, `https://vigie.auxfilsdesidees.fr`; or your own, for example `http://vigie.local:8080`. It is checked by a read of `/v1/health` (it must answer like a Vigie API); a missing `http://` is added. |
 | Place | The point whose warnings are read: a warning counts when its area contains it. Prefilled with the `zone.home` coordinates; pick another point on the map for a holiday home or a boat. |
 
 **One entry per place.** The same instance can be added again for another place, and each entry is a device of its
@@ -49,13 +54,17 @@ own. The same address and the same place (to about 11 m) is refused as already c
 | --- | --- | --- |
 | Poll interval | 5 min (1 to 60) | How often the instance is read. It is also the fallback of the push (below). |
 | River radius | 5 km (1 to 50) | In France, how far from the place a river section (Vigicrues) still counts. The API's own default is 5 and its maximum 50. |
+| Earthquake radius | 300 km (10 to 3000) | How far from the place an earthquake counts. This value is a setting, not a measure of danger: a strong earthquake far away can be felt, a small one nearby may not be. |
+| Earthquake minimum magnitude | 4.5 (4.5 to 9) | The smallest magnitude shown and announced. The feeds the API reads list nothing below 4.5. |
 
 Changing an option reloads the entry. **Reconfigure** (the three dots of the entry) changes the address, the place or
 the name without losing the entities.
 
 The screens are in English and French (`translations/`), following the language of Home Assistant. The entity ids are
 built from the translated names: with an entry named "Vigie Home" and English, `sensor.vigie_home_maximum_level`,
-`binary_sensor.vigie_home_warning_active` and `event.vigie_home_vigilance`.
+`binary_sensor.vigie_home_warning_active`, `event.vigie_home_vigilance`, `sensor.vigie_home_strongest_earthquake` and
+`event.vigie_home_earthquake` (in French: `..._niveau_maximal`, `..._vigilance_active`, `..._vigilance`,
+`..._seisme_le_plus_fort`, `..._seisme`).
 
 ## Entities
 
@@ -141,6 +150,50 @@ actions:
         ({{ trigger.to_state.attributes.area }})
 ```
 
+### Strongest earthquake (sensor)
+
+The magnitude of the strongest earthquake within the radius in the last 24 hours, as its sources reported it (USGS and
+EMSC; one earthquake when both report it). Its attributes: `title` (the source's words, magnitude and region), `time`,
+`distance_km` and `bearing` from the place (calculated by Vigie), `depth_km`, `magnitude_type`, `latitude` and `longitude`
+of the epicentre (so the map card shows it), `reported_by`, then `count`, at most ten `earthquakes` (the strongest first;
+`omitted` says how many are left out), the settings (`radius_km`, `min_magnitude`, `hours`), `sources` (whether USGS and
+EMSC answered) and `attribution`, the credit of the sources.
+
+It is **unknown when no earthquake matches**, not 0: a magnitude nobody reported is not a number. `count` is then 0 when a
+source answered, and null when none did (nothing can be said).
+
+### Earthquake (event)
+
+Fires `new_earthquake` with the earthquake's data (`id`, `title`, `magnitude`, `time`, `distance_km`, `bearing`, `depth_km`,
+`latitude`, `longitude`, `sources`), **once per earthquake**:
+
+- the first read after the start of Home Assistant is the **baseline**: an earthquake of before fires nothing;
+- an earthquake read again fires nothing, nor does the same earthquake reported later by the other source under its own
+  identifier (within two minutes and 100 km, the rule the API merges them by);
+- nothing fires under the minimum magnitude.
+
+An example: a notification for an earthquake of magnitude 5.5 or more.
+
+<!-- example:earthquake-automation -->
+```yaml
+alias: Vigie, strong earthquake nearby
+triggers:
+  - trigger: state
+    entity_id: event.vigie_home_earthquake
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.to_state.attributes.event_type == 'new_earthquake'
+         and trigger.to_state.attributes.magnitude | float(0) >= 5.5 }}
+actions:
+  - action: notify.notify
+    data:
+      title: "Vigie: earthquake"
+      message: >-
+        {{ trigger.to_state.attributes.title }}
+        ({{ trigger.to_state.attributes.distance_km }} km)
+```
+
 ## Push and poll
 
 The integration is declared `local_push`. `WS /v1/stream` of the API tells a client that follows a place when a warning
@@ -204,7 +257,11 @@ authentication: run it on a trusted network.
 - **The first read is the baseline.** After a restart of Home Assistant, a warning already in force does not fire `new`.
 - **Diagnostics** (the three dots of the entry, Download diagnostics) redact the coordinates and the address of the
   instance, and keep the warnings as read; their area is the name of a region.
-- **HACS** reads public repositories only (see "Install").
+- **Earthquakes are not warnings.** A magnitude says how strong an earthquake was, not what it did where you are. The feeds
+  list nothing below magnitude 4.5, USGS keeps the last day and EMSC its last 40 events; an earthquake they no longer list
+  comes from the history the instance kept, so an instance started recently knows less. They are read at the poll
+  interval: there is no push for them.
+- **An older instance** without `/v1/earthquakes` leaves the two earthquake entities unavailable; the warnings work as before.
 
 ## Develop
 
@@ -223,8 +280,9 @@ python -m venv .venv-ha                # the integration's tests: their own envi
 `tests_ha/requirements.txt` pins `pytest-homeassistant-custom-component` to the version that tracks one Home Assistant
 release (now 0.13.373 for 2026.10.2, which needs Python 3.14.2 or newer; this is why the CI has its own job). The
 workflow `.github/workflows/home-assistant.yml` runs the tests, **hassfest** and the **HACS validation**. The HACS action
-refuses a private repository ("can only validate public repositories"), so that job is skipped until the repository is
-public; `brands` and `topics` are then ignored (no brand image is published, the repository has no topics). Home
+refuses a private repository ("can only validate public repositories"), so that job is skipped while the repository is
+private; it runs since the repository is public. `brands` is ignored (no brand image is published); the topics are
+checked. Home
 Assistant is not built for Windows: its test plugin needs the Unix modules `fcntl` and `resource`, and pytest-socket
 refuses the socket pair that the Windows event loop opens. For a run on Windows only, `tests_ha/windows/` holds three
 tiny stubs for them:

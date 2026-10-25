@@ -5,6 +5,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`GET /v1/earthquakes?lat=&lon=`**: the earthquakes (USGS and EMSC, one event when both report it) within `radius_km` (300 by
+  default, up to 3000) of a position over the last `hours` (24, up to 168), of at least `min_magnitude`, the strongest first, with
+  their distance and bearing (calculated by Vigie, named in `derived`). An earthquake the feeds no longer list comes from the
+  history the instance kept (`listed_now` false). It asks no weather provider: a client costs no call to Open-Meteo.
+- **Home Assistant: the earthquakes near the place**, a layer of their own: a strongest-earthquake sensor (magnitude; title,
+  time, distance and credit in its attributes) and an event entity that fires `new_earthquake` once per earthquake. The radius
+  and the minimum magnitude are options. They never change the warning entities.
+- **Home Assistant: the public instance is suggested** in the address field of a new entry; the installation by HACS is
+  described (the repository is public).
+
 ### Fixed
 
 - **`fires_nearby` no longer passes an old reading of FIRMS for a current one.** FIRMS is refreshed by requests, not by a timer: on

@@ -106,3 +106,71 @@ def response(
         "disclaimer": disclaimer,
         "note": note,
     }
+
+
+# ---- `GET /v1/earthquakes` (the shape of the real one: see `fixtures/earthquakes_*.json`)
+
+USGS_CREDIT = "Credit: U.S. Geological Survey"
+EMSC_CREDIT = "Credit: EMSC-CSEM SeismicPortal, https://www.seismicportal.eu"
+
+
+def earthquake(
+    identifier: str = "usgs_us7000test",
+    *,
+    magnitude: float = 5.1,
+    time_utc: int = SERVER_UTC - 1800,
+    lat: float = 45.5,
+    lon: float = 5.5,
+    distance_km: float = 68.0,
+    sources: tuple[str, ...] = ("USGS",),
+    title: str | None = None,
+    depth_km: float | None = 10.0,
+    tsunami: bool = False,
+    listed_now: bool = True,
+) -> dict[str, Any]:
+    """One earthquake as the API gives it."""
+    credits = {"USGS": USGS_CREDIT, "EMSC": EMSC_CREDIT}
+    return {
+        "id": identifier,
+        "title": title if title is not None else f"M {magnitude:.1f} - 20 km N of Testville, France",
+        "magnitude": magnitude,
+        "magnitude_type": "mww",
+        "time_utc": time_utc,
+        "lat": lat,
+        "lon": lon,
+        "depth_km": depth_km,
+        "tsunami_warning": tsunami,
+        "sources": list(sources),
+        "distance_km": distance_km,
+        "bearing_deg": 24.0,
+        "bearing_cardinal": "NE",
+        "listed_now": listed_now,
+        "attribution": " | ".join(credits[s] for s in sources if s in credits) or None,
+    }
+
+
+def earthquakes_response(
+    quakes: list[dict[str, Any]] | None = None,
+    *,
+    answered: tuple[bool, bool] = (True, True),
+    server_utc: int = SERVER_UTC,
+    radius_km: float = 300.0,
+    min_magnitude: float = 4.5,
+    count: int | None = None,
+) -> dict[str, Any]:
+    """An answer of ``GET /v1/earthquakes`` around the place. By default both seismic sources answered."""
+    quakes = quakes or []
+    credits = [credit for credit, ok in zip((USGS_CREDIT, EMSC_CREDIT), answered, strict=True) if ok]
+    return {
+        "generated_utc": server_utc,
+        "query": {"lat": 45.0, "lon": 5.0, "radius_km": radius_km, "min_magnitude": min_magnitude, "hours": 24.0},
+        "feeds_min_magnitude": 4.5,
+        "sources": [
+            {"provider_id": "usgs_eq", "name": "USGS Earthquake Hazards Program", "answered": answered[0], "observed_since_utc": server_utc - 86400},
+            {"provider_id": "emsc_seismic", "name": "EMSC / SeismicPortal (Euro-Med & Global)", "answered": answered[1], "observed_since_utc": server_utc - 86400},
+        ],
+        "count": len(quakes) if count is None else count,
+        "earthquakes": quakes,
+        "derived": ["distance_km", "bearing_deg", "bearing_cardinal", "listed_now"],
+        "attribution": " | ".join(credits) or None,
+    }

@@ -122,7 +122,8 @@ async def test_the_device_and_the_unique_ids(
     assert device is not None and device.name == "Vigie Test" and device.manufacturer == "Vigie"
     registry = er.async_get(hass)
     unique_ids = {entry.unique_id for entry in er.async_entries_for_config_entry(registry, mock_entry.entry_id)}
-    assert unique_ids == {f"{mock_entry.entry_id}_max_level", f"{mock_entry.entry_id}_warning_active", f"{mock_entry.entry_id}_vigilance"}
+    keys = ("max_level", "warning_active", "vigilance", "strongest_earthquake", "earthquake")
+    assert unique_ids == {f"{mock_entry.entry_id}_{key}" for key in keys}
 
 
 async def test_two_places_are_two_devices(

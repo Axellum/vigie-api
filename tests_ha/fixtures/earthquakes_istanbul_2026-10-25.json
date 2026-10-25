@@ -1,0 +1,55 @@
+{
+  "generated_utc": 1792917711,
+  "query": {
+    "lat": 41.01,
+    "lon": 28.98,
+    "radius_km": 3000.0,
+    "min_magnitude": 4.5,
+    "hours": 24.0
+  },
+  "feeds_min_magnitude": 4.5,
+  "sources": [
+    {
+      "provider_id": "usgs_eq",
+      "name": "USGS Earthquake Hazards Program",
+      "answered": true,
+      "observed_since_utc": 1792917697
+    },
+    {
+      "provider_id": "emsc_seismic",
+      "name": "EMSC / SeismicPortal (Euro-Med & Global)",
+      "answered": true,
+      "observed_since_utc": 1792917697
+    }
+  ],
+  "count": 1,
+  "earthquakes": [
+    {
+      "id": "usgs_us6000u4sm",
+      "title": "M 4.9 - 17 km SE of Ambelókipoi, Greece",
+      "magnitude": 4.9,
+      "magnitude_type": "mb",
+      "time_utc": 1792905344,
+      "lat": 37.6512,
+      "lon": 21.0112,
+      "depth_km": 10.0,
+      "tsunami_warning": false,
+      "sources": [
+        "USGS",
+        "EMSC"
+      ],
+      "distance_km": 780.1,
+      "bearing_deg": 244.0,
+      "bearing_cardinal": "SW",
+      "listed_now": true,
+      "attribution": "Credit: U.S. Geological Survey | Credit: EMSC-CSEM SeismicPortal, https://www.seismicportal.eu"
+    }
+  ],
+  "derived": [
+    "distance_km",
+    "bearing_deg",
+    "bearing_cardinal",
+    "listed_now"
+  ],
+  "attribution": "Credit: U.S. Geological Survey | Credit: EMSC-CSEM SeismicPortal, https://www.seismicportal.eu"
+}

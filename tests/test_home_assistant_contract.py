@@ -1,4 +1,5 @@
-"""The Home Assistant integration (``custom_components/vigie``) reads ``GET /v1/vigilances``: keep what it reads true.
+"""The Home Assistant integration (``custom_components/vigie``) reads ``GET /v1/vigilances`` and ``GET /v1/earthquakes``: keep
+what it reads true.
 
 The integration is tested in its own environment (``tests_ha/``, Python and Home Assistant of their own, see
 ``docs/home-assistant.md``). Here, in the API's own CI, the answers its tests use are checked against the API's
@@ -18,19 +19,41 @@ from pathlib import Path
 
 import pytest
 
+from app.models.earthquakes import EarthquakesResponse
 from app.models.schemas import SeverityLevel
 from app.models.vigilance import VigilanceCoverage, VigilancePhenomenon, VigilancesResponse
 from tests_ha import payloads
 from tools import fake_instance
 
 ROOT = Path(__file__).resolve().parents[1]
-FIXTURES = sorted((ROOT / "tests_ha" / "fixtures").glob("*.json"))
+FIXTURES = sorted((ROOT / "tests_ha" / "fixtures").glob("vigilances_*.json"))
+QUAKE_FIXTURES = sorted((ROOT / "tests_ha" / "fixtures").glob("earthquakes_*.json"))
+
+
+def test_every_recorded_answer_is_checked() -> None:
+    assert FIXTURES and QUAKE_FIXTURES
+    assert sorted((ROOT / "tests_ha" / "fixtures").glob("*.json")) == sorted(FIXTURES + QUAKE_FIXTURES)
 
 
 @pytest.mark.parametrize("path", FIXTURES, ids=lambda p: p.name)
 def test_the_recorded_answers_are_answers_of_the_api(path: Path) -> None:
     response = VigilancesResponse.model_validate(json.loads(path.read_text(encoding="utf-8")))
     assert response.vigilances and response.coverage
+
+
+@pytest.mark.parametrize("path", QUAKE_FIXTURES, ids=lambda p: p.name)
+def test_the_recorded_earthquake_answers_are_answers_of_the_api(path: Path) -> None:
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    response = EarthquakesResponse.model_validate(raw)
+    assert response.earthquakes and response.sources and response.attribution
+    assert raw == json.loads(response.model_dump_json())  # every field the API sends, and none it does not
+
+
+def test_the_earthquake_builders_of_the_integration_tests_make_answers_of_the_api() -> None:
+    quakes = [payloads.earthquake(), payloads.earthquake("emsc_x", sources=("EMSC",), depth_km=None), payloads.earthquake("usgs_y", sources=("USGS", "EMSC"), tsunami=True)]
+    for answer in (payloads.earthquakes_response(quakes), payloads.earthquakes_response([], answered=(False, False))):
+        response = EarthquakesResponse.model_validate(answer)
+        assert answer == json.loads(response.model_dump_json())
 
 
 def test_the_builders_of_the_integration_tests_make_answers_of_the_api() -> None:

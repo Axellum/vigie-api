@@ -1,7 +1,8 @@
 """Diagnostics: what an issue report needs, without the place.
 
 The coordinates are redacted (the entry's, and the `query` the API echoes back), and so is the address of the instance.
-The warnings are kept as the integration reads them (their area is the name of a region, not a position).
+The warnings are kept as the integration reads them (their area is the name of a region, not a position). The earthquakes keep
+their magnitude, time and sources, not their distance or position, which would tell where the place is.
 """
 
 from __future__ import annotations
@@ -44,10 +45,28 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: VigieCo
             ],
             "vigilances": [vigilance.summary(language) for vigilance in data.vigilances],
         }
+    quakes = runtime.quakes
+    quake_read: dict[str, Any] = {
+        "last_update_success": quakes.last_update_success,
+        "radius_km": quakes.radius_km,
+        "min_magnitude": quakes.min_magnitude,
+        "hours": quakes.hours,
+    }
+    if quakes.data is not None:
+        quake_read |= {
+            "server_utc": quakes.data.generated_utc,
+            "count": quakes.data.count,
+            "unreadable_items": quakes.data.skipped,
+            "sources": [{"source": s.provider_id, "answered": s.answered} for s in quakes.data.sources],
+            "earthquakes": [
+                {"id": q.id, "magnitude": q.magnitude, "time_utc": q.time_utc, "sources": list(q.sources)} for q in quakes.data.quakes
+            ],
+        }
     return async_redact_data(
         {
             "entry": {"title": entry.title, "data": dict(entry.data), "options": dict(entry.options)},
             "read": read,
+            "earthquakes": quake_read,
             "stream": runtime.stream.diagnostics(),
         },
         TO_REDACT,

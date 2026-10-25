@@ -9,6 +9,9 @@
           "orange": "mdi:alert",
           "red": "mdi:alert-octagon"
         }
+      },
+      "strongest_earthquake": {
+        "default": "mdi:waveform"
       }
     },
     "binary_sensor": {
@@ -22,6 +25,9 @@
     "event": {
       "vigilance": {
         "default": "mdi:bell-alert-outline"
+      },
+      "earthquake": {
+        "default": "mdi:pulse"
       }
     }
   }
