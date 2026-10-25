@@ -1,8 +1,9 @@
-# The unofficial pre-alert for Turkey on the learning set (2024-2025): the criteria are not met
+# The unofficial pre-alert for Turkey on the learning set (2024-2025), and the test set of 2026
 
 *Measured on 2026-10-25 with `tools/backtest_prealert_tr.py`, for [ADR 0011](../decisions/0011-unofficial-pre-alert-turkey-shadow-pilot.md).
-Only the learning set was used (the press episodes of 2024 and 2025, [`prealert-tr-episodes.csv`](prealert-tr-episodes.csv)); the test set
-of 2026 was **not** scored. No threshold table was frozen and the shadow phase was not started.*
+The sections up to "What could still be tried" use the learning set only (the press episodes of 2024 and 2025,
+[`prealert-tr-episodes.csv`](prealert-tr-episodes.csv)); the last section, written after the table was frozen, gives the one score of
+the test set of 2026.*
 
 ## What was measured
 
@@ -52,3 +53,14 @@ results stay about half a point above the 3 % and more than twice the 0.3 % of l
 - Thresholds learned from a longer climatology (ERA5 reanalysis, 30 years) rather than two years of forecasts.
 - The ECMWF ensemble (probabilities) rather than the single run.
 - Criterion 5 counted on the phenomena that would be shown only, which is a change of the ADR: the owner's decision.
+
+## Afterwards, the same day: the owner's decision, the frozen table, the test set
+
+The owner accepted about 4 % of the province-days at level 2 (ADR 0011, amendment). The table was frozen with ECMWF, p2 = 98.5 and
+level 3 at 2.5 times level 2 (`app/data/prealert-tr-thresholds.json`; cross-validated: 71 % at J0, 79 % at J1, 3.97 % and 0.28 %;
+the same table judged on the very days it was learned from: 67 %, 72 %, 3.2 % and 0.10 %).
+
+**The test set of 2026, scored once with that table**: J0 **31 of 49 pairs (63 %)**, J1 **35 of 49 (71 %)**. All 49 pairs are rain;
+19 of them also name wind, and the wind level never reached 2 for them (0 of 19). Criterion 1 (70 % at J0) is not met on the test
+set; criterion 2 (60 % at J1) is. The shadow phase adds its episodes before the final judgement.
+
