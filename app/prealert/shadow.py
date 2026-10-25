@@ -12,7 +12,9 @@ newest first (a ``HEAD`` each). A run already stored is not read again.
 
 **A run** is, for each lead from 3 to 72 hours, its JSON index (one line per field, with an offset and a length) and one byte range
 per field of ``ECMWF_PARAMS``: 24 x 6 = 144 requests, about 110 MB (whole-world fields of about 0.6 to 1.4 MB, measured on
-2026-10-25), sent one after the other. A "503 Slow Down" of S3 is asked again after ``RETRY_WAITS_S``. The budget is ours
+2026-10-25), sent one after the other. Each field is cut to Turkey as soon as it is read (a few KB are kept, not the
+whole-world field). A "503 Slow Down" of S3 is asked again after ``RETRY_WAITS_S``; when it still fails, the leads already read are
+kept and the next check goes on from there (S3 answered 503 five times in a row to one request on 2026-10-25). The budget is ours
 (``ecmwf_opendata`` in ``app/collectors/budget.py``).
 
 **What is stored**: one row per run, local day, province and phenomenon (value and level) in the table ``prealert_tr_levels`` of the
@@ -107,13 +109,19 @@ def wanted_fields(index_text: str) -> list[tuple[str, int, int]]:
     return found
 
 
-def compute_rows(run: datetime, by_lead_raw: dict[int, list[bytes]]) -> tuple[LevelRow, ...]:
-    """Decode the fields of one run and compute every province level (CPU work: run it in a thread)."""
-    from app.prealert.gfs import TURKEY_BOX, decode, run_days
+def cut_to_turkey(raw: bytes) -> list[Any]:
+    """Decode one field and cut it to Turkey (CPU work: run it in a thread)."""
+    from app.prealert.gfs import TURKEY_BOX, decode
+
+    return decode(raw, TURKEY_BOX)
+
+
+def compute_rows(run: datetime, by_lead: dict[int, list[Any]]) -> tuple[LevelRow, ...]:
+    """Compute every province level from the fields of one run, cut to Turkey (CPU work: run it in a thread)."""
+    from app.prealert.gfs import run_days
     from app.prealert.levels import province_levels, province_quantities
     from app.prealert.provinces import provinces_on_grid
 
-    by_lead = {lead: [m for raw in fields for m in decode(raw, TURKEY_BOX)] for lead, fields in by_lead_raw.items()}
     days = run_days(run, by_lead)
     first = by_lead[min(by_lead)][0]
     provinces = provinces_on_grid(first.lats, first.lons)
@@ -145,6 +153,9 @@ class EcmwfOpenDataCollector(BaseCollector[ShadowRun]):
         self.last_lead_h = LAST_LEAD_H
         self.now = lambda: datetime.now(timezone.utc)
         self.retry_waits_s = RETRY_WAITS_S
+        # The leads of the run being read, already cut to Turkey: a check that fails half-way leaves them for the next one.
+        self._kept_run: Optional[datetime] = None
+        self._kept: dict[int, list[Any]] = {}
 
     async def _patient(self, ask: Any) -> httpx.Response:
         """``await ask()`` again after each wait of ``retry_waits_s`` while S3 answers 503 (slow down)."""
@@ -168,12 +179,15 @@ class EcmwfOpenDataCollector(BaseCollector[ShadowRun]):
             if previous is not None:
                 return previous.value
             raise RuntimeError("no complete ECMWF run in the last 30 hours")
-        by_lead: dict[int, list[bytes]] = {}
+        if self._kept_run != run:
+            self._kept_run, self._kept = run, {}
         for lead in range(3, last + 1, 3):
+            if lead in self._kept:
+                continue
             url = file_url(run, lead)
             index = await self._patient(partial(self._get_capped, client, url + ".index", max_bytes=MAX_INDEX_BYTES))
             index.raise_for_status()
-            fields: list[bytes] = []
+            fields: list[Any] = []
             for _, offset, length in wanted_fields(index.text):
                 if length > MAX_FIELD_BYTES:
                     raise ValueError(f"f{lead:03d}: a field of {length} bytes, more than the {MAX_FIELD_BYTES} allowed")
@@ -182,11 +196,12 @@ class EcmwfOpenDataCollector(BaseCollector[ShadowRun]):
                 part.raise_for_status()
                 if not part.content.startswith(b"GRIB"):
                     raise ValueError(f"f{lead:03d}: not a GRIB2 answer ({len(part.content)} bytes)")
-                fields.append(part.content)
+                fields.extend(await asyncio.to_thread(cut_to_turkey, part.content))
                 await asyncio.sleep(self.pause_s)
-            by_lead[lead] = fields
-        rows = await asyncio.to_thread(compute_rows, run, by_lead)
+            self._kept[lead] = fields
+        rows = await asyncio.to_thread(compute_rows, run, dict(self._kept))
         await asyncio.to_thread(self.store.save, rows)
+        self._kept_run, self._kept = None, {}
         return ShadowRun(run, rows)
 
 

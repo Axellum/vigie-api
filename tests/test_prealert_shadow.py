@@ -136,6 +136,30 @@ async def test_a_slow_down_of_s3_is_asked_again(tmp_path: Path) -> None:
     assert len(result.rows) == 81 * 5 and len(slowed) == 2 * (1 + 5)
 
 
+async def test_a_check_that_fails_half_way_goes_on_from_there_at_the_next_one(tmp_path: Path) -> None:
+    asked: list[str] = []
+    recorded = mirror(asked)
+    throttled = {"6h": True}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if throttled["6h"] and request.method == "GET" and "-6h-" in request.url.path:
+            return httpx.Response(503, text="<Error><Code>SlowDown</Code></Error>")
+        return recorded(request)
+
+    collector = _collector(tmp_path, handler)
+    collector.retry_waits_s = ()
+    with pytest.raises(Exception, match="503"):
+        await collector.fetch(force_refresh=True)
+    assert collector.store.runs() == []
+
+    throttled["6h"] = False
+    asked.clear()
+    result = await collector.fetch(force_refresh=True)
+    assert len(result.rows) == 81 * 5
+    assert not any("-3h-" in a for a in asked)  # lead 3 was kept, not read again
+    assert asked.count("GET 20261025000000-6h-oper-fc.index") == 1
+
+
 async def test_an_answer_that_is_not_grib_is_refused(tmp_path: Path) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "HEAD":
