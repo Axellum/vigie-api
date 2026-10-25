@@ -49,6 +49,12 @@ CREDITS: dict[str, Credit] = {
     for credit in (
         Credit("open_meteo", "Open-Meteo", "Weather data by Open-Meteo.com (https://open-meteo.com/)", "provider"),
         Credit(
+            "ecmwf_opendata",
+            "ECMWF (open data)",
+            "Forecast: ECMWF IFS open data (CC BY 4.0). Unofficial pre-alert computed by Vigie, not an official warning",
+            "ours",
+        ),
+        Credit(
             "dwd_icon_wave",
             "DWD (through Open-Meteo Marine)",
             "Generated using ICON Wave forecast from the German Weather Service DWD",
@@ -214,6 +220,7 @@ MARINE = ("open_meteo", "dwd_icon_wave")
 SPACE_WEATHER = ("noaa_swpc",)
 RADAR = ("rainviewer",)
 FIRES = ("nasa_firms",)
+PREALERT = ("ecmwf_opendata",)
 
 
 def credit_text(*keys: str) -> str:

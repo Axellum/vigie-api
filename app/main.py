@@ -27,6 +27,8 @@ Endpoints:
                                      (contract: ``docs/embedded-frame.md``).
 - ``GET    /v1/earthquakes``       : The earthquakes (USGS, EMSC) within a radius of a position over the last hours, strongest
                                      first; no weather provider is asked. Not an official warning.
+- ``GET    /v1/experimental/prealert`` : EXPERIMENTAL, UNOFFICIAL: the pre-alert levels Vigie computes for a province of Turkey
+                                     (ADR 0011); 404 unless ``VIGIE_PREALERT_TR`` is on. Not an official warning.
 - ``GET    /v1/geojson/hazards``   : IETF RFC 7946 GeoJSON (``FeatureCollection``): one point per hazard.
 - ``GET    /v1/geojson/hazards/{id}/forecast`` : the forecast of a hazard that has one (``has_forecast``): the cone and track
                                      of a tropical cyclone, the arrival times of a tsunami, as GeoJSON.
@@ -48,6 +50,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import math
 import os
@@ -66,6 +69,7 @@ from app.models.earthquakes import EarthquakesQuery, EarthquakesResponse
 from app.models.fires import FiresCollection, FiresGrid
 from app.models.forecast import HazardForecast
 from app.models.places import WatchedPoint, WatchedPointUpsertRequest
+from app.models.prealert import PrealertResponse
 from app.models.schemas import (
     CAPFeedResponse,
     DeviceType,
@@ -217,6 +221,20 @@ def require_watched_points_write() -> None:
         )
 
 
+def _make_prealert_pilot() -> Optional[Any]:
+    """The unofficial pre-alert pilot for Turkey (ADR 0011 and its amendment), when ``VIGIE_PREALERT_TR`` is on (read at start)."""
+    from app.prealert.shadow import enabled
+
+    if not enabled():
+        return None
+    from app.prealert.shadow import EcmwfOpenDataCollector, ShadowPilot, ShadowStore
+
+    return ShadowPilot(EcmwfOpenDataCollector(ShadowStore()))
+
+
+prealert_pilot = _make_prealert_pilot()
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Load the bundled fault traces, start the background scheduler when enabled and stop it cleanly on shutdown."""
@@ -224,10 +242,14 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     if scheduler_enabled():
         scheduler.start()
     aggregator.fires.warm_up()  # the first read of the fires (unless the instance turned FIRMS off) starts now, not at the first visitor
+    if prealert_pilot is not None:
+        prealert_pilot.start()
     try:
         yield
     finally:
         await scheduler.stop()
+        if prealert_pilot is not None:
+            await prealert_pilot.stop()
 
 
 app = FastAPI(
@@ -529,6 +551,32 @@ async def get_earthquakes(
     """The earthquakes near a position, strongest first."""
     query = EarthquakesQuery(lat=round(lat, 4), lon=round(lon, 4), radius_km=radius_km, min_magnitude=min_magnitude, hours=hours)
     return await aggregator.earthquakes_near(query, limit)
+
+
+@app.get(
+    "/v1/experimental/prealert",
+    response_model=PrealertResponse,
+    tags=["Experimental"],
+    description=(
+        "**Experimental and unofficial**, for testers (ADR 0011 and its amendment): the pre-alert levels Vigie computes for the "
+        "province of Turkey a position is in, from the ECMWF forecast and thresholds of its own, for today and the next days. "
+        "**Not an official warning**: the official warnings of Turkey are the MGM's (`official_warnings_url`). Answers 404 on an "
+        "instance that does not run the pilot (`VIGIE_PREALERT_TR`) and 422 outside Turkey. It is in no other answer."
+    ),
+)
+async def get_experimental_prealert(
+    lat: float = Query(..., ge=-90.0, le=90.0, description="Latitude of the position (WGS84)"),
+    lon: float = Query(..., ge=-180.0, le=180.0, description="Longitude of the position (WGS84)"),
+) -> PrealertResponse:
+    """The experimental pre-alert of the province of Turkey at a position."""
+    if prealert_pilot is None:
+        raise HTTPException(status_code=404, detail="This instance does not run the experimental pre-alert (VIGIE_PREALERT_TR).")
+    from app.prealert.view import OutsideTurkey, prealert_at
+
+    try:
+        return await asyncio.to_thread(prealert_at, prealert_pilot.store, lat, lon)
+    except OutsideTurkey as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
 
 
 @app.get("/v1/geojson/hazards", response_model=GeoJSONFeatureCollection, tags=["Standards"])

@@ -85,6 +85,11 @@ QUOTAS: dict[str, Quota] = {
     # 36 transactions (measured with /mapserver/mapkey_status/), see ``WORLD_DAY_TRANSACTIONS`` in ``firms.py``. The static files
     # have no key and no transaction: they weigh 0 and are counted as calls only.
     "nasa_firms": Quota("nasa-firms", (Limit(600, 5_000),), "https://firms.modaps.eosdis.nasa.gov/api/area/"),
+    # ECMWF open data on its AWS mirror (the unofficial pre-alert pilot for Turkey, off by default): no request limit is published
+    # for the mirror (ECMWF's own server allows 500 to 2,000 simultaneous connections). A ceiling of our own: 2 runs of 144 requests
+    # (an index and five byte ranges per lead) and a check every 30 minutes (one or two HEAD) make about 400 a day; 1,000 leaves room
+    # for a run read again after a failure.
+    "ecmwf_opendata": Quota("ecmwf-opendata", (Limit(DAY_S, 1_000),), "https://github.com/Axellum/vigie-api/blob/main/SOURCES.md"),
     # Not listed, no published quota: usgs_eq, emsc_seismic, gdacs_global, noaa_nws (a limit exists but "is
     # not public information"), usgs_volcano_gvp, noaa_swpc, and the other warning services: dwd_cap, metservice_cap and
     # vigicrues_flow publish none (nothing about a request rate on their terms or documentation pages, 2026-10-20: not

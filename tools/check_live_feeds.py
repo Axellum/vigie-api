@@ -650,6 +650,38 @@ async def check_wmo_swic(client: httpx.AsyncClient) -> Result:
     return Result("wmo_swic", "ok" if listed else "empty", detail)
 
 
+async def check_ecmwf_opendata(client: httpx.AsyncClient) -> Result:
+    """ECMWF IFS open data on its AWS mirror (the pre-alert pilot): the newest complete run, its first lead's index and fields, decoded."""
+    from datetime import datetime, timezone
+
+    try:
+        from app.prealert.gfs import TURKEY_BOX, decode
+        from app.prealert.shadow import EcmwfOpenDataCollector, ShadowStore, candidate_runs, file_url, wanted_fields
+    except ImportError as error:  # the optional extra 'prealert' is not installed
+        return Result("ecmwf_opendata", "skipped", f"optional dependency missing: {error}")
+    import tempfile
+
+    collector = EcmwfOpenDataCollector(ShadowStore(Path(tempfile.mkdtemp()) / "check.db"))
+    for run in candidate_runs(datetime.now(timezone.utc)):
+        head = await collector._head(client, file_url(run, collector.last_lead_h) + ".index")
+        if head.status_code == 200:
+            break
+    else:
+        return Result("ecmwf_opendata", "empty", "no complete run in the last 30 hours")
+    index = await collector._get(client, file_url(run, 3) + ".index")
+    index.raise_for_status()
+    names: set[str] = set()
+    size = 0
+    for _, offset, length in wanted_fields(index.text):
+        part = await collector._get(client, file_url(run, 3) + ".grib2", headers={"Range": f"bytes={offset}-{offset + length - 1}"})
+        part.raise_for_status()
+        size += len(part.content)
+        names.update(m.short_name for m in decode(part.content, TURKEY_BOX))
+    if names != {"gust", "ptype", "tmax", "tmin", "tp"}:
+        return Result("ecmwf_opendata", "FAIL", f"run {run:%Y-%m-%d %H} UTC f003: fields {sorted(names)}")
+    return Result("ecmwf_opendata", "ok", f"run {run:%Y-%m-%d %H} UTC f003: {size} bytes, the five fields")
+
+
 CHECKS: dict[str, Check] = {
     "usgs_eq": check_usgs,
     "emsc_seismic": check_emsc,
@@ -674,6 +706,7 @@ CHECKS: dict[str, Check] = {
     "wmo_swic_registry": check_wmo_swic_registry,
     "wmo_swic": check_wmo_swic,
     "nasa_firms": check_firms,
+    "ecmwf_opendata": check_ecmwf_opendata,
 }
 
 

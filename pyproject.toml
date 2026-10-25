@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# The unofficial pre-alert pilot (app/prealert, ADR 0011): decoding the GRIB2 files of the GFS model. Not needed by the API itself.
+# The unofficial pre-alert pilot (app/prealert, ADR 0011): decoding the GRIB2 files of the ECMWF (and GFS) models. Not needed by the API itself.
 prealert = [
     "numpy>=1.26",
     "eccodes>=2.50",

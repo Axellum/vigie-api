@@ -2,8 +2,9 @@
 
 NOAA's Global Forecast System (GFS) is published every 6 hours as GRIB2 files, one per lead time ("can be used as desired", with
 credit to NOAA and without implying its endorsement: https://registry.opendata.aws/noaa-gfs-bdp-pds/, read 2026-10-25). The same
-files are read two ways: cut to an area and to a few fields by the NOMADS grib filter (the live pilot), or as whole-world fields
-fetched by byte range from the archive on AWS (the backtest). Both give GRIB2 messages; this module only decodes them, so the two
+files are read two ways: cut to an area and to a few fields by the NOMADS grib filter, or as whole-world fields
+fetched by byte range from the archive on AWS (the backtest). The live pilot reads ECMWF open data (``app/prealert/shadow.py``),
+whose GRIB2 fields this module decodes too (``ECMWF_NAMES``). Both give GRIB2 messages; this module only decodes them, so the two
 paths share every computation.
 
 What is read, per file of lead ``f`` hours (the inventory of a 2024-01-15 run, read on 2026-10-25, every 3 hours to 72):
@@ -80,6 +81,10 @@ class Box:
     north: float
     west: float
     east: float
+
+
+# Turkey, with a margin: the area every file is cut to (the NOMADS filter cuts the same one on the server).
+TURKEY_BOX = Box(south=35.5, north=42.5, west=25.5, east=45.0)
 
 
 @dataclass(frozen=True)

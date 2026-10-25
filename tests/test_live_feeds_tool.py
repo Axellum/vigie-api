@@ -155,8 +155,23 @@ def good_answers() -> dict[str, Callable[[httpx.Request], httpx.Response]]:
         "www.tsunami.gov": tsunami_host(),
         "www.nhc.noaa.gov": nhc_host(),
         FIRMS_HOST: firms_host()[0],
+        ECMWF_HOST: ecmwf_answer,
         **swic_samples.wmo_hosts(),
     }
+
+
+ECMWF_HOST = "ecmwf-forecasts.s3.eu-central-1.amazonaws.com"
+ECMWF_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "ecmwf_opendata"
+
+
+def ecmwf_answer(request: httpx.Request) -> httpx.Response:
+    """The ECMWF mirror as recorded on 2026-10-25: every run is complete, and lead 3 is the run of 00 UTC cut to Turkey."""
+    if request.method == "HEAD":
+        return httpx.Response(200)
+    if request.url.path.endswith(".index"):
+        return httpx.Response(200, content=(ECMWF_FIXTURES / "20261025000000-3h-oper-fc.index").read_bytes())
+    first, last = (int(v) for v in request.headers["Range"].removeprefix("bytes=").split("-"))
+    return httpx.Response(206, content=(ECMWF_FIXTURES / "20261025000000-3h-oper-fc.grib2").read_bytes()[first : last + 1])
 
 
 async def run(overrides: dict[str, Callable[[httpx.Request], httpx.Response]] | None = None, **kwargs: Any) -> dict[str, tool.Result]:
@@ -183,7 +198,8 @@ def test_there_is_a_check_for_each_collector() -> None:
     from app.main import aggregator
 
     # NASA FIRMS has a check although the application of the tests has no collector for it (it is turned off there): the check says "skipped" then.
-    assert set(tool.CHECKS) == {c.provider_id for c in aggregator.get_all_collectors()} | {"nasa_firms"}
+    # ECMWF open data is the pre-alert pilot (ADR 0011), not a collector of the aggregator: it has its check too.
+    assert set(tool.CHECKS) == {c.provider_id for c in aggregator.get_all_collectors()} | {"nasa_firms", "ecmwf_opendata"}
 
 
 @pytest.mark.asyncio
@@ -194,6 +210,7 @@ async def test_every_source_passes_when_nothing_changed() -> None:
     assert {k for k, v in results.items() if v.outcome != "ok"} == {"metservice_cap"}
     assert results["metservice_cap"].outcome == "empty"
     assert results["nasa_firms"].outcome == "ok"
+    assert results["ecmwf_opendata"].outcome == "ok" and "the five fields" in results["ecmwf_opendata"].detail
     assert tool.exit_code(list(results.values())) == 0
 
 
