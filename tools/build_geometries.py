@@ -6,6 +6,7 @@ shape of that code. This script builds the files it reads; nothing is read at ru
 
     python tools/build_geometries.py                  # the files bundled in the repository
     python tools/build_geometries.py --countries-only # only the borders (after the WMO registry snapshot changed)
+    python tools/build_geometries.py --provinces-tr   # only the 81 provinces of Turkey (the pre-alert pilot, ADR 0011)
     python tools/build_geometries.py --emma           # an OPTIONAL local file, NOT bundled (see below)
     python tools/build_geometries.py --cache-dir DIR  # where the downloads are kept (default: a temp folder)
 
@@ -26,6 +27,10 @@ What the default build writes, and the licence of every input (checked on 2026-1
   (**public domain**), given their NUTS codes by Wikidata (property P605, joined on the ISO 3166-2 code
   P300; Wikidata is **CC0**, https://www.wikidata.org/wiki/Wikidata:Licensing). Simplified with a tolerance
   of 0.005 degree (about 500 m), coordinates rounded to 3 decimals.
+
+- ``app/data/provinces-tr.geojson.gz`` (``--provinces-tr``): the 81 provinces of Turkey for the unofficial pre-alert pilot
+  (ADR 0011), keyed by ISO 3166-2 code (``TR-01`` to ``TR-81``), named in Turkish by Wikidata (**CC0**; "province of Turkey",
+  Q48336), shapes from ``ne_10m_admin_1_states_provinces`` (**public domain**). Simplified with a tolerance of 0.005 degree.
 
 Not bundled, on purpose:
 
@@ -71,6 +76,7 @@ EMMA_URL = "https://gitlab.com/meteoalarm-pm-group/documents/-/raw/master/MeteoA
 COUNTRY_TOLERANCE_DEG = 0.01
 NUTS_TOLERANCE_DEG = 0.005
 EMMA_TOLERANCE_DEG = 0.005
+PROVINCE_TOLERANCE_DEG = 0.005
 DECIMALS = 3
 
 # Natural Earth draws a few places with no ISO code (``-99``). Three of them lie inside a country that has one, and are joined to it
@@ -283,6 +289,44 @@ def build_nuts(admin1: Path, pairs: Iterable[tuple[str, str]]) -> list[dict[str,
     return features
 
 
+PROVINCES_TR_QUERY = """
+SELECT ?iso ?name WHERE {
+  ?area wdt:P31 wd:Q48336 ; wdt:P300 ?iso ; rdfs:label ?name .
+  FILTER(LANG(?name) = "tr")
+}
+"""
+
+
+def fetch_turkish_province_names(cache: Path, fetch: Callable[..., Path] = download) -> dict[str, str]:
+    """``ISO 3166-2 code -> Turkish name`` of the 81 provinces of Turkey (Wikidata "province of Turkey", Q48336)."""
+    path = cache / "wikidata_provinces_tr.json"
+    if not path.exists():
+        query = urllib.parse.urlencode({"query": PROVINCES_TR_QUERY, "format": "json"})
+        fetch(f"{WIKIDATA_SPARQL_URL}?{query}", path)
+    rows = json.loads(path.read_text(encoding="utf-8"))["results"]["bindings"]
+    return {row["iso"]["value"]: row["name"]["value"] for row in rows}
+
+
+def build_turkey_provinces(admin1: Path, names: dict[str, str]) -> list[dict[str, Any]]:
+    """The 81 provinces of Turkey (the unofficial pre-alert, ADR 0011): shape from Natural Earth, name from Wikidata.
+
+    Raises when a province of Natural Earth has no name in Wikidata, or when the count is not 81: the file is all or nothing.
+    """
+    data = json.loads(admin1.read_text(encoding="utf-8"))
+    features: list[dict[str, Any]] = []
+    for item in data["features"]:
+        props = item.get("properties") or {}
+        if props.get("adm0_a3") != "TUR" or not item.get("geometry"):
+            continue
+        code = str(props.get("iso_3166_2") or "")
+        if code not in names:
+            raise ValueError(f"no Turkish name in Wikidata for {code!r} ({props.get('name')})")
+        features.append(feature(simplify(shape(item["geometry"]), PROVINCE_TOLERANCE_DEG), {"code": code, "name": names[code]}))
+    if len(features) != 81:
+        raise ValueError(f"{len(features)} provinces of Turkey in Natural Earth, 81 expected")
+    return sorted(features, key=lambda item: item["properties"]["code"])
+
+
 def build_emma(source: Path) -> list[dict[str, Any]]:
     """The EMMA_ID shapes of the official MeteoAlarm geocodes file, simplified."""
     data = json.loads(source.read_text(encoding="utf-8"))
@@ -306,6 +350,7 @@ def run(argv: Optional[list[str]] = None, fetch: Callable[..., Path] = download)
     parser.add_argument("--out-dir", type=Path, default=DATA_DIR)
     parser.add_argument("--emma", action="store_true", help="build the OPTIONAL local EMMA_ID file instead (not bundled)")
     parser.add_argument("--countries-only", action="store_true", help="rebuild only the borders (countries.geojson.gz)")
+    parser.add_argument("--provinces-tr", action="store_true", help="rebuild only the provinces of Turkey (provinces-tr.geojson.gz)")
     args = parser.parse_args(argv)
     cache: Path = args.cache_dir
 
@@ -316,6 +361,15 @@ def run(argv: Optional[list[str]] = None, fetch: Callable[..., Path] = download)
             out / "emma_id.geojson.gz",
             build_emma(source),
             "MeteoAlarm EMMA_ID shapes, built locally from the official geocodes file; not redistributable here",
+        )
+        return 0
+
+    if args.provinces_tr:
+        admin1 = fetch(NE_ADMIN1_URL, cache / "ne_10m_admin_1_states_provinces.geojson")
+        write_collection(
+            args.out_dir / "provinces-tr.geojson.gz",
+            build_turkey_provinces(admin1, fetch_turkish_province_names(cache, fetch)),
+            "The 81 provinces of Turkey: shapes from Natural Earth (public domain), Turkish names from Wikidata (CC0), simplified",
         )
         return 0
 
