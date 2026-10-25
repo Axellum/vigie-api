@@ -14,7 +14,7 @@ from typing import Any, Optional
 import httpx
 import pytest
 
-from app.collectors.firms import FireReading, FireSet, FIRMSCollector, parse_csv
+from app.collectors.firms import TOTAL_DEADLINE_S, FireReading, FireSet, FIRMSCollector, parse_csv
 from app.services.fires import (
     CONFIDENCE_LEVELS,
     FireService,
@@ -347,6 +347,28 @@ async def test_a_failed_refresh_keeps_the_previous_reading_and_says_it_is_stale(
     assert answer["metadata"]["stale"] is True and answer["metadata"]["total_matching"] > 0
     assert collector.consecutive_failures >= 1 and collector.last_error is not None
     await service.drain()
+
+
+@pytest.mark.asyncio
+async def test_a_reading_left_unrefreshed_for_hours_is_stale_and_too_old_for_the_point(sim_clock: SimClock) -> None:
+    # Seen on an instance on 2026-10-25: nobody had asked for the fires for 37 hours, the first request got the reading of the start with
+    # stale false (the refresh is started by requests only), and count_24h summed a reading that held nothing of the last 24 hours.
+    firms = GatedFirms()
+    firms.open()
+    service, collector = service_with(sim_clock, firms)
+    await service.features(WORLD, 24.0, "low", 0.0, 1)
+    sim_clock.advance(collector.ttl_seconds + TOTAL_DEADLINE_S + 1)  # past the lifetime and the longest a read may take: overdue
+    firms.close()  # the refresh this request starts is still running
+    answer = await service.grid(WORLD, 24.0, 5.0, "low", 0.0, 10)
+    assert answer["metadata"]["stale"] is True and answer["metadata"]["data_read_utc"] == int(NOW)
+    nearby = await service.nearby(-16.6, 179.0, 500.0)
+    assert nearby is not None and nearby.stale is True  # within the 24 hours it sums up: served, flagged
+    sim_clock.advance(37 * 3600)  # the case seen: the reading is older than the 24 hours of count_24h
+    assert await service.nearby(-16.6, 179.0, 500.0) is None  # unknown, not a count of zero
+    firms.open()
+    await service.drain()
+    after = await service.nearby(-16.6, 179.0, 500.0)
+    assert after is not None and after.stale is False and after.data_read_utc == int(sim_clock.time())
 
 
 @pytest.mark.asyncio

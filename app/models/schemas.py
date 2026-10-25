@@ -476,7 +476,9 @@ class FiresNearby(BaseModel):
     latest_utc: Optional[int] = Field(default=None, description="Acquisition time (UTC epoch seconds) of the most recent of them; null when there is none")
     data_read_utc: int = Field(..., description="When the API last read FIRMS (UTC epoch seconds): the detections are from before that")
     stale: bool = Field(
-        default=False, description="True when the last attempt to read FIRMS failed: these are the detections of the previous reading"
+        default=False,
+        description="True when the last attempt to read FIRMS failed, or when a source was not confirmed for longer than its lifetime and the "
+        "longest a read may take (the reading is refreshed on request only): these are the detections of an earlier reading",
     )
     sources: list[str] = Field(default_factory=list, description="FIRMS products read (e.g. VIIRS_NOAA20_NRT)")
     derived: list[str] = Field(
@@ -556,7 +558,8 @@ class PointResponse(BaseModel):
     fires_nearby: Optional[FiresNearby] = Field(
         default=None,
         description="Active fires detected around the position in the last 24 hours (NASA FIRMS). Null when the source is off on this "
-        "instance (`GET /v1/health`, `disabled_sources`) or has not been read yet. Informative only: never part of `local_alert_level`",
+        "instance (`GET /v1/health`, `disabled_sources`), has not been read yet, or the oldest reading is older than the 24 hours it sums up "
+        "(the refresh is started by this request). Informative only: never part of `local_alert_level`",
     )
 
 
