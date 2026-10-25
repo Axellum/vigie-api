@@ -592,18 +592,19 @@ it never raises `local_alert_level`. It is `null` when the instance turned the s
 for FIRMS), or the oldest reading is older than those 24 hours (it would hold none of them: a count of zero would be made up; the request
 starts the refresh).
 
-## Unofficial pre-alert for Turkey (a pilot, off by default)
+## Unofficial pre-alert for Turkey (a pilot, off by default, experimental)
 
-`VIGIE_PREALERT_TR=1` runs a shadow pilot ([ADR 0011](decisions/0011-unofficial-pre-alert-turkey-shadow-pilot.md); `app/prealert/`):
-levels computed by Vigie, per province of Turkey, from NOAA GFS 0.25 degree, **stored and served to no one**.
+`VIGIE_PREALERT_TR=1` runs a pilot ([ADR 0011](decisions/0011-unofficial-pre-alert-turkey-shadow-pilot.md) and its amendment; `app/prealert/`):
+levels computed by Vigie, per province of Turkey, from ECMWF IFS 0.25 degree open data, stored and answered only by the experimental
+route `GET /v1/experimental/prealert` (unofficial, for testers; in no other answer).
 
 | Source | What is read | How often, and why | Requests |
 | --- | --- | --- | --- |
-| **NOAA GFS** through the NOMADS grib filter (`noaa_gfs_nomads`) | Leads 3 to 72 hours of the newest complete run, each cut by the server to 25.5-45 E, 35.5-42.5 N and to six fields (accumulated precipitation, gust, 2 m temperature and its extremes, categorical snow): about 20 KB a lead, measured on 2026-10-25. | A check every 30 minutes: a `HEAD` on the inventory of `f072` of the newest runs of the last 30 hours (a run is read once that answers; NOAA does not document when a run is complete on NOMADS). A run already stored is not read again. GFS runs 4 times a day. | About 2 a check (96 a day) and 24 a new run (96 a day): about 200 a day and 2 MB. NOMADS publishes no limit: the ceiling of 400 a day is ours (`budget.py`). |
+| **ECMWF IFS open data** on ECMWF's mirror on AWS (`ecmwf_opendata`) | Leads 3 to 72 hours of the newest complete run of 00 or 12 UTC: per lead its JSON index, then one byte range per field (precipitation, gust, the 2 m temperature extremes, precipitation type). The fields are whole-world (0.6 to 1.4 MB each, measured on 2026-10-25) and cut to Turkey after decoding: about 110 MB a run. | A check every 30 minutes: a `HEAD` on the index of lead 72 of the newest runs of the last 30 hours (a run is read once that answers). A run already stored is not read again. The runs of 06 and 18 UTC are not read (the thresholds were learned on the runs of 00 UTC). | About 2 a check (about 100 a day) and 144 a new run (288 a day): about 400 a day and 220 MB. The mirror publishes no limit (it answers "503 Slow Down" when asked too fast): the ceiling of 1,000 a day is ours (`budget.py`). |
 
-How a run becomes levels (local days of UTC+3, the 90 % quantile of a province's grid points, the provisional thresholds) is in
-the docstrings of `app/prealert/gfs.py` and `app/prealert/levels.py`; the rows go to the table `prealert_tr_levels` of the
-database. `tools/backtest_prealert_tr.py` computes the same on past runs of the AWS archive.
+How a run becomes levels (local days of UTC+3, the 90 % quantile of a province's grid points, the thresholds frozen on 2026-10-25 in
+`app/data/prealert-tr-thresholds.json`) is in the docstrings of `app/prealert/gfs.py` and `app/prealert/levels.py`; the rows go to the
+table `prealert_tr_levels` of the database. `tools/backtest_prealert_tr.py` computes the same on past runs of the AWS archives.
 
 ## Call volume
 

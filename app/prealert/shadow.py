@@ -1,25 +1,27 @@
-"""The shadow pilot: read each new GFS run from NOMADS, compute the province levels, store them. Shown to no one (ADR 0011).
+"""The pilot: read each new ECMWF run, compute the province levels, store them (ADR 0011 and its amendment).
 
 On when ``VIGIE_PREALERT_TR`` is ``1`` / ``true`` / ``yes`` / ``on`` (off by default: nothing is downloaded, nothing is imported
-from ``numpy`` or ``eccodes``).
+from ``numpy`` or ``eccodes``, and ``GET /v1/experimental/prealert`` answers 404).
 
-**Which run.** GFS runs at 00, 06, 12 and 18 UTC; a run is complete on NOMADS some hours later (not documented; a run is read only
-once the inventory of its last lead, ``f072``, answers). Every ``CHECK_EVERY_S`` the newest complete run of the last 30 hours is
-looked for, newest first, with a ``HEAD`` on that inventory: about 2 requests a check when nothing is new. A run already stored is
-not read again.
+**The model is the one the thresholds were learned on**: ECMWF IFS 0.25 degree open data (CC BY 4.0), read from ECMWF's mirror on
+AWS (https://registry.opendata.aws/ecmwf-forecasts/), the same files as the backtest. The runs of 00 and 12 UTC have a lead every 3
+hours; those of 06 and 18 UTC are not read.
 
-**A run is 24 requests** to the NOMADS grib filter, one per lead (3 to 72 hours), each cut server-side to Turkey and to the six
-fields of ``gfs.NOMADS_VARIABLES`` (about 20 KB each, measured on 2026-10-25), sent one after the other with ``PAUSE_S`` between
-them. NOMADS publishes no limit; the NWS says it blocks abusive users (https://www.weather.gov/abusive-user-block), so the budget is
-ours (``noaa-gfs-nomads`` in ``app/collectors/budget.py``): 4 runs and the checks fit in it with room.
+**Which run.** Every ``CHECK_EVERY_S`` the newest run of the last 30 hours whose index of lead ``LAST_LEAD_H`` answers is looked for,
+newest first (a ``HEAD`` each). A run already stored is not read again.
+
+**A run** is, for each lead from 3 to 72 hours, its JSON index (one line per field, with an offset and a length) and one byte range
+per field of ``ECMWF_PARAMS``: 24 x 6 = 144 requests, about 110 MB (whole-world fields of about 0.6 to 1.4 MB, measured on
+2026-10-25), sent one after the other. The budget is ours (``ecmwf_opendata`` in ``app/collectors/budget.py``).
 
 **What is stored**: one row per run, local day, province and phenomenon (value and level) in the table ``prealert_tr_levels`` of the
-API's database, for the scoring of ADR 0011. Nothing reads it but the scoring tool.
+API's database. ``latest_for`` gives the rows of the newest run for a province: the experimental route reads them.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import sqlite3
@@ -35,13 +37,15 @@ from app.collectors.base import BaseCollector, CacheEntry
 
 logger = logging.getLogger(__name__)
 
-NOMADS_FILTER = "https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl"
-NOMADS_FILES = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod"
+ECMWF_MIRROR = "https://ecmwf-forecasts.s3.eu-central-1.amazonaws.com"
+ECMWF_PARAMS = ("tp", "10fg", "mx2t3", "mn2t3", "ptype", "max_i10fg", "max_2t", "min_2t")
+CYCLES = (0, 12)
 LAST_LEAD_H = 72
 CHECK_EVERY_S = 30 * 60
-PAUSE_S = 2.0
+PAUSE_S = 0.5
 LOOK_BACK_H = 30
-MAX_FILE_BYTES = 200_000  # one lead cut to Turkey weighs about 20 KB
+MAX_FIELD_BYTES = 4_000_000  # a whole-world field weighs 0.6 to 1.4 MB
+MAX_INDEX_BYTES = 1_000_000
 
 
 def enabled(env: Optional[dict[str, str]] = None) -> bool:
@@ -69,34 +73,43 @@ class ShadowRun:
 
 
 def candidate_runs(now: datetime) -> list[datetime]:
-    """The GFS runs of the last ``LOOK_BACK_H`` hours, newest first."""
-    latest = now.replace(minute=0, second=0, microsecond=0, hour=now.hour - now.hour % 6)
+    """The runs of 00 and 12 UTC of the last ``LOOK_BACK_H`` hours, newest first."""
+    run = now.replace(minute=0, second=0, microsecond=0, hour=max(c for c in CYCLES if c <= now.hour))
     out = []
-    run = latest
     while now - run <= timedelta(hours=LOOK_BACK_H):
         out.append(run)
-        run -= timedelta(hours=6)
+        run -= timedelta(hours=12)
     return out
 
 
-def filter_params(run: datetime, lead: int) -> dict[str, str]:
-    """The query of the NOMADS grib filter for one lead, cut to Turkey (``gfs.NOMADS_*``)."""
-    from app.prealert.gfs import NOMADS_LEVELS, NOMADS_VARIABLES
-
-    params = {"dir": f"/gfs.{run:%Y%m%d}/{run:%H}/atmos", "file": f"gfs.t{run:%H}z.pgrb2.0p25.f{lead:03d}"}
-    params.update({f"var_{name}": "on" for name in NOMADS_VARIABLES})
-    params.update({f"lev_{name}": "on" for name in NOMADS_LEVELS})
-    params.update({"subregion": "", "toplat": "42.5", "leftlon": "25.5", "rightlon": "45", "bottomlat": "35.5"})
-    return params
+def file_url(run: datetime, lead: int) -> str:
+    """The address of one lead of a run on the mirror, without its extension (``.index`` or ``.grib2``)."""
+    return f"{ECMWF_MIRROR}/{run:%Y%m%d}/{run:%H}z/ifs/0p25/oper/{run:%Y%m%d%H}0000-{lead}h-oper-fc"
 
 
-def compute_rows(run: datetime, files: dict[int, bytes]) -> tuple[LevelRow, ...]:
-    """Decode the files of one run and compute every province level (CPU work: run it in a thread)."""
-    from app.prealert.gfs import decode, run_days
+def wanted_fields(index_text: str) -> list[tuple[str, int, int]]:
+    """``(param, offset, length)`` of the surface fields of ``ECMWF_PARAMS`` in an index; raises when one of the five is missing."""
+    found = []
+    for line in index_text.splitlines():
+        if not line.strip():
+            continue
+        field = json.loads(line)
+        if field.get("levtype") == "sfc" and field.get("param") in ECMWF_PARAMS:
+            found.append((str(field["param"]), int(field["_offset"]), int(field["_length"])))
+    names = {name for name, _, _ in found}
+    for needed in (("tp",), ("10fg", "max_i10fg"), ("mx2t3", "max_2t"), ("mn2t3", "min_2t"), ("ptype",)):
+        if not names.intersection(needed):
+            raise ValueError(f"the index lists no {needed[0]}")
+    return found
+
+
+def compute_rows(run: datetime, by_lead_raw: dict[int, list[bytes]]) -> tuple[LevelRow, ...]:
+    """Decode the fields of one run and compute every province level (CPU work: run it in a thread)."""
+    from app.prealert.gfs import TURKEY_BOX, decode, run_days
     from app.prealert.levels import province_levels, province_quantities
     from app.prealert.provinces import provinces_on_grid
 
-    by_lead = {lead: decode(data) for lead, data in files.items()}
+    by_lead = {lead: [m for raw in fields for m in decode(raw, TURKEY_BOX)] for lead, fields in by_lead_raw.items()}
     days = run_days(run, by_lead)
     first = by_lead[min(by_lead)][0]
     provinces = provinces_on_grid(first.lats, first.lons)
@@ -105,19 +118,19 @@ def compute_rows(run: datetime, files: dict[int, bytes]) -> tuple[LevelRow, ...]
     for day, values in sorted(days.items()):
         for province in provinces:
             quantities = province_quantities(values, province)
-            levels = province_levels(quantities)
+            levels = province_levels(quantities, province.code)
             for name, value in quantities.items():
                 rows.append(LevelRow(stamp, day.isoformat(), province.code, name, value, levels[name]))
     return tuple(rows)
 
 
-class GfsNomadsCollector(BaseCollector[ShadowRun]):
-    """The newest complete GFS run, cut to Turkey by the NOMADS grib filter, turned into province levels."""
+class EcmwfOpenDataCollector(BaseCollector[ShadowRun]):
+    """The newest complete ECMWF run of 00 or 12 UTC, cut to Turkey, turned into province levels and stored."""
 
     def __init__(self, store: "ShadowStore", http_client: Optional[httpx.AsyncClient] = None) -> None:
         super().__init__(
-            provider_id="noaa_gfs_nomads",
-            name="NOAA GFS 0.25 (NOMADS grib filter), unofficial pre-alert pilot for Turkey",
+            provider_id="ecmwf_opendata",
+            name="ECMWF IFS 0.25 open data (mirror on AWS), unofficial pre-alert pilot for Turkey",
             domain="weather",
             ttl_seconds=CHECK_EVERY_S,
             timeout_seconds=httpx.Timeout(60.0, connect=15.0),
@@ -134,22 +147,29 @@ class GfsNomadsCollector(BaseCollector[ShadowRun]):
         for run in candidate_runs(self.now()):
             if self.store.has_run(run):
                 return ShadowRun(run, ())
-            head = await self._head(client, f"{NOMADS_FILES}/gfs.{run:%Y%m%d}/{run:%H}/atmos/gfs.t{run:%H}z.pgrb2.0p25.f{last:03d}.idx")
+            head = await self._head(client, file_url(run, last) + ".index")
             if head.status_code == 200:
                 break
         else:
             if previous is not None:
                 return previous.value
-            raise RuntimeError("no complete GFS run on NOMADS in the last 30 hours")
-        files: dict[int, bytes] = {}
+            raise RuntimeError("no complete ECMWF run in the last 30 hours")
+        by_lead: dict[int, list[bytes]] = {}
         for lead in range(3, last + 1, 3):
-            response = await self._get(client, NOMADS_FILTER, params=filter_params(run, lead))
-            response.raise_for_status()
-            if len(response.content) > MAX_FILE_BYTES or not response.content.startswith(b"GRIB"):
-                raise ValueError(f"f{lead:03d}: not a GRIB2 answer of the expected size ({len(response.content)} bytes)")
-            files[lead] = response.content
-            await asyncio.sleep(self.pause_s)
-        rows = await asyncio.to_thread(compute_rows, run, files)
+            index = await self._get_capped(client, file_url(run, lead) + ".index", max_bytes=MAX_INDEX_BYTES)
+            index.raise_for_status()
+            fields: list[bytes] = []
+            for _, offset, length in wanted_fields(index.text):
+                if length > MAX_FIELD_BYTES:
+                    raise ValueError(f"f{lead:03d}: a field of {length} bytes, more than the {MAX_FIELD_BYTES} allowed")
+                part = await self._get(client, file_url(run, lead) + ".grib2", headers={"Range": f"bytes={offset}-{offset + length - 1}"})
+                part.raise_for_status()
+                if not part.content.startswith(b"GRIB"):
+                    raise ValueError(f"f{lead:03d}: not a GRIB2 answer ({len(part.content)} bytes)")
+                fields.append(part.content)
+                await asyncio.sleep(self.pause_s)
+            by_lead[lead] = fields
+        rows = await asyncio.to_thread(compute_rows, run, by_lead)
         await asyncio.to_thread(self.store.save, rows)
         return ShadowRun(run, rows)
 
@@ -201,12 +221,26 @@ class ShadowStore:
         with self._connect() as conn:
             return [row[0] for row in conn.execute("SELECT DISTINCT run FROM prealert_tr_levels ORDER BY run")]
 
+    def latest_for(self, province: str) -> tuple[Optional[str], list[LevelRow]]:
+        """The newest stored run and its rows for one province (``(None, [])`` before the first run)."""
+        with self._connect() as conn:
+            row = conn.execute("SELECT MAX(run) FROM prealert_tr_levels").fetchone()
+            run = row[0] if row else None
+            if run is None:
+                return None, []
+            rows = conn.execute(
+                "SELECT run, day, province, phenomenon, value, level FROM prealert_tr_levels WHERE run = ? AND province = ? ORDER BY day",
+                (run, province),
+            ).fetchall()
+        return run, [LevelRow(*r) for r in rows]
+
 
 class ShadowPilot:
     """Checks for a new run every ``CHECK_EVERY_S`` while the application runs."""
 
-    def __init__(self, collector: GfsNomadsCollector) -> None:
+    def __init__(self, collector: EcmwfOpenDataCollector) -> None:
         self.collector = collector
+        self.store = collector.store
         self._task: Optional[asyncio.Task[None]] = None
 
     def start(self) -> None:

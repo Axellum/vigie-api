@@ -650,37 +650,36 @@ async def check_wmo_swic(client: httpx.AsyncClient) -> Result:
     return Result("wmo_swic", "ok" if listed else "empty", detail)
 
 
-async def check_gfs_nomads(client: httpx.AsyncClient) -> Result:
-    """NOAA GFS through the NOMADS grib filter (the pre-alert pilot): the newest complete run, its first lead cut to Turkey, decoded."""
+async def check_ecmwf_opendata(client: httpx.AsyncClient) -> Result:
+    """ECMWF IFS open data on its AWS mirror (the pre-alert pilot): the newest complete run, its first lead's index and fields, decoded."""
     from datetime import datetime, timezone
 
     try:
-        from app.prealert.gfs import decode
-        from app.prealert.shadow import (
-            NOMADS_FILES,
-            NOMADS_FILTER,
-            GfsNomadsCollector,
-            ShadowStore,
-            candidate_runs,
-            filter_params,
-        )
+        from app.prealert.gfs import TURKEY_BOX, decode
+        from app.prealert.shadow import EcmwfOpenDataCollector, ShadowStore, candidate_runs, file_url, wanted_fields
     except ImportError as error:  # the optional extra 'prealert' is not installed
-        return Result("noaa_gfs_nomads", "skipped", f"optional dependency missing: {error}")
+        return Result("ecmwf_opendata", "skipped", f"optional dependency missing: {error}")
     import tempfile
 
-    collector = GfsNomadsCollector(ShadowStore(Path(tempfile.mkdtemp()) / "check.db"))
+    collector = EcmwfOpenDataCollector(ShadowStore(Path(tempfile.mkdtemp()) / "check.db"))
     for run in candidate_runs(datetime.now(timezone.utc)):
-        head = await collector._head(client, f"{NOMADS_FILES}/gfs.{run:%Y%m%d}/{run:%H}/atmos/gfs.t{run:%H}z.pgrb2.0p25.f072.idx")
+        head = await collector._head(client, file_url(run, collector.last_lead_h) + ".index")
         if head.status_code == 200:
             break
     else:
-        return Result("noaa_gfs_nomads", "empty", "no complete run in the last 30 hours")
-    resp = await collector._get(client, NOMADS_FILTER, params=filter_params(run, 3))
-    resp.raise_for_status()
-    names = sorted({m.short_name for m in decode(resp.content)})
-    if names != ["2t", "csnow", "gust", "tmax", "tmin", "tp"]:
-        return Result("noaa_gfs_nomads", "FAIL", f"run {run:%Y-%m-%d %H} UTC f003: fields {names}")
-    return Result("noaa_gfs_nomads", "ok", f"run {run:%Y-%m-%d %H} UTC f003: {len(resp.content)} bytes, the six fields")
+        return Result("ecmwf_opendata", "empty", "no complete run in the last 30 hours")
+    index = await collector._get(client, file_url(run, 3) + ".index")
+    index.raise_for_status()
+    names: set[str] = set()
+    size = 0
+    for _, offset, length in wanted_fields(index.text):
+        part = await collector._get(client, file_url(run, 3) + ".grib2", headers={"Range": f"bytes={offset}-{offset + length - 1}"})
+        part.raise_for_status()
+        size += len(part.content)
+        names.update(m.short_name for m in decode(part.content, TURKEY_BOX))
+    if names != {"gust", "ptype", "tmax", "tmin", "tp"}:
+        return Result("ecmwf_opendata", "FAIL", f"run {run:%Y-%m-%d %H} UTC f003: fields {sorted(names)}")
+    return Result("ecmwf_opendata", "ok", f"run {run:%Y-%m-%d %H} UTC f003: {size} bytes, the five fields")
 
 
 CHECKS: dict[str, Check] = {
@@ -707,7 +706,7 @@ CHECKS: dict[str, Check] = {
     "wmo_swic_registry": check_wmo_swic_registry,
     "wmo_swic": check_wmo_swic,
     "nasa_firms": check_firms,
-    "noaa_gfs_nomads": check_gfs_nomads,
+    "ecmwf_opendata": check_ecmwf_opendata,
 }
 
 
