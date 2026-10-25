@@ -117,6 +117,21 @@ def test_run_days_differences_the_accumulation_and_keeps_extremes() -> None:
     assert float(day.snow_mm[0, 0]) == pytest.approx(3.0)
 
 
+def test_run_days_takes_the_snow_share_from_the_precipitation_type_when_there_is_no_categorical_snow() -> None:
+    # ECMWF: the type at the end of the 3 hours (5 snow, 7 a mix counted half, 1 rain).
+    def ptype(lead: int, code: float) -> Message:
+        return _field("ptype", "instant", lead, lead, code)
+
+    by_lead = {
+        3: [_field("tp", "accum", 0, 3, 2.0), ptype(3, 5.0)],
+        6: [_field("tp", "accum", 0, 6, 6.0), ptype(6, 7.0)],
+        9: [_field("tp", "accum", 0, 9, 7.0), ptype(9, 1.0)],
+    }
+    day = run_days(RUN, by_lead)[date(2026, 10, 25)]
+    assert float(day.rain_mm[0, 0]) == pytest.approx(7.0)
+    assert float(day.snow_mm[0, 0]) == pytest.approx(2.0 + 0.5 * 4.0)
+
+
 def test_run_days_stops_at_a_gap_and_never_guesses_an_interval() -> None:
     by_lead = {3: [_field("tp", "accum", 0, 3, 1.0)], 9: [_field("tp", "accum", 0, 9, 9.0)]}
     days = run_days(RUN, by_lead)

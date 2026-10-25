@@ -49,6 +49,11 @@ from app.prealert.levels import PHENOMENA, THRESHOLDS, Threshold, province_quant
 from app.prealert.provinces import provinces_on_grid  # noqa: E402
 
 BUCKET = "https://noaa-gfs-bdp-pds.s3.amazonaws.com"
+# ECMWF IFS open data kept on AWS (CC BY 4.0 and the ECMWF Terms of Use, https://registry.opendata.aws/ecmwf-forecasts/, read
+# 2026-10-25): the 0.25 degree files begin on 2024-02-29 (before, a 0.4 degree beta without gusts nor temperature extremes).
+ECMWF_BUCKET = "https://ecmwf-forecasts.s3.eu-central-1.amazonaws.com"
+ECMWF_FIRST_DAY = date(2024, 2, 29)
+ECMWF_PARAMS = ("tp", "10fg", "mx2t3", "mn2t3", "ptype")
 EPISODES = REPO_ROOT / "docs" / "measurements" / "prealert-tr-episodes.csv"
 TURKEY = Box(south=35.5, north=42.5, west=25.5, east=45.0)
 USER_AGENT = "vigie-api backtest_prealert_tr (https://github.com/Axellum/vigie-api)"
@@ -115,6 +120,30 @@ class Archive:
         return messages
 
 
+class EcmwfArchive(Archive):
+    """The ECMWF IFS 0.25 degree files on AWS: the same, with the JSON ``.index`` of ECMWF (one line per field, offset and length)."""
+
+    def _url(self, run: datetime, lead: int) -> str:
+        return f"{ECMWF_BUCKET}/{run:%Y%m%d}/{run:%H}z/ifs/0p25/oper/{run:%Y%m%d%H}0000-{lead}h-oper-fc"
+
+    def lead(self, run: datetime, lead: int) -> list[Message]:
+        path = self.cache / f"{run:%Y%m%d%H}" / f"f{lead:03d}.npz"
+        if path.exists():
+            return _load(path)
+        base = self._url(run, lead)
+        messages: list[Message] = []
+        for line in self._get(base + ".index").decode("ascii").splitlines():
+            if not line.strip():
+                continue
+            field = json.loads(line)
+            if field.get("levtype") != "sfc" or field.get("param") not in ECMWF_PARAMS:
+                continue
+            start, length = int(field["_offset"]), int(field["_length"])
+            messages.extend(decode(self._get(base + ".grib2", {"Range": f"bytes={start}-{start + length - 1}"}), TURKEY))
+        _save(path, messages)
+        return messages
+
+
 def _save(path: Path, messages: list[Message]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     arrays: dict[str, Any] = {}
@@ -167,7 +196,8 @@ def read_episodes(path: Path = EPISODES) -> list[dict[str, Any]]:
 
 
 def values(args: argparse.Namespace) -> int:
-    archive = Archive(args.cache_dir)
+    archive = EcmwfArchive(args.cache_dir / "ecmwf") if args.model == "ecmwf" else Archive(args.cache_dir)
+    first_day = ECMWF_FIRST_DAY if args.model == "ecmwf" else date(LEARNING_YEARS[0], 1, 1)
     episodes = read_episodes()
     runs: dict[datetime, int] = {}  # run -> last lead needed
 
@@ -178,16 +208,22 @@ def values(args: argparse.Namespace) -> int:
 
     for episode in episodes:
         for day in episode["days"]:
-            need(day, day)
-            need(day - timedelta(days=1), day)
+            if day - timedelta(days=1) >= first_day:
+                need(day, day)
+                need(day - timedelta(days=1), day)
     sample: list[date] = []
-    day = date(LEARNING_YEARS[0], 1, 1)
+    day = first_day
     while day.year in LEARNING_YEARS:
         sample.append(day)
         need(day, day)
         day += timedelta(days=args.sample_every)
 
-    out: dict[str, Any] = {"runs": {}, "sample_days": [d.isoformat() for d in sample], "made": datetime.now(timezone.utc).isoformat()}
+    out: dict[str, Any] = {
+        "model": args.model,
+        "runs": {},
+        "sample_days": [d.isoformat() for d in sample],
+        "made": datetime.now(timezone.utc).isoformat(),
+    }
     for k, (run, last_lead) in enumerate(sorted(runs.items()), start=1):
         try:
             result = run_province_days(archive, run, last_lead)
@@ -319,6 +355,102 @@ def score(args: argparse.Namespace) -> int:
     return 0
 
 
+# ---------------------------------------------------------------- thresholds per province
+
+
+# Ours, not the MGM's: the least a province's percentile may be, so that a dry province does not warn for a shower (levels 1, 2, 3).
+FLOORS: dict[str, tuple[float, float, float]] = {"rain": (10.0, 20.0, 50.0), "snow": (2.0, 5.0, 15.0), "wind": (40.0, 55.0, 80.0)}
+# Heat and cold have no episode to learn from: one national threshold, rare, from the ordinary days (share of province-days).
+RARE_SHARE = (0.01, 0.003, 0.0005)
+
+
+def _percentiles_for(p2: float) -> tuple[float, float, float]:
+    """The percentiles of levels 1, 2 and 3 for a level-2 percentile ``p2``: level 1 three times as frequent, level 3 five times rarer."""
+    return (100.0 - 3.0 * (100.0 - p2), p2, 100.0 - (100.0 - p2) / 5.0)
+
+
+def daily_values(data: dict[str, Any], years: Iterable[int]) -> dict[str, dict[str, list[float]]]:
+    """``province -> phenomenon -> values`` of the ordinary days of ``years`` (J0)."""
+    out: dict[str, dict[str, list[float]]] = {}
+    wanted = set(years)
+    for day in data["sample_days"]:
+        d = date.fromisoformat(day)
+        if d.year not in wanted:
+            continue
+        for code, quantities in ((data["runs"].get(f"{d:%Y%m%d}00") or {}).get(day) or {}).items():
+            for name, value in quantities.items():
+                if value is not None:
+                    out.setdefault(code, {}).setdefault(name, []).append(value)
+    return out
+
+
+def province_table(data: dict[str, Any], years: Iterable[int], p2: float) -> dict[str, dict[str, tuple[float, float, float]]]:
+    """``province -> phenomenon -> (level 1, 2, 3)``: percentiles of the province's own days with the floors (rain, snow, wind), one
+    rare national value for heat and cold."""
+    values = daily_values(data, years)
+    table: dict[str, dict[str, tuple[float, float, float]]] = {}
+    pooled = {name: np.array([v for per in values.values() for v in per.get(name, [])]) for name in ("heat", "cold")}
+    national = {
+        "heat": tuple(float(np.quantile(pooled["heat"], 1.0 - share)) for share in RARE_SHARE),
+        "cold": tuple(float(np.quantile(pooled["cold"], share)) for share in RARE_SHARE),
+    }
+    for code, per in values.items():
+        row: dict[str, tuple[float, float, float]] = {}
+        for name, floors in FLOORS.items():
+            found = per.get(name)
+            if not found:
+                continue
+            row[name] = tuple(  # type: ignore[assignment]
+                max(float(np.percentile(found, q)), floor) for q, floor in zip(_percentiles_for(p2), floors, strict=True)
+            )
+        row.update(national)  # type: ignore[arg-type]
+        table[code] = row
+    return table
+
+
+def _level_with(table: dict[str, dict[str, tuple[float, float, float]]], code: str, name: str, value: float) -> int:
+    limits = table.get(code, {}).get(name)
+    if limits is None:
+        return 0
+    return Threshold("", limits, "below" if name == "cold" else "above").level_of(value) or 0
+
+
+def provinces(args: argparse.Namespace) -> int:
+    """Cross-validation by year on the learning set: thresholds of one year judged on the other (detection and over-alerting)."""
+    with gzip.open(args.values, "rt", encoding="utf-8") as handle:
+        data = json.load(handle)
+    years = list(LEARNING_YEARS)
+    print(f"ordinary days: {len(data['sample_days'])}; learning pairs: {len(pairs(data, years, 0))}")
+    print("p2      J0 pairs   J1 pairs   province-days L>=2   L3     (thresholds of one year, judged on the other)")
+    for p2 in args.percentiles:
+        hits = {0: [0, 0], 1: [0, 0]}
+        over = [0, 0, 0]  # level >= 2, level 3, province-days
+        by_name: dict[str, int] = {}
+        for year in years:
+            other = [y for y in years if y != year]
+            table = province_table(data, other, p2)
+            for lead in (0, 1):
+                for row in pairs(data, [year], lead):
+                    if not row["values"]:
+                        continue
+                    hits[lead][1] += 1
+                    if any(_level_with(table, row["province"], n, v) >= 2 for n, v in row["values"].items()):
+                        hits[lead][0] += 1
+            for code, per in daily_values(data, [year]).items():
+                count = min(len(v) for v in per.values())
+                for k in range(count):
+                    levels = [_level_with(table, code, n, per[n][k]) for n in per]
+                    for n, level in zip(per, levels, strict=True):
+                        by_name[n] = by_name.get(n, 0) + (level >= 2)
+                    over[2] += 1
+                    over[0] += max(levels) >= 2
+                    over[1] += max(levels) >= 3
+        print(f"{p2:5.1f}   {hits[0][0]:3d}/{hits[0][1]} {hits[0][0] / hits[0][1]:4.0%}   {hits[1][0]:3d}/{hits[1][1]} {hits[1][0] / hits[1][1]:4.0%}"
+              f"      {over[0] / over[2]:6.2%}          {over[1] / over[2]:6.2%}   "
+              + " ".join(f"{n} {c / over[2]:.2%}" for n, c in sorted(by_name.items())))
+    return 0
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Backtest of the unofficial pre-alert for Turkey on past GFS runs (ADR 0011).")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -326,14 +458,18 @@ def main(argv: Optional[list[str]] = None) -> int:
     p_values.add_argument("--cache-dir", type=Path, default=Path(tempfile.gettempdir()) / "vigie-prealert-tr")
     p_values.add_argument("--out", type=Path, default=Path("prealert-tr-values.json.gz"))
     p_values.add_argument("--sample-every", type=int, default=7)
+    p_values.add_argument("--model", choices=("gfs", "ecmwf"), default="gfs")
     p_choose = sub.add_parser("choose", help="what the learning set says of the thresholds")
     p_choose.add_argument("--values", type=Path, required=True)
+    p_prov = sub.add_parser("provinces", help="thresholds per province: cross-validation by year on the learning set")
+    p_prov.add_argument("--values", type=Path, required=True)
+    p_prov.add_argument("--percentiles", type=float, nargs="+", default=[95.0, 97.0, 98.0, 98.5, 99.0, 99.5])
     p_score = sub.add_parser("score", help="score the thresholds of app/prealert/levels.py")
     p_score.add_argument("--values", type=Path, required=True)
     p_score.add_argument("--set", choices=("learning", "test"), default="learning")
     p_score.add_argument("--i-have-frozen-the-thresholds", action="store_true")
     args = parser.parse_args(argv)
-    return {"values": values, "choose": choose, "score": score}[args.command](args)
+    return {"values": values, "choose": choose, "provinces": provinces, "score": score}[args.command](args)
 
 
 if __name__ == "__main__":

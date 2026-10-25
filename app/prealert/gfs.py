@@ -26,6 +26,11 @@ used, and the day keeps the 3-hour intervals and the instantaneous ``2t`` it has
 **Snow** is ours: the precipitation of each 3 hours times the share of it that fell as snow (``csnow``), in mm of water. GFS
 gives no snowfall depth in these files; 1 mm of water is often written as about 1 cm of fresh snow, but that ratio is not used.
 
+**ECMWF IFS 0.25 degree** (open data, CC BY 4.0) is read by the same code: ``decode`` renames its fields to GFS's (``ECMWF_NAMES``)
+and turns its precipitation from metres into mm. Its gust (``10fg``) is the maximum of the hour before the lead time, its
+temperature extremes those of the last 3 hours, and, having no categorical snow in its archive, its snow share is read from the
+precipitation type at the end of the 3 hours (``SNOW_TYPES``, ours).
+
 A value that is not in a file is not invented: a day misses a quantity when no file gave it, and says how many hours it covers.
 """
 
@@ -44,8 +49,17 @@ import numpy as np
 LOCAL_OFFSET = timedelta(hours=3)
 STEP_H = 3
 
-# The fields the pre-alert reads, by their ecCodes short name.
-FIELDS = ("tp", "gust", "tmax", "tmin", "2t", "csnow")
+# The fields the pre-alert reads, by their ecCodes short name (GFS's; ECMWF's are renamed to them by ``ECMWF_NAMES``).
+FIELDS = ("tp", "gust", "tmax", "tmin", "2t", "csnow", "ptype")
+
+# ECMWF IFS open data (CC BY 4.0) names the same quantities otherwise: its gust is the maximum of the last 3 hours (``10fg``), its
+# extremes of temperature are those of the last 3 hours, and it gives the precipitation type at the lead time instead of GFS's
+# categorical snow. Its precipitation is in metres of water (converted to mm by ``units``).
+ECMWF_NAMES = {"10fg": "gust", "mx2t3": "tmax", "mn2t3": "tmin"}
+
+# ECMWF's precipitation type (code table 4.201): 5 snow and 6 wet snow count as snow, 7 (a mix of rain and snow) as half. Ours: the
+# share of the last 3 hours of precipitation that fell as snow is read from the type at the end of them.
+SNOW_TYPES = {5: 1.0, 6: 1.0, 7: 0.5}
 
 # The NOMADS grib filter asks for variables and levels by their GRIB names (https://nomads.ncep.noaa.gov/gribfilter.php?ds=gfs_0p25).
 NOMADS_VARIABLES = ("APCP", "GUST", "TMAX", "TMIN", "TMP", "CSNOW")
@@ -119,6 +133,7 @@ def _decode_locked(eccodes: Any, data: bytes, box: Optional[Box]) -> list[Messag
         handle = eccodes.codes_new_from_message(raw)
         try:
             short_name = str(eccodes.codes_get(handle, "shortName"))
+            short_name = ECMWF_NAMES.get(short_name, short_name)
             if short_name not in FIELDS:
                 continue
             if eccodes.codes_get(handle, "gridType") != "regular_ll":
@@ -140,6 +155,8 @@ def _decode_locked(eccodes: Any, data: bytes, box: Optional[Box]) -> list[Messag
             if bool(eccodes.codes_get(handle, "bitmapPresent")):
                 missing = float(eccodes.codes_get(handle, "missingValue"))
                 values = np.where(values == missing, np.nan, values)
+            if short_name == "tp" and str(eccodes.codes_get(handle, "units")) == "m":
+                values = values * 1000.0  # ECMWF: metres of water
             step_type = str(eccodes.codes_get(handle, "stepType"))
             start_h = int(eccodes.codes_get(handle, "startStep"))
             end_h = int(eccodes.codes_get(handle, "endStep"))
@@ -234,6 +251,13 @@ def run_days(run: datetime, by_lead: Mapping[int, list[Message]]) -> dict[date, 
             if share is not None:
                 day.snow_mm = _add(day.snow_mm, rain3 * np.clip(share, 0.0, 1.0))
             previous_csnow_avg = {csnow.start_h: csnow.values} if span == STEP_H else {}
+        else:
+            ptype = _pick(messages, "ptype", end_h=lead)
+            if ptype is not None:
+                share = np.zeros_like(ptype.values)
+                for code, part in SNOW_TYPES.items():
+                    share = np.where(np.rint(ptype.values) == code, part, share)
+                day.snow_mm = _add(day.snow_mm, rain3 * share)
 
         gust = _pick(messages, "gust", end_h=lead)
         if gust is not None:
