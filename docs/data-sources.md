@@ -229,7 +229,7 @@ from the Internet, like `POST /v1/zones` and `POST /v1/simulate`, so put the ins
 | **Open-Meteo Marine** ([docs](https://open-meteo.com/en/docs/marine-weather-api)) | Waves, swell, ocean current at a GPS position. | 1 hour per cell (0.1 degree): the [docs](https://open-meteo.com/en/docs/marine-weather-api) list hourly (some 3-hourly) data from models updated every 6 to 24 hours. |
 | **Open-Meteo Flood API**, based on Copernicus GloFAS ([docs](https://open-meteo.com/en/docs/flood-api)) | Daily river discharge, ensemble mean and maximum. | 6 hours per cell (0.1 degree): the [docs](https://open-meteo.com/en/docs/flood-api) list the GloFAS forecast as updated daily. |
 | **Open-Meteo Air Quality**, based on Copernicus CAMS ([docs](https://open-meteo.com/en/docs/air-quality-api)) | European AQI, US AQI, PM2.5, PM10, UV, dust. | 1 hour per cell (0.1 degree): the [docs](https://open-meteo.com/en/docs/air-quality-api) list hourly values (Europe, updated every 24 hours) and 3-hourly ones (global, updated every 12 hours). |
-| **MET Norway Locationforecast 2.0**, compact ([terms of service](https://api.met.no/doc/TermsOfService), [licence](https://api.met.no/doc/License)) | **Fallback** when Open-Meteo fails: current conditions and hourly series. It has no gust, no apparent temperature, no UV and no 15-minute nowcast: those stay unknown. | Until the `Expires` of each answer (the terms: "don't repeat requests until the time indicated in the `Expires` response header"); 300 s only if an answer has none (**not verified**). |
+| **MET Norway Locationforecast 2.0**, compact ([terms of service](https://api.met.no/doc/TermsOfService), [licence](https://api.met.no/doc/License)) | **Fallback** when Open-Meteo fails or its call budget is used up: current conditions and hourly series. It has no gust, no apparent temperature, no UV and no 15-minute nowcast: those stay unknown. | Until the `Expires` of each answer (the terms: "don't repeat requests until the time indicated in the `Expires` response header"); 300 s only if an answer has none (**not verified**). |
 | **RainViewer**, `weather-maps.json` ([documentation](https://www.rainviewer.com/api/weather-maps-api.html), [changes of 2026](https://rainviewer.com/api/transition-faq.html)) | Latest observed radar frame timestamp and the tile URL template, sent in `/v1/point` only (past frames only; not used by the embedded frame). The API never downloads tiles. Not asked at all when `VIGIE_ENABLE_RAINVIEWER=0` (its free API is for personal use: see [`SOURCES.md`](../SOURCES.md)). | 10 minutes: the [documentation](https://www.rainviewer.com/api/weather-maps-api.html) says the file holds the past 2 hours of radar data with 10-minute intervals. |
 
 ## Official weather warnings
@@ -659,7 +659,9 @@ the same IP address and for the difference between this count and the provider's
 would exceed it is **not sent**: the collector serves its cache, even expired, and the responses that
 carry that data say so (`weather_source` ends with `(stale cache)` and `weather_fallback_active` is
 true; `stale: true` on `air_quality`, `flood_risk` and `marine`). With nothing cached the data is
-unknown (or, for the weather, the MET Norway fallback is used). The budget frees itself as the window
+unknown. The weather is the exception: MET Norway is asked first (no daily quota, 20 requests a second),
+and the expired Open-Meteo entry is served only when MET Norway has no fresh answer; air quality, river
+discharge and marine have no relay and keep their expired entry, marked stale. The budget frees itself as the window
 slides, and a refused request is not a failure of the provider: the circuit breaker does not see it.
 The monthly limit of Open-Meteo (300,000 calls) is the daily one over 30 days and is not tracked
 separately. A redirect followed by the HTTP client is not counted.
