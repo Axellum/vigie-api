@@ -62,11 +62,23 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: VigieCo
                 {"id": q.id, "magnitude": q.magnitude, "time_utc": q.time_utc, "sources": list(q.sources)} for q in quakes.data.quakes
             ],
         }
+    # The experimental pre-alert: the province is kept (a province of Turkey is wide), not the point.
+    prealert = runtime.prealert
+    prealert_read: dict[str, Any] | None = None
+    if prealert is not None:
+        prealert_read = {"last_update_success": prealert.last_update_success}
+        if prealert.data is not None:
+            prealert_read |= {
+                "province_code": prealert.data.province_code,
+                "run_utc": prealert.data.run_utc,
+                "days": [{"day": d.day, "max_level": d.max_level} for d in prealert.data.days],
+            }
     return async_redact_data(
         {
             "entry": {"title": entry.title, "data": dict(entry.data), "options": dict(entry.options)},
             "read": read,
             "earthquakes": quake_read,
+            "experimental_prealert": prealert_read,
             "stream": runtime.stream.diagnostics(),
         },
         TO_REDACT,

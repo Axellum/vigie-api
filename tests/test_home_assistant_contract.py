@@ -1,5 +1,5 @@
-"""The Home Assistant integration (``custom_components/vigie``) reads ``GET /v1/vigilances`` and ``GET /v1/earthquakes``: keep
-what it reads true.
+"""The Home Assistant integration (``custom_components/vigie``) reads ``GET /v1/vigilances``, ``GET /v1/earthquakes`` and, when its
+experimental option is ticked, ``GET /v1/experimental/prealert``: keep what it reads true.
 
 The integration is tested in its own environment (``tests_ha/``, Python and Home Assistant of their own, see
 ``docs/home-assistant.md``). Here, in the API's own CI, the answers its tests use are checked against the API's
@@ -20,6 +20,7 @@ from pathlib import Path
 import pytest
 
 from app.models.earthquakes import EarthquakesResponse
+from app.models.prealert import PrealertResponse
 from app.models.schemas import SeverityLevel
 from app.models.vigilance import VigilanceCoverage, VigilancePhenomenon, VigilancesResponse
 from tests_ha import payloads
@@ -28,11 +29,27 @@ from tools import fake_instance
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = sorted((ROOT / "tests_ha" / "fixtures").glob("vigilances_*.json"))
 QUAKE_FIXTURES = sorted((ROOT / "tests_ha" / "fixtures").glob("earthquakes_*.json"))
+PREALERT_FIXTURES = sorted((ROOT / "tests_ha" / "fixtures").glob("prealert_*.json"))
 
 
 def test_every_recorded_answer_is_checked() -> None:
-    assert FIXTURES and QUAKE_FIXTURES
-    assert sorted((ROOT / "tests_ha" / "fixtures").glob("*.json")) == sorted(FIXTURES + QUAKE_FIXTURES)
+    assert FIXTURES and QUAKE_FIXTURES and PREALERT_FIXTURES
+    assert sorted((ROOT / "tests_ha" / "fixtures").glob("*.json")) == sorted(FIXTURES + QUAKE_FIXTURES + PREALERT_FIXTURES)
+
+
+@pytest.mark.parametrize("path", PREALERT_FIXTURES, ids=lambda p: p.name)
+def test_the_recorded_pre_alert_answers_are_answers_of_the_api(path: Path) -> None:
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    response = PrealertResponse.model_validate(raw)
+    assert response.experimental is True and response.official is False and response.days and response.attribution
+    assert raw == json.loads(response.model_dump_json())  # every field the API sends, and none it does not
+
+
+def test_the_pre_alert_builders_of_the_integration_tests_make_answers_of_the_api() -> None:
+    days = [payloads.prealert_day("2026-10-25", 2, rain=payloads.prealert_phenomenon(61.0, 2), wind=payloads.prealert_phenomenon(None, None))]
+    for answer in (payloads.prealert_response(days), payloads.prealert_response([], run_utc=None)):
+        response = PrealertResponse.model_validate(answer)
+        assert answer == json.loads(response.model_dump_json())
 
 
 @pytest.mark.parametrize("path", FIXTURES, ids=lambda p: p.name)

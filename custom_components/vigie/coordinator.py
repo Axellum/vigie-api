@@ -1,7 +1,8 @@
 """The coordinators: read the instance and tell what changed since the read before.
 
 The warnings (`/v1/vigilances`) and the earthquakes (`/v1/earthquakes`) are two coordinators of one entry: a layer each, read
-and failing on their own (an instance too old for the earthquakes leaves the warnings untouched).
+and failing on their own (an instance too old for the earthquakes leaves the warnings untouched). The experimental pre-alert
+(`/v1/experimental/prealert`) is a third, only when its option is ticked.
 """
 
 from __future__ import annotations
@@ -34,9 +35,11 @@ from .const import (
     MIN_QUAKE_RADIUS_KM,
     MIN_RIVER_RADIUS_KM,
     MIN_SCAN_INTERVAL_MIN,
+    PREALERT_INTERVAL,
     QUAKE_WINDOW_HOURS,
 )
 from .models import ChangeTracker, VigieData, parse_response
+from .prealert import PrealertData, parse_prealert
 from .quakes import QuakeData, QuakeTracker, parse_earthquakes
 from .stream import VigieStream
 
@@ -131,6 +134,34 @@ class VigieQuakeCoordinator(DataUpdateCoordinator[QuakeData]):
         return replace(data, new=self._tracker.update(data), sequence=self._sequence)
 
 
+class VigiePrealertCoordinator(DataUpdateCoordinator[PrealertData]):
+    """Polls ``/v1/experimental/prealert`` for the place of the entry (experimental, unofficial; only when the option is ticked)."""
+
+    config_entry: VigieConfigEntry
+
+    def __init__(self, hass: HomeAssistant, entry: VigieConfigEntry, client: VigieClient) -> None:
+        super().__init__(
+            hass,
+            _LOGGER,
+            config_entry=entry,
+            name=f"{DOMAIN} {entry.title} experimental pre-alert",
+            update_interval=PREALERT_INTERVAL,
+        )
+        self.client = client
+        self.latitude: float = entry.data[CONF_LATITUDE]
+        self.longitude: float = entry.data[CONF_LONGITUDE]
+
+    async def _async_update_data(self) -> PrealertData:
+        try:
+            payload = await self.client.prealert(self.latitude, self.longitude)
+        except VigieError as err:
+            raise UpdateFailed(str(err)) from err
+        try:
+            return parse_prealert(payload)
+        except ValueError as err:
+            raise UpdateFailed(f"Unreadable answer: {err}") from err
+
+
 @dataclass
 class VigieRuntimeData:
     """What a loaded entry holds."""
@@ -139,3 +170,4 @@ class VigieRuntimeData:
     coordinator: VigieCoordinator
     stream: VigieStream
     quakes: VigieQuakeCoordinator
+    prealert: VigiePrealertCoordinator | None = None

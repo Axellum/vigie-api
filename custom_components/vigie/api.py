@@ -1,4 +1,4 @@
-"""The client of a Vigie API instance: four calls, no state."""
+"""The client of a Vigie API instance: five calls, no state."""
 
 from __future__ import annotations
 
@@ -7,12 +7,13 @@ from typing import Any
 import aiohttp
 from yarl import URL
 
-from .const import EARTHQUAKES_TIMEOUT_S, HEALTH_TIMEOUT_S, STREAM_HEARTBEAT_S, VIGILANCES_TIMEOUT_S
+from .const import EARTHQUAKES_TIMEOUT_S, HEALTH_TIMEOUT_S, PREALERT_TIMEOUT_S, STREAM_HEARTBEAT_S, VIGILANCES_TIMEOUT_S
 
 HEALTH_PATH = "/v1/health"
 VIGILANCES_PATH = "/v1/vigilances"
 STREAM_PATH = "/v1/stream"
 EARTHQUAKES_PATH = "/v1/earthquakes"
+PREALERT_PATH = "/v1/experimental/prealert"
 
 # Decimals of the position sent to the API: about one metre. The stream rounds a followed point to four.
 POSITION_DECIMALS = 5
@@ -107,6 +108,14 @@ class VigieClient:
             "hours": f"{hours:g}",
         }
         return await self._get_json(EARTHQUAKES_PATH, params, EARTHQUAKES_TIMEOUT_S)
+
+    async def prealert(self, lat: float, lon: float) -> Any:
+        """``GET /v1/experimental/prealert`` for a point (experimental, unofficial): the raw JSON (the caller parses it).
+
+        An instance that does not run the pre-alert answers 404, and a point outside Turkey 422: both raise ``VigieResponseError``.
+        """
+        params = {"lat": f"{lat:.{POSITION_DECIMALS}f}", "lon": f"{lon:.{POSITION_DECIMALS}f}"}
+        return await self._get_json(PREALERT_PATH, params, PREALERT_TIMEOUT_S)
 
     def stream_url(self) -> str:
         """The WebSocket address of the push stream."""

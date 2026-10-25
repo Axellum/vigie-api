@@ -48,13 +48,15 @@
           "scan_interval": "Poll interval",
           "river_radius_km": "River radius",
           "quake_radius_km": "Earthquake radius",
-          "quake_min_magnitude": "Earthquake minimum magnitude"
+          "quake_min_magnitude": "Earthquake minimum magnitude",
+          "experimental_prealert": "Experimental pre-alert for Turkey (unofficial)"
         },
         "data_description": {
           "scan_interval": "Minutes between two reads of the instance (1 to 60). A push from the instance, when it offers one, reads sooner.",
           "river_radius_km": "How far from the place a river section still counts, in kilometres (France, Vigicrues; 1 to 50).",
           "quake_radius_km": "How far from the place an earthquake counts, in kilometres (10 to 3000). The earthquakes are a layer of their own (USGS, EMSC), not official warnings.",
-          "quake_min_magnitude": "The smallest magnitude shown and announced (4.5 to 9). The sources the API reads list nothing below 4.5."
+          "quake_min_magnitude": "The smallest magnitude shown and announced (4.5 to 9). The sources the API reads list nothing below 4.5.",
+          "experimental_prealert": "Off by default. A test of Vigie, being improved: levels computed by Vigie from the ECMWF forecast for the province of Turkey the place is in, with thresholds of its own. It is not an official warning and must not be taken for one: follow the warnings of the Turkish State Meteorological Service (MGM). Only an instance that runs the pre-alert answers it."
         }
       }
     }
@@ -72,6 +74,15 @@
       },
       "strongest_earthquake": {
         "name": "Strongest earthquake"
+      },
+      "experimental_prealert": {
+        "name": "Pre-alert (experimental, unofficial)",
+        "state": {
+          "none": "None",
+          "watch": "Watch",
+          "strong": "Strong",
+          "severe": "Severe"
+        }
       }
     },
     "binary_sensor": {

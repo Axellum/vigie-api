@@ -12,6 +12,9 @@ All notable changes to this project are documented here. The format follows
   `GET /v1/experimental/prealert?lat=&lon=` for testers, labelled unofficial and not a warning
   ([ADR 0011](docs/decisions/0011-unofficial-pre-alert-turkey-shadow-pilot.md) and its amendment). The Docker image gains ecCodes
   (about 9 MB) to decode the forecast files.
+- **Home Assistant: an option for the experimental pre-alert for Turkey, off by default.** Ticked, a sensor shows today's level of
+  the province (none, watch, strong, severe: Vigie's words, not the MGM's colours) with the notice, the days, the values, the
+  thresholds and the link to the official warnings; unavailable on an instance that does not run the pre-alert.
 - **`GET /v1/earthquakes?lat=&lon=`**: the earthquakes (USGS and EMSC, one event when both report it) within `radius_km` (300 by
   default, up to 3000) of a position over the last `hours` (24, up to 168), of at least `min_magnitude`, the strongest first, with
   their distance and bearing (calculated by Vigie, named in `derived`). An earthquake the feeds no longer list comes from the

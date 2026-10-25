@@ -12,6 +12,15 @@
       },
       "strongest_earthquake": {
         "default": "mdi:waveform"
+      },
+      "experimental_prealert": {
+        "default": "mdi:flask-outline",
+        "state": {
+          "none": "mdi:flask-outline",
+          "watch": "mdi:flask",
+          "strong": "mdi:flask-alert",
+          "severe": "mdi:flask-alert"
+        }
       }
     },
     "binary_sensor": {

@@ -16,6 +16,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.vigie.const import (
+    CONF_EXPERIMENTAL_PREALERT,
     CONF_LOCATION,
     CONF_QUAKE_MIN_MAGNITUDE,
     CONF_QUAKE_RADIUS_KM,
@@ -142,13 +143,20 @@ async def test_the_options_set_the_poll_the_river_radius_and_the_earthquakes_and
     assert form["type"] is FlowResultType.FORM and form["step_id"] == "init"
     assert suggested(form, CONF_SCAN_INTERVAL_MIN) == 5 and suggested(form, CONF_RIVER_RADIUS_KM) == 5
     assert suggested(form, CONF_QUAKE_RADIUS_KM) == 300 and suggested(form, CONF_QUAKE_MIN_MAGNITUDE) == 4.5
+    assert suggested(form, CONF_EXPERIMENTAL_PREALERT) is False
     result = await hass.config_entries.options.async_configure(
         form["flow_id"], {CONF_SCAN_INTERVAL_MIN: 2, CONF_RIVER_RADIUS_KM: 12, CONF_QUAKE_RADIUS_KM: 800, CONF_QUAKE_MIN_MAGNITUDE: 5.04}
     )
     await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert mock_entry.options == {CONF_SCAN_INTERVAL_MIN: 2, CONF_RIVER_RADIUS_KM: 12, CONF_QUAKE_RADIUS_KM: 800, CONF_QUAKE_MIN_MAGNITUDE: 5.0}
+    assert mock_entry.options == {
+        CONF_SCAN_INTERVAL_MIN: 2,
+        CONF_RIVER_RADIUS_KM: 12,
+        CONF_QUAKE_RADIUS_KM: 800,
+        CONF_QUAKE_MIN_MAGNITUDE: 5.0,
+        CONF_EXPERIMENTAL_PREALERT: False,  # off unless ticked
+    }
     assert mock_entry.state is ConfigEntryState.LOADED
     assert mock_entry.runtime_data.coordinator.update_interval.total_seconds() == 120
     last = [call for call in aioclient_mock.mock_calls if str(call[1]).startswith(f"{URL}/v1/vigilances")][-1][1]
