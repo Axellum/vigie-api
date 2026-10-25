@@ -86,16 +86,17 @@ class Archive:
         return f"{BUCKET}/gfs.{run:%Y%m%d}/{run:%H}/atmos/gfs.t{run:%H}z.pgrb2.0p25.f{lead:03d}"
 
     def _get(self, url: str, headers: Optional[dict[str, str]] = None) -> bytes:
-        for attempt in range(4):
+        # S3 answers "503 Slow Down" when asked too often (seen on 2026-10-25 after a few thousand ranges): wait longer each time.
+        for attempt in range(7):
             try:
                 response = self.client.get(url, headers=headers or {})
                 response.raise_for_status()
                 self.bytes_read += len(response.content)
                 return response.content
             except httpx.HTTPError:
-                if attempt == 3:
+                if attempt == 6:
                     raise
-                time.sleep(2.0 * (attempt + 1))
+                time.sleep(3.0 * 2**attempt)
         raise AssertionError("unreachable")
 
     def lead(self, run: datetime, lead: int) -> list[Message]:
@@ -139,7 +140,10 @@ class EcmwfArchive(Archive):
             if field.get("levtype") != "sfc" or field.get("param") not in ECMWF_PARAMS:
                 continue
             start, length = int(field["_offset"]), int(field["_length"])
-            messages.extend(decode(self._get(base + ".grib2", {"Range": f"bytes={start}-{start + length - 1}"}), TURKEY))
+            decoded = decode(self._get(base + ".grib2", {"Range": f"bytes={start}-{start + length - 1}"}), TURKEY)
+            if not decoded:
+                raise ValueError(f"{run:%Y-%m-%d %H} UTC f{lead:03d}: the field {field['param']} of the index was not decoded")
+            messages.extend(decoded)
         _save(path, messages)
         return messages
 
@@ -171,7 +175,7 @@ def _load(path: Path) -> list[Message]:
 def run_province_days(archive: Archive, run: datetime, last_lead: int) -> dict[date, dict[str, dict[str, Optional[float]]]]:
     """``local day -> province code -> phenomenon -> value`` for one run, read up to ``last_lead`` hours."""
     leads = list(range(3, last_lead + 1, 3))
-    with ThreadPoolExecutor(max_workers=6) as pool:
+    with ThreadPoolExecutor(max_workers=4) as pool:
         by_lead = dict(zip(leads, pool.map(lambda lead: archive.lead(run, lead), leads), strict=True))
     days = run_days(run, by_lead)
     first = by_lead[3][0]
@@ -369,25 +373,32 @@ def _percentiles_for(p2: float) -> tuple[float, float, float]:
     return (100.0 - 3.0 * (100.0 - p2), p2, 100.0 - (100.0 - p2) / 5.0)
 
 
-def daily_values(data: dict[str, Any], years: Iterable[int]) -> dict[str, dict[str, list[float]]]:
-    """``province -> phenomenon -> values`` of the ordinary days of ``years`` (J0)."""
-    out: dict[str, dict[str, list[float]]] = {}
+def _fold(day: date) -> int:
+    """The half of the month a day is in (1 to 15, 16 to the end): both halves hold every season."""
+    return 0 if day.day <= 15 else 1
+
+
+def daily_values(data: dict[str, Any], years: Iterable[int], fold: Optional[int] = None) -> dict[str, list[dict[str, float]]]:
+    """``province -> one row per ordinary day of years (J0)``, each ``phenomenon -> value`` for the known ones; of one half of the
+    months when ``fold`` is given."""
+    out: dict[str, list[dict[str, float]]] = {}
     wanted = set(years)
     for day in data["sample_days"]:
         d = date.fromisoformat(day)
-        if d.year not in wanted:
+        if d.year not in wanted or (fold is not None and _fold(d) != fold):
             continue
         for code, quantities in ((data["runs"].get(f"{d:%Y%m%d}00") or {}).get(day) or {}).items():
-            for name, value in quantities.items():
-                if value is not None:
-                    out.setdefault(code, {}).setdefault(name, []).append(value)
+            out.setdefault(code, []).append({name: value for name, value in quantities.items() if value is not None})
     return out
 
 
-def province_table(data: dict[str, Any], years: Iterable[int], p2: float) -> dict[str, dict[str, tuple[float, float, float]]]:
+def province_table(
+    data: dict[str, Any], years: Iterable[int], p2: float, fold: Optional[int] = None, by_name: Optional[dict[str, float]] = None
+) -> dict[str, dict[str, tuple[float, float, float]]]:
     """``province -> phenomenon -> (level 1, 2, 3)``: percentiles of the province's own days with the floors (rain, snow, wind), one
     rare national value for heat and cold."""
-    values = daily_values(data, years)
+    rows = daily_values(data, years, fold)
+    values = {code: {name: [r[name] for r in days if name in r] for name in PHENOMENA} for code, days in rows.items()}
     table: dict[str, dict[str, tuple[float, float, float]]] = {}
     pooled = {name: np.array([v for per in values.values() for v in per.get(name, [])]) for name in ("heat", "cold")}
     national = {
@@ -401,7 +412,8 @@ def province_table(data: dict[str, Any], years: Iterable[int], p2: float) -> dic
             if not found:
                 continue
             row[name] = tuple(  # type: ignore[assignment]
-                max(float(np.percentile(found, q)), floor) for q, floor in zip(_percentiles_for(p2), floors, strict=True)
+                max(float(np.percentile(found, q)), floor)
+                for q, floor in zip(_percentiles_for((by_name or {}).get(name, p2)), floors, strict=True)
             )
         row.update(national)  # type: ignore[arg-type]
         table[code] = row
@@ -415,41 +427,84 @@ def _level_with(table: dict[str, dict[str, tuple[float, float, float]]], code: s
     return Threshold("", limits, "below" if name == "cold" else "above").level_of(value) or 0
 
 
+def _pair_levels(datas: list[dict[str, Any]], tables: list[dict[str, Any]], lead: int, fold: int, firsts: dict[str, date]) -> list[int]:
+    """The level of each learning pair of a half of the months: the lowest of the models that have a value (they must all agree)."""
+    out = []
+    per_model = [{(r["episode"], r["province"]): r["values"] for r in pairs(d, LEARNING_YEARS, lead)} for d in datas]
+    for key in per_model[0]:
+        if _fold(firsts[key[0]]) != fold:
+            continue
+        best = None
+        for name in {n for values in per_model for n in values.get(key, {})}:
+            levels = [_level_with(t, key[1], name, values[key][name]) for t, values in zip(tables, per_model, strict=True)
+                      if name in values.get(key, {})]
+            if levels:
+                best = max(best or 0, min(levels))
+        if best is not None:
+            out.append(best)
+    return out
+
+
 def provinces(args: argparse.Namespace) -> int:
-    """Cross-validation by year on the learning set: thresholds of one year judged on the other (detection and over-alerting)."""
-    with gzip.open(args.values, "rt", encoding="utf-8") as handle:
-        data = json.load(handle)
+    """Cross-validation on the learning set: thresholds of one half of the months judged on the other (detection, over-alerting).
+
+    The halves are the days 1 to 15 and 16 to the end of every month, so that both hold every season (a split by year does not:
+    the ECMWF archive begins in March 2024, and thresholds without a winter warn all winter). An episode belongs to the half of its
+    first day. With ``--and-values``, a second model must agree: a province's level is the lower of the two models' levels (each
+    with its own thresholds), and only the days both models have are counted."""
+    datas = []
+    for path in [args.values, *([args.and_values] if args.and_values else [])]:
+        with gzip.open(path, "rt", encoding="utf-8") as handle:
+            datas.append(json.load(handle))
     years = list(LEARNING_YEARS)
-    print(f"ordinary days: {len(data['sample_days'])}; learning pairs: {len(pairs(data, years, 0))}")
-    print("p2      J0 pairs   J1 pairs   province-days L>=2   L3     (thresholds of one year, judged on the other)")
+    firsts = {e["id"]: e["days"][0] for e in read_episodes()}
+    common = set.intersection(*(set(d["sample_days"]) for d in datas))
+    print(f"models: {[d.get('model', 'gfs') for d in datas]}; ordinary days in common: {len(common)}")
+    print("p2      J0 pairs        J1 pairs        province-days L>=2   L3")
     for p2 in args.percentiles:
         hits = {0: [0, 0], 1: [0, 0]}
-        over = [0, 0, 0]  # level >= 2, level 3, province-days
-        by_name: dict[str, int] = {}
-        for year in years:
-            other = [y for y in years if y != year]
-            table = province_table(data, other, p2)
+        over = [0, 0, 0]
+        for fold in (0, 1):
+            per = dict(item.split("=") for item in args.per) if args.per else None
+            per = {k: float(v) for k, v in per.items()} if per else None
+            tables = [province_table(d, years, p2, 1 - fold, per) for d in datas]
             for lead in (0, 1):
-                for row in pairs(data, [year], lead):
-                    if not row["values"]:
+                levels = _pair_levels(datas, tables, lead, fold, firsts)
+                hits[lead][0] += sum(level >= 2 for level in levels)
+                hits[lead][1] += len(levels)
+            days = [{d2: rows for d2, rows in _days_by_date(d, years, fold, common).items()} for d in datas]
+            for day in days[0]:
+                for code, row0 in days[0][day].items():
+                    combined = None
+                    for name in row0:
+                        if args.phenomena and name not in args.phenomena:
+                            continue
+                        levels = [_level_with(t, code, name, dd[day][code][name]) for t, dd in zip(tables, days, strict=True)
+                                  if day in dd and code in dd[day] and name in dd[day][code]]
+                        if levels:
+                            combined = max(combined or 0, min(levels))
+                    if combined is None:
                         continue
-                    hits[lead][1] += 1
-                    if any(_level_with(table, row["province"], n, v) >= 2 for n, v in row["values"].items()):
-                        hits[lead][0] += 1
-            for code, per in daily_values(data, [year]).items():
-                count = min(len(v) for v in per.values())
-                for k in range(count):
-                    levels = [_level_with(table, code, n, per[n][k]) for n in per]
-                    for n, level in zip(per, levels, strict=True):
-                        by_name[n] = by_name.get(n, 0) + (level >= 2)
                     over[2] += 1
-                    over[0] += max(levels) >= 2
-                    over[1] += max(levels) >= 3
-        print(f"{p2:5.1f}   {hits[0][0]:3d}/{hits[0][1]} {hits[0][0] / hits[0][1]:4.0%}   {hits[1][0]:3d}/{hits[1][1]} {hits[1][0] / hits[1][1]:4.0%}"
-              f"      {over[0] / over[2]:6.2%}          {over[1] / over[2]:6.2%}   "
-              + " ".join(f"{n} {c / over[2]:.2%}" for n, c in sorted(by_name.items())))
+                    over[0] += combined >= 2
+                    over[1] += combined >= 3
+        print(f"{p2:5.1f}   {hits[0][0]:3d}/{hits[0][1]} {hits[0][0] / max(hits[0][1], 1):4.0%}      "
+              f"{hits[1][0]:3d}/{hits[1][1]} {hits[1][0] / max(hits[1][1], 1):4.0%}      {over[0] / max(over[2], 1):6.2%}          "
+              f"{over[1] / max(over[2], 1):6.2%}")
     return 0
 
+
+def _days_by_date(data: dict[str, Any], years: Iterable[int], fold: int, only: set[str]) -> dict[str, dict[str, dict[str, float]]]:
+    """``day -> province -> phenomenon -> value`` of the ordinary days of a half of the months, among ``only``."""
+    out: dict[str, dict[str, dict[str, float]]] = {}
+    wanted = set(years)
+    for day in data["sample_days"]:
+        d = date.fromisoformat(day)
+        if day not in only or d.year not in wanted or _fold(d) != fold:
+            continue
+        quantities = (data["runs"].get(f"{d:%Y%m%d}00") or {}).get(day) or {}
+        out[day] = {code: {n: v for n, v in q.items() if v is not None} for code, q in quantities.items()}
+    return out
 
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Backtest of the unofficial pre-alert for Turkey on past GFS runs (ADR 0011).")
@@ -464,6 +519,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     p_prov = sub.add_parser("provinces", help="thresholds per province: cross-validation by year on the learning set")
     p_prov.add_argument("--values", type=Path, required=True)
     p_prov.add_argument("--percentiles", type=float, nargs="+", default=[95.0, 97.0, 98.0, 98.5, 99.0, 99.5])
+    p_prov.add_argument("--and-values", type=Path, help="the values of a second model, which must agree")
+    p_prov.add_argument("--per", nargs="+", help="a level-2 percentile per phenomenon, e.g. rain=97 snow=99 (others: --percentiles)")
+    p_prov.add_argument("--phenomena", nargs="+", choices=PHENOMENA, help="count only these in the over-alerting (default: all)")
     p_score = sub.add_parser("score", help="score the thresholds of app/prealert/levels.py")
     p_score.add_argument("--values", type=Path, required=True)
     p_score.add_argument("--set", choices=("learning", "test"), default="learning")

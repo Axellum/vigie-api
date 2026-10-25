@@ -55,7 +55,9 @@ FIELDS = ("tp", "gust", "tmax", "tmin", "2t", "csnow", "ptype")
 # ECMWF IFS open data (CC BY 4.0) names the same quantities otherwise: its gust is the maximum of the last 3 hours (``10fg``), its
 # extremes of temperature are those of the last 3 hours, and it gives the precipitation type at the lead time instead of GFS's
 # categorical snow. Its precipitation is in metres of water (converted to mm by ``units``).
-ECMWF_NAMES = {"10fg": "gust", "mx2t3": "tmax", "mn2t3": "tmin"}
+# From March 2025 the files encode the same three fields with other parameters, which ecCodes 2.50 names ``max_i10fg``,
+# ``max_2t`` and ``min_2t`` (read in the AWS archive on 2026-10-25: 2025-01-15 has ``10fg``, 2025-06-01 ``max_i10fg``).
+ECMWF_NAMES = {"10fg": "gust", "mx2t3": "tmax", "mn2t3": "tmin", "max_i10fg": "gust", "max_2t": "tmax", "min_2t": "tmin"}
 
 # ECMWF's precipitation type (code table 4.201): 5 snow and 6 wet snow count as snow, 7 (a mix of rain and snow) as half. Ours: the
 # share of the last 3 hours of precipitation that fell as snow is read from the type at the end of them.
