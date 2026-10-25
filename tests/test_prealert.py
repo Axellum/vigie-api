@@ -27,6 +27,8 @@ from app.prealert.levels import (  # noqa: E402
     PHENOMENA,
     THRESHOLDS,
     Threshold,
+    frozen_model,
+    frozen_thresholds,
     province_levels,
     province_quantities,
 )
@@ -200,6 +202,9 @@ def test_province_quantities_units_and_partial_days() -> None:
     assert q["wind"] == pytest.approx((10.0 + 0.9 * 15.0) * 3.6)
     assert q["heat"] == pytest.approx(40.0) and q["cold"] == pytest.approx(-10.0)
     assert province_levels(q)["heat"] == THRESHOLDS["heat"].level_of(40.0)
+    istanbul = province_levels(q, "TR-34")
+    assert set(istanbul) == set(PHENOMENA) and all(level is not None for level in istanbul.values())
+    assert province_levels(q, "TR-99") == dict.fromkeys(PHENOMENA)  # no table, no level made up
     day.hours = MIN_HOURS_FOR_TOTALS - 3
     partial = province_quantities(day, province)
     assert partial["rain"] is None and partial["snow"] is None and partial["wind"] is not None
@@ -233,6 +238,18 @@ def test_every_province_gets_grid_points() -> None:
     j, i = int(np.argmin(np.abs(lats - 40.0))), int(np.argmin(np.abs(lons - 32.75)))
     holders = [p.code for p in provinces if (j, i) in zip(p.rows, p.cols, strict=True) and not p.nearest_only]
     assert holders == ["TR-06"]
+
+
+def test_the_frozen_table_covers_the_81_provinces_in_order() -> None:
+    table = frozen_thresholds()
+    assert sorted(table) == [f"TR-{k:02d}" for k in range(1, 82)]
+    assert frozen_model() == "ecmwf"
+    for row in table.values():
+        assert set(row) == set(PHENOMENA)
+        for name, threshold in row.items():
+            a, b, c = threshold.levels
+            assert (a <= b <= c) if threshold.direction == "above" else (a >= b >= c), name
+        assert row["rain"].levels[1] >= 20.0 and row["wind"].levels[1] >= 55.0  # the floors
 
 
 def test_the_episode_list_is_consistent() -> None:

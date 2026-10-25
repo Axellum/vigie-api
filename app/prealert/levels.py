@@ -3,14 +3,18 @@
 A province's value for a phenomenon is a high quantile of its grid points (``PROVINCE_QUANTILE``), not their maximum: one point of
 a 28 km grid does not make a province. For the cold the low quantile of the minimum temperature is taken instead.
 
-The thresholds (``THRESHOLDS``) are one national table per phenomenon. ADR 0011 says how they are chosen: on the learning set only
-(the press episodes of 2024 and 2025 and the forecasts of those days), and frozen when the shadow phase starts. Whatever value is in
-the table, it is a setting of this pilot, not a fact about the weather of Turkey, and not the MGM's (which are not published).
+The thresholds are **per province**, frozen in ``app/data/prealert-tr-thresholds.json`` (``frozen_thresholds``), learned from the
+ECMWF forecasts of 2024-2025 by ``tools/backtest_prealert_tr.py freeze`` (ADR 0011 and its amendment). ``THRESHOLDS`` is the first,
+national reading, kept for the tool's ``choose`` and ``score``. Whatever value is in a table, it is a setting of this pilot, not a
+fact about the weather of Turkey, and not the MGM's (which are not published).
 """
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 from typing import Literal, Optional
 
 import numpy as np
@@ -46,7 +50,7 @@ class Threshold:
         return level
 
 
-# PROVISIONAL: to be replaced by the values the backtest chooses on the learning set (tools/backtest_prealert_tr.py).
+# The first, national reading (2026-10-25): it did not meet the criteria; the pilot uses the frozen table per province.
 THRESHOLDS: dict[Phenomenon, Threshold] = {
     "rain": Threshold("rain in 24 h, mm", (20.0, 50.0, 100.0)),
     "wind": Threshold("strongest gust, km/h", (65.0, 90.0, 115.0)),
@@ -82,8 +86,33 @@ def province_quantities(day: DayValues, province: Province) -> dict[Phenomenon, 
     }
 
 
+FROZEN_PATH = Path(__file__).resolve().parents[1] / "data" / "prealert-tr-thresholds.json"
+
+
+@lru_cache(maxsize=1)
+def frozen_thresholds(path: Path = FROZEN_PATH) -> dict[str, dict[Phenomenon, Threshold]]:
+    """``province code -> phenomenon -> Threshold`` of the frozen table."""
+    table = json.loads(path.read_text(encoding="utf-8"))
+    return {
+        code: {
+            name: Threshold(THRESHOLDS[name].quantity, tuple(limits), THRESHOLDS[name].direction)  # type: ignore[arg-type]
+            for name, limits in row.items()
+            if name in THRESHOLDS
+        }
+        for code, row in table["provinces"].items()
+    }
+
+
+def frozen_model(path: Path = FROZEN_PATH) -> str:
+    """The model the frozen table was learned on (``ecmwf``): the live pilot must read the same one."""
+    return str(json.loads(path.read_text(encoding="utf-8"))["model"])
+
+
 def province_levels(
-    quantities: dict[Phenomenon, Optional[float]], thresholds: dict[Phenomenon, Threshold] = THRESHOLDS
+    quantities: dict[Phenomenon, Optional[float]], code: Optional[str] = None, thresholds: Optional[dict[Phenomenon, Threshold]] = None
 ) -> dict[Phenomenon, Optional[int]]:
-    """The level of each phenomenon; ``None`` when its quantity is unknown."""
-    return {name: thresholds[name].level_of(quantities.get(name)) for name in PHENOMENA}
+    """The level of each phenomenon; ``None`` when its quantity is unknown or the province has no threshold for it.
+
+    With ``code`` the frozen table of that province is used; else ``thresholds`` (the national ``THRESHOLDS`` by default)."""
+    table = frozen_thresholds().get(code or "", {}) if code is not None else (thresholds or THRESHOLDS)
+    return {name: (table[name].level_of(quantities.get(name)) if name in table else None) for name in PHENOMENA}

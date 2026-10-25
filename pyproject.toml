@@ -39,7 +39,7 @@ include = ["app*"]
 # The reference data: the shapes the warnings are localized with (tools/build_geometries.py), the named active faults
 # (tools/build_faults.py; CC BY-SA 4.0, its notice goes with it).
 [tool.setuptools.package-data]
-app = ["data/*.geojson.gz", "data/*.json.gz", "data/*.md"]
+app = ["data/*.geojson.gz", "data/*.json.gz", "data/*.json", "data/*.md"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
