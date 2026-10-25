@@ -217,6 +217,19 @@ def require_watched_points_write() -> None:
         )
 
 
+def _start_prealert_pilot() -> Optional[Any]:
+    """The unofficial pre-alert pilot for Turkey (ADR 0011), when ``VIGIE_PREALERT_TR`` is on: shown to no one, stored only."""
+    from app.prealert.shadow import enabled
+
+    if not enabled():
+        return None
+    from app.prealert.shadow import GfsNomadsCollector, ShadowPilot, ShadowStore
+
+    pilot = ShadowPilot(GfsNomadsCollector(ShadowStore()))
+    pilot.start()
+    return pilot
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Load the bundled fault traces, start the background scheduler when enabled and stop it cleanly on shutdown."""
@@ -224,10 +237,13 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     if scheduler_enabled():
         scheduler.start()
     aggregator.fires.warm_up()  # the first read of the fires (unless the instance turned FIRMS off) starts now, not at the first visitor
+    prealert = _start_prealert_pilot()
     try:
         yield
     finally:
         await scheduler.stop()
+        if prealert is not None:
+            await prealert.stop()
 
 
 app = FastAPI(

@@ -155,8 +155,20 @@ def good_answers() -> dict[str, Callable[[httpx.Request], httpx.Response]]:
         "www.tsunami.gov": tsunami_host(),
         "www.nhc.noaa.gov": nhc_host(),
         FIRMS_HOST: firms_host()[0],
+        NOMADS_HOST: nomads_answer,
         **swic_samples.wmo_hosts(),
     }
+
+
+NOMADS_HOST = "nomads.ncep.noaa.gov"
+
+
+def nomads_answer(request: httpx.Request) -> httpx.Response:
+    """NOMADS as recorded on 2026-10-25: every run is complete, and the filter answers lead 3 of the run of 00 UTC cut to Turkey."""
+    if request.method == "HEAD":
+        return httpx.Response(200)
+    fixture = Path(__file__).resolve().parent / "fixtures" / "gfs_nomads" / "gfs.t00z.20261025.f003.grib2"
+    return httpx.Response(200, content=fixture.read_bytes())
 
 
 async def run(overrides: dict[str, Callable[[httpx.Request], httpx.Response]] | None = None, **kwargs: Any) -> dict[str, tool.Result]:
@@ -183,7 +195,8 @@ def test_there_is_a_check_for_each_collector() -> None:
     from app.main import aggregator
 
     # NASA FIRMS has a check although the application of the tests has no collector for it (it is turned off there): the check says "skipped" then.
-    assert set(tool.CHECKS) == {c.provider_id for c in aggregator.get_all_collectors()} | {"nasa_firms"}
+    # NOAA GFS through NOMADS is the pre-alert pilot (ADR 0011), not a collector of the aggregator: it has its check too.
+    assert set(tool.CHECKS) == {c.provider_id for c in aggregator.get_all_collectors()} | {"nasa_firms", "noaa_gfs_nomads"}
 
 
 @pytest.mark.asyncio
@@ -194,6 +207,7 @@ async def test_every_source_passes_when_nothing_changed() -> None:
     assert {k for k, v in results.items() if v.outcome != "ok"} == {"metservice_cap"}
     assert results["metservice_cap"].outcome == "empty"
     assert results["nasa_firms"].outcome == "ok"
+    assert results["noaa_gfs_nomads"].outcome == "ok" and "the six fields" in results["noaa_gfs_nomads"].detail
     assert tool.exit_code(list(results.values())) == 0
 
 

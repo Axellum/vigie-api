@@ -23,9 +23,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Runtime dependencies, read from pyproject.toml (the one list of them), in a layer of their own.
+# Runtime dependencies, read from pyproject.toml (the one list of them), in a layer of their own. The extra "prealert" (ecCodes,
+# to decode the GFS files of the unofficial pre-alert pilot, off by default: VIGIE_PREALERT_TR) is in the image so that an instance
+# can turn the pilot on; numpy comes with shapely already, ecCodes adds about 9 MB of wheel.
 COPY pyproject.toml ./
-RUN python -c "import tomllib; print('\n'.join(tomllib.load(open('pyproject.toml', 'rb'))['project']['dependencies']))" > /tmp/requirements.txt \
+RUN python -c "import tomllib; p = tomllib.load(open('pyproject.toml', 'rb'))['project']; print('\n'.join(p['dependencies'] + p['optional-dependencies']['prealert']))" > /tmp/requirements.txt \
  && pip install --root-user-action=ignore -r /tmp/requirements.txt \
  && rm /tmp/requirements.txt
 

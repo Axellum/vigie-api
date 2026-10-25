@@ -592,6 +592,19 @@ it never raises `local_alert_level`. It is `null` when the instance turned the s
 for FIRMS), or the oldest reading is older than those 24 hours (it would hold none of them: a count of zero would be made up; the request
 starts the refresh).
 
+## Unofficial pre-alert for Turkey (a pilot, off by default)
+
+`VIGIE_PREALERT_TR=1` runs a shadow pilot ([ADR 0011](decisions/0011-unofficial-pre-alert-turkey-shadow-pilot.md); `app/prealert/`):
+levels computed by Vigie, per province of Turkey, from NOAA GFS 0.25 degree, **stored and served to no one**.
+
+| Source | What is read | How often, and why | Requests |
+| --- | --- | --- | --- |
+| **NOAA GFS** through the NOMADS grib filter (`noaa_gfs_nomads`) | Leads 3 to 72 hours of the newest complete run, each cut by the server to 25.5-45 E, 35.5-42.5 N and to six fields (accumulated precipitation, gust, 2 m temperature and its extremes, categorical snow): about 20 KB a lead, measured on 2026-10-25. | A check every 30 minutes: a `HEAD` on the inventory of `f072` of the newest runs of the last 30 hours (a run is read once that answers; NOAA does not document when a run is complete on NOMADS). A run already stored is not read again. GFS runs 4 times a day. | About 2 a check (96 a day) and 24 a new run (96 a day): about 200 a day and 2 MB. NOMADS publishes no limit: the ceiling of 400 a day is ours (`budget.py`). |
+
+How a run becomes levels (local days of UTC+3, the 90 % quantile of a province's grid points, the provisional thresholds) is in
+the docstrings of `app/prealert/gfs.py` and `app/prealert/levels.py`; the rows go to the table `prealert_tr_levels` of the
+database. `tools/backtest_prealert_tr.py` computes the same on past runs of the AWS archive.
+
 ## Call volume
 
 NASA FIRMS adds nothing when nobody asks the fire routes, and with someone asking 86 requests and about 56 MB a day at the refresh of an hour, with no key and no transaction (the first version cost 60 world reads, 2,160 transactions and about 170 MB: see "Active fires").
