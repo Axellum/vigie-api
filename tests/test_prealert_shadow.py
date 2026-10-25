@@ -118,6 +118,24 @@ async def test_an_older_run_is_read_when_the_newest_is_not_complete(tmp_path: Pa
     ]
 
 
+async def test_a_slow_down_of_s3_is_asked_again(tmp_path: Path) -> None:
+    asked: list[str] = []
+    recorded = mirror(asked)
+    slowed: set[str] = set()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        key = f"{request.method} {request.url.path} {request.headers.get('Range', '')}"
+        if request.method == "GET" and key not in slowed:  # the first ask of each file or range: "503 Slow Down"
+            slowed.add(key)
+            return httpx.Response(503, text="<Error><Code>SlowDown</Code></Error>")
+        return recorded(request)
+
+    collector = _collector(tmp_path, handler)
+    collector.retry_waits_s = (0.0,)
+    result = await collector.fetch(force_refresh=True)
+    assert len(result.rows) == 81 * 5 and len(slowed) == 2 * (1 + 5)
+
+
 async def test_an_answer_that_is_not_grib_is_refused(tmp_path: Path) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "HEAD":

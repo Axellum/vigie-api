@@ -12,7 +12,8 @@ newest first (a ``HEAD`` each). A run already stored is not read again.
 
 **A run** is, for each lead from 3 to 72 hours, its JSON index (one line per field, with an offset and a length) and one byte range
 per field of ``ECMWF_PARAMS``: 24 x 6 = 144 requests, about 110 MB (whole-world fields of about 0.6 to 1.4 MB, measured on
-2026-10-25), sent one after the other. The budget is ours (``ecmwf_opendata`` in ``app/collectors/budget.py``).
+2026-10-25), sent one after the other. A "503 Slow Down" of S3 is asked again after ``RETRY_WAITS_S``. The budget is ours
+(``ecmwf_opendata`` in ``app/collectors/budget.py``).
 
 **What is stored**: one row per run, local day, province and phenomenon (value and level) in the table ``prealert_tr_levels`` of the
 API's database. ``latest_for`` gives the rows of the newest run for a province: the experimental route reads them.
@@ -28,6 +29,7 @@ import sqlite3
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from functools import partial
 from pathlib import Path
 from typing import Any, Optional
 
@@ -46,6 +48,8 @@ PAUSE_S = 0.5
 LOOK_BACK_H = 30
 MAX_FIELD_BYTES = 4_000_000  # a whole-world field weighs 0.6 to 1.4 MB
 MAX_INDEX_BYTES = 1_000_000
+# S3 answers "503 Slow Down" when asked too fast (seen on 2026-10-25): the same request is asked again after these waits.
+RETRY_WAITS_S = (5.0, 20.0, 60.0, 180.0)
 
 
 def enabled(env: Optional[dict[str, str]] = None) -> bool:
@@ -140,6 +144,16 @@ class EcmwfOpenDataCollector(BaseCollector[ShadowRun]):
         self.pause_s = PAUSE_S
         self.last_lead_h = LAST_LEAD_H
         self.now = lambda: datetime.now(timezone.utc)
+        self.retry_waits_s = RETRY_WAITS_S
+
+    async def _patient(self, ask: Any) -> httpx.Response:
+        """``await ask()`` again after each wait of ``retry_waits_s`` while S3 answers 503 (slow down)."""
+        for wait in (*self.retry_waits_s, None):
+            response: httpx.Response = await ask()
+            if response.status_code != 503 or wait is None:
+                return response
+            await asyncio.sleep(wait)
+        raise AssertionError("unreachable")
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> ShadowRun:
         previous: Optional[CacheEntry[ShadowRun]] = kwargs.get("previous")
@@ -156,13 +170,15 @@ class EcmwfOpenDataCollector(BaseCollector[ShadowRun]):
             raise RuntimeError("no complete ECMWF run in the last 30 hours")
         by_lead: dict[int, list[bytes]] = {}
         for lead in range(3, last + 1, 3):
-            index = await self._get_capped(client, file_url(run, lead) + ".index", max_bytes=MAX_INDEX_BYTES)
+            url = file_url(run, lead)
+            index = await self._patient(partial(self._get_capped, client, url + ".index", max_bytes=MAX_INDEX_BYTES))
             index.raise_for_status()
             fields: list[bytes] = []
             for _, offset, length in wanted_fields(index.text):
                 if length > MAX_FIELD_BYTES:
                     raise ValueError(f"f{lead:03d}: a field of {length} bytes, more than the {MAX_FIELD_BYTES} allowed")
-                part = await self._get(client, file_url(run, lead) + ".grib2", headers={"Range": f"bytes={offset}-{offset + length - 1}"})
+                byte_range = {"Range": f"bytes={offset}-{offset + length - 1}"}
+                part = await self._patient(partial(self._get, client, url + ".grib2", headers=byte_range))
                 part.raise_for_status()
                 if not part.content.startswith(b"GRIB"):
                     raise ValueError(f"f{lead:03d}: not a GRIB2 answer ({len(part.content)} bytes)")
