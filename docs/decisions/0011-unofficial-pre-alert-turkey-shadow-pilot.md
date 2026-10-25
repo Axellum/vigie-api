@@ -1,6 +1,6 @@
 # 0011. An unofficial pre-alert for Turkey: a shadow pilot, and the criteria it must meet before anyone sees it
 
-- Status: accepted for the pilot (computed and stored, shown to no one); showing it is decided by the criteria below, then by the owner
+- Status: accepted, **amended on 2026-10-25** (see "Amendment" at the end: the bar of criterion 5 raised to 4 % by the owner, ECMWF instead of GFS, and an opt-in experimental view for testers)
 - Date: 2026-10-25
 
 ## Context
@@ -104,3 +104,34 @@ warnings of Turkey are the MGM's.
 3. **Rain against observations**, if a satellite estimate (NASA IMERG) becomes reachable without an account, or the owner opens one.
 4. **The MGM itself**: an e-mail asking for permission to relay MeteoUYARI and for its archive would replace this whole pilot by the
    official warnings. Sending it is the owner's call.
+
+## Amendment (2026-10-25, the owner's decisions)
+
+**What the learning set said** ([`measurements/prealert-tr-learning-2026-10.md`](../measurements/prealert-tr-learning-2026-10.md)):
+with one national threshold, or per province, GFS met criterion 1 (70 % at J0) only with 5 to 6 % of the province-days at level 2;
+ECMWF IFS (open data, CC BY 4.0) did about 5 points better. No setting met criteria 1 and 5 together.
+
+**Decisions of the owner** (in his words, 2026-10-25): try ECMWF ("2/"), then "Accepte environ 4 % de jours en « fort » : modifie
+l'ADR 0011 en le disant, fige les seuils ECMWF, puis PR 3 et pilote fantôme sur le VPS", then let a tester see it: "proposer
+l'amélioration en test [...] en lui disant bien que cela reste un test en cours d'amélioration", the pre-alert made visible on
+an explicit opt-in.
+
+1. **Criterion 5 becomes: at most 4 % of the province-days at level 2 or more** (it was 3 %). The 0.3 % of level 3 is unchanged.
+   This is a lower bar chosen after the learning results were seen, and it is written here as such.
+2. **The model is ECMWF IFS 0.25 degree** (open data on AWS, 00 and 12 UTC runs). GFS stays readable by the code and the tool.
+3. **The thresholds are frozen** in `app/data/prealert-tr-thresholds.json` (2026-10-25): per province, level 2 at the 98.5th
+   percentile of its own days of 2024-2025 for rain, snow and wind (never under floors of ours: 20 mm, 5 mm of water, 55 km/h),
+   level 1 at the 95.5th, level 3 at 2.5 times level 2; heat and cold one national value (1 % and 0.3 % of the province-days,
+   level 3 at 3 degC above and 5 degC below level 2). Cross-validated on the learning set by halves of the months: **71 % of the
+   pairs at J0, 79 % at J1, 3.97 % of the province-days at level 2, 0.28 % at level 3**.
+4. **The test set of 2026 was scored once, with the frozen table, the same day: 31 of 49 pairs at J0 (63 %), 35 of 49 at J1
+   (71 %)**; all 49 are rain, and the 19 of them that also name wind are never reached by the wind (0 of 19). **Criterion 1 is not
+   met on the test set; criterion 2 is.** The shadow phase adds its own episodes to these; the criteria are judged on all of them
+   at its end, as written above.
+5. **An opt-in experimental view, before the criteria are met.** An instance that runs the pilot (`VIGIE_PREALERT_TR=1`) answers
+   `GET /v1/experimental/prealert?lat=&lon=` for a point in Turkey: the levels of its province for today and the next two days,
+   with the values, the thresholds and the run, labelled **experimental, unofficial, not a warning**, with the credit of ECMWF and
+   the link to the MGM's warnings. The Home Assistant integration shows it only when its user ticks an option that is off by default.
+   Nothing else changes: no official warning, no frame, no snapshot and no other route carries it, and an instance without the
+   setting answers 404. This is for testers who are told what it is, not for the public.
+

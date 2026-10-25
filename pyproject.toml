@@ -20,6 +20,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# The unofficial pre-alert pilot (app/prealert, ADR 0011): decoding the GRIB2 files of the GFS model. Not needed by the API itself.
+prealert = [
+    "numpy>=1.26",
+    "eccodes>=2.50",
+    # The wheel of eccodes bundles the library on Windows only; elsewhere the library is the eccodeslib wheel.
+    "eccodeslib>=2.50; sys_platform != 'win32'",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
@@ -32,7 +39,7 @@ include = ["app*"]
 # The reference data: the shapes the warnings are localized with (tools/build_geometries.py), the named active faults
 # (tools/build_faults.py; CC BY-SA 4.0, its notice goes with it).
 [tool.setuptools.package-data]
-app = ["data/*.geojson.gz", "data/*.json.gz", "data/*.md"]
+app = ["data/*.geojson.gz", "data/*.json.gz", "data/*.json", "data/*.md"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
