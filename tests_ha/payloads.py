@@ -174,3 +174,34 @@ def earthquakes_response(
         "derived": ["distance_km", "bearing_deg", "bearing_cardinal", "listed_now"],
         "attribution": " | ".join(credits) or None,
     }
+
+
+ECMWF_CREDIT = "Forecast: ECMWF IFS open data (CC BY 4.0). Unofficial pre-alert computed by Vigie, not an official warning"
+
+
+def prealert_phenomenon(value: float | None = 12.0, level: int | None = 0, unit: str = "mm in 24 h") -> dict[str, Any]:
+    """One phenomenon of a day of ``GET /v1/experimental/prealert``."""
+    words = ("none", "watch", "strong", "severe")
+    return {"value": value, "unit": unit, "level": level, "level_word": None if level is None else words[level], "thresholds": [20.0, 40.0, 100.0]}
+
+
+def prealert_day(day: str, max_level: int | None, **phenomena: dict[str, Any]) -> dict[str, Any]:
+    """One local day of ``GET /v1/experimental/prealert``."""
+    return {"day": day, "max_level": max_level, "phenomena": phenomena}
+
+
+def prealert_response(days: list[dict[str, Any]] | None = None, *, run_utc: str | None = "2026-10-25T00:00Z") -> dict[str, Any]:
+    """An answer of ``GET /v1/experimental/prealert`` for a place in Istanbul (experimental, unofficial)."""
+    return {
+        "experimental": True,
+        "official": False,
+        "notice": "EXPERIMENTAL and UNOFFICIAL: a test of Vigie, being improved.",
+        "province_code": "TR-34",
+        "province_name": "İstanbul",
+        "run_utc": run_utc,
+        "days": days if days is not None else [],
+        "quality": "Measured on 2026-10-25 against the orange warnings the press reported.",
+        "official_warnings_url": "https://www.mgm.gov.tr/meteouyari/turkiye.aspx",
+        "attribution": ECMWF_CREDIT,
+        "derived": ["value", "level", "level_word", "thresholds", "max_level"],
+    }

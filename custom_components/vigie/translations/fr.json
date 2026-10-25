@@ -48,13 +48,15 @@
           "scan_interval": "Intervalle de relève",
           "river_radius_km": "Rayon des rivières",
           "quake_radius_km": "Rayon des séismes",
-          "quake_min_magnitude": "Magnitude minimale des séismes"
+          "quake_min_magnitude": "Magnitude minimale des séismes",
+          "experimental_prealert": "Pré-alerte expérimentale pour la Turquie (non officielle)"
         },
         "data_description": {
           "scan_interval": "Minutes entre deux lectures de l'instance (1 à 60). Un envoi de l'instance, quand elle en propose un, fait lire plus tôt.",
           "river_radius_km": "À quelle distance du lieu un tronçon de rivière compte encore, en kilomètres (France, Vigicrues ; 1 à 50).",
           "quake_radius_km": "À quelle distance du lieu un séisme compte, en kilomètres (10 à 3000). Les séismes sont une couche à part (USGS, EMSC), pas des vigilances officielles.",
-          "quake_min_magnitude": "La plus petite magnitude montrée et annoncée (4,5 à 9). Les sources que lit l'API ne listent rien sous 4,5."
+          "quake_min_magnitude": "La plus petite magnitude montrée et annoncée (4,5 à 9). Les sources que lit l'API ne listent rien sous 4,5.",
+          "experimental_prealert": "Coupée par défaut. Un essai de Vigie, en cours d'amélioration : des niveaux calculés par Vigie à partir de la prévision de l'ECMWF pour la province de Turquie où se trouve le lieu, avec ses propres seuils. Ce n'est pas une vigilance officielle et elle ne doit pas être prise pour telle : suivez les vigilances du service météorologique turc (MGM). Seule une instance qui calcule la pré-alerte y répond."
         }
       }
     }
@@ -72,6 +74,15 @@
       },
       "strongest_earthquake": {
         "name": "Séisme le plus fort"
+      },
+      "experimental_prealert": {
+        "name": "Pré-alerte (expérimentale, non officielle)",
+        "state": {
+          "none": "Aucune",
+          "watch": "Attention",
+          "strong": "Forte",
+          "severe": "Sévère"
+        }
       }
     },
     "binary_sensor": {

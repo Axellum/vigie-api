@@ -59,6 +59,7 @@ own. The same address and the same place (to about 11 m) is refused as already c
 | River radius | 5 km (1 to 50) | In France, how far from the place a river section (Vigicrues) still counts. The API's own default is 5 and its maximum 50. |
 | Earthquake radius | 300 km (10 to 3000) | How far from the place an earthquake counts. This value is a setting, not a measure of danger: a strong earthquake far away can be felt, a small one nearby may not be. |
 | Earthquake minimum magnitude | 4.5 (4.5 to 9) | The smallest magnitude shown and announced. The feeds the API reads list nothing below 4.5. |
+| Experimental pre-alert for Turkey (unofficial) | off | **A test, being improved, not an official warning.** Adds the sensor below for a place in Turkey, read from an instance that runs the pre-alert (`VIGIE_PREALERT_TR=1`; the public instance may or may not). |
 
 Changing an option reloads the entry. **Reconfigure** (the three dots of the entry) changes the address, the place or
 the name without losing the entities.
@@ -196,6 +197,21 @@ actions:
         {{ trigger.to_state.attributes.title }}
         ({{ trigger.to_state.attributes.distance_km }} km)
 ```
+
+### Pre-alert, experimental and unofficial (sensor, only when its option is ticked)
+
+**Not an official warning.** Levels computed by Vigie from the ECMWF forecast for the province of Turkey the place is in,
+with thresholds of its own ([ADR 0011](decisions/0011-unofficial-pre-alert-turkey-shadow-pilot.md) and its amendment): a test
+being improved, for testers who are told what it is. Measured on 2026-10-25 against the orange warnings the press reported, it
+reached level 2 on the day for 63 % of the warned provinces of 2026 (71 % the day before) and missed every wind warning of the
+test. The official warnings of Turkey are the Turkish State Meteorological Service's (MGM): follow them.
+
+The state is today's highest level, in Vigie's words: `none`, `watch`, `strong` or `severe` (never the MGM's colours). Its
+attributes: `experimental` (true), `official` (false), `notice`, `province`, `province_code`, `run_utc` (the ECMWF run),
+`day`, `days` (each local day with each phenomenon's value, unit, level and the province's three thresholds), `quality`,
+`official_warnings_url` and `attribution`. It is unknown when the run gave no level for today, and **unavailable** when the
+instance does not run the pre-alert (404) or the place is not in Turkey (422). It reads the instance every 30 minutes (two
+runs a day) and never changes the warning entities. Its entity id ends in `_pre_alert_experimental_unofficial`.
 
 ## Push and poll
 

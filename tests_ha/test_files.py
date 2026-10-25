@@ -75,10 +75,11 @@ def test_no_translated_string_holds_a_url() -> None:
 
 
 def test_every_state_and_event_type_the_code_can_produce_is_translated() -> None:
-    from custom_components.vigie.const import EVENT_NEW_EARTHQUAKE, EVENT_TYPES, MAX_LEVEL_STATES
+    from custom_components.vigie.const import EVENT_NEW_EARTHQUAKE, EVENT_TYPES, MAX_LEVEL_STATES, PREALERT_LEVEL_STATES
 
     english = load(COMPONENT / "translations" / "en.json")["entity"]
     assert set(english["sensor"]["max_level"]["state"]) == set(MAX_LEVEL_STATES)
+    assert set(english["sensor"]["experimental_prealert"]["state"]) == set(PREALERT_LEVEL_STATES)
     assert set(english["event"]["vigilance"]["state_attributes"]["event_type"]["state"]) == set(EVENT_TYPES)
     assert set(english["event"]["earthquake"]["state_attributes"]["event_type"]["state"]) == {EVENT_NEW_EARTHQUAKE}
     french = load(COMPONENT / "translations" / "fr.json")["entity"]

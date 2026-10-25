@@ -16,6 +16,7 @@ CONF_SCAN_INTERVAL_MIN: Final = "scan_interval"
 CONF_RIVER_RADIUS_KM: Final = "river_radius_km"
 CONF_QUAKE_RADIUS_KM: Final = "quake_radius_km"
 CONF_QUAKE_MIN_MAGNITUDE: Final = "quake_min_magnitude"
+CONF_EXPERIMENTAL_PREALERT: Final = "experimental_prealert"
 
 # The public instance, suggested in the address field of a new entry (any other instance can be typed instead).
 PUBLIC_INSTANCE_URL: Final = "https://vigie.auxfilsdesidees.fr"
@@ -43,10 +44,18 @@ EVENT_NEW_EARTHQUAKE: Final = "new_earthquake"
 MAX_LISTED_QUAKES: Final = 10
 QUAKE_ATTRIBUTES_BUDGET_BYTES: Final = 8_000
 
+# The experimental, unofficial pre-alert for Turkey (`/v1/experimental/prealert`, ADR 0011 of the API): read only when the
+# option is ticked (off by default), and only from an instance that runs it. Its levels are Vigie's words, not official colours.
+# The instance reads two forecast runs a day: one read every half hour is enough.
+DEFAULT_EXPERIMENTAL_PREALERT: Final = False
+PREALERT_LEVEL_STATES: Final = ("none", "watch", "strong", "severe")
+PREALERT_INTERVAL: Final = timedelta(minutes=30)
+
 # Time given to an answer. The first read of a country can fetch a feed and up to 40 CAP documents.
 HEALTH_TIMEOUT_S: Final = 10
 VIGILANCES_TIMEOUT_S: Final = 60
 EARTHQUAKES_TIMEOUT_S: Final = 30
+PREALERT_TIMEOUT_S: Final = 30
 
 # The push stream: re-asked after a failure with a growing delay (seconds), and looked at again from time to time
 # when the instance does not run its scheduler (no push is sent then).

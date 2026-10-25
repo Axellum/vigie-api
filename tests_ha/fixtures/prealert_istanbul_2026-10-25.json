@@ -1,0 +1,264 @@
+{
+  "experimental": true,
+  "official": false,
+  "notice": "EXPERIMENTAL and UNOFFICIAL: a test of Vigie, being improved. These levels are computed by Vigie from the ECMWF forecast with thresholds of its own; they are not the warnings of the Turkish State Meteorological Service (MGM) and must not be taken for them. Follow the official warnings.",
+  "province_code": "TR-34",
+  "province_name": "İstanbul",
+  "run_utc": "2026-10-25T00:00Z",
+  "days": [
+    {
+      "day": "2026-10-25",
+      "max_level": 0,
+      "phenomena": {
+        "cold": {
+          "value": 11.4,
+          "unit": "degC (minimum)",
+          "level": 0,
+          "level_word": "none",
+          "thresholds": [
+            -17.3,
+            -21.1,
+            -26.1
+          ]
+        },
+        "heat": {
+          "value": 19.3,
+          "unit": "degC (maximum)",
+          "level": 0,
+          "level_word": "none",
+          "thresholds": [
+            41.0,
+            43.3,
+            46.3
+          ]
+        },
+        "rain": {
+          "value": 3.2,
+          "unit": "mm in 24 h",
+          "level": 0,
+          "level_word": "none",
+          "thresholds": [
+            13.2,
+            25.5,
+            63.7
+          ]
+        },
+        "snow": {
+          "value": 0.0,
+          "unit": "mm of water in 24 h",
+          "level": 0,
+          "level_word": "none",
+          "thresholds": [
+            2.0,
+            5.0,
+            15.0
+          ]
+        },
+        "wind": {
+          "value": 33.1,
+          "unit": "km/h (strongest gust)",
+          "level": 0,
+          "level_word": "none",
+          "thresholds": [
+            63.0,
+            69.4,
+            173.6
+          ]
+        }
+      }
+    },
+    {
+      "day": "2026-10-26",
+      "max_level": 0,
+      "phenomena": {
+        "cold": {
+          "value": 12.5,
+          "unit": "degC (minimum)",
+          "level": 0,
+          "level_word": "none",
+          "thresholds": [
+            -17.3,
+            -21.1,
+            -26.1
+          ]
+        },
+        "heat": {
+          "value": 19.6,
+          "unit": "degC (maximum)",
+          "level": 0,
+          "level_word": "none",
+          "thresholds": [
+            41.0,
+            43.3,
+            46.3
+          ]
+        },
+        "rain": {
+          "value": 0.8,
+          "unit": "mm in 24 h",
+          "level": 0,
+          "level_word": "none",
+          "thresholds": [
+            13.2,
+            25.5,
+            63.7
+          ]
+        },
+        "snow": {
+          "value": 0.0,
+          "unit": "mm of water in 24 h",
+          "level": 0,
+          "level_word": "none",
+          "thresholds": [
+            2.0,
+            5.0,
+            15.0
+          ]
+        },
+        "wind": {
+          "value": 31.5,
+          "unit": "km/h (strongest gust)",
+          "level": 0,
+          "level_word": "none",
+          "thresholds": [
+            63.0,
+            69.4,
+            173.6
+          ]
+        }
+      }
+    },
+    {
+      "day": "2026-10-27",
+      "max_level": 2,
+      "phenomena": {
+        "cold": {
+          "value": 8.9,
+          "unit": "degC (minimum)",
+          "level": 0,
+          "level_word": "none",
+          "thresholds": [
+            -17.3,
+            -21.1,
+            -26.1
+          ]
+        },
+        "heat": {
+          "value": 16.0,
+          "unit": "degC (maximum)",
+          "level": 0,
+          "level_word": "none",
+          "thresholds": [
+            41.0,
+            43.3,
+            46.3
+          ]
+        },
+        "rain": {
+          "value": 34.1,
+          "unit": "mm in 24 h",
+          "level": 2,
+          "level_word": "strong",
+          "thresholds": [
+            13.2,
+            25.5,
+            63.7
+          ]
+        },
+        "snow": {
+          "value": 0.0,
+          "unit": "mm of water in 24 h",
+          "level": 0,
+          "level_word": "none",
+          "thresholds": [
+            2.0,
+            5.0,
+            15.0
+          ]
+        },
+        "wind": {
+          "value": 61.2,
+          "unit": "km/h (strongest gust)",
+          "level": 0,
+          "level_word": "none",
+          "thresholds": [
+            63.0,
+            69.4,
+            173.6
+          ]
+        }
+      }
+    },
+    {
+      "day": "2026-10-28",
+      "max_level": 0,
+      "phenomena": {
+        "cold": {
+          "value": 8.4,
+          "unit": "degC (minimum)",
+          "level": 0,
+          "level_word": "none",
+          "thresholds": [
+            -17.3,
+            -21.1,
+            -26.1
+          ]
+        },
+        "heat": {
+          "value": 11.9,
+          "unit": "degC (maximum)",
+          "level": 0,
+          "level_word": "none",
+          "thresholds": [
+            41.0,
+            43.3,
+            46.3
+          ]
+        },
+        "rain": {
+          "value": null,
+          "unit": "mm in 24 h",
+          "level": null,
+          "level_word": null,
+          "thresholds": [
+            13.2,
+            25.5,
+            63.7
+          ]
+        },
+        "snow": {
+          "value": null,
+          "unit": "mm of water in 24 h",
+          "level": null,
+          "level_word": null,
+          "thresholds": [
+            2.0,
+            5.0,
+            15.0
+          ]
+        },
+        "wind": {
+          "value": 18.7,
+          "unit": "km/h (strongest gust)",
+          "level": 0,
+          "level_word": "none",
+          "thresholds": [
+            63.0,
+            69.4,
+            173.6
+          ]
+        }
+      }
+    }
+  ],
+  "quality": "Measured on 2026-10-25 against the orange warnings the press reported: with the frozen thresholds it reached level 2 on the day for 63 % of the warned provinces of 2026 (71 % the day before), and it gives level 2 on about 4 % of the province-days. It missed every wind warning of the test. See ADR 0011 of the Vigie API.",
+  "official_warnings_url": "https://www.mgm.gov.tr/meteouyari/turkiye.aspx",
+  "attribution": "Forecast: ECMWF IFS open data (CC BY 4.0). Unofficial pre-alert computed by Vigie, not an official warning",
+  "derived": [
+    "value",
+    "level",
+    "level_word",
+    "thresholds",
+    "max_level"
+  ]
+}
