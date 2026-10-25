@@ -365,12 +365,21 @@ def score(args: argparse.Namespace) -> int:
 # Ours, not the MGM's: the least a province's percentile may be, so that a dry province does not warn for a shower (levels 1, 2, 3).
 FLOORS: dict[str, tuple[float, float, float]] = {"rain": (10.0, 20.0, 50.0), "snow": (2.0, 5.0, 15.0), "wind": (40.0, 55.0, 80.0)}
 # Heat and cold have no episode to learn from: one national threshold, rare, from the ordinary days (share of province-days).
-RARE_SHARE = (0.01, 0.003, 0.0005)
+RARE_SHARE = (0.01, 0.003)
+HEAT_STEP_C = 3.0
+COLD_STEP_C = 5.0
+
+
+# Level 3 as a multiple of the level-2 threshold of the province (``provinces --l3-factor``), instead of a percentile.
+L3_FACTOR: Optional[float] = None
+
+# How much rarer level 3 is than level 2 (5: a fifth as often). Set by ``provinces --p3-ratio``; the frozen table records the value.
+P3_RATIO = 5.0
 
 
 def _percentiles_for(p2: float) -> tuple[float, float, float]:
-    """The percentiles of levels 1, 2 and 3 for a level-2 percentile ``p2``: level 1 three times as frequent, level 3 five times rarer."""
-    return (100.0 - 3.0 * (100.0 - p2), p2, 100.0 - (100.0 - p2) / 5.0)
+    """The percentiles of levels 1, 2 and 3 for a level-2 percentile ``p2``: level 1 three times as frequent, level 3 ``P3_RATIO`` rarer."""
+    return (100.0 - 3.0 * (100.0 - p2), p2, 100.0 - (100.0 - p2) / P3_RATIO)
 
 
 def _fold(day: date) -> int:
@@ -401,20 +410,24 @@ def province_table(
     values = {code: {name: [r[name] for r in days if name in r] for name in PHENOMENA} for code, days in rows.items()}
     table: dict[str, dict[str, tuple[float, float, float]]] = {}
     pooled = {name: np.array([v for per in values.values() for v in per.get(name, [])]) for name in ("heat", "cold")}
-    national = {
-        "heat": tuple(float(np.quantile(pooled["heat"], 1.0 - share)) for share in RARE_SHARE),
-        "cold": tuple(float(np.quantile(pooled["cold"], share)) for share in RARE_SHARE),
-    }
+    heat = [float(np.quantile(pooled["heat"], 1.0 - share)) for share in RARE_SHARE[:2]]
+    cold = [float(np.quantile(pooled["cold"], share)) for share in RARE_SHARE[:2]]
+    # Level 3 a fixed step beyond level 2 (ours): a cold or hot spell falls in one half of the months and not the other, so a
+    # quantile that rare does not carry from one half to the other.
+    national = {"heat": (heat[0], heat[1], heat[1] + HEAT_STEP_C), "cold": (cold[0], cold[1], cold[1] - COLD_STEP_C)}
     for code, per in values.items():
         row: dict[str, tuple[float, float, float]] = {}
         for name, floors in FLOORS.items():
             found = per.get(name)
             if not found:
                 continue
-            row[name] = tuple(  # type: ignore[assignment]
+            l1, l2, l3 = (
                 max(float(np.percentile(found, q)), floor)
                 for q, floor in zip(_percentiles_for((by_name or {}).get(name, p2)), floors, strict=True)
             )
+            if L3_FACTOR is not None:  # level 3 as a multiple of level 2: two years of days are too few for a percentile that high
+                l3 = max(l2 * L3_FACTOR, floors[2])
+            row[name] = (l1, l2, max(l3, l2))
         row.update(national)  # type: ignore[arg-type]
         table[code] = row
     return table
@@ -452,6 +465,9 @@ def provinces(args: argparse.Namespace) -> int:
     the ECMWF archive begins in March 2024, and thresholds without a winter warn all winter). An episode belongs to the half of its
     first day. With ``--and-values``, a second model must agree: a province's level is the lower of the two models' levels (each
     with its own thresholds), and only the days both models have are counted."""
+    global P3_RATIO, L3_FACTOR
+    P3_RATIO = args.p3_ratio
+    L3_FACTOR = args.l3_factor
     datas = []
     for path in [args.values, *([args.and_values] if args.and_values else [])]:
         with gzip.open(path, "rt", encoding="utf-8") as handle:
@@ -506,6 +522,62 @@ def _days_by_date(data: dict[str, Any], years: Iterable[int], fold: int, only: s
         out[day] = {code: {n: v for n, v in q.items() if v is not None} for code, q in quantities.items()}
     return out
 
+# ---------------------------------------------------------------- the frozen table
+
+
+FROZEN = REPO_ROOT / "app" / "data" / "prealert-tr-thresholds.json"
+
+
+def freeze(args: argparse.Namespace) -> int:
+    """Write the threshold table learned on the whole learning set (both halves of the months) to ``app/data``."""
+    global L3_FACTOR
+    L3_FACTOR = args.l3_factor
+    with gzip.open(args.values, "rt", encoding="utf-8") as handle:
+        data = json.load(handle)
+    table = province_table(data, LEARNING_YEARS, args.p2)
+    out = {
+        "note": "Thresholds of the unofficial pre-alert for Turkey (ADR 0011), ours, learned on 2024-2025: not the MGM's",
+        "model": data.get("model", "gfs"),
+        "level_2_percentile": args.p2,
+        "level_1_percentile": _percentiles_for(args.p2)[0],
+        "level_3_factor": args.l3_factor,
+        "floors": FLOORS,
+        "heat_cold_national_shares": RARE_SHARE,
+        "heat_step_c": HEAT_STEP_C,
+        "cold_step_c": COLD_STEP_C,
+        "units": {"rain": "mm in 24 h", "snow": "mm of water in 24 h", "wind": "km/h", "heat": "degC", "cold": "degC"},
+        "frozen": datetime.now(timezone.utc).date().isoformat(),
+        "provinces": {code: {name: [round(v, 2) for v in levels] for name, levels in sorted(row.items())} for code, row in sorted(table.items())},
+    }
+    FROZEN.write_text(json.dumps(out, ensure_ascii=False, indent=1) + chr(10), encoding="utf-8")
+    print(f"wrote {FROZEN.relative_to(REPO_ROOT)}: {len(out['provinces'])} provinces")
+    return 0
+
+
+def score_frozen(args: argparse.Namespace) -> int:
+    """Score a set with the frozen table; the test set only once (``--i-have-frozen-the-thresholds``)."""
+    if args.set == "test" and not args.i_have_frozen_the_thresholds:
+        print("the test set is scored once, with frozen thresholds: add --i-have-frozen-the-thresholds", file=sys.stderr)
+        return 2
+    with gzip.open(args.values, "rt", encoding="utf-8") as handle:
+        data = json.load(handle)
+    table = {code: {n: tuple(v) for n, v in row.items()} for code, row in json.loads(FROZEN.read_text(encoding="utf-8"))["provinces"].items()}
+    years = LEARNING_YEARS if args.set == "learning" else TEST_YEARS
+    for include_disputed in (True, False):
+        print(f"{args.set} set, {'with' if include_disputed else 'without'} the disputed episodes")
+        for lead in (0, 1):
+            rows = [r for r in pairs(data, years, lead, include_disputed) if r["values"]]
+            levels = [max(_level_with(table, r["province"], n, v) for n, v in r["values"].items()) for r in rows]
+            hits = sum(level >= 2 for level in levels)
+            print(f"  J{lead}: {hits}/{len(rows)} pairs at level 2 or more" + (f" = {hits / len(rows):.0%}" if rows else ""))
+            for name in PHENOMENA:
+                sub = [r for r in rows if name in r["values"]]
+                if sub:
+                    h = sum(_level_with(table, r["province"], name, r["values"][name]) >= 2 for r in sub)
+                    print(f"     {name:5s}: {h}/{len(sub)}{'' if len(sub) >= 10 else ' (under 10 pairs: reported, not judged)'}")
+    return 0
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Backtest of the unofficial pre-alert for Turkey on past GFS runs (ADR 0011).")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -519,15 +591,26 @@ def main(argv: Optional[list[str]] = None) -> int:
     p_prov = sub.add_parser("provinces", help="thresholds per province: cross-validation by year on the learning set")
     p_prov.add_argument("--values", type=Path, required=True)
     p_prov.add_argument("--percentiles", type=float, nargs="+", default=[95.0, 97.0, 98.0, 98.5, 99.0, 99.5])
+    p_prov.add_argument("--l3-factor", type=float, help="level 3 at this multiple of the province's level-2 threshold")
+    p_prov.add_argument("--p3-ratio", type=float, default=5.0, help="level 3 is this many times rarer than level 2")
     p_prov.add_argument("--and-values", type=Path, help="the values of a second model, which must agree")
     p_prov.add_argument("--per", nargs="+", help="a level-2 percentile per phenomenon, e.g. rain=97 snow=99 (others: --percentiles)")
     p_prov.add_argument("--phenomena", nargs="+", choices=PHENOMENA, help="count only these in the over-alerting (default: all)")
+    p_freeze = sub.add_parser("freeze", help="write the table of the whole learning set to app/data")
+    p_freeze.add_argument("--values", type=Path, required=True)
+    p_freeze.add_argument("--p2", type=float, required=True)
+    p_freeze.add_argument("--l3-factor", type=float, required=True)
+    p_frozen = sub.add_parser("score-frozen", help="score a set with the frozen table of app/data")
+    p_frozen.add_argument("--values", type=Path, required=True)
+    p_frozen.add_argument("--set", choices=("learning", "test"), default="learning")
+    p_frozen.add_argument("--i-have-frozen-the-thresholds", action="store_true")
     p_score = sub.add_parser("score", help="score the thresholds of app/prealert/levels.py")
     p_score.add_argument("--values", type=Path, required=True)
     p_score.add_argument("--set", choices=("learning", "test"), default="learning")
     p_score.add_argument("--i-have-frozen-the-thresholds", action="store_true")
     args = parser.parse_args(argv)
-    return {"values": values, "choose": choose, "provinces": provinces, "score": score}[args.command](args)
+    commands = {"values": values, "choose": choose, "provinces": provinces, "freeze": freeze, "score-frozen": score_frozen, "score": score}
+    return commands[args.command](args)
 
 
 if __name__ == "__main__":
