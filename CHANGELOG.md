@@ -17,6 +17,14 @@ All notable changes to this project are documented here. The format follows
 - **Home Assistant: the public instance is suggested** in the address field of a new entry; the installation by HACS is
   described (the repository is public).
 
+### Changed
+
+- **MET Norway relays the weather of a point when the Open-Meteo call budget is used up.** The expired Open-Meteo entry was served
+  (`(stale cache)`) as soon as the budget refused a request; MET Norway Locationforecast (no daily quota) is now asked first, and the
+  answer says so (`weather_provider`, `fallback_used`, MET Norway's credit). What MET Norway does not have (gusts, UV, the 15-minute rain)
+  stays unknown. The expired Open-Meteo entry, marked stale, comes only when MET Norway has no fresh answer. Air quality, river discharge
+  and marine are unchanged. The Home Assistant page now says that the integration creates no weather entity: keep your own.
+
 ### Fixed
 
 - **`fires_nearby` no longer passes an old reading of FIRMS for a current one.** FIRMS is refreshed by requests, not by a timer: on

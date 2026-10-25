@@ -148,7 +148,8 @@ classify (for example a hazard without an event time), or raises so that the cal
 Nothing is padded, defaulted or copied from another field. At each layer:
 
 - Weather: Open-Meteo, then MET Norway, then the last cached Open-Meteo answer (labelled
-  `(stale cache)`), then **no weather**: a zone then has `current = null`, no nowcast and no
+  `(stale cache)`), then **no weather**. The same order holds when the Open-Meteo call budget is
+  used up: MET Norway is asked before the expired Open-Meteo entry is served: a zone then has `current = null`, no nowcast and no
   forecast, and the frame sends its `ZONE` weather columns empty.
 - Air quality, river discharge, marine, radar, space weather: each is optional; a failure is
   `null` in JSON and an empty field in the frame.
@@ -203,7 +204,10 @@ The number of calls to the providers must not grow with the number of clients. W
 - **A call budget per source.** Every request goes through `BaseCollector._get`, which counts it
   (and its weight) over a sliding window of 24 hours. A provider with a published quota (Open-Meteo,
   MET Norway, RainViewer; `app/collectors/budget.py`) never gets a request that would exceed it:
-  the collector serves its expired cache instead and the responses say `stale`. The four Open-Meteo
+  the collector serves its expired cache instead and the responses say `stale`. The weather of a
+  point is the exception: MET Norway is asked first (`weather_provider` and the credit say so,
+  `fallback_used` is true, and what it does not have, such as the 15-minute rain, stays unknown),
+  and the expired Open-Meteo entry comes only when MET Norway has no fresh answer. The four Open-Meteo
   APIs share one budget. `GET /v1/providers` reports `calls_24h`, `weight_24h` and the quota.
 - **TTLs from the sources' own rhythm.** Each source is cached for the time it takes to change, not
   for a round 5 minutes: the table with the evidence, the source URL and what could not be verified

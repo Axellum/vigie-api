@@ -18,6 +18,9 @@ API (`GET /v1/vigilances`, see [the README](../README.md#official-weather-warnin
 It needs no screen, no key and no package beyond what Home Assistant ships. It does not issue anything: it reads the public
 instance, or one you run yourself ([README, "Run"](../README.md#run)).
 
+It creates no weather entity: keep the weather integration you already use in Home Assistant (Open-Meteo, Met.no); Vigie
+brings the warnings.
+
 Its tests run against Home Assistant 2026.10.2. The warnings were tried on one running Home Assistant installation on
 2026-10-20; see "Develop" for what the tests do and do not cover.
 

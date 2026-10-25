@@ -410,15 +410,28 @@ class AggregatorService:
         the caller must then report the weather as unknown. The bundle carries the longest
         forecast (10 days): the caller keeps the days its profile needs. ``utc_offset_s`` (the
         zone configuration) only helps MET Norway to group its hourly series into local days.
+
+        When the Open-Meteo call budget is used up, Open-Meteo hands back its expired entry: MET Norway
+        is asked first, and that expired entry (marked stale) is served only when MET Norway has no
+        fresh answer either.
         """
         try:
             bundle = await self.open_meteo.fetch_point(lat, lon, allow_stale_on_error=False)
-            # A bundle served from an expired entry (the call budget is used up) says so: it counts as a fallback.
-            stale = bool(bundle.get("stale"))
-            self.last_weather_fallback_used = stale
-            return bundle, stale
         except Exception:
             pass
+        else:
+            if not bundle.get("stale"):
+                self.last_weather_fallback_used = False
+                return bundle, False
+            try:
+                relay = await self.met_norway.fetch_point(
+                    lat, lon, allow_stale_on_error=False, utc_offset_s=utc_offset_s
+                )
+            except Exception:
+                relay = None
+            self.last_weather_fallback_used = True
+            # A MET Norway answer is stale only when its own budget is used up: the Open-Meteo entry is then kept.
+            return (relay if relay is not None and not relay.get("stale") else bundle), True
 
         try:
             bundle = await self.met_norway.fetch_point(
