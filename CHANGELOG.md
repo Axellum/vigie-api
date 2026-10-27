@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-28
+
 ### Added
 
 - **An unofficial pre-alert pilot for Turkey, off by default and experimental** (`VIGIE_PREALERT_TR=1`): each new ECMWF open data run
