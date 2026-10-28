@@ -1,4 +1,4 @@
-"""The aurora: SWPC's four products (recorded answers in ``tests/fixtures/swpc/``), the estimate of ADR 0012, the two routes."""
+"""The aurora: SWPC's four products (recorded answers in ``tests/fixtures/swpc/``), the estimate of ADR 0013, the two routes."""
 
 from __future__ import annotations
 
@@ -122,7 +122,7 @@ async def test_a_file_that_did_not_change_is_not_downloaded_again() -> None:
 
 
 # ---------------------------------------------------------------------------------------------------------------------------
-# The estimate (ADR 0012)
+# The estimate (ADR 0013)
 # ---------------------------------------------------------------------------------------------------------------------------
 
 
@@ -269,7 +269,7 @@ def test_the_route_with_a_place_gives_the_estimate_and_says_it_is_ours(sky_clien
     place = body["place"]
 
     assert "place.estimate" in body["derived"]
-    assert place["estimate"]["method"].startswith("Vigie estimate (ADR 0012")
+    assert place["estimate"]["method"].startswith("Vigie estimate (ADR 0013")
     assert place["estimate"]["clouds_known"] is True
     assert all(h["cloud_cover_pct"] == 20.0 for h in place["estimate"]["hours"])
     assert place["ovation"]["forecast_utc"] == utc("2026-10-28T21:26:00")

@@ -1,4 +1,4 @@
-"""Measure the aurora estimate of Vigie (ADR 0012) on past nights, against what people reported they saw or did not see.
+"""Measure the aurora estimate of Vigie (ADR 0013) on past nights, against what people reported they saw or did not see.
 
 The estimate (``app/services/aurora_method.py``) is ours: before a route serves it, it is measured here. The reference is the
 citizen-science database of Aurorasaurus, "Aurorasaurus Web Observations (2014-2025)" (MacDonald et al. 2026, Zenodo,
@@ -12,7 +12,7 @@ Each step can be restarted and none asks twice for what it already has::
     python tools/measure_aurora.py fetch      # the two files (8 MB and 17 MB), once
     python tools/measure_aurora.py prepare    # per report: magnetic latitude, Sun, Moon, Kp (a few minutes, cached)
     python tools/measure_aurora.py fit        # the two settings of the edge, on the reports of 2014 to 2022 ONLY
-    python tools/measure_aurora.py score      # the criterion of ADR 0012 on the reports of 2023 to 2025 (--markdown, --json)
+    python tools/measure_aurora.py score      # the criterion of ADR 0013 on the reports of 2023 to 2025 (--markdown, --json)
 
 **What is measured.** The chance without the cloud factor: a report says whether its author saw an aurora, not how cloudy it was,
 and the clouds forecast at that hour are not part of this measure. The moon and darkness factors are in. The Kp is the one GFZ
@@ -56,7 +56,7 @@ CALIBRATION_BINS = (0.0, 0.05, 0.2, 0.5, 1.0000001)
 MIN_REPORTS_PER_BIN = 30
 EUROPE = (-25.0, 34.0, 45.0, 72.0)  # west, south, east, north
 
-# The named nights of ADR 0012, as UTC windows from noon to noon (the night of Europe, then of the Americas).
+# The named nights of ADR 0013, as UTC windows from noon to noon (the night of Europe, then of the Americas).
 NIGHTS: dict[str, tuple[str, str]] = {
     "2024-05-10/11": ("2024-05-10T12:00:00+00:00", "2024-05-11T12:00:00+00:00"),
     "2024-05-11/12": ("2024-05-11T12:00:00+00:00", "2024-05-12T12:00:00+00:00"),
@@ -214,7 +214,7 @@ Scorer = Callable[[Report], float]
 
 
 def vigie_score(edge_at_kp0: float = method.EDGE_AT_KP0, edge_per_kp: float = method.EDGE_PER_KP, moon: bool = True) -> Scorer:
-    """The chance of ADR 0012 without the clouds, for these settings of the edge."""
+    """The chance of ADR 0013 without the clouds, for these settings of the edge."""
 
     def score(report: Report) -> float:
         value = method.activity(report.magnetic_lat, report.kp, edge_at_kp0, edge_per_kp) * method.darkness(report.sun_altitude)
@@ -338,7 +338,7 @@ def fit(reports: Sequence[Report]) -> dict[str, Any]:
 
 
 def criterion(test: Sequence[Report], scorer: Scorer) -> dict[str, Any]:
-    """The four points of ADR 0012, each with its figure and whether it holds."""
+    """The four points of ADR 0013, each with its figure and whether it holds."""
     overall = summary(test, scorer)
     baseline = summary(test, swpc_scale_score)
     nights: dict[str, Any] = {}
@@ -440,7 +440,7 @@ def markdown(result: dict[str, Any]) -> str:
                 f"{_pct(s['not_seen_possible_share'])} |"
             )
     lines.append("")
-    lines.append("Criterion of ADR 0012:")
+    lines.append("Criterion of ADR 0013:")
     lines.append("")
     for name, point in result["criterion"]["points"].items():
         lines.append(f"- {name}: **{'holds' if point['holds'] else 'FAILS'}** ({json.dumps(point['value'], default=str)})")

@@ -28,7 +28,7 @@ Endpoints:
 - ``GET    /v1/earthquakes``       : The earthquakes (USGS, EMSC) within a radius of a position over the last hours, strongest
                                      first; no weather provider is asked. Not an official warning.
 - ``GET    /v1/sky/aurora``        : NOAA SWPC's aurora data (OVATION summary, Kp observed and predicted, solar wind, geomagnetic
-                                     messages) and, for a position, Vigie's estimate of the coming night (ADR 0012, not SWPC's).
+                                     messages) and, for a position, Vigie's estimate of the coming night (ADR 0013, not SWPC's).
 - ``GET    /v1/sky/aurora.geojson``: SWPC's OVATION grid as map bands (RFC 7946).
 - ``GET    /v1/experimental/prealert`` : EXPERIMENTAL, UNOFFICIAL: the pre-alert levels Vigie computes for a province of Turkey
                                      (ADR 0011); 404 unless ``VIGIE_PREALERT_TR`` is on. Not an official warning.
@@ -583,7 +583,7 @@ async def get_earthquakes(
         "wind at L1 and SWPC's geomagnetic messages of the last 72 hours, their text untouched. With `lat` and `lon`, for that place: "
         "what OVATION says within 1,000 km, and **Vigie's estimate** of the chance to see an aurora hour by hour over the coming "
         "night and its best window (`place.estimate`). The estimate is ours, not SWPC's and not an official forecast: the magnetic "
-        "latitude, the Kp, the darkness, the Moon and the forecast clouds, combined by the method of ADR 0012 and measured on past "
+        "latitude, the Kp, the darkness, the Moon and the forecast clouds, combined by the method of ADR 0013 and measured on past "
         "nights against the reports of people who looked (with the Kp observed afterwards, without the clouds). The clouds come from "
         "the forecast request a place already costs; SWPC's products are read once for the whole instance."
     ),

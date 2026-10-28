@@ -18,7 +18,7 @@ All notable changes to this project are documented here. The format follows
   says in which hours each source was read, so that a period without a warning is not taken for a period without danger. It sends no
   request of its own. `VIGIE_ARCHIVE_KEEP_DAYS` (0: keep everything) bounds it; `GET /v1/health` reports `vigilance_archive`.
 - `tools/measure_archive.py`: what the archive takes in over a real day on a running instance.
-- **The aurora** ([ADR 0012](docs/decisions/0012-aurora-estimate.md)): `GET /v1/sky/aurora` relays four more products of NOAA SWPC as
+- **The aurora** ([ADR 0013](docs/decisions/0013-aurora-estimate.md)): `GET /v1/sky/aurora` relays four more products of NOAA SWPC as
   SWPC gives them (the OVATION 30 to 90 minute forecast, the Kp observed, estimated and predicted for three days, the solar wind at
   L1, the geomagnetic messages of the last 72 hours, text untouched), and `GET /v1/sky/aurora.geojson` draws the OVATION grid as map
   bands. With `lat` and `lon`, Vigie's **own estimate** of the chance to see an aurora hour by hour over the coming night and its best

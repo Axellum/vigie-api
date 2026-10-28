@@ -284,7 +284,7 @@ anything commercial.
 ## The sky: aurora
 
 `GET /v1/sky/aurora` and `GET /v1/sky/aurora.geojson` relay four more products of the NOAA Space Weather Prediction Center, read once for
-the whole instance, and compute **an estimate of our own** for a place ([ADR 0012](docs/decisions/0012-aurora-estimate.md)), measured on past
+the whole instance, and compute **an estimate of our own** for a place ([ADR 0013](docs/decisions/0013-aurora-estimate.md)), measured on past
 nights before it is served. Addresses from SWPC's own index (`https://services.swpc.noaa.gov/json/`, `/products/`), read on 2026-10-28.
 **Commercial use** says whether the terms read allow it (the owner's rule of 2026-10-28: every new source says so); the credit is `noaa_swpc`, whose line is in "Commercial use" above.
 

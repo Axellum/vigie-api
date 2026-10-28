@@ -1,7 +1,7 @@
 """Models of the sky routes: the aurora (``GET /v1/sky/aurora``, ``GET /v1/sky/aurora.geojson``).
 
 Two kinds of values, never mixed: what NOAA's Space Weather Prediction Center (SWPC) publishes, as it publishes it (the OVATION
-grid, the Kp intervals, the solar wind, the messages), and the **estimate** of Vigie for a place (ADR 0012), a method of this
+grid, the Kp intervals, the solar wind, the messages), and the **estimate** of Vigie for a place (ADR 0013), a method of this
 project measured on past nights, listed in ``derived`` and not an official forecast.
 """
 
@@ -70,7 +70,7 @@ class OvationNearby(BaseModel):
 
 
 class AuroraHour(BaseModel):
-    """One hour of the coming night at the place: the factors of the estimate and the estimate (ADR 0012)."""
+    """One hour of the coming night at the place: the factors of the estimate and the estimate (ADR 0013)."""
 
     time_utc: int = Field(..., description="Start of the hour (UTC epoch seconds)")
     kp: Optional[float] = Field(default=None, description="SWPC's Kp of the 3-hour interval of that hour")
@@ -103,7 +103,7 @@ class AuroraWindow(BaseModel):
 
 
 class AuroraEstimate(BaseModel):
-    """The estimate of Vigie for the coming night at the place (ADR 0012): ours, not SWPC's, not an official forecast."""
+    """The estimate of Vigie for the coming night at the place (ADR 0013): ours, not SWPC's, not an official forecast."""
 
     night_start_utc: Optional[int] = Field(default=None, description="First hour of the coming night with the Sun below -6 degrees")
     night_end_utc: Optional[int] = Field(default=None, description="End of the last such hour")

@@ -1,4 +1,4 @@
-"""The aurora service: SWPC's products as SWPC gives them, the OVATION grid as map bands, and the estimate for a place (ADR 0012).
+"""The aurora service: SWPC's products as SWPC gives them, the OVATION grid as map bands, and the estimate for a place (ADR 0013).
 
 Nothing here sends a request of its own: the four SWPC collectors keep one copy each for the whole instance, and the clouds of a
 place come from the daily forecast request the weather already sends (``OpenMeteoCollector.fetch_hourly_clouds``, MET Norway when
@@ -52,7 +52,7 @@ MESSAGES_WINDOW_S = 72 * 3600
 OVAL_LEVELS = (5, 10, 20, 40, 60)  # the bands of the map (ours); the values are SWPC's
 OVAL_SIMPLIFY_DEG = 0.25
 OVATION_REACH_KM = 1000.0  # SWPC: "can be observed from as much as a 1000 km away when the aurora is bright"
-METHOD = "Vigie estimate (ADR 0012, docs/decisions/0012-aurora-estimate.md; measured in docs/measurements/aurora-2026-10.md)"
+METHOD = "Vigie estimate (ADR 0013, docs/decisions/0013-aurora-estimate.md; measured in docs/measurements/aurora-2026-10.md)"
 BEST_SHARE = 0.8
 
 

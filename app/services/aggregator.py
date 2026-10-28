@@ -227,7 +227,7 @@ class AggregatorService:
         self.flood = flood or OpenMeteoFloodCollector()
         self.air_quality = air_quality or OpenMeteoAirQualityCollector()
         self.swpc = swpc or NOAASWPCCollector()
-        # The aurora (ADR 0012): four more SWPC products, one copy each for the whole instance.
+        # The aurora (ADR 0013): four more SWPC products, one copy each for the whole instance.
         self.swpc_ovation = swpc_ovation or SWPCOvationCollector()
         self.swpc_kp_forecast = swpc_kp_forecast or SWPCKpForecastCollector()
         self.swpc_solar_wind = swpc_solar_wind or SWPCSolarWindCollector()

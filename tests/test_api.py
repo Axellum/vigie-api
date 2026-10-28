@@ -91,7 +91,7 @@ def test_health_and_providers(world: World) -> None:
     assert data["status"] == "ok"
     assert data["storage_journal_mode"] == "wal"
     assert {"waveshare-7b", "tab5"} <= set(data["supported_devices"])
-    assert data["providers_summary"]["total"] == 26  # 22, and the four SWPC products of the aurora (ADR 0012)
+    assert data["providers_summary"]["total"] == 26  # 22, and the four SWPC products of the aurora (ADR 0013)
     assert data["scheduler"]["running"] is False  # the scheduler is opt-in (VIGIE_SCHEDULER)
 
     providers = world.client.get("/v1/providers")
