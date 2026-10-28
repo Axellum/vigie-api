@@ -270,6 +270,27 @@ Not read, and why (the requests are drafted for the owner to send; nothing is re
 - **France, ministère de l'Europe et des Affaires étrangères**: the site is under the Licence Ouverte 2.0
   ([mentions légales](https://www.diplomatie.gouv.fr/fr/mentions-legales/)), but no live feed of the *Conseils aux voyageurs* was found (the
   dataset on data.gouv.fr is a study of June 2023). The pages are not scraped: Vigie links to them.
+
+### Health threats for travellers
+
+`GET /v1/travel/health`, and the items that name a country in `GET /v1/travel/{country}` (`app/collectors/health.py`). Read on
+**2026-10-28**.
+
+| Source (id) | Licence | Commercial use | Terms | Credit in the responses | Quota | Clauses, and what is not verified |
+| --- | --- | --- | --- | --- | --- | --- |
+| **European Centre for Disease Prevention and Control (ECDC)**: three RSS feeds of `www.ecdc.europa.eu` (epidemiological updates `taxonomy/term/1310`, threat and risk assessments `1295`, the weekly Communicable disease threats report `1505`) (`health_ecdc`) | **CC BY 4.0**: "Unless otherwise stated, information and documents made publicly available on ECDC web pages and for which ECDC owns the copyright are licenced in accordance with the CC BY 4.0 licence". | **allowed**: "for commercial or non-commercial purposes", provided that ECDC is acknowledged as the creator, a link to the licence is given, and changes are indicated. | [ECDC intellectual property notices](https://www.ecdc.europa.eu/en/copyright), [RSS feeds](https://www.ecdc.europa.eu/en/rss-feeds) | `Source: European Centre for Disease Prevention and Control (ECDC), https://www.ecdc.europa.eu. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); the countries an item names are matched by Vigie` (wording: ours; the licence asks for the creator, a link to it and the changes: the titles and summaries are relayed unchanged, and the countries are said to be Vigie's) | none found. | The permission does not cover content of third parties nor the ECDC logo (never used). The feeds name no country: the countries are matched by Vigie on the names in the title and the summary (`derived`). |
+
+Linked, not read:
+
+- **World Health Organization (WHO)**, Disease Outbreak News: the terms of its website allow extracts "for research or private study
+  but not for sale or for use in conjunction with commercial purposes", and its publications are under CC BY-NC-SA 3.0 IGO
+  ([terms of use](https://www.who.int/about/policies/terms-of-use), [copyright](https://www.who.int/about/policies/publishing/copyright),
+  read on 2026-10-28). Not compatible with the paid app to come: Vigie links to
+  [its page](https://www.who.int/emergencies/disease-outbreak-news).
+- **U.S. Centers for Disease Control and Prevention (CDC)**, Travel Health Notices: "Most of the information on the CDC and ATSDR
+  websites is not subject to copyright, is in the public domain", with exceptions (material of contractors, grantees or third
+  parties) that a notice does not mark ([use of agency materials](https://www.cdc.gov/other/agencymaterials.html), read on
+  2026-10-28). Not read until that is clear: Vigie links to [its notices](https://wwwnc.cdc.gov/travel/notices).
 ## Commercial use (for the paid app to come)
 
 The website and this API stay free and non-commercial. An Android app with a paid membership will come from them
@@ -314,6 +335,7 @@ anything commercial.
 | `travel_ca` | Global Affairs Canada | **allowed** | Open Government Licence – Canada, including for commercial purposes, with the statement it prescribes; no official symbol, no suggested endorsement. | [1](https://open.canada.ca/data/en/dataset/bef2ebb3-ca9a-485f-aaff-5dc36eb89426), [2](https://open.canada.ca/en/open-government-licence-canada) | 2026-10-28 |
 | `travel_au` | Smartraveller (Australian Government, DFAT) | not verified | The site is under the latest CC BY, but the same page keeps downloadable digital material from commercial use without DFAT's written consent, and does not say whether the export is such material. Never the logo. | [1](https://www.smartraveller.gov.au/copyright), [2](https://www.smartraveller.gov.au/our-role/resources) | 2026-10-28 |
 | `travel_nl` | Ministerie van Buitenlandse Zaken (NederlandWereldwijd) | **allowed** | CC0 1.0 Universal, in the licence field of every advice of the v2 feed. | [1](https://opendata.nederlandwereldwijd.nl/v2/sources/nederlandwereldwijd/infotypes/traveladvice), [2](https://www.nederlandwereldwijd.nl/open-data) | 2026-10-28 |
+| `health_ecdc` | European Centre for Disease Prevention and Control (ECDC) | **allowed** | CC BY 4.0, "for commercial or non-commercial purposes": ECDC named as the creator, a link to the licence, and the changes said. Not for content of third parties, nor the logo. | [1](https://www.ecdc.europa.eu/en/copyright) | 2026-10-28 |
 
 ## Where the credits go
 

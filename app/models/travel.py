@@ -242,6 +242,60 @@ class TravelChange(BaseModel):
     published_text: Optional[str] = None
 
 
+HealthKind = Literal["epidemiological_update", "risk_assessment", "threats_report"]
+
+
+class HealthItem(BaseModel):
+    """One publication of a public health agency about a communicable disease threat, in its own words."""
+
+    source: Literal["ecdc"] = Field(..., description="The agency: `ecdc`, the European Centre for Disease Prevention and Control")
+    kind: HealthKind = Field(
+        ...,
+        description="The feed it comes from: an epidemiological update, a threat or risk assessment, the weekly threats report",
+    )
+    title: str = Field(..., description="The title, as given")
+    url: str = Field(..., description="The publication on the agency's site")
+    summary: Optional[TravelText] = Field(default=None, description="The summary of the feed, as given (HTML)")
+    published_utc: Optional[int] = Field(default=None, description="When the agency published it (UTC epoch seconds)")
+    countries: Optional[list[str]] = Field(
+        default=None,
+        description=(
+            "The countries whose name the title or the summary contains (ISO 3166-1 alpha-2), matched by Vigie: the agency "
+            "does not state them, and a country can be named for another reason than a threat there; `null`: not worked out"
+        ),
+    )
+    derived: list[str] = Field(default_factory=list, description="The fields worked out by Vigie (`countries`)")
+    attribution: str = Field(..., description="Credit of the agency")
+
+
+class HealthAgency(BaseModel):
+    """A public health agency: read by this instance, or linked only, and why."""
+
+    id: str = Field(..., description="`ecdc`, `who`, `cdc`")
+    name: str
+    url: str = Field(..., description="The agency's own pages")
+    read: bool = Field(..., description="True when this instance reads the agency's feeds")
+    why_not_read: Optional[str] = Field(default=None, description="When it is not read: why, in one sentence")
+    licence: Optional[str] = Field(default=None, description="The licence of what is read (SOURCES.md)")
+    commercial_use: Optional[Literal["allowed", "forbidden", "not_verified"]] = Field(
+        default=None, description="Whether the terms allow a commercial use (`app/commercial.py`); `null` for an agency not read"
+    )
+    state: Optional[TravelFeedState] = Field(default=None, description="For an agency read: how this answer got its feeds")
+    items: Optional[int] = Field(default=None, description="For an agency read: how many items its feeds hold now")
+    attribution: Optional[str] = None
+
+
+class TravelHealth(BaseModel):
+    """``GET /v1/travel/health``: the ECDC's latest publications on communicable disease threats, and the agencies linked only."""
+
+    generated_utc: int
+    country: Optional[str] = Field(default=None, description="In `GET /v1/travel/{cc}`: the items that name this country only")
+    agencies: list[HealthAgency]
+    items: list[HealthItem] = Field(default_factory=list, description="Newest first")
+    notice: str
+    attribution: Optional[str] = None
+
+
 class TravelCountryDetail(BaseModel):
     """``GET /v1/travel/{cc}``: every ministry's advice for one country, its texts, how they compare and their history."""
 
@@ -257,5 +311,8 @@ class TravelCountryDetail(BaseModel):
     history_since_utc: Optional[int] = Field(default=None, description="When this instance started to archive the travel advice")
     not_covered: list[str] = Field(default_factory=list, description="The ministries read that publish no advice for this country")
     ministries: list[TravelMinistry]
+    health: Optional[TravelHealth] = Field(
+        default=None, description="The ECDC's recent publications that name this country (the countries are matched by Vigie)"
+    )
     notice: str
     attribution: Optional[str] = None
