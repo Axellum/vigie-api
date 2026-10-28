@@ -294,6 +294,7 @@ anything commercial.
 | `wmo_swic` | WMO Severe Weather Information Centre (national services) | not verified | Each national service has its own terms (app/collectors/swic_terms.py); they were not reviewed for commercial use one by one. | [1](https://severeweather.wmo.int/note.html) | 2026-10-20 |
 | `gem_faults` | GEM Global Active Faults Database | **allowed** | CC BY-SA 4.0: commercial use allowed, and data derived from it stays under the same licence. | [1](https://github.com/GEMScienceTools/gem-global-active-faults) | 2026-10-20 |
 | `vigicrues` | Vigicrues (SCHAPI) | **allowed** | Licence Ouverte 2.0 (Etalab): the source and the date of the data named. | [1](https://www.etalab.gouv.fr/licence-ouverte-open-licence/) | 2026-10-20 |
+| `eot20` | EOT20 ocean tide model (DGFI-TUM) | **allowed** | CC BY 4.0 (the SEANOE page): the credit, a link to the licence and a statement of the changes. Computed by Vigie, with no request to anyone. | [1](https://www.seanoe.org/data/00683/79489/), [2](https://creativecommons.org/licenses/by/4.0/) | 2026-10-28 |
 
 ## The sky: aurora
 
