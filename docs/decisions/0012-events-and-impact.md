@@ -24,16 +24,15 @@ works out is said to be Vigie's.
    given. Nothing official is translated or shortened.
 2. **How warnings are grouped.** Same country, same phenomenon (the API's own; the source's word, case and spaces aside, when the
    phenomenon is `other` or unknown, so that two unrelated "other" warnings stay apart; a tsunami message is never grouped with a
-   coastal warning), same level, periods that overlap (a warning
-   with neither end nor expiry overlaps everything after its start), and areas that are close: each area within **300 km** of another of
-   the event (single linkage between the centres of the boxes around the areas). The distance splits the warnings of a large country (a
-   flood in Texas and one in Washington) and keeps those of one region together; 300 km is about the size of a French region or a
-   German Land, a choice of ours. An area whose shape this instance does not know cannot be placed: those areas make an event of their
+   coastal warning), same level, periods that overlap (a warning with neither end nor expiry overlaps everything after its start), and
+   areas that are close: each area within **300 km** of another of the event (single linkage between the centres of the boxes around the
+   areas). The distance splits the warnings of a large country (a flood in Texas and one in Washington) and keeps those of one region
+   together; 300 km is a choice of ours, not taken from a source. An area whose shape this instance does not know cannot be placed: those areas make an event of their
    own, with no box, rather than a guessed place; for the UGC zones of the NWS, whose code begins with the state, they are split by state.
    The source is not part of the key: a river section of Vigicrues and a département of MeteoAlarm at the same level and time are one
    flood, and `sources` lists both.
 3. **How hazards are grouped.** Earthquakes are one sequence when each lies within **100 km and 6 hours** of another of the sequence
-   (single linkage in time order; choices of ours, about the size of an aftershock zone of a magnitude 7 and "a few hours"). A tsunami of
+   (single linkage in time order; "the same sector, a few hours" of the plan, put in numbers by us, not taken from a source). A tsunami of
    the warning centres is one event with the official messages that carry its VTEC code, and its level is the higher of the two; a
    message without a matching hazard stays with the warnings. Any other hazard (a cyclone, a volcano, a GDACS flood or fire, a solar
    storm) is an event of its own. When the warnings of the United States are in the answer, the hazards that only the NWS reports are
