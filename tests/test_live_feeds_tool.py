@@ -15,7 +15,7 @@ from typing import Any, Optional
 import httpx
 import pytest
 
-from tests import firms_samples, samples, storm_samples, swic_samples, travel_samples
+from tests import firms_samples, health_samples, samples, storm_samples, swic_samples, travel_samples
 from tests import vigilance_samples as national
 from tests.helpers import SimClock
 from tests.test_dwd import archive, cap_document
@@ -158,6 +158,7 @@ def good_answers() -> dict[str, Callable[[httpx.Request], httpx.Response]]:
         ECMWF_HOST: ecmwf_answer,
         **swic_samples.wmo_hosts(),
         **travel_samples.hosts(),
+        "www.ecdc.europa.eu": health_samples.host,
     }
 
 
@@ -826,6 +827,18 @@ async def test_the_travel_checks_read_each_ministry_and_say_what_they_read() -> 
     assert results["travel_us"].detail == "216 advices, 216 with a level"
     assert "Mexico's risk levels read in English and French" in results["travel_ca"].detail
     assert results["travel_nl"].detail == "226 advices, 155 with a level"
+
+
+@pytest.mark.asyncio
+async def test_the_ecdc_check_reads_its_three_feeds() -> None:
+    results = await run(only=["health_ecdc"])
+    assert results["health_ecdc"].outcome == "ok"
+    assert results["health_ecdc"].detail == "10 epidemiological updates, 10 risk assessments, 10 threats reports"
+    empty = await run(
+        overrides={"www.ecdc.europa.eu": lambda r: httpx.Response(200, content=b"<rss><channel></channel></rss>")},
+        only=["health_ecdc"],
+    )
+    assert empty["health_ecdc"].outcome == "FAIL"
 
 
 @pytest.mark.asyncio

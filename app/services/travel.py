@@ -33,12 +33,15 @@ from app.models.travel import (
     TravelCountry,
     TravelCountryDetail,
     TravelFeedState,
+    TravelHealth,
     TravelLevel,
     TravelMinistry,
     TravelOverview,
     TravelScaleStep,
 )
 from app.services.geoindex import CountryIndex
+from app.services.health import NOTICE as HEALTH_NOTICE
+from app.services.health import HealthService
 from app.services.travel_store import TravelStore
 
 log = logging.getLogger(__name__)
@@ -223,8 +226,15 @@ def _light(advice: TravelAdvice) -> TravelLevel:
 class TravelService:
     """The travel advice of every ministry read by this instance."""
 
-    def __init__(self, sources: dict[str, BaseCollector[Any]], countries: CountryIndex, store: Optional[TravelStore]) -> None:
+    def __init__(
+        self,
+        sources: dict[str, BaseCollector[Any]],
+        countries: CountryIndex,
+        store: Optional[TravelStore],
+        health: Optional[HealthService] = None,
+    ) -> None:
         self.sources = sources
+        self.health = health
         self.countries = countries
         self.store = store
         self._recorded: dict[str, int] = {}  # ministry -> id() of the feed last archived (a cached feed is archived once)
@@ -262,6 +272,8 @@ class TravelService:
     async def refresh(self) -> None:
         """Keep every ministry fresh and archive what changed (the scheduler calls it at each cycle; a cached feed costs nothing)."""
         await self.read_all(wait_s=None)
+        if self.health is not None:
+            await self.health.refresh()
 
     # --- the archive -------------------------------------------------------------------------------------------------
 
@@ -384,7 +396,9 @@ class TravelService:
 
     async def country(self, country: str) -> TravelCountryDetail:
         """``GET /v1/travel/{cc}``: every ministry's advice for ``country``, its texts, the comparison and the archive."""
-        reads = await self.read_all()
+        reads, health = await asyncio.gather(
+            self.read_all(), self.health.answer(country) if self.health is not None else asyncio.sleep(0, None)
+        )
         advices: list[TravelAdvice] = []
         not_covered: list[str] = []
         for ministry, read in reads.items():
@@ -404,9 +418,16 @@ class TravelService:
             history_since_utc=store_start,
             not_covered=sorted(not_covered),
             ministries=self._ministries(reads),
+            health=health,
             notice=NOTICE,
             attribution=merge_credits(*(advice.attribution for advice in advices)),
         )
+
+    async def health_answer(self) -> TravelHealth:
+        """``GET /v1/travel/health``: the ECDC's recent publications, with the countries they name (ours)."""
+        if self.health is None:
+            return TravelHealth(generated_utc=int(clock.wall()), agencies=[], notice=HEALTH_NOTICE)
+        return await self.health.answer()
 
     async def _with_text(self, advice: TravelAdvice) -> TravelAdvice:
         """Canada keeps the text of a destination in a file of its own: read it now (cached six hours). Without it, no text."""

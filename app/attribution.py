@@ -207,6 +207,13 @@ CREDITS: dict[str, Credit] = {
             "Source: Ministerie van Buitenlandse Zaken, NederlandWereldwijd (https://www.nederlandwereldwijd.nl/reisadvies), CC0 1.0",
             "ours",
         ),
+        Credit(
+            "health_ecdc",
+            "European Centre for Disease Prevention and Control (ECDC)",
+            "Source: European Centre for Disease Prevention and Control (ECDC), https://www.ecdc.europa.eu. Licensed under CC BY 4.0 "
+            "(https://creativecommons.org/licenses/by/4.0/); the countries an item names are matched by Vigie",
+            "ours",
+        ),
     )
 }
 

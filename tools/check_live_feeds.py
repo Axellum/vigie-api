@@ -45,6 +45,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from app import clock  # noqa: E402
+from app.collectors import health as health_feeds  # noqa: E402
 from app.collectors import travel as travel_feeds  # noqa: E402
 from app.collectors import travel_codes  # noqa: E402
 from app.collectors.base import build_user_agent  # noqa: E402
@@ -755,6 +756,22 @@ async def check_travel_gb(client: httpx.AsyncClient) -> Result:
     return Result("travel_gb", "ok", f"{len(entries)} pages in the index, all placed; France read ({len(page.history)} changes in its history)")
 
 
+async def check_health_ecdc(client: httpx.AsyncClient) -> Result:
+    """The ECDC: its three feeds answer, each with items that have a title, a link and a date."""
+    collector = health_feeds.ECDCHealthCollector()
+    counts: list[str] = []
+    for kind, url in health_feeds.ECDC_FEEDS.items():
+        resp = await collector._get(client, url)
+        resp.raise_for_status()
+        items = health_feeds.parse_ecdc(resp.content, kind)
+        if not items:
+            return Result("health_ecdc", "FAIL", f"the feed of {kind} has no item with a title and a link")
+        if any(item.published_utc is None for item in items):
+            return Result("health_ecdc", "FAIL", f"an item of {kind} has no date that can be read")
+        counts.append(f"{len(items)} {kind.replace('_', ' ')}s")
+    return Result("health_ecdc", "ok", ", ".join(counts))
+
+
 CHECKS: dict[str, Check] = {
     "usgs_eq": check_usgs,
     "emsc_seismic": check_emsc,
@@ -785,6 +802,7 @@ CHECKS: dict[str, Check] = {
     "travel_ca": check_travel_ca,
     "travel_au": check_travel_au,
     "travel_nl": check_travel_nl,
+    "health_ecdc": check_health_ecdc,
 }
 
 
