@@ -63,8 +63,10 @@ Endpoints:
 - ``GET    /v1/families``          : The families of phenomena (wind, rain and floods, ..., space weather) and what each holds.
 - ``GET    /v1/travel``            : The travel advice of five foreign ministries: each one's level for each country (its own
                                      words), the comparison (ours, not official) and the ministries not read, with why.
-- ``GET    /v1/travel/{country}``  : One country: every ministry's advice with its text untouched, the comparison and the versions
-                                     this instance has archived.
+- ``GET    /v1/travel/health``     : The ECDC's recent publications on communicable disease threats (the countries they name are
+                                     matched by Vigie), and the WHO and the CDC, linked only.
+- ``GET    /v1/travel/{country}``  : One country: every ministry's advice with its text untouched, the comparison, the versions
+                                     this instance has archived, and the ECDC's publications that name it.
 - ``POST   /v1/simulate``          : Inject a simulated scenario (always labelled as a simulation). Off unless
                                      ``VIGIE_ENABLE_SIMULATION=1``: it answers 403 otherwise.
 - ``WS     /v1/stream``            : Real-time WebSocket stream for connected terminals.
@@ -112,7 +114,7 @@ from app.models.schemas import (
 )
 from app.models.sky import AuroraOvalCollection, AuroraResponse, EclipseDetail, EclipseList, EclipseMapCollection
 from app.models.tides import CoastalTides, TidesResponse
-from app.models.travel import TravelCountryDetail, TravelOverview
+from app.models.travel import TravelCountryDetail, TravelHealth, TravelOverview
 from app.models.vigilance import (
     UncoveredCountry,
     VigilanceArchiveQuery,
@@ -1250,6 +1252,23 @@ TRAVEL_DESCRIPTION = (
 async def get_travel() -> TravelOverview:
     """Every ministry's level for each country, and how they compare (without the texts: see `/v1/travel/{country}`)."""
     return await aggregator.travel.overview()
+
+
+@app.get(
+    "/v1/travel/health",
+    response_model=TravelHealth,
+    tags=["Travel"],
+    description=(
+        "The latest publications of the European Centre for Disease Prevention and Control (ECDC) on communicable disease "
+        "threats: its epidemiological updates, its threat and risk assessments and its weekly threats report, each in its words "
+        "(title, summary as given, date, link). The ECDC's feeds name no country: `countries` is matched by Vigie on the names in "
+        "the title and the summary (listed in `derived`), and a country can be named for another reason than a threat there. "
+        "The WHO and the CDC are listed in `agencies` with the reason they are linked, not read."
+    ),
+)
+async def get_travel_health() -> TravelHealth:
+    """The ECDC's recent publications on communicable disease threats (declared before `/v1/travel/{country}`)."""
+    return await aggregator.travel.health_answer()
 
 
 @app.get(

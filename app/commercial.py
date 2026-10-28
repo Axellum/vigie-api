@@ -255,6 +255,14 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             ("https://opendata.nederlandwereldwijd.nl/v2/sources/nederlandwereldwijd/infotypes/traveladvice", "https://www.nederlandwereldwijd.nl/open-data"),
             "2026-10-28",
         ),
+        CommercialUse(
+            "health_ecdc",
+            "allowed",
+            "CC BY 4.0, \"for commercial or non-commercial purposes\": ECDC named as the creator, a link to the licence, and the "
+            "changes said. Not for content of third parties, nor the logo.",
+            ("https://www.ecdc.europa.eu/en/copyright",),
+            "2026-10-28",
+        ),
     )
 }
 

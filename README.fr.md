@@ -98,6 +98,7 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
 | `GET /v1/vigilances/archive`, `GET /v1/vigilances/archive/stats` | Chaque vigilance officielle vue par l'instance, gardée telle qu'elle a été servie, filtrée par pays, zone, source, phénomène, niveau et période, avec les heures où chaque source a été lue ; et ce que l'archive pèse par jour. Voir « L'archive des vigilances officielles » plus bas. |
 | `GET /v1/travel` | Les conseils aux voyageurs de cinq ministères des Affaires étrangères (Royaume-Uni, États-Unis, Canada, Australie, Pays-Bas) : le niveau de chacun pour chaque pays, dans ses propres mots, et s'ils sont en désaccord (comparaison de Vigie, pas un niveau officiel). Voir « Conseils aux voyageurs » plus bas. |
 | `GET /v1/travel/{country}` | Un pays : l'avis de chaque ministère avec son texte intact, la date de sa version, l'heure où Vigie l'a lu, et les versions que cette instance a archivées. |
+| `GET /v1/travel/health` | Les publications récentes de l'ECDC sur les menaces de maladies transmissibles, dans ses mots ; les pays que chacune nomme sont repérés par Vigie. L'OMS et le CDC sont en lien, pas lus. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Zones surveillées (la liste de suivi). Une zone doit donner son `utc_offset_s`. |
 | `GET/POST /v1/watched-points`, `DELETE /v1/watched-points/{id}` | Les points que vous surveillez (un lieu, une faille, un volcan...), chacun avec un rayon. **Personnels** : listés ici et dans le statut, jamais dans les dangers. `POST` et `DELETE` sont **désactivés** (403) sauf si `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`. |
 | `GET /v1/watched-points/status?days=7` | Pour chaque point surveillé, les événements dans son rayon sur les derniers jours, et `quiet` seulement si chaque source de dangers a répondu et a été lue sans trou. |
@@ -466,6 +467,11 @@ GET /v1/travel/UG         l'Ouganda : les textes, la comparaison et l'archive
 - Les 226 pages du FCDO sont lues une fois, puis seulement celles qui changent ; tant que cette première lecture n'est pas finie (une ou
   deux minutes), le FCDO dit `loading`. Les tables, les coûts et les licences : [`docs/data-sources.md`](docs/data-sources.md) et
   [`SOURCES.md`](SOURCES.md).
+- **Santé** : `GET /v1/travel/health` relaie les dernières publications de l'ECDC (Centre européen de prévention et de contrôle des
+  maladies) sur les menaces de maladies transmissibles, chacune avec son titre, son résumé, sa date et son lien tels quels (CC BY 4.0).
+  Ses flux ne nomment aucun pays : `countries` est **repéré par Vigie** d'après les noms du titre et du résumé (dans `derived`), et un
+  pays peut être nommé pour une autre raison qu'une menace sur place. `GET /v1/travel/{country}` porte les publications qui nomment le
+  pays (`health`). L'OMS et le CDC sont listés avec la raison pour laquelle ils sont en lien, pas lus.
 
 ## Tempêtes et tsunamis
 

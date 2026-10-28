@@ -91,13 +91,13 @@ def test_health_and_providers(world: World) -> None:
     assert data["status"] == "ok"
     assert data["storage_journal_mode"] == "wal"
     assert {"waveshare-7b", "tab5"} <= set(data["supported_devices"])
-    assert data["providers_summary"]["total"] == 31  # 22, the four SWPC products of the aurora (ADR 0012), and five travel ministries
+    assert data["providers_summary"]["total"] == 32  # 22, four SWPC products of the aurora, five travel ministries, and ECDC
     assert data["scheduler"]["running"] is False  # the scheduler is opt-in (VIGIE_SCHEDULER)
 
     providers = world.client.get("/v1/providers")
     assert providers.status_code == 200
     ids = {p["provider_id"] for p in providers.json()}
-    assert len(providers.json()) == 31
+    assert len(providers.json()) == 32
     assert {
         "usgs_eq",
         "emsc_seismic",

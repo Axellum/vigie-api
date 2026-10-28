@@ -339,7 +339,7 @@ async def test_a_service_without_rainviewer_never_asks_for_the_radar(tmp_path: P
     service.rainviewer.fetch = AsyncMock(side_effect=AssertionError("RainViewer must not be asked"))  # type: ignore[method-assign]
     assert service.rainviewer not in service.get_all_collectors()
     assert "rainviewer_radar" not in {p.provider_id for p in service.get_providers_health()}
-    assert len(service.get_all_collectors()) == 30
+    assert len(service.get_all_collectors()) == 31
 
     point = await service.build_point_response(lat=48.85, lon=2.35)
     assert point.rain_nowcast.radar_tile_url_template is None and point.rain_nowcast.radar_timestamp_utc is None
@@ -348,7 +348,7 @@ async def test_a_service_without_rainviewer_never_asks_for_the_radar(tmp_path: P
 
 def test_rainviewer_stays_on_by_default(world: World) -> None:
     assert world.aggregator.rainviewer_enabled is True
-    assert len(world.aggregator.get_all_collectors()) == 31
+    assert len(world.aggregator.get_all_collectors()) == 32
 
 
 # ============================================================================
@@ -369,7 +369,7 @@ def test_a_service_without_metservice_neither_lists_nor_asks_it(tmp_path: Path) 
     service = make_service(tmp_path / "nz.db", metservice_enabled=False)
     assert service.metservice not in service.get_all_collectors()
     assert "metservice_cap" not in {p.provider_id for p in service.get_providers_health()}
-    assert len(service.get_all_collectors()) == 30
+    assert len(service.get_all_collectors()) == 31
     assert service.vigilances.metservice is None  # the warnings service has no New Zealand source any more
 
 

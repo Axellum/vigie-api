@@ -53,6 +53,7 @@ from app.collectors.flood_air import (
     OpenMeteoFloodCollector,
     USGSVolcanoCollector,
 )
+from app.collectors.health import ECDCHealthCollector
 from app.collectors.marine import OpenMeteoMarineCollector
 from app.collectors.meteoalarm import MeteoAlarmCapCollector, MeteoAlarmCollector
 from app.collectors.metservice import MetServiceCollector, metservice_enabled_from_env
@@ -130,6 +131,7 @@ from app.services.geodesy import (
     haversine_km,
 )
 from app.services.geoindex import CountryIndex, GeometryIndex, default_countries, default_geometries
+from app.services.health import HealthService
 from app.services.places import FaultIndex, NearPlacesService, PlaceSettings
 from app.services.storage_wal import DEFAULT_WATCHLIST_SEED, SQLiteWALStorage
 from app.services.travel import TravelService
@@ -219,6 +221,7 @@ class AggregatorService:
         travel_ca: Optional[CanadaTravelCollector] = None,
         travel_au: Optional[SmartravellerCollector] = None,
         travel_nl: Optional[NetherlandsTravelCollector] = None,
+        health_ecdc: Optional[ECDCHealthCollector] = None,
     ) -> None:
         self.started_at_utc = int(time.time())
         # How far the hazards look for the places near them (faults, volcanoes in alert): settings, not
@@ -267,6 +270,8 @@ class AggregatorService:
         self.travel_ca = travel_ca or CanadaTravelCollector()
         self.travel_au = travel_au or SmartravellerCollector()
         self.travel_nl = travel_nl or NetherlandsTravelCollector()
+        # The ECDC's publications on communicable disease threats, for the travel pages.
+        self.health_ecdc = health_ecdc or ECDCHealthCollector()
         # NASA FIRMS (active fires) is read from its static files, which need no key, unless ``VIGIE_ENABLE_FIRMS=0`` (or no collector is
         # given): then there is no collector, ``GET /v1/health`` lists the source as disabled and the fire routes say so. An optional
         # ``VIGIE_FIRMS_MAP_KEY`` lets a source whose file could not be read be read from the area API.
@@ -323,6 +328,7 @@ class AggregatorService:
             {"gb": self.travel_gb, "us": self.travel_us, "ca": self.travel_ca, "au": self.travel_au, "nl": self.travel_nl},
             countries=self.vigilances.countries,
             store=travel_store,
+            health=HealthService(self.health_ecdc, self.vigilances.countries),
         )
 
     @property
@@ -452,6 +458,7 @@ class AggregatorService:
             self.travel_ca,
             self.travel_au,
             self.travel_nl,
+            self.health_ecdc,
         ]
         off = [
             c

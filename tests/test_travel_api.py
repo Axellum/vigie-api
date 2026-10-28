@@ -11,11 +11,14 @@ import httpx
 import pytest
 
 from app.collectors import travel as collectors
+from app.collectors.health import ECDCHealthCollector
 from app.models.travel import TravelLevel
 from app.services import travel as service_module
 from app.services.geoindex import default_countries
+from app.services.health import HealthService
 from app.services.travel import TravelService, compare
 from app.services.travel_store import TravelStore
+from tests import health_samples
 from tests import travel_samples as samples
 from tests.conftest import World
 from tests.helpers import SimClock
@@ -33,6 +36,7 @@ def recorded_hosts(gb_pages: tuple[str, ...] = tuple(samples.GB_RECORDED)) -> Ca
         return pages(request)
 
     hosts["www.gov.uk"] = gb
+    hosts["www.ecdc.europa.eu"] = health_samples.host
     return lambda request: hosts[request.url.host](request)
 
 
@@ -46,7 +50,8 @@ def make_travel(tmp_path: Path, answer: Callable[[httpx.Request], httpx.Response
         "au": collectors.SmartravellerCollector(http_client=client),
         "nl": collectors.NetherlandsTravelCollector(http_client=client),
     }
-    return TravelService(sources, default_countries(), store)
+    health = HealthService(ECDCHealthCollector(http_client=client), default_countries())
+    return TravelService(sources, default_countries(), store, health=health)
 
 
 def level(ministry: str, low: int | None, high: int | None, part: bool = False) -> TravelLevel:
@@ -219,3 +224,9 @@ def test_the_routes_answer_and_check_the_country(world: World, tmp_path: Path, m
     assert detail.status_code == 200 and detail.json()["country"] == "FR"
     assert world.client.get("/v1/travel/FRA").status_code == 422
     assert world.client.get("/v1/travel/1A").status_code == 422
+    health = world.client.get("/v1/travel/health")  # declared before /v1/travel/{country}: not a code refused
+    assert health.status_code == 200 and len(health.json()["items"]) == 30
+    assert [a["id"] for a in health.json()["agencies"]] == ["ecdc", "who", "cdc"]
+    kenya = world.client.get("/v1/travel/KE").json()["health"]
+    assert kenya["country"] == "KE" and [i["countries"] for i in kenya["items"]] == [["KE", "NG"]]
+    assert kenya["items"][0]["derived"] == ["countries"]

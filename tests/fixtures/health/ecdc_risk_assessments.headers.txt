@@ -1,0 +1,10 @@
+# https://www.ecdc.europa.eu/en/taxonomy/term/1295/feed
+# recorded 2026-10-28T22:03:34Z, HTTP 200
+content-type: application/rss+xml; charset=utf-8
+content-length: 2440
+date: Wed, 28 Oct 2026 22:00:11 GMT
+expires: Sun, 19 Nov 1978 05:00:00 GMT
+last-modified: Wed, 28 Oct 2026 21:31:00 GMT
+cache-control: public, max-age=300, s-maxage=300
+etag: "1793223060-gzip"
+age: 202

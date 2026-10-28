@@ -713,6 +713,18 @@ country, 1 to 2 when there is no status at all, and **1 up to the strictest stat
 of the rest of the country: in Ukraine, on 2026-10-28, the two statuses for parts cover the whole map). A Dutch advice that names several
 colours, a level of words no table knows, and an unknown FCDO status give no common step (`null`).
 
+### Health threats (ECDC)
+
+`app/collectors/health.py` reads three RSS feeds of the ECDC, each the ten latest items: the epidemiological updates
+(`taxonomy/term/1310`, 6.8 kB), the threat and risk assessments (`1295`, 9.0 kB) and the weekly Communicable disease threats report
+(`1505`, 8.9 kB). Each answers `ETag` and `Last-Modified` and a conditional request was answered `304` (measured on 2026-10-28). They
+are asked **every hour, conditionally**: 72 requests a day, mostly `304`. The ECDC publishes a report a week (on Fridays) and a few
+updates and assessments a month (on 2026-10-28 the ten latest updates spanned seven months): an hour of delay is the trade-off. An
+item keeps the ECDC's title, summary (HTML, as given), date and link. **The countries of an item are ours**: the feeds name none, so
+`app/services/health.py` looks for the English names of the countries (those of `app/data/countries.geojson.gz`, and the few other
+names of `ALIASES`) in the title and the summary, whole words with their capitals, the longest first ("Guinea-Bissau" is not
+"Guinea"); `countries` is listed in `derived`.
+
 ## Call volume
 
 NASA FIRMS adds nothing when nobody asks the fire routes, and with someone asking 86 requests and about 56 MB a day at the refresh of an hour, with no key and no transaction (the first version cost 60 world reads, 2,160 transactions and about 170 MB: see "Active fires").
@@ -773,7 +785,7 @@ hours and reported by `GET /v1/providers` (`calls_24h`, `weight_24h`, `quota`). 
 `app/collectors/budget.py` (`QUOTAS`), and listed with their source page in [`SOURCES.md`](../SOURCES.md):
 Open-Meteo (one quota for its four APIs: forecast, air quality, river discharge, marine), MET Norway,
 RainViewer and ECCC (a usage-policy line of 86,400 requests a day: a threshold to tell ECCC about, kept as a limit all the same) have one. NASA FIRMS has one too for its area API, in transactions: 5,000 in 10 minutes, and a world read of a day weighs 36 (this API reads that API only as a fallback, with a key; the static files weigh nothing). NOAA NWS has a limit that "is not public information", and USGS, EMSC, GDACS,
-USGS Volcano, NOAA SWPC, the NHC, the tsunami centres, MeteoAlarm, the DWD, MetService and Vigicrues publish none: no budget for them (**not verified**), their calls are only counted. Of the travel advice sources, the GOV.UK Content API publishes one (10 requests a second per client, `travel_gb`); the four others publish none that was found. The services of the WMO registry publish none either; the set has a ceiling of 50,000 requests a day (`wmo_swic`), which is ours and not a published limit.
+USGS Volcano, NOAA SWPC, the NHC, the tsunami centres, MeteoAlarm, the DWD, MetService and Vigicrues publish none: no budget for them (**not verified**), their calls are only counted. Of the travel advice sources, the GOV.UK Content API publishes one (10 requests a second per client, `travel_gb`); the four others publish none that was found, and neither does the ECDC (`health_ecdc`). The services of the WMO registry publish none either; the set has a ceiling of 50,000 requests a day (`wmo_swic`), which is ours and not a published limit.
 
 The budget lets through 90 % of each limit (`VIGIE_BUDGET_FRACTION`): a margin for another program on
 the same IP address and for the difference between this count and the provider's. A request that

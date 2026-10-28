@@ -90,6 +90,7 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
 | `GET /v1/vigilances/archive`, `GET /v1/vigilances/archive/stats` | Every official warning this instance saw, kept as it was served, filtered by country, area, source, phenomenon, level and period, with the hours each source was read; and what the archive weighs per day. See "The archive of the official warnings" below. |
 | `GET /v1/travel` | The travel advice of five foreign ministries (United Kingdom, United States, Canada, Australia, the Netherlands): each one's level for each country in its own words, and whether they disagree (Vigie's comparison, not an official level). See "Travel advice" below. |
 | `GET /v1/travel/{country}` | One country: every ministry's advice with its text untouched, the date of its version, when Vigie read it, and the versions this instance has archived. |
+| `GET /v1/travel/health` | The ECDC's recent publications on communicable disease threats, in its words; the countries each one names are matched by Vigie. The WHO and the CDC are linked, not read. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Watched zones (the watchlist). A zone needs its `utc_offset_s`. |
 | `GET/POST /v1/watched-points`, `DELETE /v1/watched-points/{id}` | The points you watch (a place, a fault, a volcano...), each with a radius. **Personal**: listed here and in the status, never in the hazards. `POST` and `DELETE` are **off** (403) unless `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`. |
 | `GET /v1/watched-points/status?days=7` | For each watched point, the events within its radius over the last days, and `quiet` only when every hazard source answered and was read without a gap. |
@@ -454,6 +455,11 @@ GET /v1/travel/UG         Uganda: the texts, the comparison and the archive
   one marked `first`. The FCDO publishes its own history of changes: it is in `source_history`, as given.
 - The FCDO's 226 pages are read once, then only the ones that change; until that first read is over (a minute or two), the FCDO says
   `loading`. The tables, the costs and the licences: [`docs/data-sources.md`](docs/data-sources.md) and [`SOURCES.md`](SOURCES.md).
+- **Health**: `GET /v1/travel/health` relays the latest publications of the ECDC (European Centre for Disease Prevention and Control) on
+  communicable disease threats, each with its title, summary, date and link as given (CC BY 4.0). Its feeds name no country:
+  `countries` is **matched by Vigie** on the names in the title and the summary (in `derived`), and a country can be named for another
+  reason than a threat there. `GET /v1/travel/{country}` carries the items that name the country (`health`). The WHO and the CDC are
+  listed with the reason they are linked, not read.
 
 ## Storms and tsunamis
 
