@@ -116,6 +116,7 @@ from app.services.geodesy import (
 from app.services.geoindex import CountryIndex, GeometryIndex, default_countries, default_geometries
 from app.services.places import FaultIndex, NearPlacesService, PlaceSettings
 from app.services.storage_wal import DEFAULT_WATCHLIST_SEED, SQLiteWALStorage
+from app.services.travel import TravelService
 from app.services.travel_store import TravelStore
 from app.services.vigilance import NWS_COUNTRY, TSUNAMI_SOURCE, VigilanceService
 from app.services.vigilance_archive import VigilanceArchive
@@ -252,8 +253,9 @@ class AggregatorService:
         self.storage = storage or SQLiteWALStorage(db_path=db_path)
         # The FCDO pages read one by one survive a restart, in the same database (a storage without a file keeps none).
         db_file = getattr(self.storage, "db_path", None)
-        if self.travel_gb.store is None and db_file is not None:
-            self.travel_gb.store = TravelStore(db_file)
+        travel_store = TravelStore(db_file) if db_file is not None else None
+        if self.travel_gb.store is None:
+            self.travel_gb.store = travel_store
         self.monitored_zones: list[dict[str, Any]] = [
             z.model_dump() for z in self.storage.list_zones()
         ]
@@ -286,6 +288,12 @@ class AggregatorService:
             swic_registry=self.swic_registry if self.wmo_sources != "off" else None,
             swic_mode=self.wmo_sources,
             archive=self.vigilance_archive,
+        )
+        # The travel advice: every ministry's level for each country, one country's texts, and the archive of the versions.
+        self.travel = TravelService(
+            {"gb": self.travel_gb, "us": self.travel_us, "ca": self.travel_ca, "au": self.travel_au, "nl": self.travel_nl},
+            countries=self.vigilances.countries,
+            store=travel_store,
         )
 
     @property

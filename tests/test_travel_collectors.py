@@ -84,13 +84,14 @@ def test_the_department_of_state_answer_is_read_whole() -> None:
     assert iraq.source_code == "destination.irq" and iraq.url.endswith("destination.irq.html")
     assert iraq.published_utc == 1792713600 and iraq.checked_utc == NOW  # 2026-10-22T20:00:00-04:00
     assert iraq.summary[0].format == "html" and iraq.summary[0].content.startswith("Do not travel<p>to <b>Iraq </b>")
-    assert iraq.derived == ["country", "common_min", "common_max"] and iraq.attribution == credit_text("travel_us")
+    assert iraq.derived == ["country", "part", "common_min", "common_max"] and iraq.attribution == credit_text("travel_us")
 
 
 def test_a_country_with_two_american_pages_keeps_both_titles_and_one_page_per_title() -> None:
     feed = t.parse_us(samples.payload("us_travel_advisories"), NOW)
     palestine = sorted((a.title, a.level) for a in feed.advices if a.country == "PS")
     assert palestine == [("Gaza", 4), ("The West Bank", 3)]
+    assert all(a.part for a in feed.advices if a.country == "PS") and not one(feed, "IQ").part
     assert [a.source_code for a in feed.advices if a.country == "TO"] == ["destination.ton"]  # the newer of the two Tonga pages
 
 
@@ -121,6 +122,7 @@ def test_the_canadian_index_gives_both_languages_and_the_regional_flag() -> None
     # Two parts of a country have advices of their own: the Azores (PT-20) and the Canary Islands (IC).
     assert sorted(a.title for a in feed.advices if a.country == "PT") == ["Azores", "Portugal"]
     assert sorted(a.title for a in feed.advices if a.country == "ES") == ["Canary Islands", "Spain"]
+    assert sorted((a.title, a.part) for a in feed.advices if a.country == "PT") == [("Azores", True), ("Portugal", False)]
     afghanistan = one(feed, "AF")
     assert afghanistan.level == 4 and afghanistan.level_texts["en"] == "Avoid all travel"
 

@@ -64,6 +64,9 @@ US_PAGES: dict[str, Optional[str]] = {
     "french-west-indies-travel-advisory": None,
 }
 
+# The American pages about a part of a country only (its advice is not the advice of the whole country).
+US_PART_PAGES = frozenset({"destination.xgz", "destination.xwb", "destination.xqx", "destination.bes"})
+
 # The pages of the FCDO (``foreign-travel-advice/<page>``) -> ISO alpha-2 (several codes, separated by a space, when the
 # page covers several territories).
 GB_PAGES: dict[str, str] = {
@@ -155,6 +158,17 @@ CA_CODES: dict[str, str] = {"PT-20": "PT", "IC": "ES"}
 
 # The Netherlands: the codes that are not in ``ALPHA3_TO_ALPHA2``.
 NL_CODES: dict[str, str] = {"BQ-BO": "BQ", "BQ-SA": "BQ", "BQ-SE": "BQ"}
+
+
+def is_part(ministry: str, code: str) -> bool:
+    """True when the ministry's destination ``code`` is a part of a country (Gaza, the Azores, Bonaire), not all of it."""
+    if ministry == "us":
+        return code in US_PART_PAGES
+    if ministry == "ca":
+        return code in CA_CODES
+    if ministry == "nl":
+        return code in NL_CODES
+    return False
 
 
 def _codes(value: Optional[str]) -> tuple[str, ...]:

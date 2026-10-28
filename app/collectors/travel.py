@@ -140,7 +140,7 @@ def _obj(value: Any) -> dict[str, Any]:
 
 
 def _derived(*extra: str, common: bool = True) -> list[str]:
-    return ["country", *extra, *(["common_min", "common_max"] if common else [])]
+    return ["country", "part", *extra, *(["common_min", "common_max"] if common else [])]
 
 
 # --- United States -----------------------------------------------------------------------------------------------------
@@ -175,6 +175,7 @@ def parse_us(payload: Any, checked_utc: int) -> TravelFeed:
                     ministry="us",
                     country=country,
                     source_code=page.group(1),
+                    part=codes.is_part("us", page.group(1)),
                     title=name,
                     level=step,
                     level_texts={"en": match.group("level")},
@@ -267,6 +268,7 @@ def parse_ca_index(payload: Any, checked_utc: int) -> TravelFeed:
                 ministry="ca",
                 country=countries[0],
                 source_code=code,
+                part=codes.is_part("ca", code),
                 title=name,
                 level=step,
                 level_texts=levels,
@@ -476,6 +478,7 @@ def parse_nl(items: list[Any], checked_utc: int) -> TravelFeed:
                 ministry="nl",
                 country=countries[0],
                 source_code=code,
+                part=codes.is_part("nl", code),
                 title=name,
                 level=step,
                 level_texts={"nl": colour} if colour else {},

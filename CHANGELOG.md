@@ -23,8 +23,12 @@ All notable changes to this project are documented here. The format follows
   at a time: the level in the ministry's own words, its text untouched, the date of its version and the time Vigie read it. The
   FCDO's 226 pages are read once and then only when they change, and kept in the database across restarts. The country codes and
   a common scale to compare the ministries are Vigie's, named in `derived`, never an official level; the areas inside a country
-  stay text. Five new providers in `GET /v1/providers` (`travel_*`), licences and commercial use in `SOURCES.md`. No route serves
-  them yet.
+  stay text. Five new providers in `GET /v1/providers` (`travel_*`), licences and commercial use in `SOURCES.md`.
+- **`GET /v1/travel`**: every ministry's level for each country and whether they disagree (Vigie's comparison on a common scale, not
+  an official level), with the ministries that are not read and why (Germany, France). **`GET /v1/travel/{country}`**: every advice
+  of one country with its text untouched, the FCDO's own history of changes, and the versions this instance archives from the day it
+  first reads the ministries. The scheduler keeps them fresh in a loop of its own, every 10 minutes (a request only once an hour per
+  ministry). [ADR 0013](docs/decisions/0013-travel-advice-side-by-side.md).
 - The Vigie logo, an eye with an orange iris, at the top of the README (`docs/logo.svg`), the same as the
   website's.
 - **Commercial use, per source** (`app/commercial.py`, a new section of `SOURCES.md`): for the paid Android app to come
