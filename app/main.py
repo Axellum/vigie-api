@@ -47,7 +47,9 @@ Endpoints:
                                      source, phenomenon, level and period, with the hours each source was read.
 - ``GET    /v1/vigilances/archive/stats``: What the archive took in per day and what it weighs on disk.
 - ``GET    /v1/events``            : Events instead of lines: the official warnings of one phenomenon, level and region grouped, the
-                                     earthquakes of one sequence, each other hazard, of the world or of a country (ADR 0012).
+                                     earthquakes of one sequence, each other hazard, of the world or of a country, ranked by an
+                                     impact score (``min_impact=60``: what counts in a world view) and filtered by family (ADR 0012).
+- ``GET    /v1/families``          : The families of phenomena (wind, rain and floods, ..., space weather) and what each holds.
 - ``POST   /v1/simulate``          : Inject a simulated scenario (always labelled as a simulation). Off unless
                                      ``VIGIE_ENABLE_SIMULATION=1``: it answers 403 otherwise.
 - ``WS     /v1/stream``            : Real-time WebSocket stream for connected terminals.
@@ -71,7 +73,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app import __version__
 from app.models.earthquakes import EarthquakesQuery, EarthquakesResponse
-from app.models.events import EventsResponse
+from app.models.events import EventsResponse, FamiliesResponse
 from app.models.fires import FiresCollection, FiresGrid
 from app.models.forecast import HazardForecast
 from app.models.places import WatchedPoint, WatchedPointUpsertRequest
@@ -106,6 +108,7 @@ from app.routers.dashboard import router as dashboard_router
 from app.security import AdminTokenMiddleware, admin_token, document_admin_token
 from app.services import earthquakes as quakes
 from app.services.aggregator import AggregatorService
+from app.services.events import FAMILIES, FAMILIES_NOTE, FAMILY_IDS, WORLD_MIN_IMPACT
 from app.services.fires import (
     CELL_SIZES,
     CELLS_DEFAULT,
@@ -875,7 +878,10 @@ async def get_vigilance_countries(
         "names of the areas, the period, a box, and the warnings themselves (`alerts`, exactly as `GET /v1/vigilances` serves them). "
         "The earthquakes of one sequence (each within 100 km and 6 hours of another) are one event, a tsunami of the warning centres "
         "is one event with the official messages that carry its code, and any other hazard is an event of its own (`hazards`, as "
-        "`GET /v1/geojson/hazards` describes them). The highest level comes first. With `country` (ISO 3166-1 alpha-2), the warnings "
+        "`GET /v1/geojson/hazards` describes them). Each event has a family (`GET /v1/families`) and an impact score, 0 to 100, with its "
+        "reasons; the strongest impact comes first, and `min_impact=60` keeps what counts in a world view (the official orange and red "
+        "warnings, GDACS orange and red, an earthquake rated orange or red, every tropical cyclone, a volcano at watch or warning, every "
+        "tsunami message). With `country` (ISO 3166-1 alpha-2), the warnings "
         "and hazards of that country; without, the hazards of the world and the warnings of every country this instance serves, read "
         "through the same caches as `GET /v1/vigilances` (a feed is asked at most once per its cache lifetime, whatever the number of "
         "clients). `compact=true` leaves `alerts` and `hazards` out (their ids stay in `alert_ids`). What Vigie works out is listed in "
@@ -891,12 +897,37 @@ async def get_events(
         default=None, max_length=64, description="Keep only the texts of the warnings in these languages, e.g. `fr,en` (a prefix of the language tag). All by default"
     ),
     compact: bool = Query(default=False, description="Leave out `alerts` and `hazards` (their ids stay)"),
+    min_impact: Optional[int] = Query(
+        default=None, ge=0, le=100, description=f"Keep the events of at least this impact; {WORLD_MIN_IMPACT} keeps what counts in a world view"
+    ),
+    families: Optional[str] = Query(
+        default=None, max_length=200, description="Keep the events of these families, e.g. `wind,rain-flood` (`GET /v1/families`)"
+    ),
 ) -> EventsResponse:
-    """Events instead of lines: the warnings grouped, the earthquakes in sequences, the other hazards."""
+    """Events instead of lines: the warnings grouped, the earthquakes in sequences, the other hazards, the strongest impact first."""
     code = country.upper() if country else None
     if code is not None:
         _vigilance_request(None, None, code)
-    return await aggregator.events(code, parse_languages(lang), compact)
+    wanted = [family.strip() for family in families.split(",") if family.strip()] if families else None
+    unknown = [family for family in wanted or [] if family not in FAMILY_IDS]
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"Unknown families: {', '.join(unknown)}. The families: GET /v1/families")
+    return await aggregator.events(code, parse_languages(lang), compact, min_impact, wanted)
+
+
+@app.get(
+    "/v1/families",
+    response_model=FamiliesResponse,
+    tags=["Vigilances"],
+    description=(
+        "The families of phenomena Vigie groups the warnings and hazards in (ADR 0012): what a filter or a profile picks. Each lists the "
+        "`phenomenon` values of the warnings and the `category` values of the hazards it holds. The grouping is ours; the words of the "
+        "sources stay in each warning."
+    ),
+)
+async def get_families() -> FamiliesResponse:
+    """The families of phenomena and what each holds."""
+    return FamiliesResponse(families=list(FAMILIES), world_min_impact=WORLD_MIN_IMPACT, note=FAMILIES_NOTE)
 
 
 ARCHIVE_SOURCE_PATTERN = r"^(meteoalarm|noaa_nws|dwd|eccc|metservice|vigicrues|tsunami|swic(:[A-Za-z0-9_.-]{1,64})?)$"

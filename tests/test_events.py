@@ -75,7 +75,8 @@ def test_one_phenomenon_one_level_one_period_close_areas_is_one_event() -> None:
     assert event.bbox == [4.9, 44.9, 6.1, 46.1]
     assert event.alerts == warnings  # untouched, in the order of their start
     assert event.alert_ids == [w.id for w in warnings]
-    assert set(event.derived) == {"level", "title", "areas_count", "start_utc", "end_utc", "bbox"}
+    assert set(event.derived) == {"family", "impact", "impact_reasons", "level", "title", "areas_count", "start_utc", "end_utc", "bbox"}
+    assert (event.family, event.impact) == ("rain-flood", 21)  # yellow, and one more for the doubling of the areas
 
 
 def test_one_area_is_named_in_the_title() -> None:
@@ -258,9 +259,8 @@ def test_a_country_s_events_hold_every_warning_of_the_country_once(recorded: Wor
     assert answer["counts"]["events"] == len(answer["events"])
     assert answer["coverage"] == served["coverage"]
     assert answer["disclaimer"] and answer["attribution"] and "MeteoAlarm" in answer["attribution"]
-    levels = [e["level"] for e in answer["events"]]
-    rank = {"RED": 3, "ORANGE": 2, "YELLOW": 1, "GREEN": 0, None: -1}
-    assert [rank[x] for x in levels] == sorted((rank[x] for x in levels), reverse=True)
+    impacts = [e["impact"] for e in answer["events"]]
+    assert impacts == sorted(impacts, reverse=True)
 
 
 def test_compact_leaves_the_warnings_out_and_keeps_their_ids(recorded: World) -> None:

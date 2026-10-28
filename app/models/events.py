@@ -1,7 +1,7 @@
-"""Models of the events (``GET /v1/events``).
+"""Models of the events (``GET /v1/events``) and of the families of phenomena (``GET /v1/families``).
 
-An event is **ours**: a group of official warnings, a sequence of earthquakes, or one other hazard, with a short title, a level and
-a period that Vigie works out (listed in ``derived``). Inside, the warnings and hazards it groups are given as ``GET /v1/vigilances``
+An event is **ours**: a group of official warnings, a sequence of earthquakes, or one other hazard, with a short title, a level, a
+family, an impact score and a period that Vigie works out (listed in ``derived``). Inside, the warnings and hazards it groups are given as ``GET /v1/vigilances``
 and ``GET /v1/geojson/hazards`` give them: the words of the issuer untouched. How the groups are made:
 ``docs/decisions/0012-events-and-impact.md``.
 """
@@ -14,6 +14,43 @@ from pydantic import BaseModel, Field
 
 from app.models.schemas import HazardAlert, HazardCategory, SeverityLevel
 from app.models.vigilance import Vigilance, VigilanceCoverage, VigilancePhenomenon
+
+FamilyId = Literal[
+    "wind",
+    "rain-flood",
+    "thunderstorm",
+    "snow-ice",
+    "heat",
+    "cold",
+    "fire",
+    "coastal",
+    "earthquake",
+    "volcano",
+    "cyclone",
+    "tsunami",
+    "air",
+    "space",
+    "other",
+]
+
+
+class Family(BaseModel):
+    """A family of phenomena: what a filter or a profile picks, and what it holds."""
+
+    id: FamilyId
+    name: str = Field(..., description="English name (ours)")
+    phenomena: list[str] = Field(default_factory=list, description="The `phenomenon` values of the warnings in this family")
+    hazard_categories: list[str] = Field(default_factory=list, description="The `category` values of the hazards in this family")
+    note: Optional[str] = None
+
+
+class FamiliesResponse(BaseModel):
+    """The families of phenomena (``GET /v1/families``)."""
+
+    version: str = "1.0"
+    families: list[Family]
+    world_min_impact: int = Field(..., description="The `min_impact` of a world view: what counts (ADR 0012)")
+    note: str
 
 
 class Event(BaseModel):
@@ -32,6 +69,11 @@ class Event(BaseModel):
         default=None, description="For `warnings`: the phenomenon of the warnings (the API's own); null when the source names none the tables cover"
     )
     category: Optional[HazardCategory] = Field(default=None, description="For the other kinds: the category of the strongest hazard")
+    family: FamilyId = Field(..., description="DERIVED: the family of the phenomenon or category (`GET /v1/families`)")
+    impact: int = Field(
+        ..., ge=0, le=100, description="DERIVED: Vigie's impact score, 0 to 100 (ADR 0012); `min_impact=60` keeps what counts in a world view"
+    )
+    impact_reasons: list[str] = Field(default_factory=list, description="DERIVED: what the score rests on, in English")
     level: Optional[SeverityLevel] = Field(
         default=None, description="DERIVED: the level of the warnings, or the strongest severity of the hazards (or of the tsunami messages); null when unknown"
     )
@@ -61,18 +103,21 @@ class EventsQuery(BaseModel):
     """What was asked."""
 
     country: Optional[str] = None
+    min_impact: Optional[int] = None
+    families: Optional[list[str]] = None
     compact: bool = False
 
 
 class EventCounts(BaseModel):
-    """How many events, per level (the green ones are counted apart: a client leaves them out of its counters)."""
+    """How many events, per family and per level (the green ones are counted apart: a client leaves them out of its counters)."""
 
     events: int
+    by_family: dict[str, int] = Field(default_factory=dict)
     by_level: dict[str, int] = Field(default_factory=dict, description="Per level; `unknown` for an event whose level is not known")
 
 
 class EventsResponse(BaseModel):
-    """The events of the world or of a country, the strongest first."""
+    """The events of the world or of a country, the strongest impact first."""
 
     version: str = "1.0"
     server_utc: int
