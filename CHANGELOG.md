@@ -33,6 +33,13 @@ All notable changes to this project are documented here. The format follows
   against the reports of people who looked ([the measure](docs/measurements/aurora-2026-10.md)). Marked as ours in `derived`; not an
   official forecast. The clouds ride in the daily forecast request a place already costs (the weight stays 1.0). New dependency:
   `astronomy-engine` (MIT).
+- **Tides, computed by Vigie** from the EOT20 ocean tide model (DGFI-TUM, CC BY 4.0, bundled in `app/data`, 2.2 MB):
+  `GET /v1/tides?lat=&lon=` gives the heights, the high and low waters with their ranges, the tide now and an estimated (unofficial)
+  French coefficient; `GET /v1/tides/coast?bbox=` gives the tide now along the coasts of a box, for a map. No provider is asked. Measured
+  before release against the criterion of [ADR 0012](docs/decisions/0012-tides-from-a-global-model.md), fixed beforehand: it holds in
+  France (9 of 10 REFMAR ports) and fails in the United States (5 of 10 NOAA stations, inside harbours and bays); every answer says so.
+  Not for navigation. The data is built by `tools/build_tides.py`, the measure is `tools/measure_tides.py`
+  ([report](docs/measurements/tides-2026-10.md)).
 - The Vigie logo, an eye with an orange iris, at the top of the README (`docs/logo.svg`), the same as the
   website's.
 - **Commercial use, per source** (`app/commercial.py`, a new section of `SOURCES.md`): for the paid Android app to come

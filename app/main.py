@@ -30,6 +30,10 @@ Endpoints:
 - ``GET    /v1/sky/aurora``        : NOAA SWPC's aurora data (OVATION summary, Kp observed and predicted, solar wind, geomagnetic
                                      messages) and, for a position, Vigie's estimate of the coming night (ADR 0012, not SWPC's).
 - ``GET    /v1/sky/aurora.geojson``: SWPC's OVATION grid as map bands (RFC 7946).
+- ``GET    /v1/tides``             : The tide at a coastal point, computed by Vigie from the EOT20 ocean tide model (ADR 0012):
+                                     heights, high and low waters, ranges, the tide now and an estimated coefficient. Not for
+                                     navigation.
+- ``GET    /v1/tides/coast``       : The tide now along the coasts of a box (GeoJSON points), for a map.
 - ``GET    /v1/experimental/prealert`` : EXPERIMENTAL, UNOFFICIAL: the pre-alert levels Vigie computes for a province of Turkey
                                      (ADR 0011); 404 unless ``VIGIE_PREALERT_TR`` is on. Not an official warning.
 - ``GET    /v1/geojson/hazards``   : IETF RFC 7946 GeoJSON (``FeatureCollection``): one point per hazard.
@@ -66,15 +70,16 @@ import math
 import os
 import time
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Literal, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 
-from app import __version__
+from app import __version__, clock
 from app.models.earthquakes import EarthquakesQuery, EarthquakesResponse
 from app.models.events import EventsResponse, FamiliesResponse
 from app.models.fires import FiresCollection, FiresGrid
@@ -97,6 +102,7 @@ from app.models.schemas import (
     SnapshotResponse,
 )
 from app.models.sky import AuroraOvalCollection, AuroraResponse
+from app.models.tides import CoastalTides, TidesResponse
 from app.models.vigilance import (
     UncoveredCountry,
     VigilanceArchiveQuery,
@@ -111,6 +117,7 @@ from app.models.watch import WatchedPointsStatus
 from app.routers.dashboard import router as dashboard_router
 from app.security import AdminTokenMiddleware, admin_token, document_admin_token
 from app.services import earthquakes as quakes
+from app.services import tides
 from app.services.aggregator import AggregatorService
 from app.services.events import FAMILIES, FAMILIES_NOTE, FAMILY_IDS, WORLD_MIN_IMPACT
 from app.services.fires import (
@@ -574,6 +581,97 @@ async def get_earthquakes(
     """The earthquakes near a position, strongest first."""
     query = EarthquakesQuery(lat=round(lat, 4), lon=round(lon, 4), radius_km=radius_km, min_magnitude=min_magnitude, hours=hours)
     return await aggregator.earthquakes_near(query, limit)
+
+
+TIDES_ERRORS: dict[int | str, dict[str, Any]] = {
+    404: {"description": "No cell of the tide model within 30 km of the point (inland, or a coast the model does not resolve)."},
+    422: {"description": "A parameter is not valid, or the window is outside the years the tide can be computed for."},
+}
+TIDES_CACHE = "public, max-age=300"
+TIDE_INTERVALS = (10, 15, 30, 60)
+
+
+@app.get(
+    "/v1/tides",
+    response_model=TidesResponse,
+    tags=["Sea"],
+    responses=TIDES_ERRORS,
+    description=(
+        "The tide at a coastal point, **computed by Vigie** from the EOT20 ocean tide model at the nearest model cell (ADR 0012): the "
+        "heights every `interval_minutes`, the high and low waters with the range of each tide, the tide now (height, rising or falling, "
+        "next high and low water) and an **estimated** French coefficient (ours, unofficial: the official one is SHOM's). Heights are "
+        "relative to the model's mean sea level, not to a chart datum. No provider is asked. **Not for navigation**: the measure of "
+        "2026-10 found the model within a quarter of an hour on the open coasts of France, and up to two hours early inside harbours and "
+        "bays of the United States (`limits`, docs/measurements/tides-2026-10.md)."
+    ),
+)
+async def get_tides(
+    response: Response,
+    lat: float = Query(..., ge=-90.0, le=90.0, description="Latitude of the point (WGS84)"),
+    lon: float = Query(..., ge=-180.0, le=180.0, description="Longitude of the point (WGS84)"),
+    days: float = Query(default=2.0, gt=0.0, le=7.0, description="Length of the window (days, at most 7)"),
+    start: Optional[str] = Query(
+        default=None,
+        description="Start of the window, ISO 8601 (`2026-10-29` or `2026-10-29T06:00`; UTC unless an offset is given); default: now, "
+        "rounded down to the hour",
+    ),
+    interval_minutes: int = Query(default=30, description="Step of `heights` (minutes): 10, 15, 30 or 60"),
+) -> TidesResponse:
+    """The tide at a coastal point."""
+    if interval_minutes not in TIDE_INTERVALS:
+        raise HTTPException(status_code=422, detail="interval_minutes must be 10, 15, 30 or 60")
+    now = clock.wall()
+    try:
+        start_unix = _tide_start(start, now)
+        answer = await clock.run_blocking(tides.tides_at, round(lat, 4), round(lon, 4), start_unix, days, interval_minutes, now)
+    except tides.NoTideHere as error:
+        raise HTTPException(status_code=404, detail=str(error)) from None
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+    response.headers["Cache-Control"] = TIDES_CACHE
+    return answer
+
+
+def _tide_start(text: Optional[str], now: float) -> int:
+    """The start of a tide window in UTC epoch seconds, to the minute; now rounded down to the hour when none is given."""
+    if text is None:
+        return int(now // 3600 * 3600)
+    try:
+        moment = datetime.fromisoformat(text)
+    except ValueError:
+        raise ValueError("start must be an ISO 8601 date or date and time") from None
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return int(moment.timestamp() // 60 * 60)
+
+
+@app.get(
+    "/v1/tides/coast",
+    response_model=CoastalTides,
+    tags=["Sea"],
+    responses=TIDES_ERRORS,
+    description=(
+        "The tide **now** along the coasts of a box, for a map: the model cells next to the coast (EOT20, 1/8 degree), thinned to at most "
+        "`limit` (`metadata.spacing_deg`), each with its height, whether the tide rises or falls, and the next high and low water. "
+        "Computed by Vigie, same model and limits as `GET /v1/tides`; the answer is the same for five minutes. **Not for navigation.** "
+        "`bbox` is `west,south,east,north` in degrees (a west greater than the east crosses the antimeridian)."
+    ),
+)
+async def get_coastal_tides(
+    response: Response,
+    bbox: str = Query(..., description="`west,south,east,north` in degrees, e.g. `-6,43,3,51`"),
+    limit: int = Query(default=300, ge=1, le=1000, description="Most points returned"),
+) -> CoastalTides:
+    """The tide now along the coasts of a box."""
+    try:
+        box = parse_bbox(bbox)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+    answer = await clock.run_blocking(
+        tides.coastal_tides, box.south, box.north, box.lon_ranges, box.asked, clock.wall(), limit
+    )
+    response.headers["Cache-Control"] = TIDES_CACHE
+    return answer
 
 
 @app.get(

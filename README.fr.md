@@ -85,6 +85,7 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
 | `GET /v1/sky/aurora?lat=&lon=` | Les aurores : les données de NOAA SWPC telles qu'il les donne (résumé OVATION, Kp observé et prévu à 3 jours, vent solaire, messages géomagnétiques) et, pour un lieu, **l'estimation propre à Vigie** de la chance d'en voir une, heure par heure sur la nuit qui vient, avec le meilleur créneau (latitude magnétique, Kp, nuit, Lune, nuages prévus ; [ADR 0012](docs/decisions/0012-aurora-estimate.md), mesurée sur des nuits passées). Ce n'est pas une prévision officielle. |
 | `GET /v1/sky/aurora.geojson` | La prévision d'aurores OVATION de SWPC (30 à 90 minutes) en bandes pour la carte (GeoJSON). |
 | `GET /v1/fires?bbox=w,s,e,n`, `GET /v1/fires/grid` | Les feux actifs vus par NASA FIRMS (VIIRS, NOAA-20 et NOAA-21) : les détections d'une zone en GeoJSON, ou comptées par cellule pour les petits zooms. Sans clé (404 seulement sur une instance qui a désactivé la source avec `VIGIE_ENABLE_FIRMS=0`). Voir « Feux actifs » plus bas. |
+| `GET /v1/tides?lat=&lon=`, `GET /v1/tides/coast?bbox=w,s,e,n` | La marée en un point de côte (hauteurs, pleines et basses mers, marnages, la marée maintenant, un coefficient français estimé), ou la marée maintenant le long des côtes d'une zone : **calculée par Vigie** à partir du modèle de marée océanique EOT20, sans appel à une source. **Pas pour la navigation.** Voir « Marées » plus bas. |
 | `GET /v1/cap/alerts` | Dangers actifs en OASIS CAP 1.2. |
 | `GET /v1/vigilances?lat=&lon=` ou `?country=FR` ou `?source=tsunami` | Vigilances météo officielles qui couvrent un point, ou toutes celles d'un pays (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues et les services nationaux du registre de l'OMM), ou les messages de tsunami en cours, avec les mots de l'émetteur intacts. Voir plus bas. |
 | `GET /v1/vigilances/countries` | Les pays que cette instance sert avec ses réglages, les sources qui répondent pour chacun, et si leur licence est vérifiée. Avec `?uncovered=true`, tous les autres pays du monde aussi, chacun avec la raison pour laquelle rien n'y est lu. |
@@ -511,6 +512,32 @@ GET /v1/point?lat=-15.4&lon=28.3&fire_radius_km=50        fires_nearby : nombre,
   l'API de zone à la place. La clé est dans l'URL de ces requêtes : elle est masquée dans chaque erreur, dans `last_error` et dans les
   journaux. Gardez-la hors du dépôt et des commandes que vous partagez.
 
+## Marées
+
+`GET /v1/tides` et `GET /v1/tides/coast` calculent la marée **sur place**, à partir des constantes harmoniques du modèle de marée
+océanique **EOT20** (DGFI-TUM, CC BY 4.0) embarquées dans `app/data` (2,2 Mo, construites par `tools/build_tides.py`, qui vérifie le
+résultat contre pyTMD à 4 mm près). Aucune source n'est appelée, aucun quota n'est consommé
+([ADR 0012](docs/decisions/0012-tides-from-a-global-model.md)).
+
+```
+GET /v1/tides?lat=43.48&lon=-1.56                          les deux prochains jours à Biarritz, toutes les 30 minutes
+GET /v1/tides?lat=48.64&lon=-2.03&start=2026-11-03&days=3&interval_minutes=10
+GET /v1/tides/coast?bbox=-6,43,3,51.5                      la marée maintenant le long des côtes d'une zone, pour une carte
+```
+
+- **Ce qui est calculé** : les hauteurs toutes les `interval_minutes` (10, 15, 30 ou 60) sur `days` jours (7 au plus) à partir de
+  `start` (par défaut : maintenant, arrondi à l'heure), les pleines et basses mers avec le marnage de chaque marée, la marée maintenant
+  (hauteur, montante ou descendante, prochaines pleine et basse mer) et un coefficient français **estimé** (100 fois le marnage de chaque
+  marée à Brest divisé par 6,10 m : le nôtre, non officiel ; le coefficient officiel est celui du SHOM et n'est pas utilisé). Les heures
+  sont en secondes UTC ; les hauteurs sont rapportées au **niveau moyen du modèle**, pas au zéro hydrographique d'un port.
+- **Où** : un point reçoit la marée de la cellule du modèle (1/8 de degré) la plus proche à moins de 30 km, entre 66° S et 66° N ;
+  ailleurs, une 404.
+- **Ce qu'elle vaut, mesuré** ([rapport](docs/measurements/tides-2026-10.md)) : sur les côtes de France, contre les marégraphes REFMAR,
+  9 ports sur 10 passent le critère fixé avant la mesure (pleines et basses mers à 3 à 18 minutes près, Le Havre 23) ; aux États-Unis,
+  contre NOAA, 5 sur 10 : au fond d'un port, d'une baie ou d'un bras de mer, le modèle donne la marée plus précoce de la côte ouverte
+  (New York 67 minutes, Pensacola plus de deux heures), et dans le Puget Sound il se trompe. Chaque réponse le dit (`limits`).
+  **Pas pour la navigation.**
+
 ## Lieux proches d'un danger, et points surveillés
 
 Un séisme ou un événement volcanique dit de quoi il est proche. Chaque danger de `/v1/geojson/hazards` (et de `/v1/history`, et de
@@ -788,6 +815,7 @@ NHC et les centres d'alerte aux tsunamis compris). Une exécution rouge
 | Météo spatiale | NOAA SWPC |
 | Météo | Open-Meteo (principale), MET Norway (secours), RainViewer (radar) |
 | Mer, débit des rivières, qualité de l'air | Open-Meteo Marine, Flood (GloFAS), Air Quality (CAMS) |
+| Marées (calculées) | Modèle de marée océanique EOT20 (DGFI-TUM, CC BY 4.0, embarqué) ; mesuré contre REFMAR (SHOM) et NOAA CO-OPS |
 
 Licence, conditions, crédit, quota et clauses de chaque source, et ce qui n'est pas vérifié :
 [`SOURCES.md`](SOURCES.md). Comment chacune est mise en cache et ce qu'elle coûte en appels :
