@@ -5,6 +5,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The Vigie logo, an eye with an orange iris, at the top of the README (`docs/logo.svg`), the same as the
+  website's.
+
 ## [1.1.0] - 2026-10-28
 
 ### Added
