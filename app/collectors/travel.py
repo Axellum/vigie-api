@@ -63,6 +63,10 @@ CA_INDEX_URL = "https://data.international.gc.ca/travel-voyage/index-updated.jso
 CA_DETAIL_URL = "https://data.international.gc.ca/travel-voyage/cta-cap-{code}.json"
 CA_PAGE_EN = "https://travel.gc.ca/destinations/{slug}"
 AU_URL = "https://www.smartraveller.gov.au/destinations-export"
+# Smartraveller's server lets no answer through to a User-Agent that holds an address: with a URL or an e-mail in it (the
+# contact of ``VIGIE_CONTACT``) the request waits until it times out, with ``vigie-api``, ``vigie-api/1.1.0`` or
+# ``vigie-api (personal project)`` it is answered at once (measured on 2026-10-28). It is sent the name alone.
+AU_USER_AGENT = "vigie-api"
 NL_URL = "https://opendata.nederlandwereldwijd.nl/v2/sources/nederlandwereldwijd/infotypes/traveladvice"
 NL_PAGE_SIZE = 200  # the most the feed gives in one answer (rows=200)
 NL_MAX_PAGES = 5
@@ -413,7 +417,7 @@ class SmartravellerCollector(BaseCollector[TravelFeed]):
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> Collected[TravelFeed]:
         previous: Optional[CacheEntry[TravelFeed]] = kwargs.get("previous")
-        resp = await self._get(client, AU_URL, headers=_conditional(previous))
+        resp = await self._get(client, AU_URL, headers={"User-Agent": AU_USER_AGENT, **_conditional(previous)})
         now = int(clock.wall())
         if resp.status_code == 304:
             if previous is None:
