@@ -197,6 +197,14 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "Licence Ouverte 2.0 (Etalab): the source and the date of the data named.",
             ("https://www.etalab.gouv.fr/licence-ouverte-open-licence/",),
         ),
+        CommercialUse(
+            "eot20",
+            "allowed",
+            "CC BY 4.0 (the SEANOE page): the credit, a link to the licence and a statement of the changes. Computed by "
+            "Vigie, with no request to anyone.",
+            ("https://www.seanoe.org/data/00683/79489/", "https://creativecommons.org/licenses/by/4.0/"),
+            "2026-10-28",
+        ),
     )
 }
 

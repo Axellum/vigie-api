@@ -54,6 +54,7 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | `app/models/places.py`, `app/services/places.py` | `near_places` of a hazard: the named active faults (`FaultIndex`, `shapely.STRtree`), and the volcanoes in alert (never the watched points: they are personal and the hazards are shared); the radii are settings (`PlaceSettings`). Calculated by Vigie, named in `derived`, never a severity ([ADR 0008](decisions/0008-sensitive-points.md)). |
 | `app/models/earthquakes.py`, `app/services/earthquakes.py` | The earthquakes near a position (`GET /v1/earthquakes`): the earthquakes the feeds list now and those of the history, merged when two sources report one, within a radius and a window; no weather provider is asked. |
 | `app/models/watch.py`, `app/services/watch.py` | The status of the watched points (`GET /v1/watched-points/status`): the events within each radius, and `quiet` only when every hazard source answered and has been read without a gap (`SourceReads`). |
+| `app/models/tides.py`, `app/services/tides.py` | The tide computed from the EOT20 model bundled in `app/data` (`GET /v1/tides`, `GET /v1/tides/coast`): the nearest cell within 30 km, the sum of the 34 constituents, the high and low waters, the estimated coefficient; no provider is asked ([ADR 0013](decisions/0013-tides-from-a-global-model.md)). |
 | `app/services/geodesy.py` | Haversine distance, bearing, tsunami ETA, de-duplication of hazards across agencies. |
 | `app/services/embedded_frame.py` | Serializes the snapshot (and an optional GPS point) to the text frame, with its CRC32. |
 | `app/services/storage_wal.py` | SQLite in WAL mode: watchlist, watched points, hazard history, last snapshot, the runs of readings of the hazard sources, the archive of the official warnings. |
@@ -97,7 +98,8 @@ The decisions and their reasons: [ADR 0002](decisions/0002-official-warnings-kep
 [ADR 0010](decisions/0010-forecast-model-blend.md) (the forecast models: measured, the mean of eight for the minimum and the far maximum),
 [ADR 0011](decisions/0011-unofficial-pre-alert-turkey-shadow-pilot.md) (an unofficial pre-alert for Turkey: a pilot, the
 criteria it must meet, and an opt-in experimental view for testers),
-[ADR 0012](decisions/0012-events-and-impact.md) (events instead of lines: how the warnings and hazards are grouped, the impact score, the families).
+[ADR 0012](decisions/0012-events-and-impact.md) (events instead of lines: how the warnings and hazards are grouped, the impact score, the families),
+[ADR 0013](decisions/0013-tides-from-a-global-model.md) (the tide computed from a global model, and the criterion it was measured by).
 Rules that hold the whole model:
 
 - **The official words stay intact.** The identifier, the times, the original level and phenomenon, the

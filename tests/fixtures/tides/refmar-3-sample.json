@@ -1,0 +1,424 @@
+{
+"data": [
+{
+"idstation": 3,
+"idsource": 1,
+"value": 2.7246,
+"timestamp": "2026/09/27 00:00:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 2.7541,
+"timestamp": "2026/09/27 00:01:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 2.7801,
+"timestamp": "2026/09/27 00:02:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 2.8017,
+"timestamp": "2026/09/27 00:03:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 2.8219,
+"timestamp": "2026/09/27 00:04:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 2.8407,
+"timestamp": "2026/09/27 00:05:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 2.8635,
+"timestamp": "2026/09/27 00:06:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 2.8885,
+"timestamp": "2026/09/27 00:07:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 2.9163,
+"timestamp": "2026/09/27 00:08:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 2.9428,
+"timestamp": "2026/09/27 00:09:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 2.9677,
+"timestamp": "2026/09/27 00:10:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 2.9897,
+"timestamp": "2026/09/27 00:11:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.0065,
+"timestamp": "2026/09/27 00:12:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.0255,
+"timestamp": "2026/09/27 00:13:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.0453,
+"timestamp": "2026/09/27 00:14:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.0695,
+"timestamp": "2026/09/27 00:15:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.0965,
+"timestamp": "2026/09/27 00:16:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.1239,
+"timestamp": "2026/09/27 00:17:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.1494,
+"timestamp": "2026/09/27 00:18:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.1697,
+"timestamp": "2026/09/27 00:19:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.1905,
+"timestamp": "2026/09/27 00:20:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.2115,
+"timestamp": "2026/09/27 00:21:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.2374,
+"timestamp": "2026/09/27 00:22:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.2661,
+"timestamp": "2026/09/27 00:23:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.2961,
+"timestamp": "2026/09/27 00:24:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.3261,
+"timestamp": "2026/09/27 00:25:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.3525,
+"timestamp": "2026/09/27 00:26:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.3742,
+"timestamp": "2026/09/27 00:27:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.3941,
+"timestamp": "2026/09/27 00:28:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.4179,
+"timestamp": "2026/09/27 00:29:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.4456,
+"timestamp": "2026/09/27 00:30:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.4735,
+"timestamp": "2026/09/27 00:31:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.5021,
+"timestamp": "2026/09/27 00:32:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.5235,
+"timestamp": "2026/09/27 00:33:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.5431,
+"timestamp": "2026/09/27 00:34:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.5625,
+"timestamp": "2026/09/27 00:35:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.5819,
+"timestamp": "2026/09/27 00:36:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.606,
+"timestamp": "2026/09/27 00:37:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.635,
+"timestamp": "2026/09/27 00:38:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.6637,
+"timestamp": "2026/09/27 00:39:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.6896,
+"timestamp": "2026/09/27 00:40:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.7124,
+"timestamp": "2026/09/27 00:41:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.7356,
+"timestamp": "2026/09/27 00:42:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.7593,
+"timestamp": "2026/09/27 00:43:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.7862,
+"timestamp": "2026/09/27 00:44:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.8165,
+"timestamp": "2026/09/27 00:45:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.8459,
+"timestamp": "2026/09/27 00:46:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.8751,
+"timestamp": "2026/09/27 00:47:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.9019,
+"timestamp": "2026/09/27 00:48:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.9239,
+"timestamp": "2026/09/27 00:49:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.9469,
+"timestamp": "2026/09/27 00:50:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.9711,
+"timestamp": "2026/09/27 00:51:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 3.9955,
+"timestamp": "2026/09/27 00:52:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 4.02,
+"timestamp": "2026/09/27 00:53:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 4.0459,
+"timestamp": "2026/09/27 00:54:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 4.0725,
+"timestamp": "2026/09/27 00:55:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 4.0925,
+"timestamp": "2026/09/27 00:56:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 4.1149,
+"timestamp": "2026/09/27 00:57:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 4.1395,
+"timestamp": "2026/09/27 00:58:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 4.1614,
+"timestamp": "2026/09/27 00:59:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 4.1896,
+"timestamp": "2026/09/27 01:00:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 4.2186,
+"timestamp": "2026/09/27 01:01:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 4.2483,
+"timestamp": "2026/09/27 01:02:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 4.2759,
+"timestamp": "2026/09/27 01:03:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 4.3017,
+"timestamp": "2026/09/27 01:04:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 4.3247,
+"timestamp": "2026/09/27 01:05:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 4.3459,
+"timestamp": "2026/09/27 01:06:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 4.374,
+"timestamp": "2026/09/27 01:07:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 4.4008,
+"timestamp": "2026/09/27 01:08:00"
+},
+{
+"idstation": 3,
+"idsource": 1,
+"value": 4.4271,
+"timestamp": "2026/09/27 01:09:00"
+}
+]
+}

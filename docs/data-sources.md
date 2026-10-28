@@ -626,6 +626,25 @@ The Sun and the Moon of every hour are computed by `astronomy-engine` (MIT), the
 `app/data/apex-latitudes.json.gz` (IGRF-14, `tools/build_magnetic_latitudes.py`): nothing is asked for them. The estimate itself, its
 settings and its measure: [ADR 0012](decisions/0012-aurora-estimate.md) and [the measure](measurements/aurora-2026-10.md).
 
+## Tides (computed, no provider)
+
+`GET /v1/tides` and `GET /v1/tides/coast` ask **no provider**: the tide is the sum of 34 cosines, from the constants of the EOT20 cells near
+a coast and a table of the astronomical arguments, both in `app/data` ([ADR 0013](decisions/0013-tides-from-a-global-model.md),
+`app/services/tides.py`). They cost no call and no quota, whatever the number of clients.
+
+| What | Where it comes from | Cost |
+| --- | --- | --- |
+| `tides-eot20.npz` (2.0 MB): 110,685 ocean cells of EOT20 (1/8 degree) within 3 cells of the model's land, between 66 S and 66 N, 17 complex constants each, to the millimetre | `tools/build_tides.py`, from the ocean tide files of EOT20 (SEANOE, 2.3 GB downloaded once, by whoever rebuilds) | Read once: 9 MB of arrays in memory; a 7-day answer takes about 35 ms of one core and 7 MB while it is computed (measured on the PC) |
+| `tides-arguments.npz` (0.2 MB): the nodal factor and the phase of the 34 constituents every 10 days, 2024 to 2045 | The same tool, with pyTMD 3.0.9 (FES nodal corrections; the inference of the 17 minor constituents read from pyTMD itself) | The API answers 422 outside these years: rebuild before 2045 |
+
+- **Checked against pyTMD** by the build tool (7 places, 2026, 2035 and 2044: 3.9 mm at most) and by `tests/test_tides.py` (a fixture of
+  pyTMD's own prediction).
+- **Measured against the sea** by `tools/measure_tides.py`, which asks REFMAR (one request per 16 days per tide gauge) and NOAA CO-OPS
+  (two per station) once and keeps the answers in a cache folder ([report](measurements/tides-2026-10.md)). The API never asks them.
+- **Answers**: `Cache-Control: public, max-age=300`. `/v1/tides` computes the curve every minute over the window and a day around it
+  (a few tens of milliseconds); `/v1/tides/coast` computes at most `limit` cells every 5 minutes over 39 hours, and keeps the 64 last
+  answers for five minutes.
+
 ## Call volume
 
 NASA FIRMS adds nothing when nobody asks the fire routes, and with someone asking 86 requests and about 56 MB a day at the refresh of an hour, with no key and no transaction (the first version cost 60 world reads, 2,160 transactions and about 170 MB: see "Active fires").

@@ -19,6 +19,8 @@ dependencies = [
     "shapely>=2.0.0",
     # The Sun and the Moon of the aurora estimate (ADR 0012); MIT.
     "astronomy-engine>=2.1.19",
+    # The tide (app/services/tides.py) is computed with numpy; shapely brings it too.
+    "numpy>=1.26",
 ]
 
 [project.optional-dependencies]
@@ -39,9 +41,9 @@ dev = [
 include = ["app*"]
 
 # The reference data: the shapes the warnings are localized with (tools/build_geometries.py), the named active faults
-# (tools/build_faults.py; CC BY-SA 4.0, its notice goes with it).
+# (tools/build_faults.py; CC BY-SA 4.0, its notice goes with it), the tide model's constants (tools/build_tides.py; CC BY 4.0).
 [tool.setuptools.package-data]
-app = ["data/*.geojson.gz", "data/*.json.gz", "data/*.json", "data/*.md"]
+app = ["data/*.geojson.gz", "data/*.json.gz", "data/*.json", "data/*.md", "data/*.npz"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

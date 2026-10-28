@@ -168,6 +168,14 @@ CREDITS: dict[str, Credit] = {
             "suggested",
         ),
         Credit(
+            "eot20",
+            "EOT20 ocean tide model (DGFI-TUM)",
+            "Tides computed by Vigie from the EOT20 ocean tide model (Hart-Davis et al. 2021, DGFI-TUM, SEANOE, "
+            "https://doi.org/10.17882/79489), CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); constants kept near the coasts "
+            "and rounded by Vigie. Not for navigation",
+            "ours",
+        ),
+        Credit(
             "vigicrues",
             "Vigicrues (SCHAPI)",
             "Source: Vigicrues, Service central d'hydrométéorologie et d'appui à la prévision des inondations (SCHAPI), "
@@ -221,6 +229,7 @@ SPACE_WEATHER = ("noaa_swpc",)
 RADAR = ("rainviewer",)
 FIRES = ("nasa_firms",)
 PREALERT = ("ecmwf_opendata",)
+TIDES = ("eot20",)
 
 
 def credit_text(*keys: str) -> str:

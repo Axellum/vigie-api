@@ -77,6 +77,7 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
 | `GET /v1/sky/aurora?lat=&lon=` | The aurora: NOAA SWPC's data as it gives it (OVATION summary, Kp observed and predicted for 3 days, solar wind, geomagnetic messages) and, for a place, **Vigie's own estimate** of the chance to see one hour by hour over the coming night, with its best window (magnetic latitude, Kp, darkness, Moon, forecast clouds; [ADR 0012](docs/decisions/0012-aurora-estimate.md), measured on past nights). Not an official forecast. |
 | `GET /v1/sky/aurora.geojson` | SWPC's OVATION aurora forecast (30 to 90 minutes ahead) as map bands (GeoJSON). |
 | `GET /v1/fires?bbox=w,s,e,n`, `GET /v1/fires/grid` | The active fires seen by NASA FIRMS (VIIRS, NOAA-20 and NOAA-21): the detections of a box as GeoJSON, or counted per cell for small zooms. No key needed (404 only on an instance that turned the source off with `VIGIE_ENABLE_FIRMS=0`). See "Active fires" below. |
+| `GET /v1/tides?lat=&lon=`, `GET /v1/tides/coast?bbox=w,s,e,n` | The tide at a coastal point (heights, high and low waters, ranges, the tide now, an estimated French coefficient), or the tide now along the coasts of a box: **computed by Vigie** from the EOT20 ocean tide model, no provider asked. **Not for navigation.** See "Tides" below. |
 | `GET /v1/cap/alerts` | Active hazards as OASIS CAP 1.2. |
 | `GET /v1/vigilances?lat=&lon=` or `?country=FR` or `?source=tsunami` | Official weather warnings that cover a point, or all those of a country (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues, and the national services of the WMO registry), or the tsunami messages in force, the issuer's words untouched. See below. |
 | `GET /v1/vigilances/countries` | The countries this instance serves with its settings, the sources that answer for each, and whether their licence is verified. With `?uncovered=true`, every other country of the world too, each with the reason nothing is read for it. |
@@ -483,6 +484,29 @@ GET /v1/point?lat=-15.4&lon=28.3&fire_radius_km=50        fires_nearby: count, n
   instead. The key is in the URL of those requests: it is redacted from every error, from `last_error` and from the logs. Keep it out of
   the repository and of the commands you share.
 
+## Tides
+
+`GET /v1/tides` and `GET /v1/tides/coast` compute the tide **locally**, from the harmonic constants of the **EOT20** ocean tide model
+(DGFI-TUM, CC BY 4.0) bundled in `app/data` (2.2 MB, built by `tools/build_tides.py`, which checks the result against pyTMD to within
+4 mm). No provider is asked and no quota is spent ([ADR 0013](docs/decisions/0013-tides-from-a-global-model.md)).
+
+```
+GET /v1/tides?lat=43.48&lon=-1.56                          the next two days at Biarritz, every 30 minutes
+GET /v1/tides?lat=48.64&lon=-2.03&start=2026-11-03&days=3&interval_minutes=10
+GET /v1/tides/coast?bbox=-6,43,3,51.5                      the tide now along the coasts of a box, for a map
+```
+
+- **What is computed**: the heights every `interval_minutes` (10, 15, 30 or 60) over `days` (up to 7) from `start` (default: now,
+  rounded down to the hour), the high and low waters with the range of each tide, the tide now (height, rising or falling, next high and
+  low water), and an **estimated** French coefficient (100 times the range of each tide at Brest divided by 6.10 m: ours, unofficial; the
+  official coefficient is SHOM's and is not used). Times are UTC epoch seconds; heights are relative to the **model's mean sea level**,
+  not to the chart datum of a port.
+- **Where**: a point gets the tide of the nearest model cell (1/8 degree) within 30 km, between 66 S and 66 N; elsewhere, a 404.
+- **How good it is, measured** ([report](docs/measurements/tides-2026-10.md)): on the coasts of France, against the REFMAR tide gauges,
+  9 ports of 10 pass the criterion fixed beforehand (high and low waters within 3 to 18 minutes, Le Havre 23); in the United States,
+  against NOAA, 5 of 10: inside a harbour, a bay or a sound the model gives the earlier tide of the open coast (New York 67 minutes,
+  Pensacola more than two hours), and in Puget Sound it is wrong. Every answer says so (`limits`). **Not for navigation.**
+
 ## Places near a hazard, and watched points
 
 An earthquake or a volcanic event says what it is close to. Each hazard of `/v1/geojson/hazards` (and of `/v1/history`, and of
@@ -751,6 +775,7 @@ CI (`.github/workflows/`):
 | Space weather | NOAA SWPC |
 | Weather | Open-Meteo (primary), MET Norway (fallback), RainViewer (radar) |
 | Marine, river discharge, air quality | Open-Meteo Marine, Flood (GloFAS), Air Quality (CAMS) |
+| Tides (computed) | EOT20 ocean tide model (DGFI-TUM, CC BY 4.0, bundled); measured against REFMAR (SHOM) and NOAA CO-OPS |
 
 Licence, terms, credit, quota and clauses of each source, and what is not verified: [`SOURCES.md`](SOURCES.md).
 How each one is cached and what it costs in calls: [`docs/data-sources.md`](docs/data-sources.md).
