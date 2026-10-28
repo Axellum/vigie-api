@@ -25,7 +25,7 @@ from __future__ import annotations
 import asyncio
 import os
 from collections.abc import Mapping
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 
 import httpx
@@ -144,8 +144,9 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
 
     - ``now``: the current conditions and the 15-minute rain of the next hour (11 variables, weight 1.1),
       every 15 minutes, the resolution of that data;
-    - ``daily``: the daily forecast (7 variables, 10 days, weight 1.0), every hour, because the weather
-      models are updated every hour at best.
+    - ``daily``: the daily forecast (7 variables, 10 days) and the hourly cloud cover of the next 48 hours (one
+      variable, read by the aurora estimate), weight 1.0, every hour, because the weather models are updated
+      every hour at best.
 
     Asked as one request they would weigh 1.8 calls (18 variables) at every refresh of the shortest
     lifetime; two requests with their own lifetimes weigh 1.1 + 1.0 / 4 per quarter of an hour.
@@ -166,6 +167,9 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
         "precipitation_sum,precipitation_probability_max,"
         "wind_speed_10m_max,uv_index_max"
     )
+    # The hourly cloud cover of the next hours, asked with the daily forecast: 8 variables in all, the weight stays 1.0.
+    HOURLY_VARIABLES = "cloud_cover"
+    HOURLY_FORECAST_HOURS = 48
     # The daily forecast is refreshed every hour: the models are updated hourly at best
     # (https://open-meteo.com/en/docs, table "Update frequency"). The "now" part uses ``ttl_seconds``.
     DAILY_TTL_SECONDS = 3600
@@ -237,6 +241,18 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
         bundle = self._merge_parts(now.value, daily.value)
         return as_stale_bundle(bundle) if (now.stale or daily.stale) else bundle
 
+    async def fetch_hourly_clouds(self, lat: float, lon: float) -> tuple[list[tuple[int, Optional[float]]], Optional[int]]:
+        """The hourly cloud cover of the next 48 hours near the coordinates, and the local UTC offset: the "daily" part alone.
+
+        A place that ``/v1/point`` already asked for costs nothing more; the "now" part is not asked. An expired entry is served
+        when the provider fails (``allow_stale_on_error``); with nothing cached the error is raised.
+        """
+        s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
+        daily = await self.fetch(
+            self.cache_keys_for(lat, lon)[1], lat=s_lat, lon=s_lon, part="daily", ttl_seconds=self.DAILY_TTL_SECONDS
+        )
+        return list(daily.get("hourly_cloud_cover", [])), daily.get("utc_offset_s")
+
     @staticmethod
     def request_params(part: str, lat: float, lon: float) -> dict[str, str]:
         """Query parameters of the "now" or the "daily" request at ``lat, lon``."""
@@ -244,6 +260,8 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
         if part == "daily":
             params["daily"] = OpenMeteoCollector.DAILY_VARIABLES
             params["forecast_days"] = str(MAX_FORECAST_DAYS)
+            params["hourly"] = OpenMeteoCollector.HOURLY_VARIABLES
+            params["forecast_hours"] = str(OpenMeteoCollector.HOURLY_FORECAST_HOURS)
         else:
             params["current"] = OpenMeteoCollector.CURRENT_VARIABLES
             params["minutely_15"] = OpenMeteoCollector.NOWCAST_VARIABLES
@@ -273,6 +291,7 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
             "current": now["current"],
             "rain_next_60m": now["rain_next_60m"],
             "daily_10d": daily["daily_10d"],
+            "hourly_cloud_cover": daily.get("hourly_cloud_cover", []),
         }
 
     @staticmethod
@@ -364,7 +383,29 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
         return {
             "utc_offset_s": None if utc_offset is None else int(utc_offset),
             "daily_10d": daily_forecasts,
+            "hourly_cloud_cover": OpenMeteoCollector.parse_hourly_clouds(payload),
         }
+
+    @staticmethod
+    def parse_hourly_clouds(payload: dict[str, Any]) -> list[tuple[int, Optional[float]]]:
+        """The hourly cloud cover as ``(UTC epoch of the hour, percent)``; a missing value is ``None``, an unreadable hour is left out.
+
+        The times are local (``timezone=auto``): ``utc_offset_seconds`` turns them into UTC. Without it there is no hour at all.
+        """
+        hourly = payload.get("hourly") or {}
+        offset = optional_float(payload.get("utc_offset_seconds"))
+        if offset is None or not isinstance(hourly, dict):
+            return []
+        hours: list[tuple[int, Optional[float]]] = []
+        for stamp, value in zip(hourly.get("time") or [], hourly.get("cloud_cover") or [], strict=False):
+            try:
+                local = datetime.fromisoformat(str(stamp))
+            except ValueError:
+                continue
+            epoch = int(local.replace(tzinfo=timezone.utc).timestamp() - offset)
+            cover = optional_float(value)
+            hours.append((epoch, None if cover is None else max(0.0, min(100.0, cover))))
+        return hours
 
 
 class MetNorwayCollector(BaseCollector[dict[str, Any]]):
@@ -495,6 +536,7 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
 
         offset = timedelta(seconds=utc_offset_s or 0)
         by_day: dict[str, dict[str, Any]] = {}
+        clouds: list[tuple[int, Optional[float]]] = []
         for item in timeseries:
             try:
                 stamp = datetime.fromisoformat(str(item.get("time") or "").replace("Z", "+00:00"))
@@ -503,6 +545,9 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
             day_key = (stamp + offset).date().isoformat()
             data = item.get("data") or {}
             inst = (data.get("instant") or {}).get("details") or {}
+            if stamp.tzinfo is not None and len(clouds) < OpenMeteoCollector.HOURLY_FORECAST_HOURS:
+                cover = optional_float(inst.get("cloud_area_fraction"))
+                clouds.append((int(stamp.timestamp()), None if cover is None else max(0.0, min(100.0, cover))))
             n1 = data.get("next_1_hours") or {}
             n6 = data.get("next_6_hours") or {}
 
@@ -549,6 +594,7 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
             "current": current_weather,
             "rain_next_60m": None,
             "daily_10d": daily_forecasts,
+            "hourly_cloud_cover": clouds,
         }
 
 

@@ -13,6 +13,14 @@ All notable changes to this project are documented here. The format follows
   says in which hours each source was read, so that a period without a warning is not taken for a period without danger. It sends no
   request of its own. `VIGIE_ARCHIVE_KEEP_DAYS` (0: keep everything) bounds it; `GET /v1/health` reports `vigilance_archive`.
 - `tools/measure_archive.py`: what the archive takes in over a real day on a running instance.
+- **The aurora** ([ADR 0012](docs/decisions/0012-aurora-estimate.md)): `GET /v1/sky/aurora` relays four more products of NOAA SWPC as
+  SWPC gives them (the OVATION 30 to 90 minute forecast, the Kp observed, estimated and predicted for three days, the solar wind at
+  L1, the geomagnetic messages of the last 72 hours, text untouched), and `GET /v1/sky/aurora.geojson` draws the OVATION grid as map
+  bands. With `lat` and `lon`, Vigie's **own estimate** of the chance to see an aurora hour by hour over the coming night and its best
+  window: magnetic latitude (IGRF-14 apex latitude, a bundled grid), Kp, darkness, Moon and forecast clouds, measured on past nights
+  against the reports of people who looked ([the measure](docs/measurements/aurora-2026-10.md)). Marked as ours in `derived`; not an
+  official forecast. The clouds ride in the daily forecast request a place already costs (the weight stays 1.0). New dependency:
+  `astronomy-engine` (MIT).
 - The Vigie logo, an eye with an orange iris, at the top of the README (`docs/logo.svg`), the same as the
   website's.
 - **Commercial use, per source** (`app/commercial.py`, a new section of `SOURCES.md`): for the paid Android app to come
