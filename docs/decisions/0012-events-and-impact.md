@@ -1,4 +1,4 @@
-# 0012. Events instead of lines
+# 0012. Events instead of lines, an impact score, and the families of phenomena
 
 - Status: accepted (one point is a question for the owner: see "Open points")
 - Date: 2026-10-28
@@ -9,7 +9,10 @@ The website's home page piled the data up (audit of 2026-10-28, in the owner's p
 magnitude 4.5 to 5.5, four times "Reykjanes Ridge"; in France, 29 yellow lines, among them a "ground frost" warning repeated valley by
 valley in Switzerland. The plan the owner validated asks the API to **group**: one event for the warnings of one phenomenon, level and
 country or region whose periods overlap, and one for the earthquakes of one sequence (same sector, a few hours). The site, the display
-and Home Assistant read the same route. Ranking by impact and the families of phenomena are the next step of the same plan.
+and Home Assistant read the same route. The plan also asks to **rank by impact** (in a world view, only what counts: official red and
+orange, GDACS orange and red, a strong earthquake, felt or with a tsunami alert, a cyclone) and to expose **about fourteen families of
+phenomena** for the filters (wind, rain and floods, thunderstorms, snow and ice, heat, cold, fires, coast and waves, earthquakes,
+volcanoes, cyclones, tsunamis, air, space).
 
 The constraint is the rest of this API's: the words of the issuer are never changed, a value nobody supplied is unknown, and what Vigie
 works out is said to be Vigie's.
@@ -37,9 +40,35 @@ works out is said to be Vigie's.
    message without a matching hazard stays with the warnings. Any other hazard (a cyclone, a volcano, a GDACS flood or fire, a solar
    storm) is an event of its own. When the warnings of the United States are in the answer, the hazards that only the NWS reports are
    left out: they are the same alerts as the NWS warnings.
-4. **The order.** The highest level first, then the broadest (the most areas or earthquakes), then the earliest. An event whose level
-   is unknown comes after the green ones. `counts.by_level` counts the green apart, so that a client leaves it out of its counters.
-5. **The scope.** With `country`, the warnings of that country (as `GET /v1/vigilances?country=` reads them) and the hazards whose
+4. **The impact score, 0 to 100.** It ranks; it is not a probability and not an official level. `impact_reasons` says, in English,
+   what it rests on.
+
+   | What | Red | Orange | Yellow | Green | Level unknown |
+   | --- | --- | --- | --- | --- | --- |
+   | Official warning | 90 | 60 | 20 | 0 | 10 |
+   | Official tsunami message, or the hazard of a tsunami warning centre | 100 | 80 | 60 | 30 | 60 |
+   | Earthquake (the API's severity: PAGER, magnitude, tsunami flag) | 85 | 60 | 30 | 5 | |
+   | Tropical cyclone (NHC, GDACS, NWS) | 90 | 75 | 60 | 60 | |
+   | Volcano (the alert level of the source) | 85 | 60 | 25 | 0 | |
+   | Solar storm (NOAA SWPC) | 70 | 50 | 20 | 0 | |
+   | Other GDACS alert (flood, fire, drought) | 90 | 65 | 30 | 10 | |
+   | Any other hazard (an NWS alert outside the US warnings) | 90 | 60 | 20 | 0 | |
+
+   The breadth of a group of warnings adds one point per doubling of its areas, up to 9, so that an orange never passes a red; green
+   stays at 0. A sequence of earthquakes adds one per earthquake after the first, up to 5. A tsunami takes the higher of its hazard and
+   its messages. **`min_impact=60` is the world view**: the official orange and red warnings, GDACS orange and red, an earthquake the API
+   rates orange or red (magnitude 6 or more, a PAGER orange or red, or the source's tsunami flag), every tropical cyclone, a volcano at
+   watch or warning, every tsunami message. "Felt" (the number of reports USGS collects) is not read by this API today, so it does not
+   count; adding it would change the hazards, not this table. Every number of the table is ours.
+5. **The order.** The strongest impact first, then the highest level, then the broadest (the most areas or earthquakes), then the
+   earliest. `counts.by_level` counts the green apart, so that a client leaves it out of its counters, and `counts.by_family` per family.
+6. **Fifteen families.** `wind`, `rain-flood`, `thunderstorm`, `snow-ice`, `heat`, `cold`, `fire`, `coastal`, `earthquake`, `volcano`,
+   `cyclone`, `tsunami`, `air`, `space`, and `other` (fog, and the warnings whose phenomenon no table covers). They group the API's
+   phenomena (the tables of `docs/data-sources.md`) and hazard categories, each in exactly one family (a test checks it); a tornado is in
+   `thunderstorm`, an avalanche in `snow-ice`, a tsunami message in `tsunami` whatever its phenomenon. `air` is empty: no source of
+   air-quality warnings is read. The family of a warning follows from its `phenomenon`, never from its words. `GET /v1/families` lists
+   them and what each holds; `families=wind,rain-flood` filters the events.
+7. **The scope.** With `country`, the warnings of that country (as `GET /v1/vigilances?country=` reads them) and the hazards whose
    position is in it. Without, the hazards of the world and the warnings of every country the instance serves, read through the same
    caches; the countries are not remembered, so a world view does not make the scheduler keep every feed fresh.
 
@@ -48,8 +77,8 @@ works out is said to be Vigie's.
 - The site, the display and Home Assistant can show "Wind · Poland · 12 areas" instead of twelve lines. On 2026-10-28 at 21:15 UTC the
   world view held 95 events instead of 528 warnings in force and 46 hazards (the 13 Swiss "Low-temperature" areas one event, the 7
   earthquakes of the Reykjanes Ridge one sequence).
-- Every number above (300 km, 100 km, 6 hours) is a choice of this project, written here and in `app/services/events.py`, not a
-  published fact. `tests/test_events.py` pins each of them.
+- Every number above (300 km, 100 km, 6 hours, the table of the impact) is a choice of this project, written here and in
+  `app/services/events.py`, not a published fact. `tests/test_events.py` and `tests/test_event_impact.py` pin each of them.
 - A world view needs the warnings of every country (see "Open points").
 
 ## Open points
