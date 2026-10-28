@@ -3,7 +3,7 @@
     python tools/measure_tides.py --cache-dir DIR                       # download what is missing into DIR, print the report
     python tools/measure_tides.py --cache-dir DIR --write               # and write docs/measurements/tides-2026-10.md and its results
 
-The criterion, the window and the stations were fixed in ADR 0012 before any figure was seen (commit acb9417); this tool applies
+The criterion, the window and the stations were fixed in ADR 0012 before any figure was seen (the first commit of its pull request); this tool applies
 them and changes none:
 
 - **France**: the observations of REFMAR (SHOM, Licence Ouverte 2.0), raw high-frequency data (``sources=1``, one value a minute, UTC,
