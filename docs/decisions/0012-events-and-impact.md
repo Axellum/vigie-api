@@ -62,8 +62,9 @@ works out is said to be Vigie's.
    count; adding it would change the hazards, not this table. Every number of the table is ours.
 5. **The order.** The strongest impact first, then the highest level, then the broadest (the most areas or earthquakes), then the
    earliest. `counts.by_level` counts the green apart, so that a client leaves it out of its counters, and `counts.by_family` per family.
-6. **Fifteen families.** `wind`, `rain-flood`, `thunderstorm`, `snow-ice`, `heat`, `cold`, `fire`, `coastal`, `earthquake`, `volcano`,
-   `cyclone`, `tsunami`, `air`, `space`, and `other` (fog, and the warnings whose phenomenon no table covers). They group the API's
+6. **Sixteen families.** `wind`, `rain-flood`, `thunderstorm`, `snow-ice`, `heat`, `cold`, `fog`, `fire`, `coastal`, `earthquake`,
+   `volcano`, `cyclone`, `tsunami`, `air`, `space`, and `other` (the warnings whose phenomenon no table covers). Fog was first in
+   `other`; it has its own family since the site asked to filter it (the API already reads `fog` from several sources). They group the API's
    phenomena (the tables of `docs/data-sources.md`) and hazard categories, each in exactly one family (a test checks it); a tornado is in
    `thunderstorm`, an avalanche in `snow-ice`, a tsunami message in `tsunami` whatever its phenomenon. `air` is empty: no source of
    air-quality warnings is read. The family of a warning follows from its `phenomenon`, never from its words. `GET /v1/families` lists

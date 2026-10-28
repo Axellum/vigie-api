@@ -40,7 +40,7 @@ def test_every_phenomenon_and_every_category_has_one_family() -> None:
     assert sorted(phenomena) == sorted(p.value for p in VigilancePhenomenon)
     assert sorted(categories) == sorted(c.value for c in HazardCategory)
     assert [family.id for family in FAMILIES] == list(get_args(FamilyId))
-    assert len(FAMILIES) == 15  # the fourteen of the plan, and "other"
+    assert len(FAMILIES) == 16  # the fourteen of the plan, fog (asked by the site) and "other"
 
 
 def test_the_family_of_a_warning_follows_its_phenomenon() -> None:

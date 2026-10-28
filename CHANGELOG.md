@@ -7,12 +7,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- **Home Assistant: the level of each family of phenomena** (integration 0.4.0): the maximum-level sensor gains a `by_family`
+- **Home Assistant: the level of each family of phenomena** (integration 0.4.1; 0.4.0 put fog in `other`): the maximum-level sensor gains a `by_family`
   attribute, `{"rain-flood": "red", "wind": "yellow"}`, with the families of the API (`GET /v1/families`); a test keeps the
   integration's table equal to the API's. One sensor per family is left for later.
 - **An impact score and the families of phenomena for the events** ([ADR 0012](docs/decisions/0012-events-and-impact.md)): each event
   has an `impact` from 0 to 100 with its `impact_reasons` (official red 90, orange 60, yellow 20; earthquakes, cyclones, volcanoes,
-  solar storms, tsunamis and GDACS alerts their own tables) and a `family` among fifteen. The strongest impact comes first;
+  solar storms, tsunamis and GDACS alerts their own tables) and a `family` among sixteen (fog has its own). The strongest impact comes first;
   `min_impact=60` keeps what counts in a world view, `families=` filters, and **`GET /v1/families`** lists what each family holds.
 - **`GET /v1/events`: events instead of lines** ([ADR 0012](docs/decisions/0012-events-and-impact.md)). The official warnings of one
   country, phenomenon and level whose periods overlap and whose areas are close (each within 300 km of another) are one event; the
