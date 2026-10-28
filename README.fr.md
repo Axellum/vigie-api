@@ -96,6 +96,8 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
 | `GET /v1/events` ou `?country=CH` | Des événements au lieu de lignes : les vigilances d'un même phénomène, niveau et région regroupées, les séismes d'une même séquence, chaque autre catastrophe, avec les vigilances et catastrophes elles-mêmes dedans, intactes ; un score d'impact (`min_impact=60` : ce qui compte en vue monde) et une famille (`families=`). Voir « Des événements au lieu de lignes » plus bas. |
 | `GET /v1/families` | Les seize familles de phénomènes (vent, pluie et crues, …, météo de l'espace) et ce que chacune contient. |
 | `GET /v1/vigilances/archive`, `GET /v1/vigilances/archive/stats` | Chaque vigilance officielle vue par l'instance, gardée telle qu'elle a été servie, filtrée par pays, zone, source, phénomène, niveau et période, avec les heures où chaque source a été lue ; et ce que l'archive pèse par jour. Voir « L'archive des vigilances officielles » plus bas. |
+| `GET /v1/travel` | Les conseils aux voyageurs de cinq ministères des Affaires étrangères (Royaume-Uni, États-Unis, Canada, Australie, Pays-Bas) : le niveau de chacun pour chaque pays, dans ses propres mots, et s'ils sont en désaccord (comparaison de Vigie, pas un niveau officiel). Voir « Conseils aux voyageurs » plus bas. |
+| `GET /v1/travel/{country}` | Un pays : l'avis de chaque ministère avec son texte intact, la date de sa version, l'heure où Vigie l'a lu, et les versions que cette instance a archivées. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Zones surveillées (la liste de suivi). Une zone doit donner son `utc_offset_s`. |
 | `GET/POST /v1/watched-points`, `DELETE /v1/watched-points/{id}` | Les points que vous surveillez (un lieu, une faille, un volcan...), chacun avec un rayon. **Personnels** : listés ici et dans le statut, jamais dans les dangers. `POST` et `DELETE` sont **désactivés** (403) sauf si `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`. |
 | `GET /v1/watched-points/status?days=7` | Pour chaque point surveillé, les événements dans son rayon sur les derniers jours, et `quiet` seulement si chaque source de dangers a répondu et a été lue sans trou. |
@@ -439,6 +441,31 @@ registre de l'OMM), par les mêmes caches que `GET /v1/vigilances?country=` : un
 (180 s pour MeteoAlarm) quel que soit le nombre de clients, et 40 nouveaux documents CAP au plus par requête (`tests/test_events.py`). La
 première vue monde après un moment calme attend le flux le plus lent (66 s sur le PC le 28/10/2026 ; 7 à 18 s ensuite) : la demander
 depuis un serveur qui garde la réponse, pas depuis chaque navigateur.
+
+## Conseils aux voyageurs
+
+`GET /v1/travel` et `GET /v1/travel/{country}` relaient ce que cinq ministères conseillent à leurs ressortissants : le FCDO
+(Royaume-Uni, GOV.UK), le Department of State (États-Unis), Affaires mondiales Canada, Smartraveller (Australie) et NederlandWereldwijd
+(Pays-Bas), chacun lu dans son flux ouvert, en entier, toutes les heures. Chaque niveau reste dans les mots du ministère, son texte
+intact, avec la date de sa version (`published_utc`) et l'heure où Vigie l'a lu (`checked_utc`). L'Allemagne et la France sont listées
+avec la raison pour laquelle elles ne sont pas lues (`ministries[].why_not_read`).
+
+```
+GET /v1/travel            tous les pays, le niveau de chaque ministère, et la comparaison
+GET /v1/travel/UG         l'Ouganda : les textes, la comparaison et l'archive
+```
+
+- **Ce qui est à Vigie** est listé dans `derived` : le code du pays (chaque ministère nomme ses destinations à sa façon), l'indicateur
+  `part` (un avis pour « Gaza » ou les « Açores » n'est pas celui du pays entier), et une **échelle commune** (`common_min`, `common_max` :
+  de 1, précautions normales, à 4, éviter tout voyage) qui permet de comparer les ministères. Ce **n'est pas un niveau officiel**. Le FCDO
+  n'a pas d'échelle numérotée : ses statuts donnent un intervalle (« pas de déconseil » vaut 1 à 2). Deux ministères sont **en
+  désaccord** quand leurs intervalles ne peuvent pas se rejoindre.
+- **Aucune forme n'est dessinée** : les zones qu'un ministère déconseille à l'intérieur d'un pays restent dans son texte.
+- **L'archive** (`history`) commence le jour où l'instance lit les ministères pour la première fois : chaque nouvelle version d'un avis
+  est gardée, la première marquée `first`. Le FCDO publie son propre historique des changements : il est dans `source_history`, tel quel.
+- Les 226 pages du FCDO sont lues une fois, puis seulement celles qui changent ; tant que cette première lecture n'est pas finie (une ou
+  deux minutes), le FCDO dit `loading`. Les tables, les coûts et les licences : [`docs/data-sources.md`](docs/data-sources.md) et
+  [`SOURCES.md`](SOURCES.md).
 
 ## Tempêtes et tsunamis
 

@@ -10,6 +10,8 @@ This service:
 4. Watches the official weather warnings (MeteoAlarm, NWS) of the watched zones and of the positions the
    clients follow, and pushes the changes (``vigilance_push``): a warning that appears, whose level goes up,
    or that ends. The feeds of the countries that are needed are kept fresh (a cached feed costs no request).
+5. Keeps the travel advice of the ministries fresh, in a loop of its own (``run_travel_cycle``, every ``TRAVEL_INTERVAL_S``): each new
+   version of an advice is archived even when nobody asks, and the first read of the FCDO's 226 pages never delays a cycle.
 """
 
 from __future__ import annotations
@@ -23,6 +25,10 @@ from app.models.schemas import SEVERITY_RANK, HazardAlert
 from app.services.aggregator import AggregatorService
 from app.services.embedded_frame import serialize_embedded_frame
 from app.services.vigilance import FollowedPoint
+
+# How often the travel advice is looked at: each ministry is asked only when its cache (an hour) is over, so a look costs nothing
+# most of the time.
+TRAVEL_INTERVAL_S = 600
 
 
 def _value_increased(previous: Optional[float], current: Optional[float]) -> bool:
@@ -72,6 +78,9 @@ class BackgroundAlertScheduler:
         self.last_vigilance_error: Optional[str] = None
         self._known_hazards: dict[str, HazardAlert] = {}
         self._task: Optional[asyncio.Task[None]] = None
+        self._travel_task: Optional[asyncio.Task[None]] = None
+        self.last_travel_run_utc: Optional[int] = None
+        self.last_travel_error: Optional[str] = None
 
     def followed_points(self) -> list[FollowedPoint]:
         """The positions whose official warnings are watched: the watched zones (everyone is told), then the clients' own."""
@@ -163,10 +172,24 @@ class BackgroundAlertScheduler:
                 "error": self.last_error,
             }
 
+    async def run_travel_cycle(self) -> None:
+        """Keep the travel advice fresh and archive its new versions (a ministry that fails is only noted)."""
+        try:
+            await self.aggregator.travel.refresh()
+            self.last_travel_run_utc = int(time.time())
+            self.last_travel_error = None
+        except Exception as exc:
+            self.last_travel_error = f"{type(exc).__name__}: {exc}"
+
     async def _loop(self) -> None:
         while self.running:
             await self.run_single_cycle()
             await asyncio.sleep(self.interval_seconds)
+
+    async def _travel_loop(self) -> None:
+        while self.running:
+            await self.run_travel_cycle()
+            await asyncio.sleep(TRAVEL_INTERVAL_S)
 
     def start(self) -> None:
         """Start the periodic collection loop as an asyncio background task."""
@@ -174,15 +197,18 @@ class BackgroundAlertScheduler:
             return
         self.running = True
         self._task = asyncio.create_task(self._loop())
+        self._travel_task = asyncio.create_task(self._travel_loop())
 
     async def stop(self) -> None:
         """Stop the asyncio background task cleanly."""
         self.running = False
-        if self._task is not None:
-            self._task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._task
-            self._task = None
+        for task in (self._task, self._travel_task):
+            if task is not None:
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+        self._task = None
+        self._travel_task = None
 
     def get_status(self) -> dict[str, Any]:
         """Return the operational state of the scheduler."""
@@ -197,4 +223,6 @@ class BackgroundAlertScheduler:
             "last_error": self.last_error,
             "last_vigilance_changes_count": self.last_vigilance_changes_count,
             "last_vigilance_error": self.last_vigilance_error,
+            "last_travel_run_utc": self.last_travel_run_utc,
+            "last_travel_error": self.last_travel_error,
         }

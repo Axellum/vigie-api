@@ -59,6 +59,7 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | `app/services/embedded_frame.py` | Serializes the snapshot (and an optional GPS point) to the text frame, with its CRC32. |
 | `app/services/storage_wal.py` | SQLite in WAL mode: watchlist, watched points, hazard history, last snapshot, the runs of readings of the hazard sources, the archive of the official warnings. |
 | `app/models/events.py`, `app/services/events.py` | The events of `GET /v1/events` (ADR 0012): the warnings of one country, phenomenon and level whose periods overlap and whose areas are close, the earthquakes of one sequence, a tsunami with its messages, each other hazard; their impact score and family, and the families of `GET /v1/families`; ours, named in `derived`, the warnings and hazards inside untouched. |
+| `app/collectors/travel.py`, `travel_codes.py`, `app/services/travel.py`, `travel_store.py`, `app/models/travel.py` | The travel advice of five foreign ministries (`GET /v1/travel`): one collector per ministry, each feed read whole an hour at a time (the FCDO's pages only when they change, kept in the database), the country codes, the common scale and the comparison (ours, named in `derived`), the versions archived by the instance (ADR 0013). |
 | `app/services/vigilance_archive.py` | The archive of the official warnings (`GET /v1/vigilances/archive`): each warning a source lists, once per message and area, as it was served, with its first and last sighting, and the hours each source was read. It writes what changed and asks no provider. |
 | `app/services/scheduler.py` | Optional periodic collection and differential push of new or worsening alerts. |
 | `app/routers/dashboard.py` | Supervision page. |
@@ -99,7 +100,9 @@ The decisions and their reasons: [ADR 0002](decisions/0002-official-warnings-kep
 [ADR 0011](decisions/0011-unofficial-pre-alert-turkey-shadow-pilot.md) (an unofficial pre-alert for Turkey: a pilot, the
 criteria it must meet, and an opt-in experimental view for testers),
 [ADR 0012](decisions/0012-events-and-impact.md) (events instead of lines: how the warnings and hazards are grouped, the impact score, the families),
-[ADR 0013](decisions/0013-tides-from-a-global-model.md) (the tide computed from a global model, and the criterion it was measured by).
+[ADR 0013 (tides)](decisions/0013-tides-from-a-global-model.md) (the tide computed from a global model, and the criterion it was measured by),
+[ADR 0013 (travel)](decisions/0013-travel-advice-side-by-side.md) (travel advice: each ministry in its words, side by side, compared on a
+scale of ours).
 Rules that hold the whole model:
 
 - **The official words stay intact.** The identifier, the times, the original level and phenomenon, the

@@ -88,6 +88,8 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
 | `GET /v1/events` or `?country=CH` | Events instead of lines: the warnings of one phenomenon, level and region grouped, the earthquakes of one sequence, each other hazard, the warnings and hazards themselves inside, untouched; an impact score (`min_impact=60`: what counts in a world view) and a family (`families=`). See "Events instead of lines" below. |
 | `GET /v1/families` | The sixteen families of phenomena (wind, rain and floods, ..., space weather) and what each holds. |
 | `GET /v1/vigilances/archive`, `GET /v1/vigilances/archive/stats` | Every official warning this instance saw, kept as it was served, filtered by country, area, source, phenomenon, level and period, with the hours each source was read; and what the archive weighs per day. See "The archive of the official warnings" below. |
+| `GET /v1/travel` | The travel advice of five foreign ministries (United Kingdom, United States, Canada, Australia, the Netherlands): each one's level for each country in its own words, and whether they disagree (Vigie's comparison, not an official level). See "Travel advice" below. |
+| `GET /v1/travel/{country}` | One country: every ministry's advice with its text untouched, the date of its version, when Vigie read it, and the versions this instance has archived. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Watched zones (the watchlist). A zone needs its `utc_offset_s`. |
 | `GET/POST /v1/watched-points`, `DELETE /v1/watched-points/{id}` | The points you watch (a place, a fault, a volcano...), each with a radius. **Personal**: listed here and in the status, never in the hazards. `POST` and `DELETE` are **off** (403) unless `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`. |
 | `GET /v1/watched-points/status?days=7` | For each watched point, the events within its radius over the last days, and `quiet` only when every hazard source answered and was read without a gap. |
@@ -414,6 +416,44 @@ the 7 services of the WMO registry), through the same caches as `GET /v1/vigilan
 cache lifetime (180 s for MeteoAlarm) whatever the number of clients, and at most 40 new CAP documents per request
 (`tests/test_events.py`). The first world view after a quiet spell waits for the slowest feed (66 s on the PC on 2026-10-28; 7 to 18 s
 afterwards): ask it from a server that keeps the answer, not from each browser.
+
+## Travel advice
+
+`GET /v1/travel` and `GET /v1/travel/{country}` relay what five foreign ministries advise their citizens: the FCDO (United Kingdom,
+GOV.UK), the Department of State (United States), Global Affairs Canada, Smartraveller (Australia) and NederlandWereldwijd (the
+Netherlands), each read from its open feed, whole, an hour at a time. Each level stays in the ministry's own words, its text untouched,
+with the date of its version (`published_utc`) and when Vigie read it (`checked_utc`). Germany and France are listed with the reason
+they are not read (`ministries[].why_not_read`).
+
+```
+GET /v1/travel            every country, each ministry's level, and the comparison
+GET /v1/travel/UG         Uganda: the texts, the comparison and the archive
+```
+
+```json
+{
+  "country": "UG",
+  "comparison": {"compared": ["au", "ca", "nl", "us"], "disagree": true, "gap": 2, "strictest": ["us"], "laxest": ["au", "nl"],
+                 "derived": ["compared", "disagree", "gap", "strictest", "laxest"]},
+  "advices": [{
+    "ministry": "us", "title": "Uganda", "level": 4, "level_texts": {"en": "Level 4: Do Not Travel"},
+    "common_min": 4, "common_max": 4, "published_utc": 1780531200, "checked_utc": 1793220512,
+    "url": "https://travel.state.gov/content/tsg_aem/us/en/home/international-travel/travel-advisories/destination.uga.html",
+    "summary": [{"language": "en", "format": "html", "content": "..."}],
+    "derived": ["country", "part", "common_min", "common_max"], "attribution": "Source: Bureau of Consular Affairs, U.S. Department of State (https://travel.state.gov)"
+  }]
+}
+```
+
+- **What is Vigie's** is listed in `derived`: the country code (each ministry names its destinations its own way), the `part` flag (an
+  advice for "Gaza" or the "Azores" is not the advice of the whole country), and a **common scale** (`common_min`, `common_max`: 1 normal
+  precautions to 4 avoid all travel) that lets the ministries be compared. It is **not an official level**. The FCDO has no numbered scale:
+  its statuses give a range ("no advice against travel" is 1 to 2). Two ministries **disagree** when their ranges cannot meet.
+- **No shape is drawn**: the areas a ministry advises against inside a country are in its text only.
+- **The archive** (`history`) starts the day the instance first reads the ministries: each new version of an advice is kept, the first
+  one marked `first`. The FCDO publishes its own history of changes: it is in `source_history`, as given.
+- The FCDO's 226 pages are read once, then only the ones that change; until that first read is over (a minute or two), the FCDO says
+  `loading`. The tables, the costs and the licences: [`docs/data-sources.md`](docs/data-sources.md) and [`SOURCES.md`](SOURCES.md).
 
 ## Storms and tsunamis
 
