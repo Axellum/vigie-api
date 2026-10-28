@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Solar eclipses**: `GET /v1/sky/eclipses` lists NASA's solar eclipses of 2001 to 2100 (by default the next ten years) as NASA
+  states them, and `GET /v1/sky/eclipses/{date}` gives one. With `lat` and `lon`, what that place sees: the contacts and the Sun's
+  altitude at each, the share of the Sun hidden, totality or annularity and its length, the Moon on the Sun's disc from the first contact
+  to the last, and, within 48 hours, the forecast clouds of the hour of the maximum. `GET /v1/sky/eclipses/{date}.geojson` draws the
+  path, its central line and bands of the share hidden. Computed by Vigie from NASA's Besselian elements (bundled, no request) and
+  checked against NASA's path table of the eclipse of 2 August 2027: 0.2 s on the times, 0.12 km on the limits
+  ([the check](docs/measurements/eclipse-2027-08-02.md)).
 - **Home Assistant: the level of each family of phenomena** (integration 0.4.1; 0.4.0 put fog in `other`): the maximum-level sensor gains a `by_family`
   attribute, `{"rain-flood": "red", "wind": "yellow"}`, with the families of the API (`GET /v1/families`); a test keeps the
   integration's table equal to the API's. One sensor per family is left for later.

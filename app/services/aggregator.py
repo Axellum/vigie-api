@@ -110,6 +110,7 @@ from app.models.schemas import (
 from app.models.watch import WatchedPointsStatus, WatchedSource
 from app.services.aurora import AuroraService
 from app.services.earthquakes import build_earthquakes, ids_within
+from app.services.eclipses import EclipseService
 from app.services.embedded_frame import serialize_embedded_frame
 from app.services.events import count as count_events
 from app.services.events import group_hazards, group_warnings, sorted_events
@@ -235,6 +236,7 @@ class AggregatorService:
         self.aurora = AuroraService(
             self.swpc_ovation, self.swpc_kp_forecast, self.swpc_solar_wind, self.swpc_alerts, self.clouds_for_aurora
         )
+        self.eclipses = EclipseService(self.clouds_for_aurora)  # NASA's bundled catalogue: no request but the clouds
         self.meteoalarm = meteoalarm or MeteoAlarmCollector()
         self.meteoalarm_cap = meteoalarm_cap or MeteoAlarmCapCollector()
         self.dwd = dwd or DWDCollector()

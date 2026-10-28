@@ -124,6 +124,12 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "nasa_eclipses",
+            "NASA eclipse predictions (Fred Espenak, GSFC)",
+            "Eclipse Predictions by Fred Espenak, NASA's GSFC",
+            "provider",
+        ),
+        Credit(
             "nasa_firms",
             "NASA FIRMS (LANCE, ESDIS)",
             "We acknowledge the use of data and/or imagery from NASA's Fire Information for Resource Management System (FIRMS) "
@@ -226,6 +232,7 @@ AIR_QUALITY = ("open_meteo", "cams")
 FLOOD = ("open_meteo", "glofas")
 MARINE = ("open_meteo", "dwd_icon_wave")
 SPACE_WEATHER = ("noaa_swpc",)
+ECLIPSES = ("nasa_eclipses",)
 RADAR = ("rainviewer",)
 FIRES = ("nasa_firms",)
 PREALERT = ("ecmwf_opendata",)

@@ -1,8 +1,10 @@
-"""Models of the sky routes: the aurora (``GET /v1/sky/aurora``, ``GET /v1/sky/aurora.geojson``).
+"""Models of the sky routes: the aurora (``GET /v1/sky/aurora``, ``GET /v1/sky/aurora.geojson``) and the solar eclipses
+(``GET /v1/sky/eclipses``, ``GET /v1/sky/eclipses/{date}``, ``GET /v1/sky/eclipses/{date}.geojson``).
 
-Two kinds of values, never mixed: what NOAA's Space Weather Prediction Center (SWPC) publishes, as it publishes it (the OVATION
-grid, the Kp intervals, the solar wind, the messages), and the **estimate** of Vigie for a place (ADR 0012), a method of this
-project measured on past nights, listed in ``derived`` and not an official forecast.
+Two kinds of values, never mixed: what the source publishes, as it publishes it (SWPC's OVATION grid, Kp intervals, solar wind and
+messages; NASA's eclipse catalogue and Besselian elements), and what Vigie computes from it (the aurora **estimate** of ADR 0012, a
+method measured on past nights; the local circumstances and the map of an eclipse, worked out from NASA's elements by the textbook
+method and checked against NASA's tables), listed in ``derived``.
 """
 
 from __future__ import annotations
@@ -170,3 +172,128 @@ class AuroraOvalCollection(BaseModel):
     forecast_utc: Optional[int] = None
     levels: list[int] = Field(default_factory=list, description="The lower bound of each band (ours)")
     attribution: Optional[str] = None
+
+
+# ============================================================================
+# Solar eclipses
+# ============================================================================
+
+EclipseKind = Literal["total", "annular", "hybrid", "partial"]
+LocalEclipseKind = Literal["total", "annular", "partial", "none"]
+ContactName = Literal["partial_begin", "central_begin", "maximum", "central_end", "partial_end"]
+
+
+class EclipseContact(BaseModel):
+    """A contact, or the maximum, at the place (computed by Vigie)."""
+
+    name: ContactName = Field(..., description="partial_begin (C1), central_begin (C2), maximum, central_end (C3), partial_end (C4)")
+    time_utc: float = Field(..., description="UTC epoch seconds (to a tenth of a second; the Moon's limb moves them by 1 to 3 s)")
+    sun_altitude_deg: float = Field(..., description="The Sun's altitude then, without refraction")
+    sun_azimuth_deg: float = Field(..., description="From the north, towards the east")
+    sun_up: bool = Field(..., description="Whether the Sun is above the horizon then")
+
+
+class EclipseFrame(BaseModel):
+    """The Moon on the Sun's disc at one instant, in units of the Sun's radius, north up and east to the left as seen in the sky."""
+
+    time_utc: float
+    moon_east: float = Field(..., description="The Moon's centre east of the Sun's centre")
+    moon_north: float = Field(..., description="The Moon's centre north of the Sun's centre")
+    moon_radius: float = Field(..., description="The Moon's apparent radius")
+    obscuration: float = Field(..., ge=0.0, le=1.0, description="The share of the Sun's disc hidden")
+    sun_altitude_deg: float
+    zenith_angle_deg: float = Field(
+        ..., description="The direction of the zenith on the disc, from the north towards the east (to turn the drawing as one sees it)"
+    )
+
+
+class EclipseClouds(BaseModel):
+    """The forecast cloud cover of the hour of the maximum, when the forecast reaches it."""
+
+    time_utc: int = Field(..., description="The hour of the forecast (UTC epoch seconds)")
+    cloud_cover_pct: Optional[float] = Field(default=None, description="As the weather source forecasts it")
+    attribution: str
+
+
+class EclipseHere(BaseModel):
+    """What a place sees of the eclipse, computed by Vigie from NASA's Besselian elements."""
+
+    lat: float
+    lon: float
+    kind: LocalEclipseKind = Field(..., description="none: the Moon's shadow does not reach the place")
+    visible: bool = Field(..., description="Whether some part of it happens with the Sun above the horizon")
+    magnitude: Optional[float] = Field(default=None, description="The share of the Sun's diameter covered at the maximum")
+    obscuration: Optional[float] = Field(default=None, description="The share of the Sun's disc hidden at the maximum")
+    central_duration_s: Optional[float] = Field(default=None, description="Totality or annularity, when the place has it")
+    contacts: list[EclipseContact] = Field(
+        default_factory=list,
+        description="In time order. A contact after the end (or before the start) of the validity of NASA's elements is left out: "
+        "then the Sun has set (or not yet risen) there, which `sunset_utc` (`sunrise_utc`) says",
+    )
+    sunrise_utc: Optional[float] = Field(default=None, description="The Sun rises (geometric horizon) during the eclipse")
+    sunset_utc: Optional[float] = Field(default=None, description="The Sun sets (geometric horizon) during the eclipse")
+    frames: Optional[list[EclipseFrame]] = Field(default=None, description="The disc from C1 to C4 (only in /v1/sky/eclipses/{date})")
+    clouds: Optional[EclipseClouds] = None
+    clouds_note: Optional[str] = Field(default=None, description="Why `clouds` is null")
+
+
+class EclipseSummary(BaseModel):
+    """One eclipse of NASA's catalogue, its values as NASA states them."""
+
+    id: str = Field(..., description="The date of greatest eclipse, YYYY-MM-DD")
+    kind: EclipseKind
+    type_code: str = Field(..., description="NASA's type code (https://eclipse.gsfc.nasa.gov/SEcat5/catkey.html)")
+    saros: int
+    greatest_utc: float = Field(..., description="The instant of greatest eclipse (UTC epoch seconds)")
+    greatest_lat: Optional[float] = None
+    greatest_lon: Optional[float] = None
+    sun_altitude_deg: Optional[float] = Field(default=None, description="At the place and instant of greatest eclipse")
+    magnitude: float
+    gamma: float
+    path_width_km: Optional[float] = Field(default=None, description="At greatest eclipse; null for a partial eclipse")
+    central_duration_s: Optional[float] = Field(default=None, description="On the central line at greatest eclipse")
+    delta_t_s: float = Field(..., description="The delta-T of NASA's elements (an extrapolation for a future date)")
+    elements_source: str = Field(..., description="The NASA page the elements were read from")
+    here: Optional[EclipseHere] = None
+
+
+class EclipseList(BaseModel):
+    """The solar eclipses of a span of years from NASA's catalogue, and for a place what it sees of each."""
+
+    generated_utc: int
+    year_from: int
+    year_to: int
+    eclipses: list[EclipseSummary] = Field(default_factory=list)
+    derived: list[str] = Field(
+        default_factory=lambda: ["eclipses.here"], description="The fields computed by Vigie: everything else is NASA's"
+    )
+    attribution: str
+
+
+class EclipseDetail(EclipseSummary):
+    """One eclipse, and for a place its contacts, the disc at each instant and, when the forecast reaches it, the clouds."""
+
+    generated_utc: int
+    derived: list[str] = Field(
+        default_factory=lambda: ["here"], description="The fields computed by Vigie: everything else is NASA's (and the weather source's)"
+    )
+    attribution: str
+
+
+class EclipseMapFeature(BaseModel):
+    """A band of the share of the Sun hidden, the path of totality or annularity, or its central line (drawn by Vigie)."""
+
+    type: Literal["Feature"] = "Feature"
+    geometry: dict[str, Any]
+    properties: dict[str, Any]
+
+
+class EclipseMapCollection(BaseModel):
+    """The map of one eclipse (RFC 7946), drawn by Vigie from NASA's Besselian elements."""
+
+    type: Literal["FeatureCollection"] = "FeatureCollection"
+    id: str
+    features: list[EclipseMapFeature] = Field(default_factory=list)
+    levels: list[float] = Field(default_factory=list, description="The lower bound of each band of the share hidden (ours)")
+    derived: list[str] = Field(default_factory=lambda: ["features"], description="Every shape is computed by Vigie")
+    attribution: str
