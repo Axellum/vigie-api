@@ -43,6 +43,9 @@ Endpoints:
 - ``GET    /v1/vigilances/countries``: The countries this instance has a source for, with the sources and whether their
                                      reuse terms were verified; with ``uncovered=true``, the other countries too, each with
                                      the reason nothing is read for it.
+- ``GET    /v1/vigilances/archive``: Every official warning this instance saw, kept as it was served, filtered by country, area,
+                                     source, phenomenon, level and period, with the hours each source was read.
+- ``GET    /v1/vigilances/archive/stats``: What the archive took in per day and what it weighs on disk.
 - ``POST   /v1/simulate``          : Inject a simulated scenario (always labelled as a simulation). Off unless
                                      ``VIGIE_ENABLE_SIMULATION=1``: it answers 403 otherwise.
 - ``WS     /v1/stream``            : Real-time WebSocket stream for connected terminals.
@@ -85,7 +88,16 @@ from app.models.schemas import (
     SimulationResponse,
     SnapshotResponse,
 )
-from app.models.vigilance import UncoveredCountry, VigilanceCountry, VigilanceGeoJSONCollection, VigilancesResponse
+from app.models.vigilance import (
+    UncoveredCountry,
+    VigilanceArchiveQuery,
+    VigilanceArchiveResponse,
+    VigilanceArchiveStats,
+    VigilanceCountry,
+    VigilanceGeoJSONCollection,
+    VigilancePhenomenon,
+    VigilancesResponse,
+)
 from app.models.watch import WatchedPointsStatus
 from app.routers.dashboard import router as dashboard_router
 from app.security import AdminTokenMiddleware, admin_token, document_admin_token
@@ -321,6 +333,7 @@ async def get_health() -> dict[str, Any]:
         "simulation_active": aggregator.simulation_active,
         "active_scenario": aggregator.active_scenario.value,
         "scheduler": scheduler.get_status(),
+        "vigilance_archive": aggregator.vigilance_archive.health(),
         "disabled_sources": aggregator.disabled_sources(),
         "supported_devices": [d.value for d in DeviceType],
         "providers_summary": {
@@ -847,6 +860,75 @@ async def get_vigilance_countries(
     """The countries with a source of official warnings on this instance (and, on request, the ones without, with the reason)."""
     await aggregator.vigilances.ensure_registry()
     return aggregator.vigilances.countries_listing(with_uncovered=uncovered)
+
+
+ARCHIVE_SOURCE_PATTERN = r"^(meteoalarm|noaa_nws|dwd|eccc|metservice|vigicrues|tsunami|swic(:[A-Za-z0-9_.-]{1,64})?)$"
+
+
+@app.get(
+    "/v1/vigilances/archive",
+    response_model=VigilanceArchiveResponse,
+    tags=["Vigilances"],
+    description=(
+        "Every official warning this instance saw in a source's answer, in force or not (a cancellation, a warning past its end), kept "
+        "as `GET /v1/vigilances` served it: the words of the issuer untouched in every language, `level` and `phenomenon` the API's own "
+        "(listed in `derived`). One item per message and per area; `first_seen_utc` and `last_seen_utc` say when the instance saw it "
+        "(the last to within ten minutes). The newest first seen come first. `since` and `until` keep the warnings whose period "
+        "(onset, else effective time or time of issue, to the later of end and expiry) overlaps them. A source is read only for a "
+        "country that is needed or asked for: `reads` says in which UTC hours of each day each source was read, so that a period "
+        "without a warning is not taken for a period without danger when nobody read the source. A MeteoAlarm warning has its words "
+        "when the instance had read its CAP document (the archive sends no request of its own). How long a warning is kept: "
+        "`keep_days` (`VIGIE_ARCHIVE_KEEP_DAYS`, null: for ever). This is not an official warning service."
+    ),
+)
+async def get_vigilance_archive(
+    country: Optional[str] = Query(default=None, min_length=2, max_length=2, pattern=r"^[A-Za-z]{2}$", description="ISO 3166-1 alpha-2 country"),
+    area: Optional[str] = Query(
+        default=None, min_length=2, max_length=120, description="A code of the area (`NUTS3:FR101`, `FR101`, `EMMA_ID:FR075`) or a part of its name"
+    ),
+    source: Optional[str] = Query(
+        default=None, pattern=ARCHIVE_SOURCE_PATTERN, description="The source: `meteoalarm`, `dwd`, `eccc`, `metservice`, `noaa_nws`, `vigicrues`, `tsunami`, `swic` or `swic:<service>`"
+    ),
+    phenomenon: Optional[VigilancePhenomenon] = Query(default=None, description="The phenomenon (the API's own, `derived`)"),
+    level: Optional[SeverityLevel] = Query(default=None, description="Exactly this level (the API's own, `derived`)"),
+    min_level: Optional[SeverityLevel] = Query(default=None, description="At least this level"),
+    since: Optional[int] = Query(default=None, ge=0, description="Warnings whose period ends at or after this time (UTC epoch seconds)"),
+    until: Optional[int] = Query(default=None, ge=0, description="Warnings whose period starts at or before this time (UTC epoch seconds)"),
+    limit: int = Query(default=100, ge=1, le=500, description="Most warnings in the page"),
+    offset: int = Query(default=0, ge=0, le=1_000_000, description="Warnings to skip (the next page starts at `offset + limit`)"),
+) -> VigilanceArchiveResponse:
+    """The official warnings this instance saw, filtered, and when each source was read."""
+    if since is not None and until is not None and until < since:
+        raise HTTPException(status_code=422, detail="`until` comes before `since`")
+    query = VigilanceArchiveQuery(
+        country=country.upper() if country else None,
+        area=area.strip() if area else None,
+        source=source,
+        phenomenon=phenomenon,
+        level=level,
+        min_level=min_level,
+        since_utc=since,
+        until_utc=until,
+        limit=limit,
+        offset=offset,
+    )
+    return await aggregator.vigilance_archive.query(query)
+
+
+@app.get(
+    "/v1/vigilances/archive/stats",
+    response_model=VigilanceArchiveStats,
+    tags=["Vigilances"],
+    description=(
+        "What the archive of the official warnings took in per UTC day (warnings first seen, what they weigh compressed, the sources "
+        "and countries read) and what the database weighs on disk."
+    ),
+)
+async def get_vigilance_archive_stats(
+    days: int = Query(default=30, ge=1, le=3660, description="The last `days` days"),
+) -> VigilanceArchiveStats:
+    """The size of the archive of the official warnings, per day."""
+    return await aggregator.vigilance_archive.stats(days)
 
 
 @app.post(

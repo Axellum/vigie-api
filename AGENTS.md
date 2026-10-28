@@ -18,6 +18,7 @@ python tools/capture_frame.py out.txt     # write a REAL frame from the live pro
 python tools/check_live_feeds.py          # ask each real provider once (the weekly live-feeds workflow does it)
 python tools/build_geometries.py          # rebuild app/data (borders, NUTS shapes) from Natural Earth and Wikidata
 python tools/fake_instance.py             # a fake instance with warnings you add by hand (to try the Home Assistant integration)
+python tools/measure_archive.py           # what the archive of the warnings takes in over a real day, on an instance you started
 python -m pytest tests_ha                 # the Home Assistant integration's tests: its own venv, Python 3.14.2+ (docs/home-assistant.md)
 ```
 

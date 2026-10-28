@@ -82,6 +82,7 @@ from app.services.geoindex import (
     localization_of,
 )
 from app.services.uncovered import reason_for, uncovered_country
+from app.services.vigilance_archive import VigilanceArchive
 
 RECENT_COUNTRIES_MAX = 8
 RECENT_COUNTRIES_TTL_S = 3600
@@ -170,6 +171,7 @@ class SourceData:
     fallback: bool = False  # asked only because the national service did not answer: in the answer, not in the push tracking
     source_id: Optional[str] = None  # for a service of the WMO registry (``swic``): its id there
     credit: Optional[str] = None  # the credit of this very source, when it is not the one of its kind (a registry service has its own)
+    seen: Optional[list[Vigilance]] = None  # everything the source listed, in force or not (the archive keeps it all)
 
     @property
     def key(self) -> str:
@@ -259,8 +261,10 @@ class VigilanceService:
         swic: Optional[SwicCollector] = None,
         swic_registry: Optional[SwicRegistryCollector] = None,
         swic_mode: str = "verified",
+        archive: Optional[VigilanceArchive] = None,
     ) -> None:
         self.meteoalarm = meteoalarm
+        self.archive = archive
         self.meteoalarm_cap = meteoalarm_cap
         self.noaa_nws = noaa_nws
         self.dwd = dwd
@@ -449,6 +453,7 @@ class VigilanceService:
                 feed_updated_utc=feed.updated_utc,
                 fetched_age_s=self._age(self.meteoalarm, key),
             ),
+            seen=list(feed.vigilances),
         )
 
     async def _nws(self) -> SourceData:
@@ -468,6 +473,7 @@ class VigilanceService:
                 status="stale" if fetched.stale else "ok",
                 fetched_age_s=self._age(self.noaa_nws, "global"),
             ),
+            seen=list(fetched.value),
         )
 
     async def _tsunami(self, country: Optional[str]) -> SourceData:
@@ -478,7 +484,8 @@ class VigilanceService:
         except (CollectorUnavailableError, ValueError) as exc:
             return self._unavailable(TSUNAMI_SOURCE, country, exc)
         now = clock.wall()
-        vigilances = [v for v in fetched.value if is_active(v, now) and (country is None or v.country == country)]
+        named = [v for v in fetched.value if country is None or v.country == country]
+        vigilances = [v for v in named if is_active(v, now)]
         return SourceData(
             TSUNAMI_SOURCE,
             country,
@@ -491,6 +498,7 @@ class VigilanceService:
                 fetched_age_s=self._age(self.tsunami, "global"),
             ),
             note=TSUNAMI_NOTE,
+            seen=named,
         )
 
     @staticmethod
@@ -553,6 +561,7 @@ class VigilanceService:
                 fetched_age_s=self._age(collector, key),
             ),
             note=note,
+            seen=list(vigilances),
         )
 
     async def _dwd(self) -> SourceData:
@@ -628,7 +637,16 @@ class VigilanceService:
             feed_updated_utc=feed.updated_utc,
             fetched_age_s=self._age(self.swic, source.source_id),
         )
-        return SourceData("swic", country, active, coverage, note=" ".join(notes) or None, source_id=source.source_id, credit=credit_of(source))
+        return SourceData(
+            "swic",
+            country,
+            active,
+            coverage,
+            note=" ".join(notes) or None,
+            source_id=source.source_id,
+            credit=credit_of(source),
+            seen=list(feed.vigilances),
+        )
 
     async def _ask(self, entry: str, country: str) -> SourceData:
         """One entry of the plan of a country: a source by name (``dwd``, ``meteoalarm``...) or ``swic:<service>``."""
@@ -690,9 +708,46 @@ class VigilanceService:
             sources.extend(await asyncio.gather(*(self._swic(service) for service in services)))
         return sources
 
-    async def _sources(self, countries: list[str]) -> list[SourceData]:
+    async def _sources(self, countries: list[str], archive: bool = True) -> list[SourceData]:
+        """The sources of these countries; ``archive=False`` when the caller archives them itself, once their words are read."""
         groups = await asyncio.gather(*(self._country_sources(country) for country in countries))
-        return [data for group in groups for data in group]
+        sources = [data for group in groups for data in group]
+        if archive:
+            await self._archive_seen(sources)
+        return sources
+
+    # ------------------------------------------------------------------ the archive
+
+    async def _archive_seen(self, sources: list[SourceData], documents: Optional[dict[str, Optional[CapDocument]]] = None) -> None:
+        """Give the archive what the sources that answered listed (a stale answer was already given when it was fresh).
+
+        ``documents``: the CAP documents an answer has just read, by address (the others are looked for in the cache).
+        """
+        if self.archive is None:
+            return
+        answered = [data for data in sources if data.coverage.status == "ok"]
+        if not answered:
+            return
+        seen = [
+            (vigilance, self._held_document(vigilance, documents or {}))
+            for data in answered
+            for vigilance in (data.seen if data.seen is not None else data.vigilances)
+        ]
+        await self.archive.observe([(data.key, data.country) for data in answered], seen, self._as_archived)
+
+    def _held_document(self, vigilance: Vigilance, documents: dict[str, Optional[CapDocument]]) -> Optional[CapDocument]:
+        """The CAP document of a MeteoAlarm warning when the API already holds it (the archive asks for none)."""
+        if vigilance.source != "meteoalarm" or not vigilance.link:
+            return None
+        document = documents.get(vigilance.link)
+        if document is None:
+            entry = self.meteoalarm_cap._cache.get(vigilance.link)
+            document = entry.value if entry is not None else None
+        return document if document is not None and document.available else None
+
+    def _as_archived(self, vigilance: Vigilance, document: Optional[CapDocument]) -> Vigilance:
+        """The warning as an answer serves it: the issuer's words in every language, and how it is matched to a point here."""
+        return self._localized(with_cap(vigilance, document, None) if document is not None else vigilance)
 
     # ------------------------------------------------------------------ localization and the words of the issuer
 
@@ -724,8 +779,10 @@ class VigilanceService:
         if notes:
             data.coverage.note = " ".join(notes)
 
-    async def _with_texts(self, vigilances: list[Vigilance], languages: Optional[tuple[str, ...]]) -> tuple[list[Vigilance], int]:
-        """Add the words of the issuer to MeteoAlarm warnings; returns them and how many are still without.
+    async def _with_texts(
+        self, vigilances: list[Vigilance], languages: Optional[tuple[str, ...]]
+    ) -> tuple[list[Vigilance], int, dict[str, Optional[CapDocument]]]:
+        """Add the words of the issuer to MeteoAlarm warnings; returns them, how many are still without, and the documents by address.
 
         The CAP documents already held cost nothing. Of the others, the first ``CAP_DOCUMENTS_PER_REQUEST`` are
         asked (the strongest warnings first, the list is sorted); the rest wait for the next request.
@@ -759,7 +816,7 @@ class VigilanceService:
                 enriched.append(vigilance)
             else:
                 enriched.append(with_cap(vigilance, document, languages))
-        return enriched, without
+        return enriched, without, documents
 
     @staticmethod
     def _in_languages(vigilance: Vigilance, languages: Optional[tuple[str, ...]]) -> Vigilance:
@@ -867,14 +924,15 @@ class VigilanceService:
         countries = [c for c in at_point if c in supported]
         for country in countries:
             self.remember(country)
-        sources = await self._sources(countries)
+        sources = await self._sources(countries, archive=False)
         locator = PointLocator(lat, lon, self.geometries, river_radius_km)
         found: list[Vigilance] = []
         for data in sources:
             self._finish_coverage(data)
             found.extend(self._localized(v, locator) for v in data.vigilances if locator.covering(v))
         ordered = self._sorted(self._without_covered_flooding(found))
-        enriched, without = await self._with_texts(ordered, languages)
+        enriched, without, documents = await self._with_texts(ordered, languages)
+        await self._archive_seen(sources, documents)  # with the words of the CAP documents just read
         self._forget_unlinked_documents()
         query = VigilanceQuery(lat=lat, lon=lon, river_radius_km=river_radius_km)
         return self._response(query, countries, sources, enriched, without, self.uncovered_of(at_point))
@@ -886,13 +944,14 @@ class VigilanceService:
         if country not in self.supported_countries():
             raise KeyError(country)
         self.remember(country)
-        sources = await self._sources([country])
+        sources = await self._sources([country], archive=False)
         found: list[Vigilance] = []
         for data in sources:
             self._finish_coverage(data)
             found.extend(self._localized(v) for v in data.vigilances)
         ordered = self._sorted(self._without_covered_flooding(found))
-        enriched, without = await self._with_texts(ordered, languages)
+        enriched, without, documents = await self._with_texts(ordered, languages)
+        await self._archive_seen(sources, documents)  # with the words of the CAP documents just read
         self._forget_unlinked_documents()
         return self._response(VigilanceQuery(country=country), [country], sources, enriched, without, self.uncovered_of([country]))
 
@@ -901,6 +960,7 @@ class VigilanceService:
         if self.tsunami is None:
             raise KeyError(TSUNAMI_SOURCE)
         data = await self._tsunami(None)
+        await self._archive_seen([data])
         self._finish_coverage(data)
         found = [self._localized(v) for v in data.vigilances]
         return self._response(VigilanceQuery(source=TSUNAMI_SOURCE), [], [data], self._sorted(found), 0)
@@ -959,7 +1019,8 @@ class VigilanceService:
         extra = [(p.lat, p.lon) for p in points]
         countries = self.needed_countries(extra)
         fetches = [self._ask(entry, country) for country in countries for entry in self._plan(country)]
-        await asyncio.gather(*fetches, return_exceptions=True)
+        results = await asyncio.gather(*fetches, return_exceptions=True)
+        await self._archive_seen([data for data in results if isinstance(data, SourceData)])
 
     async def poll_changes(self, points: list[FollowedPoint]) -> list[tuple[FollowedPoint, VigilanceChange]]:
         """Compare, for each followed point, the warnings now with the ones the last call saw.
@@ -1028,7 +1089,7 @@ class VigilanceService:
         wanted = [change.vigilance for _, change in changes if change.change != "ended"]
         if not wanted:
             return changes
-        enriched, _ = await self._with_texts(wanted, None)
+        enriched, _, _ = await self._with_texts(wanted, None)
         by_id = {v.id: v for v in enriched}
         out: list[tuple[FollowedPoint, VigilanceChange]] = []
         locators: dict[str, PointLocator] = {}

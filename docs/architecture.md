@@ -56,7 +56,8 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | `app/models/watch.py`, `app/services/watch.py` | The status of the watched points (`GET /v1/watched-points/status`): the events within each radius, and `quiet` only when every hazard source answered and has been read without a gap (`SourceReads`). |
 | `app/services/geodesy.py` | Haversine distance, bearing, tsunami ETA, de-duplication of hazards across agencies. |
 | `app/services/embedded_frame.py` | Serializes the snapshot (and an optional GPS point) to the text frame, with its CRC32. |
-| `app/services/storage_wal.py` | SQLite in WAL mode: watchlist, watched points, hazard history, last snapshot, the runs of readings of the hazard sources. |
+| `app/services/storage_wal.py` | SQLite in WAL mode: watchlist, watched points, hazard history, last snapshot, the runs of readings of the hazard sources, the archive of the official warnings. |
+| `app/services/vigilance_archive.py` | The archive of the official warnings (`GET /v1/vigilances/archive`): each warning a source lists, once per message and area, as it was served, with its first and last sighting, and the hours each source was read. It writes what changed and asks no provider. |
 | `app/services/scheduler.py` | Optional periodic collection and differential push of new or worsening alerts. |
 | `app/routers/dashboard.py` | Supervision page. |
 | `tools/capture_frame.py` | Captures a real frame to a file. |
@@ -230,6 +231,13 @@ SQLite in WAL mode, file `VIGIE_DB_PATH` or `vigie.db` in the repository root (g
 Tables: `monitored_zones` (the watchlist, seeded with five cities), `watched_points`, `hazards_history`,
 `snapshot_cache`, `source_runs` (for each hazard source, since when it has been read without a gap). Older databases are migrated on start (a hazard without a value is stored as
 `NULL`). A legacy `vigie_mondiale.db` is reused when `vigie.db` does not exist.
+
+The archive of the official warnings has four tables: `vigilance_archive` (one narrow row per message and area: the columns the
+filters read, and the first and last sighting), `vigilance_archive_payload` (the warning as served, JSON compressed with zlib, written
+only when the warning is new or changed), `vigilance_shapes` (each shape once, WKB compressed, by hash) and `vigilance_reads` (per source,
+country and UTC day, a bit for each hour the source was read). A warning seen again unchanged has only its last sighting moved, at most
+every ten minutes, so the writes follow the clock and not the number of requests. `VIGIE_ARCHIVE_KEEP_DAYS` deletes, once a day, what
+was last seen before it.
 
 ## Known limitations
 

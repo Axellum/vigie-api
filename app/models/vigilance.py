@@ -287,6 +287,86 @@ class VigilanceGeoJSONCollection(BaseModel):
     features: list[VigilanceGeoJSONFeature] = Field(default_factory=list)
 
 
+class VigilanceArchiveQuery(BaseModel):
+    """What was asked of the archive."""
+
+    country: Optional[str] = None
+    area: Optional[str] = Field(default=None, description="A code of the area (`NUTS3:FR101` or `FR101`) or a part of its name")
+    source: Optional[str] = Field(default=None, description="`meteoalarm`, `dwd`, `eccc`, `metservice`, `noaa_nws`, `vigicrues`, `tsunami`, `swic` or `swic:<service>`")
+    phenomenon: Optional[VigilancePhenomenon] = None
+    level: Optional[SeverityLevel] = None
+    min_level: Optional[SeverityLevel] = None
+    since_utc: Optional[int] = Field(default=None, description="Warnings whose period ends at or after this time (UTC epoch seconds)")
+    until_utc: Optional[int] = Field(default=None, description="Warnings whose period starts at or before this time (UTC epoch seconds)")
+    limit: int = 100
+    offset: int = 0
+
+
+class ArchivedVigilance(BaseModel):
+    """A warning of the archive: as the API served it, and when the API saw it."""
+
+    first_seen_utc: int = Field(..., description="The first time the API saw the warning in its source's answer (UTC epoch seconds)")
+    last_seen_utc: int = Field(..., description="The last time the API saw it there, to within ten minutes (UTC epoch seconds)")
+    vigilance: Vigilance
+
+
+class VigilanceArchiveRead(BaseModel):
+    """The hours of one UTC day in which the API read one source for one country with success."""
+
+    source: str = Field(..., description="The source (`swic:<service>` for a service of the WMO registry)")
+    country: Optional[str] = Field(default=None, description="ISO 3166-1 alpha-2 country; null for the tsunami messages of every coast")
+    day: str = Field(..., description="UTC day, YYYY-MM-DD")
+    first_utc: int = Field(..., description="The first read of the day (UTC epoch seconds)")
+    last_utc: int = Field(..., description="The last read of the day (UTC epoch seconds)")
+    hours: list[int] = Field(..., description="The UTC hours (0-23) in which the source was read at least once")
+
+
+class VigilanceArchiveResponse(BaseModel):
+    """The archived warnings that match a query."""
+
+    version: str = "1.0"
+    server_utc: int
+    query: VigilanceArchiveQuery
+    total: int = Field(..., description="How many archived warnings match (the page holds at most `limit` of them, from `offset`)")
+    items: list[ArchivedVigilance] = Field(default_factory=list)
+    reads: list[VigilanceArchiveRead] = Field(
+        default_factory=list,
+        description=(
+            "When each source was read, per UTC day, for the country asked (every country otherwise) over the period asked (the last "
+            "seven days otherwise): a period with no warning means nothing was in force only if its source was read then"
+        ),
+    )
+    keep_days: Optional[int] = Field(default=None, description="How many days a warning is kept after it was last seen; null: for ever")
+    attribution: Optional[str] = Field(default=None, description="The credits of the sources of the warnings of this page")
+    disclaimer: Optional[str] = Field(default=None, description="Notice the sources ask to publish with their warnings")
+    note: Optional[str] = None
+
+
+class VigilanceArchiveDay(BaseModel):
+    """What the archive took in on one UTC day."""
+
+    day: str = Field(..., description="UTC day, YYYY-MM-DD")
+    warnings_first_seen: int = Field(..., description="Warnings seen for the first time that day")
+    payload_bytes: int = Field(..., description="What their payloads weigh, compressed (bytes)")
+    countries_with_warnings: int = Field(..., description="Countries of those warnings")
+    sources_read: int = Field(..., description="Sources read with success that day (each service of the WMO registry counts)")
+    countries_read: int = Field(..., description="Countries they were read for")
+
+
+class VigilanceArchiveStats(BaseModel):
+    """The size of the archive, and what it took in per day."""
+
+    server_utc: int
+    warnings: int = Field(..., description="Warnings in the archive")
+    first_seen_utc: Optional[int] = Field(default=None, description="The oldest first sighting; null when the archive is empty")
+    last_seen_utc: Optional[int] = Field(default=None, description="The latest sighting")
+    payload_bytes: int = Field(..., description="What every payload weighs, compressed (bytes)")
+    shape_bytes: int = Field(..., description="What every shape weighs, compressed (bytes; a shape shared by several warnings counts once)")
+    database_bytes: int = Field(..., description="The whole database file and its write-ahead log on disk (bytes), every table included")
+    keep_days: Optional[int] = Field(default=None, description="How many days a warning is kept after it was last seen; null: for ever")
+    days: list[VigilanceArchiveDay] = Field(default_factory=list, description="The days asked for, the latest first")
+
+
 class VigilanceChange(BaseModel):
     """A change pushed on `/v1/stream` for a point a client follows."""
 
