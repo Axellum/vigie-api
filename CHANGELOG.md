@@ -7,6 +7,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Home Assistant: the level of each family of phenomena** (integration 0.4.0): the maximum-level sensor gains a `by_family`
+  attribute, `{"rain-flood": "red", "wind": "yellow"}`, with the families of the API (`GET /v1/families`); a test keeps the
+  integration's table equal to the API's. One sensor per family is left for later.
 - **An impact score and the families of phenomena for the events** ([ADR 0012](docs/decisions/0012-events-and-impact.md)): each event
   has an `impact` from 0 to 100 with its `impact_reasons` (official red 90, orange 60, yellow 20; earthquakes, cyclones, volcanoes,
   solar storms, tsunamis and GDACS alerts their own tables) and a `family` among fifteen. The strongest impact comes first;

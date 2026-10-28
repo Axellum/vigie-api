@@ -96,6 +96,19 @@ def test_the_level_of_each_phenomenon() -> None:
     assert data.by_phenomenon == {"fog": "none", "rain": "yellow", "wind": "orange"}  # no phenomenon, no key: nothing is invented
 
 
+def test_the_level_of_each_family() -> None:
+    data = read(
+        vigilance("a", level="YELLOW", phenomenon="rain"),
+        vigilance("b", level="ORANGE", phenomenon="flood"),
+        vigilance("c", level="YELLOW", phenomenon="avalanche"),
+        vigilance("d", level="GREEN", phenomenon="fog"),
+        vigilance("e", level="RED", phenomenon=None, original=None),
+        vigilance("f", level=None, phenomenon="wind"),
+    )
+    # rain and flood are one family; a warning with no phenomenon is "other", as in the API; one without a level is not counted
+    assert data.by_family == {"other": "red", "rain-flood": "orange", "snow-ice": "yellow"}
+
+
 # ---------------------------------------------------------------- reading the answer
 
 
@@ -106,6 +119,7 @@ def test_the_real_answer_is_read() -> None:
     assert len(data.vigilances) == 7
     assert data.max_level == "red"
     assert data.by_phenomenon == {"flood": "red", "thunderstorm": "yellow", "wind": "yellow"}
+    assert data.by_family == {"rain-flood": "red", "thunderstorm": "yellow", "wind": "yellow"}
     assert data.skipped == 0
     assert data.attribution and "MeteoAlarm" in data.attribution
 

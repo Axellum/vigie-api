@@ -28,6 +28,22 @@ from .const import (
 # The levels of the API, lowest first (`GREEN` is "a source says nothing to report").
 LEVEL_ORDER = ("green", "yellow", "orange", "red")
 COVERAGE_STATUSES = ("ok", "stale", "unavailable")
+# The family of each phenomenon of the API (``GET /v1/families``, ADR 0012); a phenomenon this table does not know is ``other``, and a
+# message of the tsunami warning centres is ``tsunami`` whatever its phenomenon. A test of the API keeps the table equal to the API's.
+FAMILY_OF_PHENOMENON = {
+    "wind": "wind",
+    "rain": "rain-flood",
+    "flood": "rain-flood",
+    "thunderstorm": "thunderstorm",
+    "snow-ice": "snow-ice",
+    "avalanche": "snow-ice",
+    "heat": "heat",
+    "cold": "cold",
+    "fire": "fire",
+    "coastal": "coastal",
+    "fog": "other",
+    "other": "other",
+}
 
 
 def level_rank(level: str | None) -> int:
@@ -293,6 +309,20 @@ class VigieData:
                 best[vigilance.phenomenon] = max(best.get(vigilance.phenomenon, -1), level_rank(vigilance.level))
         return {phenomenon: (STATE_NONE if rank == 0 else LEVEL_ORDER[rank]) for phenomenon, rank in sorted(best.items())}
 
+    @property
+    def by_family(self) -> dict[str, str]:
+        """The highest level of each family of phenomena of the API the warnings fall in (a warning without a level is not counted)."""
+        best: dict[str, int] = {}
+        for vigilance in self.vigilances:
+            if vigilance.level is None:
+                continue
+            if vigilance.source == "tsunami":
+                family = "tsunami"
+            else:
+                family = FAMILY_OF_PHENOMENON.get(vigilance.phenomenon or "other", "other")
+            best[family] = max(best.get(family, -1), level_rank(vigilance.level))
+        return {family: (STATE_NONE if rank == 0 else LEVEL_ORDER[rank]) for family, rank in sorted(best.items())}
+
 
 def parse_response(payload: Any) -> VigieData:
     """The answer of ``GET /v1/vigilances``. Raises ``ValueError`` when it is not one (the caller treats it as a failed read)."""
@@ -383,6 +413,7 @@ def build_attributes(
     attributes: dict[str, Any] = {
         "count": len(data.vigilances),
         "by_phenomenon": data.by_phenomenon,
+        "by_family": data.by_family,
         "sources": [
             {"source": item.source, "country": item.country, "status": item.status} for item in data.coverage
         ],

@@ -102,6 +102,12 @@ def test_the_levels_and_statuses_the_integration_reads_are_the_ones_of_the_api()
     assert integration_constant("COVERAGE_STATUSES") == typing.get_args(VigilanceCoverage.model_fields["status"].annotation)
 
 
+def test_the_families_the_integration_reads_are_the_ones_of_the_api() -> None:
+    from app.services.events import FAMILY_OF_PHENOMENON
+
+    assert integration_constant("FAMILY_OF_PHENOMENON") == FAMILY_OF_PHENOMENON
+
+
 def test_the_fake_instance_speaks_the_language_of_the_api() -> None:
     assert fake_instance.PHENOMENA == tuple(phenomenon.value for phenomenon in VigilancePhenomenon)
     assert fake_instance.LEVELS == ("YELLOW", "ORANGE", "RED")
