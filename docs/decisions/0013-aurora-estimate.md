@@ -1,6 +1,7 @@
-# 0012. The aurora estimate: a chance of our own, measured on past nights before it is shown, and SWPC's data as SWPC gives it
+# 0013. The aurora estimate: a chance of our own, measured on past nights before it is shown, and SWPC's data as SWPC gives it
 
 - Status: accepted (the measure of 2026-10-28 meets the criterion on all four points; see "Measured" below)
+- Number: written as 0012 and committed so before the test; renumbered 0013 when the events (Axellum/vigie-api#35) were merged first with 0012. Nothing else changed.
 - Date: 2026-10-28
 
 ## Context

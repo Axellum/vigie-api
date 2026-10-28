@@ -1,7 +1,7 @@
-"""The aurora estimate of Vigie: the chance to see an aurora from a place at a given hour (ADR 0012). Ours, not a source's.
+"""The aurora estimate of Vigie: the chance to see an aurora from a place at a given hour (ADR 0013). Ours, not a source's.
 
 Nothing here is a provider's figure: the estimate is a method of this project, written down in
-``docs/decisions/0012-aurora-estimate.md`` with its criterion, and measured on past nights (``tools/measure_aurora.py``,
+``docs/decisions/0013-aurora-estimate.md`` with its criterion, and measured on past nights (``tools/measure_aurora.py``,
 ``docs/measurements/aurora-2026-10.md``) before any route serves it. Every answer that carries it says so (``derived``, ``estimate``).
 
 The chance is a product of four factors between 0 and 1:
@@ -26,7 +26,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 
-# --- The settings of the method (ADR 0012). Fitted: EDGE_AT_KP0 and EDGE_PER_KP, on the reports of 2014 to 2022 only.
+# --- The settings of the method (ADR 0013). Fitted: EDGE_AT_KP0 and EDGE_PER_KP, on the reports of 2014 to 2022 only.
 # ``python tools/measure_aurora.py fit`` on 6,443 reports of 2014 to 2022 (2026-10-28): 62.5 and 1.9, mean log-likelihood -0.502.
 EDGE_AT_KP0 = 62.5  # magnetic latitude (degrees) of the equatorward edge of the aurora seen overhead, at Kp 0
 EDGE_PER_KP = 1.9  # degrees the edge moves towards the equator for each unit of Kp
