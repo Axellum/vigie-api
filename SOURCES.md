@@ -295,6 +295,7 @@ anything commercial.
 | `gem_faults` | GEM Global Active Faults Database | **allowed** | CC BY-SA 4.0: commercial use allowed, and data derived from it stays under the same licence. | [1](https://github.com/GEMScienceTools/gem-global-active-faults) | 2026-10-20 |
 | `vigicrues` | Vigicrues (SCHAPI) | **allowed** | Licence Ouverte 2.0 (Etalab): the source and the date of the data named. | [1](https://www.etalab.gouv.fr/licence-ouverte-open-licence/) | 2026-10-20 |
 | `eot20` | EOT20 ocean tide model (DGFI-TUM) | **allowed** | CC BY 4.0 (the SEANOE page): the credit, a link to the licence and a statement of the changes. Computed by Vigie, with no request to anyone. | [1](https://www.seanoe.org/data/00683/79489/), [2](https://creativecommons.org/licenses/by/4.0/) | 2026-10-28 |
+| `nasa_eclipses` | NASA eclipse predictions (Fred Espenak, GSFC) | **allowed** | The eclipse site's copyright page: NASA material is not protected by copyright unless noted and may be reproduced without further permission. Each page grants reproduction of the data with the acknowledgment, which is the credit. | [1](https://eclipse.gsfc.nasa.gov/SEpubs/copyright.html), [2](https://eclipse.gsfc.nasa.gov/SEbeselm/SEbeselm2001/SE2027Aug02Tbeselm.html) | 2026-10-28 |
 
 ## The sky: aurora
 
@@ -315,6 +316,20 @@ nights before it is served. Addresses from SWPC's own index (`https://services.s
 
 The estimate (`place.estimate`) is Vigie's, named in `derived` and said to be ours in the answer: the factors, their settings and the measure are in
 the ADR. It uses the hourly cloud cover of the weather source that answered (Open-Meteo, else MET Norway), which then carries its own credit.
+
+## The sky: solar eclipses
+
+`GET /v1/sky/eclipses`, `GET /v1/sky/eclipses/{date}` and `GET /v1/sky/eclipses/{date}.geojson` serve NASA's catalogue of the solar eclipses of
+2001 to 2100 as NASA states it, and **compute** from NASA's Besselian elements what a place sees (contacts, share of the Sun hidden, the disc)
+and the map (path, central line, bands). Nothing is fetched at run time: the data is bundled (`app/data/solar-eclipses.json.gz`, built by
+`tools/build_eclipses.py`). Read on 2026-10-28.
+
+| Source (id) | Licence | Terms | Credit in the responses | Quota | Commercial use | Clauses, and what is not verified |
+| --- | --- | --- | --- | --- | --- | --- |
+| **NASA eclipse predictions** by Fred Espenak (GSFC): the Five Millennium Canon's table, [`eclipse_besselian_from_mysqldump2.csv`](https://eclipse.gsfc.nasa.gov/eclipse_besselian_from_mysqldump2.csv), and the Besselian elements page of each eclipse ([2027-08-02](https://eclipse.gsfc.nasa.gov/SEbeselm/SEbeselm2001/SE2027Aug02Tbeselm.html)) (`nasa_eclipses`) | "NASA material is not protected by copyright unless noted" ([copyright page](https://eclipse.gsfc.nasa.gov/SEpubs/copyright.html)); each page: "Permission is freely granted to reproduce this data when accompanied by an acknowledgment" | [Copyright information](https://eclipse.gsfc.nasa.gov/SEpubs/copyright.html) | `Eclipse Predictions by Fred Espenak, NASA's GSFC` (wording: NASA's, from the pages; the copyright page suggests a longer one, "Eclipse map/figure/table/predictions courtesy of Fred Espenak, NASA/Goddard Space Flight Center, from eclipse.gsfc.nasa.gov.") | none (bundled) | **allowed**, as in "Commercial use" above | Every value of NASA's is kept as written; the local circumstances and the shapes are Vigie's, named in `derived`, and checked against NASA's path table ([measure](docs/measurements/eclipse-2027-08-02.md)). The future delta-T is NASA's extrapolation: an error of it moves every time by as much. The Moon's limb profile is not taken into account (NASA: 1 to 3 seconds). |
+
+The clouds of a place (`here.clouds`) are given only when the maximum is within the 48 hours of the hourly forecast the weather already requests;
+they then carry the credit of that weather source. The cloud cover usual at the date of an eclipse further ahead is **not** given (no source chosen yet).
 
 ## Where the credits go
 

@@ -645,6 +645,23 @@ a coast and a table of the astronomical arguments, both in `app/data` ([ADR 0013
   (a few tens of milliseconds); `/v1/tides/coast` computes at most `limit` cells every 5 minutes over 39 hours, and keeps the 64 last
   answers for five minutes.
 
+## The sky: solar eclipses
+
+`GET /v1/sky/eclipses`, `GET /v1/sky/eclipses/{date}` and `GET /v1/sky/eclipses/{date}.geojson`. **No request at run time**: NASA's catalogue
+and Besselian elements of the 224 solar eclipses of 2001 to 2100 are bundled (`app/data/solar-eclipses.json.gz`, 31 KB), built once by
+`tools/build_eclipses.py` from the Five Millennium Canon's table (the list, NASA's type codes) and the Besselian elements page of each
+eclipse (the elements, delta-T, gamma, magnitude, greatest eclipse: the values NASA's path tables and maps use; the canon's file was made in
+2006 with an older delta-T, 76.0 s for 2027 against 71.7 s on the page, which moves every time by 4 seconds).
+
+| What | How | Cache | Requests |
+| --- | --- | --- | --- |
+| The list (`/v1/sky/eclipses`) | NASA's values; with a place, its local circumstances for each eclipse, worked out from the elements (Explanatory Supplement, Meeus) in a thread | none needed (a few milliseconds an eclipse) | none |
+| One eclipse (`/v1/sky/eclipses/{date}`) | The same, the disc at 60 instants from the first contact to the last, and the clouds of the hour of the maximum | none | **Only** when the maximum is within the next 48 hours: the hourly cloud cover of the daily Open-Meteo request (MET Norway when it fails), the same one as `/v1/point` and the aurora, shared for the same cell. |
+| The map (`.geojson`) | A 0.5-degree grid of the share hidden (bands, levels ours), the umbra's footprints every 20 s (path), the axis every 30 s (central line), drawn in a thread in about 0.7 s | the last 4 maps, in memory | none |
+
+The method and its check against NASA's path table of 2027-08-02 (0.2 s on the times, 0.12 km on the limits) and against astronomy-engine:
+[the measure](measurements/eclipse-2027-08-02.md).
+
 ## Call volume
 
 NASA FIRMS adds nothing when nobody asks the fire routes, and with someone asking 86 requests and about 56 MB a day at the refresh of an hour, with no key and no transaction (the first version cost 60 world reads, 2,160 transactions and about 170 MB: see "Active fires").

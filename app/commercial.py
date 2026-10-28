@@ -149,6 +149,17 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             ("https://www.spaceweather.gov/content/data-access", _NWS_DISCLAIMER),
         ),
         CommercialUse(
+            "nasa_eclipses",
+            "allowed",
+            "The eclipse site's copyright page: NASA material is not protected by copyright unless noted and may be reproduced "
+            "without further permission. Each page grants reproduction of the data with the acknowledgment, which is the credit.",
+            (
+                "https://eclipse.gsfc.nasa.gov/SEpubs/copyright.html",
+                "https://eclipse.gsfc.nasa.gov/SEbeselm/SEbeselm2001/SE2027Aug02Tbeselm.html",
+            ),
+            "2026-10-28",
+        ),
+        CommercialUse(
             "nasa_firms",
             "not_verified",
             "No licence is named. NASA's policy is the full and open sharing of its data; commercial use is not stated.",

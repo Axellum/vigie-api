@@ -34,6 +34,10 @@ Endpoints:
                                      heights, high and low waters, ranges, the tide now and an estimated coefficient. Not for
                                      navigation.
 - ``GET    /v1/tides/coast``       : The tide now along the coasts of a box (GeoJSON points), for a map.
+- ``GET    /v1/sky/eclipses``      : NASA's solar eclipses of a span of years and, for a position, what it sees of each (computed by
+                                     Vigie from NASA's Besselian elements).
+- ``GET    /v1/sky/eclipses/{date}``: one eclipse; for a position its contacts, the disc from C1 to C4 and, within 48 hours, the clouds.
+- ``GET    /v1/sky/eclipses/{date}.geojson``: its path, central line and bands of the share of the Sun hidden (RFC 7946).
 - ``GET    /v1/experimental/prealert`` : EXPERIMENTAL, UNOFFICIAL: the pre-alert levels Vigie computes for a province of Turkey
                                      (ADR 0011); 404 unless ``VIGIE_PREALERT_TR`` is on. Not an official warning.
 - ``GET    /v1/geojson/hazards``   : IETF RFC 7946 GeoJSON (``FeatureCollection``): one point per hazard.
@@ -74,6 +78,7 @@ from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Literal, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, WebSocket, WebSocketDisconnect
+from fastapi import Path as FastAPIPath
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -101,7 +106,7 @@ from app.models.schemas import (
     SimulationResponse,
     SnapshotResponse,
 )
-from app.models.sky import AuroraOvalCollection, AuroraResponse
+from app.models.sky import AuroraOvalCollection, AuroraResponse, EclipseDetail, EclipseList, EclipseMapCollection
 from app.models.tides import CoastalTides, TidesResponse
 from app.models.vigilance import (
     UncoveredCountry,
@@ -714,6 +719,86 @@ async def get_sky_aurora(
 async def get_sky_aurora_geojson() -> AuroraOvalCollection:
     """The OVATION grid as map bands."""
     return await aggregator.aurora.oval_geojson()
+
+
+_ECLIPSE_DATE = r"^\d{4}-\d{2}-\d{2}$"
+
+
+def _place(lat: Optional[float], lon: Optional[float]) -> tuple[Optional[float], Optional[float]]:
+    if (lat is None) != (lon is None):
+        raise HTTPException(status_code=422, detail="Give both lat and lon, or neither.")
+    if lat is None or lon is None:
+        return None, None
+    return round(lat, 4), round(lon, 4)
+
+
+@app.get(
+    "/v1/sky/eclipses",
+    response_model=EclipseList,
+    tags=["Sky"],
+    description=(
+        "The solar eclipses of NASA's catalogue (2001 to 2100) from `year_from` to `year_to` (by default this year and the nine "
+        "after): their kind, instant and place of greatest eclipse, magnitude, path width and central duration, **as NASA states "
+        "them**. With `lat` and `lon`, `here` says for each what that place sees: its contacts and the altitude of the Sun at each, "
+        "the share of the Sun hidden, totality or annularity. `here` is computed by Vigie from NASA's Besselian elements (the "
+        "textbook method, checked against NASA's path tables: docs/measurements/eclipse-2027-08-02.md); nothing is fetched."
+    ),
+)
+async def get_sky_eclipses(
+    year_from: Optional[int] = Query(default=None, ge=2001, le=2100, description="First year (default: this year)"),
+    year_to: Optional[int] = Query(default=None, ge=2001, le=2100, description="Last year (default: year_from + 9)"),
+    lat: Optional[float] = Query(default=None, ge=-90.0, le=90.0, description="Latitude of the place (WGS84); with `lon`"),
+    lon: Optional[float] = Query(default=None, ge=-180.0, le=180.0, description="Longitude of the place (WGS84); with `lat`"),
+) -> EclipseList:
+    """NASA's eclipses of a span of years and, for a place, what it sees of each."""
+    place_lat, place_lon = _place(lat, lon)
+    if year_from is not None and year_to is not None and year_to < year_from:
+        raise HTTPException(status_code=422, detail="year_to is before year_from.")
+    return await aggregator.eclipses.eclipses(year_from, year_to, place_lat, place_lon)
+
+
+@app.get(
+    "/v1/sky/eclipses/{date}.geojson",
+    response_model=EclipseMapCollection,
+    tags=["Sky"],
+    description=(
+        "The map of one eclipse as RFC 7946 features, **drawn by Vigie** from NASA's Besselian elements: bands of the share of the "
+        "Sun hidden at the maximum where the Sun is up (`kind: obscuration`, `[min, max)`, the levels ours), the path of totality or "
+        "annularity (`kind: path`) and its central line (`kind: central_line`). 404 when the catalogue has no eclipse that day."
+    ),
+)
+async def get_sky_eclipse_geojson(
+    date: str = FastAPIPath(..., pattern=_ECLIPSE_DATE, description="The date of greatest eclipse, YYYY-MM-DD"),
+) -> EclipseMapCollection:
+    """The path, central line and bands of one eclipse."""
+    drawn = await aggregator.eclipses.eclipse_map(date)
+    if drawn is None:
+        raise HTTPException(status_code=404, detail="No solar eclipse of NASA's catalogue (2001 to 2100) on that date.")
+    return drawn
+
+
+@app.get(
+    "/v1/sky/eclipses/{date}",
+    response_model=EclipseDetail,
+    tags=["Sky"],
+    description=(
+        "One eclipse of NASA's catalogue. With `lat` and `lon`, `here` gives that place's contacts (with the Sun's altitude), the "
+        "share hidden, totality or annularity, the Moon on the Sun's disc from the first contact to the last (`frames`, north up), "
+        "and, when the maximum is within the 48 hours of the hourly forecast, the forecast cloud cover of that hour (the only "
+        "request this route can cost: the one the weather of the place already sends). `here` is Vigie's computation."
+    ),
+)
+async def get_sky_eclipse(
+    date: str = FastAPIPath(..., pattern=_ECLIPSE_DATE, description="The date of greatest eclipse, YYYY-MM-DD"),
+    lat: Optional[float] = Query(default=None, ge=-90.0, le=90.0, description="Latitude of the place (WGS84); with `lon`"),
+    lon: Optional[float] = Query(default=None, ge=-180.0, le=180.0, description="Longitude of the place (WGS84); with `lat`"),
+) -> EclipseDetail:
+    """One eclipse and, for a place, its local circumstances."""
+    place_lat, place_lon = _place(lat, lon)
+    found = await aggregator.eclipses.eclipse(date, place_lat, place_lon)
+    if found is None:
+        raise HTTPException(status_code=404, detail="No solar eclipse of NASA's catalogue (2001 to 2100) on that date.")
+    return found
 
 
 @app.get(
