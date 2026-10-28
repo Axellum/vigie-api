@@ -46,15 +46,15 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from app import clock  # noqa: E402
+from app.collectors import health as health_feeds  # noqa: E402
+from app.collectors import travel as travel_feeds  # noqa: E402
+from app.collectors import travel_codes  # noqa: E402
 from app.collectors.aurora import (  # noqa: E402
     SWPCAlertsCollector,
     SWPCKpForecastCollector,
     SWPCOvationCollector,
     SWPCSolarWindCollector,
 )
-from app.collectors import health as health_feeds  # noqa: E402
-from app.collectors import travel as travel_feeds  # noqa: E402
-from app.collectors import travel_codes  # noqa: E402
 from app.collectors.base import build_user_agent  # noqa: E402
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector  # noqa: E402
 from app.collectors.dwd import DWDCollector  # noqa: E402
