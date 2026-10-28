@@ -16,7 +16,7 @@ from typing import Any, Optional
 import httpx
 import pytest
 
-from tests import firms_samples, samples, storm_samples, swic_samples
+from tests import firms_samples, samples, storm_samples, swic_samples, travel_samples
 from tests import vigilance_samples as national
 from tests.helpers import SimClock
 from tests.test_dwd import archive, cap_document
@@ -171,6 +171,7 @@ def good_answers() -> dict[str, Callable[[httpx.Request], httpx.Response]]:
         FIRMS_HOST: firms_host()[0],
         ECMWF_HOST: ecmwf_answer,
         **swic_samples.wmo_hosts(),
+        **travel_samples.hosts(),
     }
 
 
@@ -833,3 +834,37 @@ async def test_firms_a_key_that_is_not_one_is_not_used_and_never_quoted(monkeypa
     answer, seen = firms_host()
     result = await firms_result(answer)
     assert result.outcome == "ok" and len(seen) == 1 and odd not in result.detail  # the file needs none
+
+
+@pytest.mark.asyncio
+async def test_the_travel_checks_read_each_ministry_and_say_what_they_read() -> None:
+    results = await run(only=["travel_gb", "travel_us", "travel_ca", "travel_au", "travel_nl"])
+    assert {k: v.outcome for k, v in results.items()} == dict.fromkeys(results, "ok")
+    assert results["travel_gb"].detail.startswith("226 pages in the index, all placed")
+    assert results["travel_us"].detail == "216 advices, 216 with a level"
+    assert "Mexico's risk levels read in English and French" in results["travel_ca"].detail
+    assert results["travel_nl"].detail == "226 advices, 155 with a level"
+
+
+@pytest.mark.asyncio
+async def test_a_travel_destination_no_table_places_or_a_new_level_is_a_failure() -> None:
+    us = travel_samples.payload("us_travel_advisories")
+    us.append({"Title": "Atlantis - Level 1: Exercise Normal Precautions", "Link": "https://travel.state.gov/x/destination.atl.html"})
+    au = travel_samples.payload("au_destinations_export")
+    au[0]["field_overall_advice_level"] = "Think twice"
+    nl = [{**item, "introduction": "<p>Lees welke risico's er zijn.</p>"} for item in travel_samples.nl_items()]
+    index = travel_samples.gb_index()
+    index["links"]["children"][0]["details"]["country"]["slug"] = "atlantis"
+    results = await run(
+        {
+            "cadataapi.state.gov": lambda r: httpx.Response(200, json=us),
+            "www.smartraveller.gov.au": lambda r: httpx.Response(200, json=au),
+            "opendata.nederlandwereldwijd.nl": lambda r: httpx.Response(200, json=nl if r.url.params["offset"] == "0" else []),
+            "www.gov.uk": lambda r: httpx.Response(200, json=index),
+        },
+        only=["travel_gb", "travel_us", "travel_au", "travel_nl"],
+    )
+    assert results["travel_us"].outcome == "FAIL" and "destination.atl" in results["travel_us"].detail
+    assert results["travel_au"].outcome == "FAIL" and "Think twice" in results["travel_au"].detail
+    assert results["travel_nl"].outcome == "FAIL" and "single colour" in results["travel_nl"].detail
+    assert results["travel_gb"].outcome == "FAIL" and "atlantis" in results["travel_gb"].detail

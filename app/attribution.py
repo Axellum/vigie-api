@@ -188,6 +188,39 @@ CREDITS: dict[str, Credit] = {
             "https://www.vigicrues.gouv.fr. Licence Ouverte 2.0",
             "ours",
         ),
+        # The travel advice of the foreign ministries (SOURCES.md, "Travel advice").
+        Credit(
+            "travel_gb",
+            "Foreign, Commonwealth & Development Office (GOV.UK)",
+            "Source: FCDO foreign travel advice (https://www.gov.uk/foreign-travel-advice). "
+            "Contains public sector information licensed under the Open Government Licence v3.0.",
+            "ours",
+        ),
+        Credit(
+            "travel_us",
+            "U.S. Department of State, Bureau of Consular Affairs",
+            "Source: Bureau of Consular Affairs, U.S. Department of State (https://travel.state.gov)",
+            "suggested",
+        ),
+        Credit(
+            "travel_ca",
+            "Global Affairs Canada",
+            "Source: Global Affairs Canada, travel advice and advisories (https://travel.gc.ca). "
+            "Contains information licensed under the Open Government Licence – Canada.",
+            "ours",
+        ),
+        Credit(
+            "travel_au",
+            "Smartraveller (Australian Government, DFAT)",
+            "Source: the Department of Foreign Affairs and Trade's Smartraveller website - www.smartraveller.gov.au",
+            "suggested",
+        ),
+        Credit(
+            "travel_nl",
+            "Ministerie van Buitenlandse Zaken (NederlandWereldwijd)",
+            "Source: Ministerie van Buitenlandse Zaken, NederlandWereldwijd (https://www.nederlandwereldwijd.nl/reisadvies), CC0 1.0",
+            "ours",
+        ),
     )
 }
 
