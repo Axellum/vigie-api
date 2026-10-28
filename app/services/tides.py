@@ -1,4 +1,4 @@
-"""The tide at a coastal point, computed from the EOT20 ocean tide model (ADR 0012).
+"""The tide at a coastal point, computed from the EOT20 ocean tide model (ADR 0013).
 
 No provider is asked: the harmonic constants of the model cells near a coast and a table of the astronomical arguments are
 bundled in ``app/data`` (built by ``tools/build_tides.py``, which checks this module against pyTMD). The height at a time is
@@ -54,7 +54,7 @@ EXTREMES_STEP_MINUTES = 1
 # Two neighbouring extremes closer than this in height are a ripple of the curve, not a tide: the dip between them is dropped.
 MIN_EXTREME_DIFFERENCE_M = 0.02
 
-# The estimated French coefficient (ours, unofficial; ADR 0012): the range of a semi-diurnal tide at Brest divided by this unit, times 100.
+# The estimated French coefficient (ours, unofficial; ADR 0013): the range of a semi-diurnal tide at Brest divided by this unit, times 100.
 # 6.10 m is the unit that secondary sources give for Brest (the mean range of equinoctial spring tides); SHOM's own text was not read.
 COEFFICIENT_UNIT_M = 6.10
 # The tide gauge of Brest (REFMAR 3, the SHOM's position): the model cell nearest to it gives the coefficient.
@@ -224,7 +224,7 @@ def unix_from_mjd(mjd: float) -> float:
 
 
 def estimated_coefficients(extremes: list[Extreme]) -> list[tuple[Extreme, int]]:
-    """The estimated French coefficient of each high water of Brest that has a low water on either side (ours, ADR 0012)."""
+    """The estimated French coefficient of each high water of Brest that has a low water on either side (ours, ADR 0013)."""
     result: list[tuple[Extreme, int]] = []
     for i in range(1, len(extremes) - 1):
         high = extremes[i]

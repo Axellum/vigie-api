@@ -36,7 +36,7 @@ All notable changes to this project are documented here. The format follows
 - **Tides, computed by Vigie** from the EOT20 ocean tide model (DGFI-TUM, CC BY 4.0, bundled in `app/data`, 2.2 MB):
   `GET /v1/tides?lat=&lon=` gives the heights, the high and low waters with their ranges, the tide now and an estimated (unofficial)
   French coefficient; `GET /v1/tides/coast?bbox=` gives the tide now along the coasts of a box, for a map. No provider is asked. Measured
-  before release against the criterion of [ADR 0012](docs/decisions/0012-tides-from-a-global-model.md), fixed beforehand: it holds in
+  before release against the criterion of [ADR 0013](docs/decisions/0013-tides-from-a-global-model.md), fixed beforehand: it holds in
   France (9 of 10 REFMAR ports) and fails in the United States (5 of 10 NOAA stations, inside harbours and bays); every answer says so.
   Not for navigation. The data is built by `tools/build_tides.py`, the measure is `tools/measure_tides.py`
   ([report](docs/measurements/tides-2026-10.md)).

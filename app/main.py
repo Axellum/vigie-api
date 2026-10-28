@@ -30,7 +30,7 @@ Endpoints:
 - ``GET    /v1/sky/aurora``        : NOAA SWPC's aurora data (OVATION summary, Kp observed and predicted, solar wind, geomagnetic
                                      messages) and, for a position, Vigie's estimate of the coming night (ADR 0012, not SWPC's).
 - ``GET    /v1/sky/aurora.geojson``: SWPC's OVATION grid as map bands (RFC 7946).
-- ``GET    /v1/tides``             : The tide at a coastal point, computed by Vigie from the EOT20 ocean tide model (ADR 0012):
+- ``GET    /v1/tides``             : The tide at a coastal point, computed by Vigie from the EOT20 ocean tide model (ADR 0013):
                                      heights, high and low waters, ranges, the tide now and an estimated coefficient. Not for
                                      navigation.
 - ``GET    /v1/tides/coast``       : The tide now along the coasts of a box (GeoJSON points), for a map.
@@ -597,7 +597,7 @@ TIDE_INTERVALS = (10, 15, 30, 60)
     tags=["Sea"],
     responses=TIDES_ERRORS,
     description=(
-        "The tide at a coastal point, **computed by Vigie** from the EOT20 ocean tide model at the nearest model cell (ADR 0012): the "
+        "The tide at a coastal point, **computed by Vigie** from the EOT20 ocean tide model at the nearest model cell (ADR 0013): the "
         "heights every `interval_minutes`, the high and low waters with the range of each tide, the tide now (height, rising or falling, "
         "next high and low water) and an **estimated** French coefficient (ours, unofficial: the official one is SHOM's). Heights are "
         "relative to the model's mean sea level, not to a chart datum. No provider is asked. **Not for navigation**: the measure of "

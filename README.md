@@ -488,7 +488,7 @@ GET /v1/point?lat=-15.4&lon=28.3&fire_radius_km=50        fires_nearby: count, n
 
 `GET /v1/tides` and `GET /v1/tides/coast` compute the tide **locally**, from the harmonic constants of the **EOT20** ocean tide model
 (DGFI-TUM, CC BY 4.0) bundled in `app/data` (2.2 MB, built by `tools/build_tides.py`, which checks the result against pyTMD to within
-4 mm). No provider is asked and no quota is spent ([ADR 0012](docs/decisions/0012-tides-from-a-global-model.md)).
+4 mm). No provider is asked and no quota is spent ([ADR 0013](docs/decisions/0013-tides-from-a-global-model.md)).
 
 ```
 GET /v1/tides?lat=43.48&lon=-1.56                          the next two days at Biarritz, every 30 minutes

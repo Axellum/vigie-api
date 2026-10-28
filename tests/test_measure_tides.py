@@ -1,7 +1,7 @@
 """The measure of the tide (``tools/measure_tides.py``): the parts that are pure.
 
 The answers of REFMAR and NOAA are read from real samples (``tests/fixtures/tides``); the scoring is checked on curves worked out by
-hand. What is checked is the arithmetic of the criterion of ADR 0012, not the sea.
+hand. What is checked is the arithmetic of the criterion of ADR 0013, not the sea.
 """
 
 from __future__ import annotations

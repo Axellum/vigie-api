@@ -517,7 +517,7 @@ GET /v1/point?lat=-15.4&lon=28.3&fire_radius_km=50        fires_nearby : nombre,
 `GET /v1/tides` et `GET /v1/tides/coast` calculent la marée **sur place**, à partir des constantes harmoniques du modèle de marée
 océanique **EOT20** (DGFI-TUM, CC BY 4.0) embarquées dans `app/data` (2,2 Mo, construites par `tools/build_tides.py`, qui vérifie le
 résultat contre pyTMD à 4 mm près). Aucune source n'est appelée, aucun quota n'est consommé
-([ADR 0012](docs/decisions/0012-tides-from-a-global-model.md)).
+([ADR 0013](docs/decisions/0013-tides-from-a-global-model.md)).
 
 ```
 GET /v1/tides?lat=43.48&lon=-1.56                          les deux prochains jours à Biarritz, toutes les 30 minutes
