@@ -37,6 +37,7 @@ async def test_the_real_answer_gives_a_red_sensor_with_its_attributes(
     assert state.attributes["device_class"] == "enum" and state.attributes["options"] == ["none", "yellow", "orange", "red"]
     assert state.attributes["count"] == 7 and state.attributes["omitted"] == 0 and len(state.attributes["vigilances"]) == 7
     assert state.attributes["by_phenomenon"] == {"flood": "red", "thunderstorm": "yellow", "wind": "yellow"}
+    assert state.attributes["by_family"] == {"rain-flood": "red", "thunderstorm": "yellow", "wind": "yellow"}
     assert state.attributes["sources"] == [
         {"source": "meteoalarm", "country": "FR", "status": "ok"},
         {"source": "vigicrues", "country": "FR", "status": "ok"},

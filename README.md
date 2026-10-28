@@ -79,7 +79,8 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
 | `GET /v1/vigilances?lat=&lon=` or `?country=FR` or `?source=tsunami` | Official weather warnings that cover a point, or all those of a country (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues, and the national services of the WMO registry), or the tsunami messages in force, the issuer's words untouched. See below. |
 | `GET /v1/vigilances/countries` | The countries this instance serves with its settings, the sources that answer for each, and whether their licence is verified. With `?uncovered=true`, every other country of the world too, each with the reason nothing is read for it. |
 | `GET /v1/vigilances.geojson` | The same warnings as GeoJSON, the shape of each area as geometry. |
-| `GET /v1/events` or `?country=CH` | Events instead of lines: the warnings of one phenomenon, level and region grouped, the earthquakes of one sequence, each other hazard, the warnings and hazards themselves inside, untouched. See "Events instead of lines" below. |
+| `GET /v1/events` or `?country=CH` | Events instead of lines: the warnings of one phenomenon, level and region grouped, the earthquakes of one sequence, each other hazard, the warnings and hazards themselves inside, untouched; an impact score (`min_impact=60`: what counts in a world view) and a family (`families=`). See "Events instead of lines" below. |
+| `GET /v1/families` | The fifteen families of phenomena (wind, rain and floods, ..., space weather) and what each holds. |
 | `GET /v1/vigilances/archive`, `GET /v1/vigilances/archive/stats` | Every official warning this instance saw, kept as it was served, filtered by country, area, source, phenomenon, level and period, with the hours each source was read; and what the archive weighs per day. See "The archive of the official warnings" below. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Watched zones (the watchlist). A zone needs its `utc_offset_s`. |
 | `GET/POST /v1/watched-points`, `DELETE /v1/watched-points/{id}` | The points you watch (a place, a fault, a volcano...), each with a radius. **Personal**: listed here and in the status, never in the hazards. `POST` and `DELETE` are **off** (403) unless `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`. |
@@ -344,20 +345,23 @@ GET /v1/events                         the hazards of the world and the warnings
 GET /v1/events?country=CH              the warnings and hazards of one country (404 for a country with no source)
 GET /v1/events?compact=true            without the warnings and hazards themselves (their ids stay in `alert_ids`)
 GET /v1/events?lang=fr,en              the texts of the warnings in these languages only (a filter, never a translation)
+GET /v1/events?min_impact=60           a world view of what counts (see the impact below)
+GET /v1/events?families=wind,rain-flood  only these families of phenomena
+GET /v1/families                       the fifteen families and what each holds
 ```
 
-The contract. An event is **ours**: `title`, `level`, `areas_count`, the period and `bbox` are worked out by Vigie and listed in
-`derived`; `alerts` holds the warnings exactly as `GET /v1/vigilances` serves them, `hazards` the hazards as `GET /v1/geojson/hazards`
+The contract. An event is **ours**: `family`, `impact` and `impact_reasons`, `title`, `level`, `areas_count`, the period and `bbox` are
+worked out by Vigie and listed in `derived`; `alerts` holds the warnings exactly as `GET /v1/vigilances` serves them, `hazards` the hazards as `GET /v1/geojson/hazards`
 describes them, untouched. The title is English and ours: a client writes its own in its language from `phenomenon` (or `category`),
-`country`, `areas_count` and `area_names`; the source's words for the phenomenon are in `phenomenon_words`, as given. The highest level
-comes first, then the broadest. Two real events of the world view on 2026-10-28 at 21:15 UTC (cut):
+`country`, `areas_count` and `area_names`; the source's words for the phenomenon are in `phenomenon_words`, as given. The strongest impact
+comes first, then the highest level, then the broadest. Two real events of the world view on 2026-10-28 at 21:15 UTC (cut):
 
 ```json
 {
   "events": [
     {
-      "id": "warnings:f47b33705da9b6af", "kind": "warnings", "phenomenon": "cold", "category": null, "level": "YELLOW",
-      "title": "Cold · Switzerland · 13 areas", "country": "CH", "areas_count": 13,
+      "id": "warnings:f47b33705da9b6af", "kind": "warnings", "phenomenon": "cold", "category": null, "family": "cold",
+      "impact": 23, "impact_reasons": ["official yellow warning", "13 areas"], "level": "YELLOW", "title": "Cold · Switzerland · 13 areas", "country": "CH", "areas_count": 13,
       "area_names": ["Vispertal - Nanztal", "Lötschental - Naters", "Val d'Hérens", "Turtmanntal", "Locarnese", "..."],
       "phenomenon_words": ["Low-temperature"], "start_utc": 1793228400, "end_utc": 1793257200,
       "bbox": [7.3399, 45.8198, 9.3, 46.4988], "sources": ["meteoalarm"],
@@ -366,17 +370,18 @@ comes first, then the broadest. Two real events of the world view on 2026-10-28 
                   "level_original": "Yellow", "phenomenon": "cold", "phenomenon_original": "Low-temperature",
                   "area": {"description": "Vispertal - Nanztal"}, "...": "every field of GET /v1/vigilances"}],
       "hazards": [], "attribution": "Source: EUMETNET – MeteoAlarm ...",
-      "derived": ["level", "title", "areas_count", "start_utc", "end_utc", "bbox"]
+      "derived": ["family", "impact", "impact_reasons", "level", "title", "areas_count", "start_utc", "end_utc", "bbox"]
     },
     {
-      "id": "earthquakes:9293c7eacac23a2f", "kind": "earthquakes", "phenomenon": null, "category": "EARTHQUAKE", "level": "YELLOW",
+      "id": "earthquakes:9293c7eacac23a2f", "kind": "earthquakes", "phenomenon": null, "category": "EARTHQUAKE", "family": "earthquake",
+      "impact": 35, "impact_reasons": ["earthquake of magnitude 5.5 (yellow)", "7 earthquakes in the sequence"], "level": "YELLOW",
       "title": "7 earthquakes · strongest: M 5.5 - Reykjanes Ridge", "country": null, "areas_count": null,
       "start_utc": 1793187469, "end_utc": 1793216732, "bbox": [-32.44, 58.056, -32.01, 58.95], "sources": ["USGS", "EMSC"],
       "alerts": [], "hazards": [{"id": "usgs_us7000ttnc", "title": "M 5.5 - Reykjanes Ridge", "value_primary": 5.5, "...": "..."}],
-      "derived": ["level", "title", "start_utc", "end_utc", "bbox"]
+      "derived": ["family", "impact", "impact_reasons", "level", "title", "start_utc", "end_utc", "bbox"]
     }
   ],
-  "counts": {"events": 95, "by_level": {"RED": 5, "ORANGE": 19, "YELLOW": 54, "GREEN": 16, "unknown": 1}},
+  "counts": {"events": 95, "by_family": {"...": "..."}, "by_level": {"RED": 5, "ORANGE": 19, "YELLOW": 54, "GREEN": 16, "unknown": 1}},
   "coverage": ["... one line per source and country, as in GET /v1/vigilances ..."],
   "hazard_sources_answered": 7, "hazard_sources_total": 7
 }
@@ -385,6 +390,18 @@ comes first, then the broadest. Two real events of the world view on 2026-10-28 
 That evening the world view held 95 events instead of 528 warnings in force and 46 hazards: the 13 Swiss "Low-temperature" areas
 are one event, the 7 earthquakes of the Reykjanes Ridge one sequence. `counts.by_level` counts the green apart, so that a client
 leaves it out of its counters. `coverage` says which source did not answer: its warnings are missing, which is not "nothing in force".
+
+**The impact score**, 0 to 100, ranks the events; it is ours, not a probability and not an official level (the table and its reasons:
+[ADR 0012](docs/decisions/0012-events-and-impact.md)). An official warning is 90 red, 60 orange, 20 yellow, 0 green (10 when its level
+is unknown), plus one point per doubling of its areas, up to 9; a tsunami message 100 to 30; an earthquake 85, 60, 30 or 5 by the API's
+severity (PAGER, magnitude, tsunami flag), plus one per earthquake of its sequence, up to 5; a tropical cyclone 60 at least; a volcano
+85 at warning and 60 at watch; a GDACS alert 90 red and 65 orange. **`min_impact=60` is the world view**: the official orange and red, GDACS
+orange and red, an earthquake rated orange or red, every cyclone, a volcano at watch or warning, every tsunami message. "Felt" is not
+read by this API, so it does not count.
+
+**The families** (`family`, `GET /v1/families`, `families=`): `wind`, `rain-flood`, `thunderstorm`, `snow-ice`, `heat`, `cold`, `fire`,
+`coastal`, `earthquake`, `volcano`, `cyclone`, `tsunami`, `air` (empty: no air-quality warning is read), `space`, and `other`. They group
+the API's phenomena and hazard categories, each in exactly one family; the source's words stay in each warning.
 
 **What a world view costs**: without `country`, every country the instance serves is read (39 MeteoAlarm feeds, the national services,
 the 7 services of the WMO registry), through the same caches as `GET /v1/vigilances?country=`: a feed is asked at most once per its

@@ -928,7 +928,14 @@ class AggregatorService:
             features=features,
         )
 
-    async def events(self, country: Optional[str] = None, languages: Optional[tuple[str, ...]] = None, compact: bool = False) -> EventsResponse:
+    async def events(
+        self,
+        country: Optional[str] = None,
+        languages: Optional[tuple[str, ...]] = None,
+        compact: bool = False,
+        min_impact: Optional[int] = None,
+        families: Optional[list[str]] = None,
+    ) -> EventsResponse:
         """The official warnings grouped, the earthquakes in sequences and the other hazards, of a country or of the world (ADR 0012).
 
         Without ``country`` every country this instance serves is read (``VigilanceService.for_world``). The hazards that only the NWS
@@ -953,11 +960,15 @@ class AggregatorService:
         hazard_events, joined = group_hazards(hazards, country_of, messages)
         warning_events = group_warnings([v for v in warnings.vigilances if v.id not in joined], self.vigilances.box_of, index.name)
         found = sorted_events(hazard_events + warning_events)
+        if min_impact is not None:
+            found = [event for event in found if event.impact >= min_impact]
+        if families:
+            found = [event for event in found if event.family in families]
         if compact:
             found = [event.model_copy(update={"alerts": [], "hazards": []}) for event in found]
         return EventsResponse(
             server_utc=int(clock.wall()),
-            query=EventsQuery(country=country, compact=compact),
+            query=EventsQuery(country=country, min_impact=min_impact, families=families, compact=compact),
             events=found,
             counts=count_events(found),
             coverage=warnings.coverage,
