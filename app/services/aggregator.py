@@ -57,6 +57,7 @@ from app.collectors.weather import (
     rainviewer_enabled_from_env,
 )
 from app.models.earthquakes import EarthquakesQuery, EarthquakesResponse
+from app.models.events import EventsQuery, EventsResponse
 from app.models.forecast import HazardForecast
 from app.models.places import WatchedPoint, WatchedPointUpsertRequest
 from app.models.schemas import (
@@ -95,6 +96,8 @@ from app.models.schemas import (
 from app.models.watch import WatchedPointsStatus, WatchedSource
 from app.services.earthquakes import build_earthquakes, ids_within
 from app.services.embedded_frame import serialize_embedded_frame
+from app.services.events import count as count_events
+from app.services.events import group_hazards, group_warnings, sorted_events
 from app.services.fires import NEARBY_RADIUS_DEFAULT_KM, FireService
 from app.services.forecasts import empty as empty_forecast
 from app.services.forecasts import has_storm_forecast, has_tsunami_forecast, storm_forecast, tsunami_forecast
@@ -106,13 +109,20 @@ from app.services.geodesy import (
 from app.services.geoindex import CountryIndex, GeometryIndex, default_countries, default_geometries
 from app.services.places import FaultIndex, NearPlacesService, PlaceSettings
 from app.services.storage_wal import DEFAULT_WATCHLIST_SEED, SQLiteWALStorage
-from app.services.vigilance import VigilanceService
+from app.services.vigilance import NWS_COUNTRY, TSUNAMI_SOURCE, VigilanceService
 from app.services.vigilance_archive import VigilanceArchive
 from app.services.watch import SourceReads, build_status, candidate_ids, parse_window_days
 
 T = TypeVar("T")
 
 log = logging.getLogger(__name__)
+
+EVENTS_NOTE = (
+    "The events are Vigie's own grouping (ADR 0012): `title`, `level`, `areas_count`, the period and `bbox` are worked out (listed in "
+    "`derived`); the warnings and hazards inside are as their sources gave them. A source that does not answer is in `coverage`: its "
+    "warnings are missing, which is not \"nothing in force\". A MeteoAlarm warning has its words once its CAP document is read (at most "
+    "40 new ones per request). This is not an official warning service: follow the warnings of your national authorities."
+)
 
 DEFAULT_MONITORED_ZONES: list[dict[str, Any]] = list(DEFAULT_WATCHLIST_SEED)
 
@@ -916,6 +926,46 @@ class AggregatorService:
                 "attribution": merge_credits(*(h.attribution for h in hazards)),
             },
             features=features,
+        )
+
+    async def events(self, country: Optional[str] = None, languages: Optional[tuple[str, ...]] = None, compact: bool = False) -> EventsResponse:
+        """The official warnings grouped, the earthquakes in sequences and the other hazards, of a country or of the world (ADR 0012).
+
+        Without ``country`` every country this instance serves is read (``VigilanceService.for_world``). The hazards that only the NWS
+        reports are left out when the warnings of the United States are in the answer: they are the same alerts.
+        """
+        if country is not None:
+            warnings = await self.vigilances.for_country(country, languages)
+        else:
+            warnings = await self.vigilances.for_world(languages)
+        hazards, answered, asked = await self.collect_hazards_with_status()
+        index = self.vigilances.countries
+
+        def country_of(hazard: HazardAlert) -> Optional[str]:
+            found = index.countries_for_point(hazard.lat, hazard.lon)
+            return found[0] if len(found) == 1 else None
+
+        if NWS_COUNTRY in warnings.countries:
+            hazards = [h for h in hazards if set(h.sources or [h.source]) != {"NOAA_NWS"}]
+        if country is not None:
+            hazards = [h for h in hazards if country in index.countries_for_point(h.lat, h.lon)]
+        messages = [v for v in warnings.vigilances if v.source == TSUNAMI_SOURCE]
+        hazard_events, joined = group_hazards(hazards, country_of, messages)
+        warning_events = group_warnings([v for v in warnings.vigilances if v.id not in joined], self.vigilances.box_of, index.name)
+        found = sorted_events(hazard_events + warning_events)
+        if compact:
+            found = [event.model_copy(update={"alerts": [], "hazards": []}) for event in found]
+        return EventsResponse(
+            server_utc=int(clock.wall()),
+            query=EventsQuery(country=country, compact=compact),
+            events=found,
+            counts=count_events(found),
+            coverage=warnings.coverage,
+            hazard_sources_answered=answered,
+            hazard_sources_total=asked,
+            attribution=merge_credits(*(event.attribution for event in found)),
+            disclaimer=warnings.disclaimer,
+            note=EVENTS_NOTE,
         )
 
     async def watched_points_status(self, days: Optional[int] = None) -> WatchedPointsStatus:

@@ -46,6 +46,8 @@ Endpoints:
 - ``GET    /v1/vigilances/archive``: Every official warning this instance saw, kept as it was served, filtered by country, area,
                                      source, phenomenon, level and period, with the hours each source was read.
 - ``GET    /v1/vigilances/archive/stats``: What the archive took in per day and what it weighs on disk.
+- ``GET    /v1/events``            : Events instead of lines: the official warnings of one phenomenon, level and region grouped, the
+                                     earthquakes of one sequence, each other hazard, of the world or of a country (ADR 0012).
 - ``POST   /v1/simulate``          : Inject a simulated scenario (always labelled as a simulation). Off unless
                                      ``VIGIE_ENABLE_SIMULATION=1``: it answers 403 otherwise.
 - ``WS     /v1/stream``            : Real-time WebSocket stream for connected terminals.
@@ -69,6 +71,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app import __version__
 from app.models.earthquakes import EarthquakesQuery, EarthquakesResponse
+from app.models.events import EventsResponse
 from app.models.fires import FiresCollection, FiresGrid
 from app.models.forecast import HazardForecast
 from app.models.places import WatchedPoint, WatchedPointUpsertRequest
@@ -860,6 +863,40 @@ async def get_vigilance_countries(
     """The countries with a source of official warnings on this instance (and, on request, the ones without, with the reason)."""
     await aggregator.vigilances.ensure_registry()
     return aggregator.vigilances.countries_listing(with_uncovered=uncovered)
+
+
+@app.get(
+    "/v1/events",
+    response_model=EventsResponse,
+    tags=["Vigilances"],
+    description=(
+        "Events instead of lines (ADR 0012). The official warnings of one country, one phenomenon and one level whose periods overlap "
+        "and whose areas are close (each within 300 km of another) are one event: a short title of ours, the level, the number and "
+        "names of the areas, the period, a box, and the warnings themselves (`alerts`, exactly as `GET /v1/vigilances` serves them). "
+        "The earthquakes of one sequence (each within 100 km and 6 hours of another) are one event, a tsunami of the warning centres "
+        "is one event with the official messages that carry its code, and any other hazard is an event of its own (`hazards`, as "
+        "`GET /v1/geojson/hazards` describes them). The highest level comes first. With `country` (ISO 3166-1 alpha-2), the warnings "
+        "and hazards of that country; without, the hazards of the world and the warnings of every country this instance serves, read "
+        "through the same caches as `GET /v1/vigilances` (a feed is asked at most once per its cache lifetime, whatever the number of "
+        "clients). `compact=true` leaves `alerts` and `hazards` out (their ids stay in `alert_ids`). What Vigie works out is listed in "
+        "each event's `derived`; the words of the issuers are untouched. This is not an official warning service."
+    ),
+    responses={404: {"description": "No source of official warnings for this country."}},
+)
+async def get_events(
+    country: Optional[str] = Query(
+        default=None, min_length=2, max_length=2, pattern=r"^[A-Za-z]{2}$", description="ISO 3166-1 alpha-2 country; the world when absent"
+    ),
+    lang: Optional[str] = Query(
+        default=None, max_length=64, description="Keep only the texts of the warnings in these languages, e.g. `fr,en` (a prefix of the language tag). All by default"
+    ),
+    compact: bool = Query(default=False, description="Leave out `alerts` and `hazards` (their ids stay)"),
+) -> EventsResponse:
+    """Events instead of lines: the warnings grouped, the earthquakes in sequences, the other hazards."""
+    code = country.upper() if country else None
+    if code is not None:
+        _vigilance_request(None, None, code)
+    return await aggregator.events(code, parse_languages(lang), compact)
 
 
 ARCHIVE_SOURCE_PATTERN = r"^(meteoalarm|noaa_nws|dwd|eccc|metservice|vigicrues|tsunami|swic(:[A-Za-z0-9_.-]{1,64})?)$"
