@@ -35,6 +35,7 @@ import sys
 import weakref
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -45,6 +46,12 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from app import clock  # noqa: E402
+from app.collectors.aurora import (  # noqa: E402
+    SWPCAlertsCollector,
+    SWPCKpForecastCollector,
+    SWPCOvationCollector,
+    SWPCSolarWindCollector,
+)
 from app.collectors.base import build_user_agent  # noqa: E402
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector  # noqa: E402
 from app.collectors.dwd import DWDCollector  # noqa: E402
@@ -213,6 +220,47 @@ async def check_swpc(client: httpx.AsyncClient) -> Result:
     if status.solar_kp is None:
         return Result("noaa_swpc", "FAIL", "no Kp value")
     return Result("noaa_swpc", "ok", f"Kp {status.solar_kp}")
+
+
+def _utc_text(epoch: int) -> str:
+    return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+
+async def check_swpc_ovation(client: httpx.AsyncClient) -> Result:
+    """NOAA SWPC OVATION: the grid and its two times must be readable (the parser raises otherwise)."""
+    grid = (await SWPCOvationCollector()._collect(client)).value
+    return Result("noaa_swpc_ovation", "ok", f"forecast for {_utc_text(grid.forecast_utc)}, highest value {grid.max_value}")
+
+
+async def check_swpc_kp_forecast(client: httpx.AsyncClient) -> Result:
+    """NOAA SWPC Kp forecast: the intervals must be readable, and some of them predicted."""
+    intervals = (await SWPCKpForecastCollector()._collect(client)).value
+    predicted = [i for i in intervals if i.kind == "predicted"]
+    if not predicted:
+        return Result("noaa_swpc_kp_forecast", "FAIL", f"{len(intervals)} intervals, none predicted")
+    return Result("noaa_swpc_kp_forecast", "ok", f"{len(intervals)} intervals, {len(predicted)} predicted (highest Kp {max(i.kp for i in predicted)})")
+
+
+async def check_swpc_solar_wind(client: httpx.AsyncClient) -> Result:
+    """NOAA SWPC solar wind: the latest row must have a time and a speed."""
+    wind = (await SWPCSolarWindCollector()._collect(client)).value
+    return Result("noaa_swpc_solar_wind", "ok", f"{wind.speed_km_s} km/s at {_utc_text(wind.measured_utc)}")
+
+
+async def check_swpc_alerts(client: httpx.AsyncClient) -> Result:
+    """NOAA SWPC alerts: the messages of the file must be understood (an empty file is possible on a quiet stretch)."""
+    collector = SWPCAlertsCollector()
+    resp = await client.get(collector.URL)
+    resp.raise_for_status()
+    payload = resp.json()
+    raw = len(payload) if isinstance(payload, list) else 0
+    messages = collector.parse(payload).messages
+    if raw == 0:
+        return Result("noaa_swpc_alerts", "empty", "no message")
+    if not messages:
+        return Result("noaa_swpc_alerts", "FAIL", f"{raw} messages in the file, none understood")
+    geomagnetic = sum(1 for m in messages if "geomagnetic" in (m.headline or "").lower())
+    return Result("noaa_swpc_alerts", "ok", f"{len(messages)} of {raw} messages read, {geomagnetic} geomagnetic")
 
 
 async def check_open_meteo(client: httpx.AsyncClient) -> Result:
@@ -689,6 +737,10 @@ CHECKS: dict[str, Check] = {
     "noaa_nws": check_noaa_nws,
     "usgs_volcano_gvp": check_usgs_volcano,
     "noaa_swpc": check_swpc,
+    "noaa_swpc_ovation": check_swpc_ovation,
+    "noaa_swpc_kp_forecast": check_swpc_kp_forecast,
+    "noaa_swpc_solar_wind": check_swpc_solar_wind,
+    "noaa_swpc_alerts": check_swpc_alerts,
     "open_meteo_hd": check_open_meteo,
     "open_meteo_marine": check_marine,
     "open_meteo_flood": check_flood,

@@ -12,6 +12,12 @@ from typing import Any, Optional
 import httpx
 
 from app import clock as app_clock
+from app.collectors.aurora import (
+    SWPCAlertsCollector,
+    SWPCKpForecastCollector,
+    SWPCOvationCollector,
+    SWPCSolarWindCollector,
+)
 from app.collectors.base import CacheEntry
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector
 from app.collectors.dwd import DWDCollector
@@ -153,6 +159,10 @@ def make_service(db_path: Path, **collectors: Any) -> AggregatorService:
         "flood": OpenMeteoFloodCollector(http_client=down),
         "air_quality": OpenMeteoAirQualityCollector(http_client=down),
         "swpc": NOAASWPCCollector(http_client=down),
+        "swpc_ovation": SWPCOvationCollector(http_client=down),
+        "swpc_kp_forecast": SWPCKpForecastCollector(http_client=down),
+        "swpc_solar_wind": SWPCSolarWindCollector(http_client=down),
+        "swpc_alerts": SWPCAlertsCollector(http_client=down),
         "meteoalarm": MeteoAlarmCollector(http_client=down),
         "meteoalarm_cap": MeteoAlarmCapCollector(http_client=down),
         "dwd": DWDCollector(http_client=down),

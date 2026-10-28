@@ -7,6 +7,7 @@ a good answer passes, a valid empty answer is not a failure, and an answer the p
 
 from __future__ import annotations
 
+import gzip
 import json
 from collections.abc import Callable
 from pathlib import Path
@@ -131,6 +132,19 @@ def nhc_host(status: bytes | None = None, bundle: bytes | int | None = None) -> 
     return answer
 
 
+SWPC_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "swpc"
+
+
+def swpc_answer(request: httpx.Request) -> httpx.Response:
+    """SWPC as recorded on 2026-10-28 for the aurora files; the planetary Kp of the sample for the older one."""
+    name = request.url.path.rsplit("/", 1)[-1]
+    if name == "ovation_aurora_latest.json":
+        return httpx.Response(200, content=gzip.decompress((SWPC_FIXTURES / "ovation_aurora_latest.json.gz").read_bytes()))
+    if name in ("noaa-planetary-k-index-forecast.json", "propagated-solar-wind-1-hour.json", "alerts.json"):
+        return httpx.Response(200, content=(SWPC_FIXTURES / name).read_bytes())
+    return httpx.Response(200, json=GOOD_KP)
+
+
 def good_answers() -> dict[str, Callable[[httpx.Request], httpx.Response]]:
     """What each provider answers when nothing changed, keyed by host."""
     marine = samples.marine_payload()
@@ -140,7 +154,7 @@ def good_answers() -> dict[str, Callable[[httpx.Request], httpx.Response]]:
         "www.gdacs.org": lambda r: httpx.Response(200, json=GOOD_GDACS),
         "api.weather.gov": lambda r: httpx.Response(200, json=GOOD_NWS),
         "volcanoes.usgs.gov": lambda r: httpx.Response(200, json=GOOD_VOLCANO),
-        "services.swpc.noaa.gov": lambda r: httpx.Response(200, json=GOOD_KP),
+        "services.swpc.noaa.gov": swpc_answer,
         "api.open-meteo.com": lambda r: httpx.Response(200, json=samples.open_meteo_payload()),
         "marine-api.open-meteo.com": lambda r: httpx.Response(200, json=marine),
         "flood-api.open-meteo.com": lambda r: httpx.Response(200, json=GOOD_FLOOD),
@@ -267,6 +281,10 @@ async def test_a_changed_format_is_a_failure_for_each_kind_of_source() -> None:
         "noaa_nws",
         "usgs_volcano_gvp",
         "noaa_swpc",
+        "noaa_swpc_ovation",
+        "noaa_swpc_kp_forecast",
+        "noaa_swpc_solar_wind",
+        "noaa_swpc_alerts",
         "open_meteo_hd",
         "open_meteo_marine",
         "open_meteo_flood",

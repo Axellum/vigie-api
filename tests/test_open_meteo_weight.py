@@ -89,11 +89,20 @@ def test_weight_of_the_forecast_before_and_after_the_split() -> None:
     collector = OpenMeteoCollector()
     now = OpenMeteoCollector.request_params("now", 48.85, 2.35)
     daily = OpenMeteoCollector.request_params("daily", 48.85, 2.35)
-    single = {**now, **daily}  # the request as it was: 18 variables, 10 days
+    # the request as it was: 18 variables, 10 days (the hourly cloud cover came later, with the daily part)
+    single = {k: v for k, v in {**now, **daily}.items() if k not in ("hourly", "forecast_hours")}
 
     assert collector.call_weight(single) == 1.8
     assert collector.call_weight(now) == 1.1
     assert collector.call_weight(daily) == 1.0
+
+
+def test_the_hourly_cloud_cover_rides_in_the_daily_request_for_free() -> None:
+    daily = OpenMeteoCollector.request_params("daily", 48.85, 2.35)
+
+    assert daily["hourly"] == "cloud_cover" and daily["forecast_hours"] == "48"
+    assert len(daily["daily"].split(",")) + len(daily["hourly"].split(",")) == 8  # under the 10 variables of one call
+    assert OpenMeteoCollector().call_weight(daily) == 1.0
 
 
 @pytest.mark.asyncio

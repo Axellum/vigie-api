@@ -608,6 +608,24 @@ How a run becomes levels (local days of UTC+3, the 90 % quantile of a province's
 `app/data/prealert-tr-thresholds.json`) is in the docstrings of `app/prealert/gfs.py` and `app/prealert/levels.py`; the rows go to the
 table `prealert_tr_levels` of the database. `tools/backtest_prealert_tr.py` computes the same on past runs of the AWS archives.
 
+## The sky: aurora
+
+`GET /v1/sky/aurora` and `GET /v1/sky/aurora.geojson` ([ADR 0012](decisions/0012-aurora-estimate.md)). Four SWPC files, one copy each for
+the whole instance, asked with `If-Modified-Since`. SWPC rewrites them every one to three minutes (their `Last-Modified`, watched for 12
+minutes on 2026-10-28) and sends them with `max-age=60`; the cache lifetimes below follow what each one is used for.
+
+| Source | What is read | Cache (TTL) | Requests |
+| --- | --- | --- | --- |
+| **NOAA SWPC OVATION**, `json/ovation_aurora_latest.json` (`noaa_swpc_ovation`) | The 30 to 90 minute aurora forecast on a one-degree grid, both hemispheres: drawn as map bands (levels ours) once per forecast, and read around a place. | 300 s: the forecast looks 30 to 90 minutes ahead. 0.92 MB, 0.16 MB compressed; parsed in a thread. | 288 a day at most (only when someone asks) |
+| **NOAA SWPC Kp forecast**, `products/noaa-planetary-k-index-forecast.json` (`noaa_swpc_kp_forecast`) | The Kp of each 3-hour interval, observed, estimated, then predicted for three days. | 900 s: 3-hour intervals, a 3-day forecast. 7 KB. | 96 a day at most |
+| **NOAA SWPC solar wind**, `products/geospace/propagated-solar-wind-1-hour.json` (`noaa_swpc_solar_wind`) | The latest row of the last hour (speed, density, Bt, Bz), shown as it is; the estimate does not use it. | 300 s. 6.5 KB. | 288 a day at most |
+| **NOAA SWPC alerts**, `products/alerts.json` (`noaa_swpc_alerts`) | The geomagnetic messages of the last 72 hours, text untouched. | 300 s: messages are issued when something happens. 58 KB, 5.6 KB compressed. | 288 a day at most |
+| **Clouds**: the hourly cloud cover of the next 48 hours, in the **daily** request of the Open-Meteo forecast (`hourly=cloud_cover&forecast_hours=48`), MET Norway's `cloud_area_fraction` when Open-Meteo fails | The cloud factor of the estimate. | The daily part's hour, shared with `/v1/point` for the same cell. | **None more**: one variable in a request that already exists (8 variables, the weight stays 1.0); a place asked only by the aurora route costs the daily request alone, never the "now" one. |
+
+The Sun and the Moon of every hour are computed by `astronomy-engine` (MIT), the magnetic latitude is read from
+`app/data/apex-latitudes.json.gz` (IGRF-14, `tools/build_magnetic_latitudes.py`): nothing is asked for them. The estimate itself, its
+settings and its measure: [ADR 0012](decisions/0012-aurora-estimate.md) and [the measure](measurements/aurora-2026-10.md).
+
 ## Call volume
 
 NASA FIRMS adds nothing when nobody asks the fire routes, and with someone asking 86 requests and about 56 MB a day at the refresh of an hour, with no key and no transaction (the first version cost 60 world reads, 2,160 transactions and about 170 MB: see "Active fires").

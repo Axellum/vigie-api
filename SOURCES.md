@@ -281,6 +281,26 @@ anything commercial.
 | `gem_faults` | GEM Global Active Faults Database | **allowed** | CC BY-SA 4.0: commercial use allowed, and data derived from it stays under the same licence. | [1](https://github.com/GEMScienceTools/gem-global-active-faults) | 2026-10-20 |
 | `vigicrues` | Vigicrues (SCHAPI) | **allowed** | Licence Ouverte 2.0 (Etalab): the source and the date of the data named. | [1](https://www.etalab.gouv.fr/licence-ouverte-open-licence/) | 2026-10-20 |
 
+## The sky: aurora
+
+`GET /v1/sky/aurora` and `GET /v1/sky/aurora.geojson` relay four more products of the NOAA Space Weather Prediction Center, read once for
+the whole instance, and compute **an estimate of our own** for a place ([ADR 0012](docs/decisions/0012-aurora-estimate.md)), measured on past
+nights before it is served. Addresses from SWPC's own index (`https://services.swpc.noaa.gov/json/`, `/products/`), read on 2026-10-28.
+**Commercial use** says whether the terms read allow it (the owner's rule of 2026-10-28: every new source says so); the credit is `noaa_swpc`, whose line is in "Commercial use" above.
+
+| Source (id) | Licence | Terms | Credit in the responses | Quota | Commercial use | Clauses, and what is not verified |
+| --- | --- | --- | --- | --- | --- | --- |
+| **NOAA SWPC OVATION aurora forecast**, `json/ovation_aurora_latest.json` (`noaa_swpc_ovation`) | Public domain by the NWS policy, as for `noaa_swpc` above: its extension to SWPC is deduced, **not verified** (SWPC's own disclaimer page answered 404). | [Product page](https://www.swpc.noaa.gov/products/aurora-30-minute-forecast), [NWS disclaimer](https://www.weather.gov/disclaimer) | `Source: NOAA Space Weather Prediction Center (https://www.swpc.noaa.gov). Not endorsed by NOAA` (wording: ours) | none published | **not verified**, as `noaa_swpc` in "Commercial use": the NWS disclaimer allows "any lawful purpose", its extension to SWPC is deduced | Do not imply an endorsement by NOAA. The grid values are SWPC's ("an estimate of aurora viewing probability can be derived by assuming a linear relationship to the intensity"); the map bands are ours. |
+| **NOAA SWPC planetary Kp forecast**, `products/noaa-planetary-k-index-forecast.json` (`noaa_swpc_kp_forecast`) | Same as above (**not verified**). | [Planetary K-index](https://www.swpc.noaa.gov/products/planetary-k-index), [3-day forecast](https://www.swpc.noaa.gov/products/3-day-geomagnetic-forecast) | Same credit | none published | Same as above | The meaning of `observed`, `estimated` and `predicted` is not defined on the pages read; they are shown as SWPC marks them. |
+| **NOAA SWPC solar wind**, `products/geospace/propagated-solar-wind-1-hour.json` (`noaa_swpc_solar_wind`) | Same as above (**not verified**). | [Real-time solar wind](https://www.swpc.noaa.gov/products/real-time-solar-wind) | Same credit | none published | Same as above | Measured at L1; the product page names SOLAR-1 among the sources and says that it and IMAP replace ACE and DSCOVR. The file does not name the spacecraft of each row, and `propagated_time_tag` is not documented (presumably the arrival near the Earth: **not verified**). |
+| **NOAA SWPC alerts, watches and warnings**, `products/alerts.json` (`noaa_swpc_alerts`) | Same as above (**not verified**). | [Product page](https://www.swpc.noaa.gov/products/alerts-watches-and-warnings) | Same credit | none published | Same as above | Only the geomagnetic messages of the last 72 hours are served, their text untouched (line ends normalized). |
+| **IGRF-14**, the International Geomagnetic Reference Field of IAGA, coefficients [`igrf14coeffs.txt`](https://www.ngdc.noaa.gov/IAGA/vmod/coeffs/igrf14coeffs.txt) at NOAA NCEI | **No licence stated** on the IAGA page read ([IGRF](https://www.ngdc.noaa.gov/IAGA/vmod/igrf.html)), which asks to refer to the IGRF paper: **not verified**. | Same | None: the grid is in no answer | — | **Not verified** | Only a grid computed from it is bundled: `app/data/apex-latitudes.json.gz`, the modified apex latitude at 110 km on 2 degrees, by tracing its field lines (`tools/build_magnetic_latitudes.py`, epoch 2026.5). The coefficients themselves are not copied. |
+| **Measure only, never served:** "Aurorasaurus Web Observations (2014-2025)", MacDonald et al. 2026, [Zenodo](https://doi.org/10.5281/zenodo.16783265) | **CC BY-NC 4.0** | Zenodo record | None: it is in no answer | — | **No** (non-commercial) | Read by `tools/measure_aurora.py` into a temporary folder, never copied into the repository; only figures computed from it are written ([measure](docs/measurements/aurora-2026-10.md)). |
+| **Measure only, never served:** the Kp index of GFZ Potsdam, `Kp_ap_since_1932.txt` (Matzka et al. 2021, [data publication](https://doi.org/10.5880/Kp.0001)) | **CC BY 4.0** (the file's header) | [Kp](https://kp.gfz.de) | None: it is in no answer | — | Yes, with the citation | Read by `tools/measure_aurora.py` only. |
+
+The estimate (`place.estimate`) is Vigie's, named in `derived` and said to be ours in the answer: the factors, their settings and the measure are in
+the ADR. It uses the hourly cloud cover of the weather source that answered (Open-Meteo, else MET Norway), which then carries its own credit.
+
 ## Where the credits go
 
 - **JSON responses.** `attribution` on each hazard alert (`/v1/snapshot`, `/v1/point`, `/v1/history`,
