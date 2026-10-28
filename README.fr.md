@@ -1,3 +1,5 @@
+<img src="docs/logo.svg" alt="" width="72" height="72">
+
 # Vigie API
 
 *[Read this document in English](README.md)*
