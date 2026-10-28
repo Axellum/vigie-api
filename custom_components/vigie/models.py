@@ -41,7 +41,7 @@ FAMILY_OF_PHENOMENON = {
     "cold": "cold",
     "fire": "fire",
     "coastal": "coastal",
-    "fog": "other",
+    "fog": "fog",
     "other": "other",
 }
 

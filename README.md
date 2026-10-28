@@ -82,7 +82,7 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
 | `GET /v1/vigilances/countries` | The countries this instance serves with its settings, the sources that answer for each, and whether their licence is verified. With `?uncovered=true`, every other country of the world too, each with the reason nothing is read for it. |
 | `GET /v1/vigilances.geojson` | The same warnings as GeoJSON, the shape of each area as geometry. |
 | `GET /v1/events` or `?country=CH` | Events instead of lines: the warnings of one phenomenon, level and region grouped, the earthquakes of one sequence, each other hazard, the warnings and hazards themselves inside, untouched; an impact score (`min_impact=60`: what counts in a world view) and a family (`families=`). See "Events instead of lines" below. |
-| `GET /v1/families` | The fifteen families of phenomena (wind, rain and floods, ..., space weather) and what each holds. |
+| `GET /v1/families` | The sixteen families of phenomena (wind, rain and floods, ..., space weather) and what each holds. |
 | `GET /v1/vigilances/archive`, `GET /v1/vigilances/archive/stats` | Every official warning this instance saw, kept as it was served, filtered by country, area, source, phenomenon, level and period, with the hours each source was read; and what the archive weighs per day. See "The archive of the official warnings" below. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Watched zones (the watchlist). A zone needs its `utc_offset_s`. |
 | `GET/POST /v1/watched-points`, `DELETE /v1/watched-points/{id}` | The points you watch (a place, a fault, a volcano...), each with a radius. **Personal**: listed here and in the status, never in the hazards. `POST` and `DELETE` are **off** (403) unless `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`. |
@@ -349,7 +349,7 @@ GET /v1/events?compact=true            without the warnings and hazards themselv
 GET /v1/events?lang=fr,en              the texts of the warnings in these languages only (a filter, never a translation)
 GET /v1/events?min_impact=60           a world view of what counts (see the impact below)
 GET /v1/events?families=wind,rain-flood  only these families of phenomena
-GET /v1/families                       the fifteen families and what each holds
+GET /v1/families                       the sixteen families and what each holds
 ```
 
 The contract. An event is **ours**: `family`, `impact` and `impact_reasons`, `title`, `level`, `areas_count`, the period and `bbox` are
@@ -401,8 +401,8 @@ severity (PAGER, magnitude, tsunami flag), plus one per earthquake of its sequen
 orange and red, an earthquake rated orange or red, every cyclone, a volcano at watch or warning, every tsunami message. "Felt" is not
 read by this API, so it does not count.
 
-**The families** (`family`, `GET /v1/families`, `families=`): `wind`, `rain-flood`, `thunderstorm`, `snow-ice`, `heat`, `cold`, `fire`,
-`coastal`, `earthquake`, `volcano`, `cyclone`, `tsunami`, `air` (empty: no air-quality warning is read), `space`, and `other`. They group
+**The families** (`family`, `GET /v1/families`, `families=`): `wind`, `rain-flood`, `thunderstorm`, `snow-ice`, `heat`, `cold`, `fog`,
+`fire`, `coastal`, `earthquake`, `volcano`, `cyclone`, `tsunami`, `air` (empty: no air-quality warning is read), `space`, and `other`. They group
 the API's phenomena and hazard categories, each in exactly one family; the source's words stay in each warning.
 
 **What a world view costs**: without `country`, every country the instance serves is read (39 MeteoAlarm feeds, the national services,

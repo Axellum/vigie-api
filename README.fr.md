@@ -90,7 +90,7 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
 | `GET /v1/vigilances/countries` | Les pays que cette instance sert avec ses réglages, les sources qui répondent pour chacun, et si leur licence est vérifiée. Avec `?uncovered=true`, tous les autres pays du monde aussi, chacun avec la raison pour laquelle rien n'y est lu. |
 | `GET /v1/vigilances.geojson` | Les mêmes vigilances en GeoJSON, la forme de chaque zone en géométrie. |
 | `GET /v1/events` ou `?country=CH` | Des événements au lieu de lignes : les vigilances d'un même phénomène, niveau et région regroupées, les séismes d'une même séquence, chaque autre catastrophe, avec les vigilances et catastrophes elles-mêmes dedans, intactes ; un score d'impact (`min_impact=60` : ce qui compte en vue monde) et une famille (`families=`). Voir « Des événements au lieu de lignes » plus bas. |
-| `GET /v1/families` | Les quinze familles de phénomènes (vent, pluie et crues, …, météo de l'espace) et ce que chacune contient. |
+| `GET /v1/families` | Les seize familles de phénomènes (vent, pluie et crues, …, météo de l'espace) et ce que chacune contient. |
 | `GET /v1/vigilances/archive`, `GET /v1/vigilances/archive/stats` | Chaque vigilance officielle vue par l'instance, gardée telle qu'elle a été servie, filtrée par pays, zone, source, phénomène, niveau et période, avec les heures où chaque source a été lue ; et ce que l'archive pèse par jour. Voir « L'archive des vigilances officielles » plus bas. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Zones surveillées (la liste de suivi). Une zone doit donner son `utc_offset_s`. |
 | `GET/POST /v1/watched-points`, `DELETE /v1/watched-points/{id}` | Les points que vous surveillez (un lieu, une faille, un volcan...), chacun avec un rayon. **Personnels** : listés ici et dans le statut, jamais dans les dangers. `POST` et `DELETE` sont **désactivés** (403) sauf si `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`. |
@@ -371,7 +371,7 @@ GET /v1/events?compact=true            sans les vigilances et catastrophes elles
 GET /v1/events?lang=fr,en              les textes des vigilances dans ces langues seulement (un filtre, jamais une traduction)
 GET /v1/events?min_impact=60           une vue monde de ce qui compte (voir l'impact plus bas)
 GET /v1/events?families=wind,rain-flood  seulement ces familles de phénomènes
-GET /v1/families                       les quinze familles et ce que chacune contient
+GET /v1/families                       les seize familles et ce que chacune contient
 ```
 
 Le contrat. Un événement est **le nôtre** : `family`, `impact` et `impact_reasons`, `title`, `level`, `areas_count`, la période et `bbox`
@@ -425,8 +425,8 @@ cyclone tropical 60 au moins ; un volcan 85 en alerte et 60 en vigilance ; une a
 **`min_impact=60` est la vue monde** : les vigilances officielles orange et rouges, GDACS orange et rouge, un séisme classé orange ou rouge,
 chaque cyclone, un volcan en vigilance ou en alerte, chaque message tsunami. Le « ressenti » n'est pas lu par cette API : il ne compte pas.
 
-**Les familles** (`family`, `GET /v1/families`, `families=`) : `wind`, `rain-flood`, `thunderstorm`, `snow-ice`, `heat`, `cold`, `fire`,
-`coastal`, `earthquake`, `volcano`, `cyclone`, `tsunami`, `air` (vide : aucune alerte de qualité de l'air n'est lue), `space`, et `other`.
+**Les familles** (`family`, `GET /v1/families`, `families=`) : `wind`, `rain-flood`, `thunderstorm`, `snow-ice`, `heat`, `cold`, `fog`,
+`fire`, `coastal`, `earthquake`, `volcano`, `cyclone`, `tsunami`, `air` (vide : aucune alerte de qualité de l'air n'est lue), `space`, et `other`.
 Elles regroupent les phénomènes et catégories de l'API, chacun dans une seule famille ; les mots de la source restent dans chaque
 vigilance.
 

@@ -43,6 +43,7 @@ FAMILIES: tuple[Family, ...] = (
     Family(id="snow-ice", name="Snow and ice", phenomena=["snow-ice", "avalanche"]),
     Family(id="heat", name="Heat", phenomena=["heat"]),
     Family(id="cold", name="Cold", phenomena=["cold"]),
+    Family(id="fog", name="Fog", phenomena=["fog"]),
     Family(id="fire", name="Fires", phenomena=["fire"], hazard_categories=["WILDFIRE"]),
     Family(id="coastal", name="Coast and waves", phenomena=["coastal"]),
     Family(id="earthquake", name="Earthquakes", hazard_categories=["EARTHQUAKE"]),
@@ -56,7 +57,7 @@ FAMILIES: tuple[Family, ...] = (
     ),
     Family(id="air", name="Air quality", note="No source of warnings for the air is read today: the family is empty."),
     Family(id="space", name="Space weather", hazard_categories=["SOLAR_STORM"]),
-    Family(id="other", name="Other", phenomena=["fog", "other"], note="And a warning whose phenomenon is not known (`phenomenon: null`)."),
+    Family(id="other", name="Other", phenomena=["other"], note="And a warning whose phenomenon is not known (`phenomenon: null`)."),
 )
 FAMILY_OF_PHENOMENON: dict[str, str] = {p: family.id for family in FAMILIES for p in family.phenomena}
 FAMILY_OF_CATEGORY: dict[str, str] = {c: family.id for family in FAMILIES for c in family.hazard_categories}

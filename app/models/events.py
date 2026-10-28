@@ -22,6 +22,7 @@ FamilyId = Literal[
     "snow-ice",
     "heat",
     "cold",
+    "fog",
     "fire",
     "coastal",
     "earthquake",

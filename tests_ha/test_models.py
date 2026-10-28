@@ -105,8 +105,9 @@ def test_the_level_of_each_family() -> None:
         vigilance("e", level="RED", phenomenon=None, original=None),
         vigilance("f", level=None, phenomenon="wind"),
     )
-    # rain and flood are one family; a warning with no phenomenon is "other", as in the API; one without a level is not counted
-    assert data.by_family == {"other": "red", "rain-flood": "orange", "snow-ice": "yellow"}
+    # rain and flood are one family; fog is its own; a warning with no phenomenon is "other", as in the API; one without a
+    # level is not counted
+    assert data.by_family == {"fog": "none", "other": "red", "rain-flood": "orange", "snow-ice": "yellow"}
 
 
 # ---------------------------------------------------------------- reading the answer
