@@ -9,6 +9,10 @@ All notable changes to this project are documented here. The format follows
 
 - The Vigie logo, an eye with an orange iris, at the top of the README (`docs/logo.svg`), the same as the
   website's.
+- **Commercial use, per source** (`app/commercial.py`, a new section of `SOURCES.md`): for the paid Android app to come
+  (the website and the API stay free), each credit says whether its terms allow commercial use (allowed, forbidden, not
+  verified), with the pages read. A block of data takes the most restrictive status of its credits: everything that
+  comes from Open-Meteo's free API is forbidden. A test fails when a credit has no line.
 
 ## [1.1.0] - 2026-10-28
 

@@ -241,6 +241,46 @@ carries the ECMWF credit below; the live pilot's provider id is `ecmwf_opendata`
 The official warnings of Turkey are the Turkish State Meteorological Service's (MGM, https://www.mgm.gov.tr/meteouyari/turkiye.aspx);
 its terms forbid relaying them without permission, so this instance reads none (the research of 2026-10-25, ADR 0011).
 
+## Commercial use (for the paid app to come)
+
+The website and this API stay free and non-commercial. An Android app with a paid membership will come from them
+(decision of 2026-10-28), and an app with a subscription or ads is **commercial use**: it may only show the data of
+sources whose terms allow it. Each credit has one line here, declared once in [`app/commercial.py`](app/commercial.py)
+(a test fails when a credit has none, or when this table drifts from it). A block of data carrying several credits
+takes the most restrictive status: the weather, marine, flood and air quality blocks are **forbidden** while they
+come from Open-Meteo's free API, whatever the licence of the model behind it.
+
+**allowed**: the terms read allow it, within their conditions (credit, no alteration, no suggested endorsement).
+**forbidden**: the terms read restrict the data, or the way it is reached, to non-commercial use. **not verified**:
+the terms say nothing of it, could not be read, or contradict each other. Re-read each page in a browser before
+anything commercial.
+
+| Credit key | Provider | Commercial use | Why | Read | On |
+| --- | --- | --- | --- | --- | --- |
+| `open_meteo` | Open-Meteo | **forbidden** | The free API is for non-commercial use only, and an app with a subscription or ads is commercial. The paid API plans allow it (no price shown on the pricing page), and so does self-hosting the open-source server. | [1](https://open-meteo.com/en/terms), [2](https://open-meteo.com/en/pricing), [3](https://github.com/open-meteo/open-meteo/blob/main/docs/getting-started.md) | 2026-10-28 |
+| `ecmwf_opendata` | ECMWF (open data) | **allowed** | ECMWF open data, CC BY 4.0. | [1](https://www.ecmwf.int/en/forecasts/datasets/open-data) | 2026-10-28 |
+| `dwd_icon_wave` | DWD (through Open-Meteo Marine) | **allowed** | The DWD's open data is under CC BY 4.0. Here it comes through Open-Meteo's free API, which is not: the marine block stays forbidden while it does. | [1](https://www.dwd.de/EN/service/legal_notice/legal_notice_node.html) | 2026-10-20 |
+| `cams` | CAMS (through Open-Meteo Air Quality) | **allowed** | Copernicus licence: any lawful use, with the credit. Here it comes through Open-Meteo's free API, which is not. | [1](https://apps.ecmwf.int/datasets/licences/cams) | 2026-10-28 |
+| `glofas` | GloFAS (through Open-Meteo Flood) | not verified | The terms of the GloFAS data themselves were not read. | [1](https://open-meteo.com/en/docs/flood-api) | 2026-10-20 |
+| `met_norway` | MET Norway | **allowed** | NLOD 2.0 and CC BY 4.0. The terms of service (identification, cache, rate) still apply. | [1](https://api.met.no/doc/License), [2](https://api.met.no/doc/TermsOfService) | 2026-10-20 |
+| `rainviewer` | RainViewer | **forbidden** | The API is for personal and educational use only. | [1](https://www.rainviewer.com/api.html) | 2026-10-20 |
+| `usgs` | USGS Earthquake Hazards Program | **allowed** | USGS-authored data is in the U.S. public domain. | [1](https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits) | 2026-10-20 |
+| `usgs_volcano` | USGS Volcano Hazards Program | not verified | The API page states no licence; the general USGS policy presumably applies. | [1](https://volcanoes.usgs.gov/vsc/api/) | 2026-10-20 |
+| `emsc` | EMSC / SeismicPortal | **allowed** | CC BY 4.0. Mirroring or bulk copying of the database needs written permission. | [1](https://www.seismicportal.eu/terms.html) | 2026-10-20 |
+| `gdacs` | GDACS | not verified | No reuse licence found on the terms page. | [1](https://data.gdacs.org/About/termofuse.aspx) | 2026-10-20 |
+| `noaa_nws` | NOAA National Weather Service | **allowed** | Public domain, unless noted otherwise. No altered content presented as official, no suggested endorsement. | [1](https://www.weather.gov/disclaimer) | 2026-10-20 |
+| `noaa_nhc` | NOAA National Hurricane Center | **allowed** | Public domain, unless marked otherwise. No altered content presented as official. | [1](https://www.nhc.noaa.gov/disclaimer.shtml) | 2026-10-20 |
+| `noaa_tsunami` | NOAA U.S. Tsunami Warning Centers | **allowed** | Public domain, by the NWS disclaimer that tsunami.gov links to. | [1](https://www.weather.gov/disclaimer) | 2026-10-20 |
+| `noaa_swpc` | NOAA Space Weather Prediction Center | not verified | Public domain deduced from the NWS policy: the SWPC's data access page states no licence. | [1](https://www.spaceweather.gov/content/data-access), [2](https://www.weather.gov/disclaimer) | 2026-10-20 |
+| `nasa_firms` | NASA FIRMS (LANCE, ESDIS) | not verified | No licence is named. NASA's policy is the full and open sharing of its data; commercial use is not stated. | [1](https://www.earthdata.nasa.gov/engage/open-data-services-software-policies/data-information-guidance) | 2026-10-20 |
+| `meteoalarm` | MeteoAlarm (EUMETNET) | not verified | Terms equivalent to CC BY 4.0, with additional requirements for redistributors that were not read. | [1](https://meteoalarm.org/en/live/page/terms-and-conditions) | 2026-10-20 |
+| `dwd_warnings` | Deutscher Wetterdienst (DWD) | **allowed** | CC BY 4.0, the source acknowledged. An altered warning must lose the DWD's name. | [1](https://www.dwd.de/EN/service/legal_notice/legal_notice_node.html) | 2026-10-20 |
+| `eccc_alerts` | Environment and Climate Change Canada (MSC) | not verified | ECCC Data Services End-use Licence 2.1.1: what it says of commercial use was not read. | [1](https://eccc-msc.github.io/open-data/licence/readme_en/) | 2026-10-20 |
+| `metservice_alerts` | MetService (New Zealand) | not verified | The feed says CC BY 4.0; the website terms it links to allow personal use only. | [1](https://alerts.metservice.com/cap/rss), [2](https://about.metservice.com/web-terms-of-use) | 2026-10-20 |
+| `wmo_swic` | WMO Severe Weather Information Centre (national services) | not verified | Each national service has its own terms (app/collectors/swic_terms.py); they were not reviewed for commercial use one by one. | [1](https://severeweather.wmo.int/note.html) | 2026-10-20 |
+| `gem_faults` | GEM Global Active Faults Database | **allowed** | CC BY-SA 4.0: commercial use allowed, and data derived from it stays under the same licence. | [1](https://github.com/GEMScienceTools/gem-global-active-faults) | 2026-10-20 |
+| `vigicrues` | Vigicrues (SCHAPI) | **allowed** | Licence Ouverte 2.0 (Etalab): the source and the date of the data named. | [1](https://www.etalab.gouv.fr/licence-ouverte-open-licence/) | 2026-10-20 |
+
 ## Where the credits go
 
 - **JSON responses.** `attribution` on each hazard alert (`/v1/snapshot`, `/v1/point`, `/v1/history`,
