@@ -87,6 +87,7 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
 | `GET /v1/vigilances?lat=&lon=` ou `?country=FR` ou `?source=tsunami` | Vigilances météo officielles qui couvrent un point, ou toutes celles d'un pays (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues et les services nationaux du registre de l'OMM), ou les messages de tsunami en cours, avec les mots de l'émetteur intacts. Voir plus bas. |
 | `GET /v1/vigilances/countries` | Les pays que cette instance sert avec ses réglages, les sources qui répondent pour chacun, et si leur licence est vérifiée. Avec `?uncovered=true`, tous les autres pays du monde aussi, chacun avec la raison pour laquelle rien n'y est lu. |
 | `GET /v1/vigilances.geojson` | Les mêmes vigilances en GeoJSON, la forme de chaque zone en géométrie. |
+| `GET /v1/events` ou `?country=CH` | Des événements au lieu de lignes : les vigilances d'un même phénomène, niveau et région regroupées, les séismes d'une même séquence, chaque autre catastrophe, avec les vigilances et catastrophes elles-mêmes dedans, intactes. Voir « Des événements au lieu de lignes » plus bas. |
 | `GET /v1/vigilances/archive`, `GET /v1/vigilances/archive/stats` | Chaque vigilance officielle vue par l'instance, gardée telle qu'elle a été servie, filtrée par pays, zone, source, phénomène, niveau et période, avec les heures où chaque source a été lue ; et ce que l'archive pèse par jour. Voir « L'archive des vigilances officielles » plus bas. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Zones surveillées (la liste de suivi). Une zone doit donner son `utc_offset_s`. |
 | `GET/POST /v1/watched-points`, `DELETE /v1/watched-points/{id}` | Les points que vous surveillez (un lieu, une faille, un volcan...), chacun avec un rayon. **Personnels** : listés ici et dans le statut, jamais dans les dangers. `POST` et `DELETE` sont **désactivés** (403) sauf si `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`. |
@@ -346,6 +347,74 @@ archivé le 28/10/2026 (abrégé) :
   soit le nombre de vigilances qui la partagent.
 - **Combien de temps** : `VIGIE_ARCHIVE_KEEP_DAYS` (0, par défaut, garde tout) ; `keep_days` dans les réponses. `GET /v1/health`
   donne `vigilance_archive` (combien de vigilances, depuis quand, la dernière écriture ou erreur).
+
+## Des événements au lieu de lignes
+
+`GET /v1/events` regroupe ce que les autres routes listent une à une ([ADR 0012](docs/decisions/0012-events-and-impact.md), en anglais) :
+
+- **Les vigilances officielles** d'un même pays, d'un même phénomène (celui de l'API ; le mot de la source quand il vaut `other` ou est
+  inconnu) et d'un même niveau forment un événement quand leurs périodes se chevauchent et que leurs zones sont proches (chacune à moins
+  de 300 km d'une autre). Les zones dont l'instance ne connaît pas la forme forment un événement à part, découpé par État pour les zones
+  UGC du NWS, jamais un lieu deviné.
+- **Les séismes** d'une même séquence (chacun à moins de 100 km et 6 heures d'un autre) forment un événement.
+- **Un tsunami** des centres d'alerte forme un événement avec les messages officiels qui portent son code VTEC.
+- **Toute autre catastrophe** (un cyclone, un volcan, une alerte GDACS) est un événement à elle seule. Les catastrophes que seul le NWS
+  signale sont écartées quand les vigilances des États-Unis sont dans la réponse : ce sont les mêmes alertes.
+
+```
+GET /v1/events                         les catastrophes du monde et les vigilances de chaque pays servi par l'instance
+GET /v1/events?country=CH              les vigilances et catastrophes d'un pays (404 pour un pays sans source)
+GET /v1/events?compact=true            sans les vigilances et catastrophes elles-mêmes (leurs identifiants restent dans `alert_ids`)
+GET /v1/events?lang=fr,en              les textes des vigilances dans ces langues seulement (un filtre, jamais une traduction)
+```
+
+Le contrat. Un événement est **le nôtre** : `title`, `level`, `areas_count`, la période et `bbox` sont calculés par Vigie et nommés dans
+`derived` ; `alerts` contient les vigilances exactement comme `GET /v1/vigilances` les sert, `hazards` les catastrophes comme
+`GET /v1/geojson/hazards` les décrit, intactes. Le titre est en anglais et c'est le nôtre : un client écrit le sien dans sa langue à
+partir de `phenomenon` (ou `category`), `country`, `areas_count` et `area_names` ; les mots de la source pour le phénomène sont dans
+`phenomenon_words`, tels quels. Le niveau le plus haut d'abord, puis le plus étendu. Deux vrais événements de la vue monde du 28/10/2026
+à 21 h 15 UTC (abrégés) :
+
+```json
+{
+  "events": [
+    {
+      "id": "warnings:f47b33705da9b6af", "kind": "warnings", "phenomenon": "cold", "category": null, "level": "YELLOW",
+      "title": "Cold · Switzerland · 13 areas", "country": "CH", "areas_count": 13,
+      "area_names": ["Vispertal - Nanztal", "Lötschental - Naters", "Val d'Hérens", "Turtmanntal", "Locarnese", "..."],
+      "phenomenon_words": ["Low-temperature"], "start_utc": 1793228400, "end_utc": 1793257200,
+      "bbox": [7.3399, 45.8198, 9.3, 46.4988], "sources": ["meteoalarm"],
+      "alert_ids": ["meteoalarm:0345d287-62ca-4d59-8424-02388eb1d661:0-0-0", "..."],
+      "alerts": [{"id": "meteoalarm:0345d287-62ca-4d59-8424-02388eb1d661:0-0-0", "source": "meteoalarm", "level": "YELLOW",
+                  "level_original": "Yellow", "phenomenon": "cold", "phenomenon_original": "Low-temperature",
+                  "area": {"description": "Vispertal - Nanztal"}, "...": "chaque champ de GET /v1/vigilances"}],
+      "hazards": [], "attribution": "Source: EUMETNET – MeteoAlarm ...",
+      "derived": ["level", "title", "areas_count", "start_utc", "end_utc", "bbox"]
+    },
+    {
+      "id": "earthquakes:9293c7eacac23a2f", "kind": "earthquakes", "phenomenon": null, "category": "EARTHQUAKE", "level": "YELLOW",
+      "title": "7 earthquakes · strongest: M 5.5 - Reykjanes Ridge", "country": null, "areas_count": null,
+      "start_utc": 1793187469, "end_utc": 1793216732, "bbox": [-32.44, 58.056, -32.01, 58.95], "sources": ["USGS", "EMSC"],
+      "alerts": [], "hazards": [{"id": "usgs_us7000ttnc", "title": "M 5.5 - Reykjanes Ridge", "value_primary": 5.5, "...": "..."}],
+      "derived": ["level", "title", "start_utc", "end_utc", "bbox"]
+    }
+  ],
+  "counts": {"events": 95, "by_level": {"RED": 5, "ORANGE": 19, "YELLOW": 54, "GREEN": 16, "unknown": 1}},
+  "coverage": ["... une ligne par source et par pays, comme dans GET /v1/vigilances ..."],
+  "hazard_sources_answered": 7, "hazard_sources_total": 7
+}
+```
+
+Ce soir-là, la vue monde tenait en 95 événements au lieu de 528 vigilances en vigueur et 46 catastrophes : les 13 zones suisses
+« Low-temperature » font un événement, les 7 séismes de la dorsale de Reykjanes une séquence. `counts.by_level` compte le vert à part,
+pour qu'un client le laisse hors de ses compteurs. `coverage` dit quelle source n'a pas répondu : ses vigilances manquent, ce qui n'est
+pas « rien en vigueur ».
+
+**Ce que coûte une vue monde** : sans `country`, chaque pays servi est lu (39 flux MeteoAlarm, les services nationaux, les 7 services du
+registre de l'OMM), par les mêmes caches que `GET /v1/vigilances?country=` : un flux est demandé au plus une fois par durée de cache
+(180 s pour MeteoAlarm) quel que soit le nombre de clients, et 40 nouveaux documents CAP au plus par requête (`tests/test_events.py`). La
+première vue monde après un moment calme attend le flux le plus lent (66 s sur le PC le 28/10/2026 ; 7 à 18 s ensuite) : la demander
+depuis un serveur qui garde la réponse, pas depuis chaque navigateur.
 
 ## Tempêtes et tsunamis
 

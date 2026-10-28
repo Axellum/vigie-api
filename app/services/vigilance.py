@@ -955,6 +955,40 @@ class VigilanceService:
         self._forget_unlinked_documents()
         return self._response(VigilanceQuery(country=country), [country], sources, enriched, without, self.uncovered_of([country]))
 
+    async def for_world(self, languages: Optional[tuple[str, ...]] = None) -> VigilancesResponse:
+        """Every warning in force of every country this instance serves, and every tsunami message (``GET /v1/events`` without a country).
+
+        The feeds are read through the same caches as ``for_country`` (a feed is asked at most once per its cache lifetime, whatever
+        the number of requests) and at most ``CAP_DOCUMENTS_PER_REQUEST`` new CAP documents are asked. The countries are not
+        remembered: a world view does not make the scheduler keep every feed fresh.
+        """
+        await self.ensure_registry()
+        countries = self.supported_countries()
+        groups = await asyncio.gather(*(self._national_sources(country) for country in countries))
+        sources = [data for group in groups for data in group]
+        if self.tsunami is not None:
+            tsunami = await self._tsunami(None)
+            self._without_relayed_tsunami(sources, tsunami)
+            sources.append(tsunami)
+        found: list[Vigilance] = []
+        for data in sources:
+            self._finish_coverage(data)
+            found.extend(self._localized(v) for v in data.vigilances)
+        ordered = self._sorted(self._without_covered_flooding(found))
+        enriched, without, documents = await self._with_texts(ordered, languages)
+        await self._archive_seen(sources, documents)
+        self._forget_unlinked_documents()
+        return self._response(VigilanceQuery(), countries, sources, enriched, without)
+
+    def box_of(self, vigilance: Vigilance) -> Optional[tuple[float, float, float, float]]:
+        """The box (west, south, east, north) around the area of a warning: its own shape, else the shapes of its codes known here."""
+        if vigilance.shape is not None and not vigilance.shape.is_empty:
+            return tuple(float(b) for b in vigilance.shape.bounds)  # type: ignore[return-value]
+        bounds = [area.bounds for code in vigilance.area.geocodes if (area := self.geometries.get(code.scheme, code.value)) is not None]
+        if not bounds:
+            return None
+        return (min(b[0] for b in bounds), min(b[1] for b in bounds), max(b[2] for b in bounds), max(b[3] for b in bounds))
+
     async def for_tsunami(self) -> VigilancesResponse:
         """Every tsunami message in force, whatever the coast it names (``source=tsunami``)."""
         if self.tsunami is None:

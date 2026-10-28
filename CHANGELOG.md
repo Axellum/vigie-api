@@ -7,6 +7,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **`GET /v1/events`: events instead of lines** ([ADR 0012](docs/decisions/0012-events-and-impact.md)). The official warnings of one
+  country, phenomenon and level whose periods overlap and whose areas are close (each within 300 km of another) are one event; the
+  earthquakes of one sequence (100 km, 6 hours) are one; a tsunami goes with the official messages that carry its code; any other hazard
+  is one on its own. An event has a short title of ours, its level, the number and names of the areas, its period and box, and the
+  warnings and hazards themselves, untouched. `?country=` for one country, the world without; `compact=true` leaves the warnings out.
 - **An archive of the official warnings** (`GET /v1/vigilances/archive`, `GET /v1/vigilances/archive/stats`): every warning a source
   lists when the instance reads it, in force or not, is kept once per message and area as `GET /v1/vigilances` served it (the issuer's
   words untouched), with when it was first and last seen, and filtered by country, area, source, phenomenon, level and period. `reads`
