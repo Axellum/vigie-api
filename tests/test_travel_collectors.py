@@ -207,6 +207,23 @@ async def test_smartraveller_is_asked_conditionally(sim_clock: SimClock) -> None
     assert len(calls) == 2 and calls[1].headers["If-None-Match"] == '"1793220303"' and len(feed.advices) == 179
 
 
+@pytest.mark.asyncio
+async def test_smartraveller_is_sent_a_user_agent_without_an_address(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Its server holds a request whose User-Agent has a URL or an e-mail until it times out (2026-10-28): the contact is not sent."""
+    monkeypatch.setenv("VIGIE_CONTACT", "https://example.org/contact")
+    agents: list[str] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        agents.append(request.headers["User-Agent"])
+        return samples.hosts()["www.smartraveller.gov.au"](request)
+
+    collector = t.SmartravellerCollector()
+    real_client = httpx.AsyncClient(transport=httpx.MockTransport(answer), headers={"User-Agent": "vigie-api (https://example.org/contact)"})
+    collector._external_client = real_client
+    await collector.fetch_feed()
+    assert agents == ["vigie-api"]
+
+
 # --- The Netherlands ---------------------------------------------------------------------------------------------------
 
 
