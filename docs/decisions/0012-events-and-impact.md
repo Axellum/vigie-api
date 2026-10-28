@@ -23,7 +23,8 @@ works out is said to be Vigie's.
    client writes its own in its language from the other fields, and the source's words for the phenomenon are in `phenomenon_words`, as
    given. Nothing official is translated or shortened.
 2. **How warnings are grouped.** Same country, same phenomenon (the API's own; the source's word, case and spaces aside, when the
-   phenomenon is `other` or unknown, so that two unrelated "other" warnings stay apart), same level, periods that overlap (a warning
+   phenomenon is `other` or unknown, so that two unrelated "other" warnings stay apart; a tsunami message is never grouped with a
+   coastal warning), same level, periods that overlap (a warning
    with neither end nor expiry overlaps everything after its start), and areas that are close: each area within **300 km** of another of
    the event (single linkage between the centres of the boxes around the areas). The distance splits the warnings of a large country (a
    flood in Texas and one in Washington) and keeps those of one region together; 300 km is about the size of a French region or a

@@ -66,6 +66,9 @@ def _area_key(vigilance: Vigilance) -> str:
 
 
 def _phenomenon_key(vigilance: Vigilance) -> str:
+    """What "the same phenomenon" is: the API's phenomenon, the source's word for ``other``; a tsunami message is never a coastal warning."""
+    if vigilance.source == "tsunami":
+        return "tsunami"
     if vigilance.phenomenon is not None and vigilance.phenomenon != VigilancePhenomenon.OTHER:
         return vigilance.phenomenon.value
     word = vigilance.phenomenon_original or vigilance.event or ""

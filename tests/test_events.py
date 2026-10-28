@@ -105,6 +105,12 @@ def test_two_other_warnings_with_different_words_stay_apart() -> None:
     assert frost.phenomenon_words == ["Ground frost", "ground  FROST"]
 
 
+def test_a_tsunami_message_is_not_grouped_with_a_coastal_warning() -> None:
+    coastal = warn("AKZ145", country="US", source="noaa_nws", phenomenon=VigilancePhenomenon.COASTAL, scheme="UGC")
+    tsunami = warn("AKZ146", country="US", source="tsunami", phenomenon=VigilancePhenomenon.COASTAL, scheme="UGC")
+    assert len(group_warnings([coastal, tsunami], lambda v: None, name)) == 2
+
+
 def test_periods_that_do_not_overlap_are_two_events() -> None:
     warnings = [warn("A", onset=1_000, expires=2_000), warn("B", onset=3_000, expires=4_000)]
     assert len(group_warnings(warnings, at(("A", box_at(46, 6)), ("B", box_at(46, 6))), name)) == 2
