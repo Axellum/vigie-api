@@ -47,6 +47,10 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
 - Chaque bloc de données des réponses JSON porte un champ `attribution` avec le crédit que sa source
   demande (la trame compacte n'a pas ce champ). Les textes sont déclarés dans
   [`app/attribution.py`](app/attribution.py).
+- Ce que les conditions de chaque source disent de l'**usage commercial** (pour l'appli payante à venir : le site et
+  cette API restent gratuits) est déclaré une seule fois dans [`app/commercial.py`](app/commercial.py) et listé dans
+  [`SOURCES.md`](SOURCES.md#commercial-use-for-the-paid-app-to-come) : permis, interdit ou non vérifié. Une nouvelle
+  source ne peut pas entrer sans sa ligne (un test échoue).
 - **L'API gratuite d'Open-Meteo ne peut être utilisée qu'à des fins non commerciales**
   ([conditions](https://open-meteo.com/en/terms)), dans la limite de 10 000 appels par jour, avec un lien
   vers Open-Meteo partout où ses données sont affichées. Ce projet est personnel et non commercial.

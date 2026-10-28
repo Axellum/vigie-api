@@ -43,6 +43,10 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
 - Every block of data in the JSON responses carries an `attribution` field with the credit its source
   asks for (the compact frame has no such field). The texts are declared in
   [`app/attribution.py`](app/attribution.py).
+- Whether each source's terms allow **commercial use** (for the paid app to come: the website and this API stay
+  free) is declared once in [`app/commercial.py`](app/commercial.py) and listed in
+  [`SOURCES.md`](SOURCES.md#commercial-use-for-the-paid-app-to-come): allowed, forbidden or not verified. A new source
+  cannot be added without its line (a test fails).
 - **Open-Meteo's free API may only be used for non-commercial purposes**
   ([terms](https://open-meteo.com/en/terms)), within 10,000 calls a day, with a link to Open-Meteo wherever
   its data is shown. This project is personal and non-commercial. **Do not use it commercially without
