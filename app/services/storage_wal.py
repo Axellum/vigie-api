@@ -10,6 +10,8 @@ Provides:
    when the Internet is down.
 4. The **watched points** behind ``/v1/watched-points`` (``watched_points``), and for each hazard source the run of reads
    without a gap that "nothing happened" rests on (``source_runs``, see ``docs/decisions/0008-sensitive-points.md``).
+5. The **archive of the official warnings** behind ``/v1/vigilances/archive`` (``vigilance_archive``, its payloads and shapes,
+   and ``vigilance_reads``, the hours each source was read): see ``app/services/vigilance_archive.py``.
 
 The database file is ``VIGIE_DB_PATH`` when set, otherwise ``vigie.db`` at the repository
 root (git-ignored). A ``vigie_mondiale.db`` left by an earlier layout is reused when present.
@@ -163,6 +165,57 @@ class SQLiteWALStorage:
                     since_utc INTEGER NOT NULL,
                     last_ok_utc INTEGER NOT NULL
                 );
+
+                CREATE TABLE IF NOT EXISTS vigilance_archive (
+                    id TEXT NOT NULL,
+                    identifier TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    source_id TEXT,
+                    country TEXT,
+                    area_desc TEXT,
+                    area_codes TEXT,
+                    phenomenon TEXT,
+                    phenomenon_original TEXT,
+                    level TEXT,
+                    level_rank INTEGER,
+                    level_original TEXT,
+                    status TEXT,
+                    message_type TEXT,
+                    sent_utc INTEGER,
+                    effective_utc INTEGER,
+                    onset_utc INTEGER,
+                    expires_utc INTEGER,
+                    ends_utc INTEGER,
+                    first_seen_utc INTEGER NOT NULL,
+                    last_seen_utc INTEGER NOT NULL,
+                    has_texts INTEGER NOT NULL,
+                    shape_hash TEXT,
+                    min_lon REAL,
+                    min_lat REAL,
+                    max_lon REAL,
+                    max_lat REAL,
+                    UNIQUE (id, identifier)
+                );
+
+                CREATE TABLE IF NOT EXISTS vigilance_archive_payload (
+                    archive_rowid INTEGER PRIMARY KEY,
+                    payload BLOB NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS vigilance_shapes (
+                    hash TEXT PRIMARY KEY,
+                    wkb BLOB NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS vigilance_reads (
+                    source_key TEXT NOT NULL,
+                    country TEXT NOT NULL,
+                    day TEXT NOT NULL,
+                    first_utc INTEGER NOT NULL,
+                    last_utc INTEGER NOT NULL,
+                    hours INTEGER NOT NULL,
+                    PRIMARY KEY (source_key, country, day)
+                );
                 """
             )
             self._make_hazard_value_nullable(conn)
@@ -172,6 +225,12 @@ class SQLiteWALStorage:
                     ON hazards_history(timestamp_utc DESC);
                 CREATE INDEX IF NOT EXISTS idx_hazards_cat_sev
                     ON hazards_history(category, severity_rank DESC, timestamp_utc DESC);
+                CREATE INDEX IF NOT EXISTS idx_vigilance_archive_seen
+                    ON vigilance_archive(first_seen_utc DESC);
+                CREATE INDEX IF NOT EXISTS idx_vigilance_archive_country
+                    ON vigilance_archive(country, first_seen_utc DESC);
+                CREATE INDEX IF NOT EXISTS idx_vigilance_archive_last_seen
+                    ON vigilance_archive(last_seen_utc);
                 """
             )
 
@@ -532,3 +591,256 @@ class SQLiteWALStorage:
                         continue
         alerts.sort(key=lambda h: h.timestamp_utc, reverse=True)
         return alerts
+
+    # ========================================================================
+    # 5. Archive of the official warnings (``vigilance_archive``)
+    # ========================================================================
+
+    def archive_vigilances(
+        self,
+        written: list[tuple[dict[str, Any], bytes]],
+        shapes: dict[str, bytes],
+        touched: list[tuple[str, str]],
+        reads: list[tuple[str, str, str, int, int]],
+        now_utc: int,
+    ) -> None:
+        """Write one pass of the archive in one transaction.
+
+        ``written``: the warnings new or changed since the last pass, each a row (``ARCHIVE_COLUMNS``) and its compressed payload;
+        a warning already archived keeps its first sighting. ``shapes``: the compressed shapes by hash (one per shape, whatever the
+        number of warnings that share it). ``touched``: the ``(id, identifier)`` of the warnings seen again, unchanged (their last
+        sighting becomes ``now_utc``). ``reads``: ``(source_key, country, day, hour bit, time)`` of the sources that answered.
+        """
+        with self._connect() as conn:
+            if shapes:
+                conn.executemany("INSERT OR IGNORE INTO vigilance_shapes (hash, wkb) VALUES (?, ?)", list(shapes.items()))
+            for row, payload in written:
+                conn.execute(_ARCHIVE_UPSERT, tuple(row[column] for column in ARCHIVE_COLUMNS))
+                found = conn.execute(
+                    "SELECT rowid FROM vigilance_archive WHERE id = ? AND identifier = ?", (row["id"], row["identifier"])
+                ).fetchone()
+                conn.execute(
+                    """
+                    INSERT INTO vigilance_archive_payload (archive_rowid, payload) VALUES (?, ?)
+                    ON CONFLICT(archive_rowid) DO UPDATE SET payload = excluded.payload
+                    """,
+                    (int(found[0]), payload),
+                )
+            if touched:
+                conn.executemany(
+                    "UPDATE vigilance_archive SET last_seen_utc = ? WHERE id = ? AND identifier = ? AND last_seen_utc < ?",
+                    [(now_utc, warning_id, identifier, now_utc) for warning_id, identifier in touched],
+                )
+            if reads:
+                conn.executemany(
+                    """
+                    INSERT INTO vigilance_reads (source_key, country, day, first_utc, last_utc, hours) VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(source_key, country, day) DO UPDATE SET
+                        first_utc = MIN(first_utc, excluded.first_utc),
+                        last_utc = MAX(last_utc, excluded.last_utc),
+                        hours = hours | excluded.hours
+                    """,
+                    [(source_key, country, day, at, at, hour_bit) for source_key, country, day, hour_bit, at in reads],
+                )
+            conn.commit()
+
+    def query_vigilance_archive(
+        self,
+        *,
+        country: Optional[str] = None,
+        area: Optional[str] = None,
+        source: Optional[str] = None,
+        phenomenon: Optional[str] = None,
+        level: Optional[str] = None,
+        min_level_rank: Optional[int] = None,
+        since_utc: Optional[int] = None,
+        until_utc: Optional[int] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[int, list[tuple[int, int, bytes]]]:
+        """The archived warnings that match, the most recently first seen first: the total, and ``(first_seen, last_seen, payload)``.
+
+        ``since_utc`` and ``until_utc`` keep the warnings whose period overlaps them: it starts at the onset (else the effective
+        time, the time of issue, the first sighting) and ends at the later of the end and the expiry (else the last sighting).
+        ``area`` is a code of the area (``NUTS3:FR101`` or ``FR101``) or a part of its name (case ignored). ``source`` is
+        ``meteoalarm``, ``dwd``... or ``swic:<service>``.
+        """
+        clauses: list[str] = []
+        params: list[Any] = []
+        if country is not None:
+            clauses.append("country = ?")
+            params.append(country)
+        if source is not None:
+            if source.startswith("swic:"):
+                clauses.append("source = 'swic' AND source_id = ?")
+                params.append(source.split(":", 1)[1])
+            else:
+                clauses.append("source = ?")
+                params.append(source)
+        if phenomenon is not None:
+            clauses.append("phenomenon = ?")
+            params.append(phenomenon)
+        if level is not None:
+            clauses.append("level = ?")
+            params.append(level)
+        if min_level_rank is not None:
+            clauses.append("level_rank >= ?")
+            params.append(min_level_rank)
+        if since_utc is not None:
+            clauses.append(f"{_ARCHIVE_END} >= ?")
+            params.append(since_utc)
+        if until_utc is not None:
+            clauses.append(f"{_ARCHIVE_START} <= ?")
+            params.append(until_utc)
+        if area and area.strip():
+            code = _like_escaped(area.strip())
+            clauses.append(r"(area_codes LIKE ? ESCAPE '\' OR area_codes LIKE ? ESCAPE '\' OR casefold(area_desc) LIKE ? ESCAPE '\')")
+            params.extend([f"%,{code},%", f"%:{code},%", f"%{_like_escaped(area.strip().casefold())}%"])
+        where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self._connect() as conn:
+            conn.create_function("casefold", 1, _casefold, deterministic=True)
+            total = int(conn.execute(f"SELECT COUNT(*) FROM vigilance_archive {where_sql}", tuple(params)).fetchone()[0])
+            rows = conn.execute(
+                f"""
+                SELECT a.first_seen_utc, a.last_seen_utc, p.payload
+                FROM vigilance_archive a JOIN vigilance_archive_payload p ON p.archive_rowid = a.rowid
+                {where_sql}
+                ORDER BY a.first_seen_utc DESC, a.rowid DESC
+                LIMIT ? OFFSET ?
+                """,
+                (*params, max(1, int(limit)), max(0, int(offset))),
+            ).fetchall()
+        return total, [(int(r[0]), int(r[1]), bytes(r[2])) for r in rows]
+
+    def vigilance_reads(
+        self, country: Optional[str], first_day: str, last_day: str, limit: int = 2000
+    ) -> list[tuple[str, str, str, int, int, int]]:
+        """``(source_key, country, day, first_utc, last_utc, hours)`` of the sources read between two UTC days (``YYYY-MM-DD``)."""
+        clauses = ["day >= ?", "day <= ?"]
+        params: list[Any] = [first_day, last_day]
+        if country is not None:
+            clauses.append("country = ?")
+            params.append(country)
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT source_key, country, day, first_utc, last_utc, hours FROM vigilance_reads
+                WHERE {' AND '.join(clauses)} ORDER BY day DESC, country, source_key LIMIT ?
+                """,
+                (*params, int(limit)),
+            ).fetchall()
+        return [(str(r[0]), str(r[1]), str(r[2]), int(r[3]), int(r[4]), int(r[5])) for r in rows]
+
+    def vigilance_archive_summary(self) -> tuple[int, Optional[int], Optional[int]]:
+        """How many warnings the archive holds, its first sighting and its last."""
+        with self._connect() as conn:
+            row = conn.execute("SELECT COUNT(*), MIN(first_seen_utc), MAX(last_seen_utc) FROM vigilance_archive").fetchone()
+        return int(row[0]), (None if row[1] is None else int(row[1])), (None if row[2] is None else int(row[2]))
+
+    def vigilance_archive_days(self, since_utc: int) -> tuple[list[tuple[str, int, int, int]], dict[str, tuple[int, int]], int, int]:
+        """What the archive took in per UTC day since ``since_utc``, and what it weighs.
+
+        Returns the days ``(day, warnings first seen, bytes of their payloads, countries)``, the reads per day
+        ``{day: (sources, countries)}``, the bytes of every payload and the bytes of every shape.
+        """
+        with self._connect() as conn:
+            days = conn.execute(
+                """
+                SELECT date(a.first_seen_utc, 'unixepoch') AS day, COUNT(*), SUM(LENGTH(p.payload)), COUNT(DISTINCT a.country)
+                FROM vigilance_archive a JOIN vigilance_archive_payload p ON p.archive_rowid = a.rowid
+                WHERE a.first_seen_utc >= ? GROUP BY day ORDER BY day DESC
+                """,
+                (since_utc,),
+            ).fetchall()
+            reads = conn.execute(
+                """
+                SELECT day, COUNT(DISTINCT source_key), COUNT(DISTINCT country) FROM vigilance_reads
+                WHERE day >= date(?, 'unixepoch') GROUP BY day
+                """,
+                (since_utc,),
+            ).fetchall()
+            payload_bytes = conn.execute("SELECT COALESCE(SUM(LENGTH(payload)), 0) FROM vigilance_archive_payload").fetchone()[0]
+            shape_bytes = conn.execute("SELECT COALESCE(SUM(LENGTH(wkb)), 0) FROM vigilance_shapes").fetchone()[0]
+        return (
+            [(str(r[0]), int(r[1]), int(r[2] or 0), int(r[3])) for r in days],
+            {str(r[0]): (int(r[1]), int(r[2])) for r in reads},
+            int(payload_bytes),
+            int(shape_bytes),
+        )
+
+    def database_bytes(self) -> int:
+        """The size of the database on disk: the file and its write-ahead log."""
+        total = 0
+        for path in (self.db_path, Path(f"{self.db_path}-wal")):
+            try:
+                total += path.stat().st_size
+            except OSError:
+                continue
+        return total
+
+    def prune_vigilance_archive(self, before_utc: int) -> int:
+        """Forget the warnings last seen before ``before_utc``, the shapes no warning uses any more and the older reads."""
+        with self._connect() as conn:
+            conn.execute(
+                "DELETE FROM vigilance_archive_payload WHERE archive_rowid IN (SELECT rowid FROM vigilance_archive WHERE last_seen_utc < ?)",
+                (before_utc,),
+            )
+            removed = conn.execute("DELETE FROM vigilance_archive WHERE last_seen_utc < ?", (before_utc,)).rowcount
+            conn.execute("DELETE FROM vigilance_shapes WHERE hash NOT IN (SELECT shape_hash FROM vigilance_archive WHERE shape_hash IS NOT NULL)")
+            conn.execute("DELETE FROM vigilance_reads WHERE day < date(?, 'unixepoch')", (before_utc,))
+            conn.commit()
+        return int(removed)
+
+
+# The columns of a warning in the archive, in the order of the rows ``archive_vigilances`` writes.
+ARCHIVE_COLUMNS: tuple[str, ...] = (
+    "id",
+    "identifier",
+    "source",
+    "source_id",
+    "country",
+    "area_desc",
+    "area_codes",
+    "phenomenon",
+    "phenomenon_original",
+    "level",
+    "level_rank",
+    "level_original",
+    "status",
+    "message_type",
+    "sent_utc",
+    "effective_utc",
+    "onset_utc",
+    "expires_utc",
+    "ends_utc",
+    "first_seen_utc",
+    "last_seen_utc",
+    "has_texts",
+    "shape_hash",
+    "min_lon",
+    "min_lat",
+    "max_lon",
+    "max_lat",
+)
+_ARCHIVE_SIGHTINGS = ("id", "identifier", "first_seen_utc", "last_seen_utc")
+_ARCHIVE_UPSERT = f"""
+    INSERT INTO vigilance_archive ({", ".join(ARCHIVE_COLUMNS)}) VALUES ({", ".join("?" for _ in ARCHIVE_COLUMNS)})
+    ON CONFLICT(id, identifier) DO UPDATE SET
+        {", ".join(f"{column} = excluded.{column}" for column in ARCHIVE_COLUMNS if column not in _ARCHIVE_SIGHTINGS)},
+        first_seen_utc = MIN(first_seen_utc, excluded.first_seen_utc),
+        last_seen_utc = MAX(last_seen_utc, excluded.last_seen_utc)
+"""
+# When a warning applies: from its onset (else its effective time, its time of issue, its first sighting) to the later of its end and
+# its expiry (else its last sighting). SQLite's max() of several values is null when one of them is, hence the fall-backs.
+_ARCHIVE_START = "COALESCE(onset_utc, effective_utc, sent_utc, first_seen_utc)"
+_ARCHIVE_END = "COALESCE(MAX(ends_utc, expires_utc), ends_utc, expires_utc, last_seen_utc)"
+
+
+def _like_escaped(text: str) -> str:
+    """``text`` with the wildcards of ``LIKE`` escaped (``ESCAPE '\\'``)."""
+    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _casefold(text: Any) -> Any:
+    """SQLite's ``lower()`` folds ASCII only: an area named "Île-de-France" is found with "île"."""
+    return text.casefold() if isinstance(text, str) else text

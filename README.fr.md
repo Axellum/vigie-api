@@ -87,6 +87,7 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
 | `GET /v1/vigilances?lat=&lon=` ou `?country=FR` ou `?source=tsunami` | Vigilances météo officielles qui couvrent un point, ou toutes celles d'un pays (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues et les services nationaux du registre de l'OMM), ou les messages de tsunami en cours, avec les mots de l'émetteur intacts. Voir plus bas. |
 | `GET /v1/vigilances/countries` | Les pays que cette instance sert avec ses réglages, les sources qui répondent pour chacun, et si leur licence est vérifiée. Avec `?uncovered=true`, tous les autres pays du monde aussi, chacun avec la raison pour laquelle rien n'y est lu. |
 | `GET /v1/vigilances.geojson` | Les mêmes vigilances en GeoJSON, la forme de chaque zone en géométrie. |
+| `GET /v1/vigilances/archive`, `GET /v1/vigilances/archive/stats` | Chaque vigilance officielle vue par l'instance, gardée telle qu'elle a été servie, filtrée par pays, zone, source, phénomène, niveau et période, avec les heures où chaque source a été lue ; et ce que l'archive pèse par jour. Voir « L'archive des vigilances officielles » plus bas. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Zones surveillées (la liste de suivi). Une zone doit donner son `utc_offset_s`. |
 | `GET/POST /v1/watched-points`, `DELETE /v1/watched-points/{id}` | Les points que vous surveillez (un lieu, une faille, un volcan...), chacun avec un rayon. **Personnels** : listés ici et dans le statut, jamais dans les dangers. `POST` et `DELETE` sont **désactivés** (403) sauf si `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`. |
 | `GET /v1/watched-points/status?days=7` | Pour chaque point surveillé, les événements dans son rayon sur les derniers jours, et `quiet` seulement si chaque source de dangers a répondu et a été lue sans trou. |
@@ -299,6 +300,53 @@ Les codes : `no_source` (aucun flux d'alertes officiel n'est lu pour le pays, et
 n'est pas vérifié, est dans [`SOURCES.md`](SOURCES.md) (en anglais), « Countries with no source ». Un point en mer, à plus de 25 km environ d'une côte,
 n'est dans aucun pays et le dit. [ADR 0009](docs/decisions/0009-every-border-a-reason-per-country-and-the-admin-token.md).
 
+### L'archive des vigilances officielles
+
+Chaque vigilance qu'une source liste quand l'instance la lit est **archivée**, en vigueur ou non (une annulation, une vigilance
+terminée), pour pouvoir relire les vigilances passées. L'archive garde la vigilance **telle que `GET /v1/vigilances` l'a servie** :
+les mots de l'émetteur intacts dans chaque langue, `level` et `phenomenon` ceux de l'API (nommés dans `derived`), et quand
+l'instance l'a vue la première et la dernière fois. Un élément par message et par zone : une vigilance revue reste le même élément,
+une mise à jour de la source en est un nouveau. Elle n'envoie **aucune requête** aux sources.
+
+```
+GET /v1/vigilances/archive?country=ME&min_level=ORANGE          les vigilances orange et rouges du Monténégro vues par l'instance
+GET /v1/vigilances/archive?area=FR813&since=1792400000           les vigilances de l'Hérault (code NUTS3) depuis une date
+GET /v1/vigilances/archive?phenomenon=wind&source=dwd&limit=50   les vigilances vent du DWD, 50 à la fois (`offset` pour la suite)
+GET /v1/vigilances/archive/stats?days=30                          ce que l'archive a reçu par jour, et ce qu'elle pèse sur le disque
+```
+
+Filtres : `country`, `area` (un code, `NUTS3:FR101` ou `FR101`, ou une partie du nom de la zone), `source` (`swic:<service>` pour un
+service du registre de l'OMM), `phenomenon`, `level`, `min_level`, et `since` / `until` (secondes UTC : les vigilances dont la
+période, du début à la plus tardive de la fin et de l'expiration, les recoupe). Les plus récemment vues d'abord. Un vrai élément,
+archivé le 28/10/2026 (abrégé) :
+
+```json
+{
+  "first_seen_utc": 1793220818, "last_seen_utc": 1793220818,
+  "vigilance": {
+    "id": "meteoalarm:cb8fa408-3c1c-4166-87d4-8bc4419bf9f3:0-0-1", "source": "meteoalarm", "country": "ME",
+    "identifier": "2.49.0.1.499.0.1793173001904", "onset_utc": 1793170800, "expires_utc": 1793228340,
+    "level": "ORANGE", "level_original": "Orange", "phenomenon": "wind", "phenomenon_original": "Wind",
+    "issuer": "Zavod za hidrometeorologiju i seizmologiju",
+    "texts": [{"language": "cnr", "headline": "Upozorenje na vjetar", "description": "Udari vjetra >17 m/s (>50km/h ili oko 8 Bofora)"},
+              {"language": "en-GB", "headline": "Wind Warning", "description": "Wind gusts >17 m/s (>50km/h or about 8 Beauforts)"}],
+    "area": {"description": "Adriatic coast", "geocodes": [{"scheme": "EMMA_ID", "value": "ME002"}]},
+    "derived": ["status", "level", "phenomenon"]
+  }
+}
+```
+
+- **Une période sans vigilance n'est pas une période sans danger**, sauf si la source a été lue à ce moment-là : une instance ne lit
+  une source que pour un pays dont elle a besoin (une zone surveillée, un point suivi, une demande récente). `reads` dit, par jour UTC,
+  à quelles heures chaque source a été lue avec succès pour le pays demandé.
+- **Une vigilance MeteoAlarm a ses mots quand l'instance avait lu son document CAP**, ce qu'elle ne fait que pour une vigilance
+  qu'une réponse renvoie (40 nouveaux au plus par requête) : l'élément archivé est réécrit quand le document arrive. Une vigilance
+  terminée avant que quelqu'un demande son pays garde ses champs, sans ses mots.
+- `last_seen_utc` est juste à dix minutes près. La forme d'une zone, quand la source la donne, est gardée une seule fois, quel que
+  soit le nombre de vigilances qui la partagent.
+- **Combien de temps** : `VIGIE_ARCHIVE_KEEP_DAYS` (0, par défaut, garde tout) ; `keep_days` dans les réponses. `GET /v1/health`
+  donne `vigilance_archive` (combien de vigilances, depuis quand, la dernière écriture ou erreur).
+
 ## Tempêtes et tsunamis
 
 `GET /v1/geojson/hazards` liste aussi les **cyclones tropicaux** du National Hurricane Center (NHC) et les **messages de
@@ -468,6 +516,7 @@ Tous les réglages sont des variables d'environnement facultatives.
 | --- | --- | --- |
 | `VIGIE_DB_PATH` | `vigie.db` à la racine du dépôt (ignoré par git) ; `/data/vigie.db` dans l'image Docker | Fichier SQLite (zones surveillées, historique, dernier instantané). |
 | `VIGIE_SCHEDULER` | `0` | `1` démarre le planificateur en arrière-plan (rafraîchissement toutes les 90 s, envoi par WebSocket). |
+| `VIGIE_ARCHIVE_KEEP_DAYS` | `0` | Combien de jours une vigilance archivée est gardée après que l'instance l'a vue pour la dernière fois (`GET /v1/vigilances/archive`) ; `0` garde tout. Les plus anciennes, les formes qu'aucune vigilance n'utilise plus et les lectures plus anciennes sont effacées une fois par jour. |
 | `VIGIE_ENABLE_SIMULATION` | `0` | `1` active `POST /v1/simulate` (et les boutons du tableau de bord). La route n'a pas d'authentification et écrit les alertes simulées dans l'historique des dangers : ne l'activez que sur une instance que seuls des clients de confiance peuvent atteindre. |
 | `VIGIE_ENABLE_WATCHED_POINTS_WRITE` | `0` | `1` active `POST` et `DELETE` de `/v1/watched-points` (403 sinon ; les lectures marchent toujours). Les routes n'ont pas d'authentification et un point surveillé est personnel : ne l'activez que sur une instance que seuls des clients de confiance peuvent atteindre, et bloquez ces deux routes dans le proxy inverse d'une instance publique. |
 | `VIGIE_ENABLE_RAINVIEWER` | `1` ; `0` dans l'image Docker | `0` cesse d'interroger RainViewer (les champs radar de `/v1/point` restent inconnus). Son API gratuite est réservée à un usage personnel et pédagogique : mettez `0` sur une instance qui sert d'autres personnes. |

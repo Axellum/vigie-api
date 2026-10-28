@@ -79,6 +79,7 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
 | `GET /v1/vigilances?lat=&lon=` or `?country=FR` or `?source=tsunami` | Official weather warnings that cover a point, or all those of a country (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues, and the national services of the WMO registry), or the tsunami messages in force, the issuer's words untouched. See below. |
 | `GET /v1/vigilances/countries` | The countries this instance serves with its settings, the sources that answer for each, and whether their licence is verified. With `?uncovered=true`, every other country of the world too, each with the reason nothing is read for it. |
 | `GET /v1/vigilances.geojson` | The same warnings as GeoJSON, the shape of each area as geometry. |
+| `GET /v1/vigilances/archive`, `GET /v1/vigilances/archive/stats` | Every official warning this instance saw, kept as it was served, filtered by country, area, source, phenomenon, level and period, with the hours each source was read; and what the archive weighs per day. See "The archive of the official warnings" below. |
 | `GET/POST /v1/zones`, `DELETE /v1/zones/{id}` | Watched zones (the watchlist). A zone needs its `utc_offset_s`. |
 | `GET/POST /v1/watched-points`, `DELETE /v1/watched-points/{id}` | The points you watch (a place, a fault, a volcano...), each with a radius. **Personal**: listed here and in the status, never in the hazards. `POST` and `DELETE` are **off** (403) unless `VIGIE_ENABLE_WATCHED_POINTS_WRITE=1`. |
 | `GET /v1/watched-points/status?days=7` | For each watched point, the events within its radius over the last days, and `quiet` only when every hazard source answered and was read without a gap. |
@@ -279,6 +280,52 @@ The codes: `no_source` (no official warning feed is read for the country, and no
 not verified, is in [`SOURCES.md`](SOURCES.md), "Countries with no source". A position at sea, further than about 25 km from a coast, is in no country and
 says so. [ADR 0009](docs/decisions/0009-every-border-a-reason-per-country-and-the-admin-token.md).
 
+### The archive of the official warnings
+
+Every warning a source lists when the instance reads it is **archived**, in force or not (a cancellation, a warning past its end), so
+that the warnings of the past can be read again. The archive keeps the warning **as `GET /v1/vigilances` served it**: the issuer's
+words untouched in every language, `level` and `phenomenon` the API's own (named in `derived`), and when the instance first and last
+saw it. One item per message and per area: a warning seen again is the same item, an update of the source is a new one. It sends
+**no request of its own** to any provider.
+
+```
+GET /v1/vigilances/archive?country=ME&min_level=ORANGE          the orange and red warnings of Montenegro the instance saw
+GET /v1/vigilances/archive?area=FR813&since=1792400000           the warnings of the Hérault (NUTS3 code) since a date
+GET /v1/vigilances/archive?phenomenon=wind&source=dwd&limit=50   the DWD's wind warnings, 50 at a time (`offset` for the next page)
+GET /v1/vigilances/archive/stats?days=30                          what the archive took in per day, and what it weighs on disk
+```
+
+Filters: `country`, `area` (a code, `NUTS3:FR101` or `FR101`, or a part of the area's name), `source` (`swic:<service>` for one service
+of the WMO registry), `phenomenon`, `level`, `min_level`, and `since` / `until` (UTC epoch seconds: the warnings whose period, from
+the onset to the later of end and expiry, overlaps them). The newest first seen come first. A real item, archived on 2026-10-28 (cut):
+
+```json
+{
+  "first_seen_utc": 1793220818, "last_seen_utc": 1793220818,
+  "vigilance": {
+    "id": "meteoalarm:cb8fa408-3c1c-4166-87d4-8bc4419bf9f3:0-0-1", "source": "meteoalarm", "country": "ME",
+    "identifier": "2.49.0.1.499.0.1793173001904", "onset_utc": 1793170800, "expires_utc": 1793228340,
+    "level": "ORANGE", "level_original": "Orange", "phenomenon": "wind", "phenomenon_original": "Wind",
+    "issuer": "Zavod za hidrometeorologiju i seizmologiju",
+    "texts": [{"language": "cnr", "headline": "Upozorenje na vjetar", "description": "Udari vjetra >17 m/s (>50km/h ili oko 8 Bofora)"},
+              {"language": "en-GB", "headline": "Wind Warning", "description": "Wind gusts >17 m/s (>50km/h or about 8 Beauforts)"}],
+    "area": {"description": "Adriatic coast", "geocodes": [{"scheme": "EMMA_ID", "value": "ME002"}]},
+    "derived": ["status", "level", "phenomenon"]
+  }
+}
+```
+
+- **A period without a warning is not a period without danger** unless the source was read then: an instance reads a source only
+  for a country that is needed (a watched zone, a followed point, a recent request). `reads` says, per UTC day, in which hours each
+  source was read with success for the country asked.
+- **A MeteoAlarm warning has its words when the instance had read its CAP document**, which it does only for a warning an answer
+  returns (at most 40 new ones per request): the archived item is rewritten when the document comes. A warning that ended before
+  anyone asked for its country keeps its fields without its words.
+- `last_seen_utc` is right to within ten minutes. The shape of an area, when the source gives one, is kept once whatever the number
+  of warnings that share it.
+- **How long**: `VIGIE_ARCHIVE_KEEP_DAYS` (0, the default, keeps everything); `keep_days` in the answers. `GET /v1/health` reports
+  `vigilance_archive` (how many warnings, since when, the last write or error).
+
 ## Storms and tsunamis
 
 `GET /v1/geojson/hazards` also lists the **tropical cyclones** of the National Hurricane Center (NHC) and the **tsunami
@@ -442,6 +489,7 @@ All settings are optional environment variables.
 | --- | --- | --- |
 | `VIGIE_DB_PATH` | `vigie.db` in the repository root (git-ignored); `/data/vigie.db` in the Docker image | SQLite file (watchlist, history, last snapshot). |
 | `VIGIE_SCHEDULER` | `0` | `1` starts the background scheduler (refresh every 90 s, WebSocket push). |
+| `VIGIE_ARCHIVE_KEEP_DAYS` | `0` | How many days an archived official warning is kept after the instance last saw it (`GET /v1/vigilances/archive`); `0` keeps everything. Older warnings, the shapes no warning uses any more and the older reads are deleted once a day. |
 | `VIGIE_ENABLE_SIMULATION` | `0` | `1` enables `POST /v1/simulate` (and the dashboard buttons). The route has no authentication and writes the simulated alerts into the hazard history: enable it only on an instance that trusted clients alone can reach. |
 | `VIGIE_ENABLE_WATCHED_POINTS_WRITE` | `0` | `1` enables `POST` and `DELETE` of `/v1/watched-points` (403 otherwise; the reads always work). The routes have no authentication and a watched point is personal: enable it only on an instance that trusted clients alone can reach, and block the two routes in the reverse proxy of a public instance. |
 | `VIGIE_ADMIN_TOKEN` | none | When set, every request that is not a read (`POST`, `PUT`, `PATCH`, `DELETE`) must carry `Authorization: Bearer <token>`, else the answer is 401; the reads never need it. Unset or blank: nothing changes (the network is trusted). It stacks with the two switches above: a disabled route stays 403. Compared in constant time; it appears in no log and no answer (`GET /v1/health` only says `admin_token_set`). A shared secret in a header: put TLS in front of any instance that is not on a trusted network. |

@@ -107,6 +107,7 @@ from app.services.geoindex import CountryIndex, GeometryIndex, default_countries
 from app.services.places import FaultIndex, NearPlacesService, PlaceSettings
 from app.services.storage_wal import DEFAULT_WATCHLIST_SEED, SQLiteWALStorage
 from app.services.vigilance import VigilanceService
+from app.services.vigilance_archive import VigilanceArchive
 from app.services.watch import SourceReads, build_status, candidate_ids, parse_window_days
 
 T = TypeVar("T")
@@ -232,6 +233,8 @@ class AggregatorService:
         self.active_scenario: SimulationScenario = SimulationScenario.CLEAR
         self.simulated_hazards: list[HazardAlert] = []
         self.last_weather_fallback_used: bool = False
+        # Every official warning a source lists is archived (``GET /v1/vigilances/archive``), in the database of the moment.
+        self.vigilance_archive = VigilanceArchive(lambda: self.storage)
         # The official warnings (MeteoAlarm, the national services, the NWS): the NWS answer is the hazards' own, no
         # request of its own.
         self.vigilances = VigilanceService(
@@ -249,6 +252,7 @@ class AggregatorService:
             swic=self.swic if self.wmo_sources != "off" else None,
             swic_registry=self.swic_registry if self.wmo_sources != "off" else None,
             swic_mode=self.wmo_sources,
+            archive=self.vigilance_archive,
         )
 
     @property

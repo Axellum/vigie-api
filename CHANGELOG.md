@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **An archive of the official warnings** (`GET /v1/vigilances/archive`, `GET /v1/vigilances/archive/stats`): every warning a source
+  lists when the instance reads it, in force or not, is kept once per message and area as `GET /v1/vigilances` served it (the issuer's
+  words untouched), with when it was first and last seen, and filtered by country, area, source, phenomenon, level and period. `reads`
+  says in which hours each source was read, so that a period without a warning is not taken for a period without danger. It sends no
+  request of its own. `VIGIE_ARCHIVE_KEEP_DAYS` (0: keep everything) bounds it; `GET /v1/health` reports `vigilance_archive`.
+- `tools/measure_archive.py`: what the archive takes in over a real day on a running instance.
 - The Vigie logo, an eye with an orange iris, at the top of the README (`docs/logo.svg`), the same as the
   website's.
 - **Commercial use, per source** (`app/commercial.py`, a new section of `SOURCES.md`): for the paid Android app to come
