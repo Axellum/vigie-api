@@ -27,7 +27,21 @@ from pathlib import Path
 from typing import Any, Awaitable, Optional, TypeVar
 
 from app import clock
-from app.attribution import RADAR, SIMULATED_ID_PREFIX, SIMULATION_CREDIT, credit_text, merge_credits
+from app.attribution import (
+    MET_NORWAY_WEATHER,
+    OPEN_METEO_WEATHER,
+    RADAR,
+    SIMULATED_ID_PREFIX,
+    SIMULATION_CREDIT,
+    credit_text,
+    merge_credits,
+)
+from app.collectors.aurora import (
+    SWPCAlertsCollector,
+    SWPCKpForecastCollector,
+    SWPCOvationCollector,
+    SWPCSolarWindCollector,
+)
 from app.collectors.budget import share_budgets
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector
 from app.collectors.dwd import DWDCollector
@@ -94,6 +108,7 @@ from app.models.schemas import (
     ZoneWeather,
 )
 from app.models.watch import WatchedPointsStatus, WatchedSource
+from app.services.aurora import AuroraService
 from app.services.earthquakes import build_earthquakes, ids_within
 from app.services.embedded_frame import serialize_embedded_frame
 from app.services.events import count as count_events
@@ -185,6 +200,10 @@ class AggregatorService:
         geometries: Optional[GeometryIndex] = None,
         place_settings: Optional[PlaceSettings] = None,
         faults: Optional[FaultIndex] = None,
+        swpc_ovation: Optional[SWPCOvationCollector] = None,
+        swpc_kp_forecast: Optional[SWPCKpForecastCollector] = None,
+        swpc_solar_wind: Optional[SWPCSolarWindCollector] = None,
+        swpc_alerts: Optional[SWPCAlertsCollector] = None,
     ) -> None:
         self.started_at_utc = int(time.time())
         # How far the hazards look for the places near them (faults, volcanoes in alert): settings, not
@@ -208,6 +227,14 @@ class AggregatorService:
         self.flood = flood or OpenMeteoFloodCollector()
         self.air_quality = air_quality or OpenMeteoAirQualityCollector()
         self.swpc = swpc or NOAASWPCCollector()
+        # The aurora (ADR 0012): four more SWPC products, one copy each for the whole instance.
+        self.swpc_ovation = swpc_ovation or SWPCOvationCollector()
+        self.swpc_kp_forecast = swpc_kp_forecast or SWPCKpForecastCollector()
+        self.swpc_solar_wind = swpc_solar_wind or SWPCSolarWindCollector()
+        self.swpc_alerts = swpc_alerts or SWPCAlertsCollector()
+        self.aurora = AuroraService(
+            self.swpc_ovation, self.swpc_kp_forecast, self.swpc_solar_wind, self.swpc_alerts, self.clouds_for_aurora
+        )
         self.meteoalarm = meteoalarm or MeteoAlarmCollector()
         self.meteoalarm_cap = meteoalarm_cap or MeteoAlarmCapCollector()
         self.dwd = dwd or DWDCollector()
@@ -373,6 +400,10 @@ class AggregatorService:
             self.flood,
             self.air_quality,
             self.swpc,
+            self.swpc_ovation,
+            self.swpc_kp_forecast,
+            self.swpc_solar_wind,
+            self.swpc_alerts,
             self.meteoalarm,
             self.meteoalarm_cap,
             self.dwd,
@@ -526,6 +557,24 @@ class AggregatorService:
             zone_id=str(best_zone["id"]),
             zone_name=str(best_zone["name"]),
         )
+
+    async def clouds_for_aurora(
+        self, lat: float, lon: float
+    ) -> tuple[Optional[list[tuple[int, Optional[float]]]], Optional[int], Optional[str]]:
+        """The hourly cloud cover of the next 48 hours at a place, the local UTC offset and the credit of the source.
+
+        Open-Meteo's daily request (shared with ``/v1/point``), then MET Norway; ``(None, None, None)`` when neither answers.
+        """
+        try:
+            clouds, offset = await self.open_meteo.fetch_hourly_clouds(lat, lon)
+            return clouds, offset, credit_text(*OPEN_METEO_WEATHER)
+        except Exception:
+            pass
+        try:
+            bundle = await self.met_norway.fetch_point(lat, lon, allow_stale_on_error=True)
+        except Exception:
+            return None, None, None
+        return list(bundle.get("hourly_cloud_cover", [])), None, credit_text(*MET_NORWAY_WEATHER)
 
     async def get_space_weather_safe(self) -> SpaceWeatherStatus:
         """Read the NOAA SWPC space weather. If SWPC cannot be read every value is unknown (``None``)."""

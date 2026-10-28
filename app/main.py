@@ -27,6 +27,9 @@ Endpoints:
                                      (contract: ``docs/embedded-frame.md``).
 - ``GET    /v1/earthquakes``       : The earthquakes (USGS, EMSC) within a radius of a position over the last hours, strongest
                                      first; no weather provider is asked. Not an official warning.
+- ``GET    /v1/sky/aurora``        : NOAA SWPC's aurora data (OVATION summary, Kp observed and predicted, solar wind, geomagnetic
+                                     messages) and, for a position, Vigie's estimate of the coming night (ADR 0012, not SWPC's).
+- ``GET    /v1/sky/aurora.geojson``: SWPC's OVATION grid as map bands (RFC 7946).
 - ``GET    /v1/experimental/prealert`` : EXPERIMENTAL, UNOFFICIAL: the pre-alert levels Vigie computes for a province of Turkey
                                      (ADR 0011); 404 unless ``VIGIE_PREALERT_TR`` is on. Not an official warning.
 - ``GET    /v1/geojson/hazards``   : IETF RFC 7946 GeoJSON (``FeatureCollection``): one point per hazard.
@@ -93,6 +96,7 @@ from app.models.schemas import (
     SimulationResponse,
     SnapshotResponse,
 )
+from app.models.sky import AuroraOvalCollection, AuroraResponse
 from app.models.vigilance import (
     UncoveredCountry,
     VigilanceArchiveQuery,
@@ -570,6 +574,48 @@ async def get_earthquakes(
     """The earthquakes near a position, strongest first."""
     query = EarthquakesQuery(lat=round(lat, 4), lon=round(lon, 4), radius_km=radius_km, min_magnitude=min_magnitude, hours=hours)
     return await aggregator.earthquakes_near(query, limit)
+
+
+@app.get(
+    "/v1/sky/aurora",
+    response_model=AuroraResponse,
+    tags=["Sky"],
+    description=(
+        "The aurora. **SWPC's data as SWPC gives it**: the latest OVATION forecast (30 to 90 minutes ahead; its map is "
+        "`/v1/sky/aurora.geojson`), the planetary Kp by 3-hour interval (observed, estimated, predicted for three days), the solar "
+        "wind at L1 and SWPC's geomagnetic messages of the last 72 hours, their text untouched. With `lat` and `lon`, for that place: "
+        "what OVATION says within 1,000 km, and **Vigie's estimate** of the chance to see an aurora hour by hour over the coming "
+        "night and its best window (`place.estimate`). The estimate is ours, not SWPC's and not an official forecast: the magnetic "
+        "latitude, the Kp, the darkness, the Moon and the forecast clouds, combined by the method of ADR 0012 and measured on past "
+        "nights against the reports of people who looked (with the Kp observed afterwards, without the clouds). The clouds come from "
+        "the forecast request a place already costs; SWPC's products are read once for the whole instance."
+    ),
+)
+async def get_sky_aurora(
+    lat: Optional[float] = Query(default=None, ge=-90.0, le=90.0, description="Latitude of the place (WGS84); with `lon`"),
+    lon: Optional[float] = Query(default=None, ge=-180.0, le=180.0, description="Longitude of the place (WGS84); with `lat`"),
+) -> AuroraResponse:
+    """SWPC's aurora data and, for a place, the estimate of the coming night."""
+    if (lat is None) != (lon is None):
+        raise HTTPException(status_code=422, detail="Give both lat and lon, or neither.")
+    if lat is None or lon is None:
+        return await aggregator.aurora.aurora()
+    return await aggregator.aurora.aurora(round(lat, 4), round(lon, 4))
+
+
+@app.get(
+    "/v1/sky/aurora.geojson",
+    response_model=AuroraOvalCollection,
+    tags=["Sky"],
+    description=(
+        "SWPC's OVATION aurora forecast (30 to 90 minutes ahead, both hemispheres) as RFC 7946 bands: each feature holds the grid "
+        "cells whose value is in `[min, max)`. The values are SWPC's (an intensity, from which SWPC says a viewing probability in % "
+        "can be derived linearly); the levels of the bands are ours. Empty when SWPC could not be read and nothing is cached."
+    ),
+)
+async def get_sky_aurora_geojson() -> AuroraOvalCollection:
+    """The OVATION grid as map bands."""
+    return await aggregator.aurora.oval_geojson()
 
 
 @app.get(

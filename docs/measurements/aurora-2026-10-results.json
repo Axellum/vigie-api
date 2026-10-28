@@ -1,0 +1,750 @@
+{
+ "settings": {
+  "edge_at_kp0": 62.5,
+  "edge_per_kp": 1.9,
+  "reach_km": 1000.0,
+  "moon_weight": 0.5
+ },
+ "train": {
+  "reports": 6443,
+  "seen": 4713,
+  "not_seen": 1730,
+  "auc": 0.8526151991355849,
+  "log_likelihood": -0.5024661132748581,
+  "brier": 0.14768682994506313,
+  "seen_possible_share": 0.9380437088903034,
+  "not_seen_possible_share": 0.37745664739884394,
+  "calibration": [
+   {
+    "from": 0.0,
+    "to": 0.05,
+    "reports": 1216,
+    "seen_share": 0.19161184210526316,
+    "mean_chance": 0.0011674499741516201
+   },
+   {
+    "from": 0.05,
+    "to": 0.2,
+    "reports": 153,
+    "seen_share": 0.38562091503267976,
+    "mean_chance": 0.12586696587519472
+   },
+   {
+    "from": 0.2,
+    "to": 0.5,
+    "reports": 598,
+    "seen_share": 0.637123745819398,
+    "mean_chance": 0.3711960946423472
+   },
+   {
+    "from": 0.5,
+    "to": 1.0,
+    "reports": 4476,
+    "seen_share": 0.902591599642538,
+    "mean_chance": 0.8382487128569545
+   }
+  ]
+ },
+ "test": {
+  "reports": 15573,
+  "seen": 11408,
+  "not_seen": 4165,
+  "auc": 0.7854026428243106,
+  "log_likelihood": -0.6457174835291556,
+  "brier": 0.19678316200268622,
+  "seen_possible_share": 0.8997194950911641,
+  "not_seen_possible_share": 0.5423769507803121,
+  "calibration": [
+   {
+    "from": 0.0,
+    "to": 0.05,
+    "reports": 2319,
+    "seen_share": 0.3527382492453644,
+    "mean_chance": 0.002441255683255412
+   },
+   {
+    "from": 0.05,
+    "to": 0.2,
+    "reports": 731,
+    "seen_share": 0.44596443228454175,
+    "mean_chance": 0.1315064028614296
+   },
+   {
+    "from": 0.2,
+    "to": 0.5,
+    "reports": 2549,
+    "seen_share": 0.6257355825814045,
+    "mean_chance": 0.3562426412217623
+   },
+   {
+    "from": 0.5,
+    "to": 1.0,
+    "reports": 9974,
+    "seen_share": 0.8691598155203529,
+    "mean_chance": 0.8147250005686826
+   }
+  ]
+ },
+ "test_europe": {
+  "reports": 5471,
+  "seen": 3569,
+  "not_seen": 1902,
+  "auc": 0.750012742629236,
+  "log_likelihood": -0.7466973137108774,
+  "brier": 0.22758774534652623,
+  "seen_possible_share": 0.86102549733819,
+  "not_seen_possible_share": 0.5126182965299685,
+  "calibration": [
+   {
+    "from": 0.0,
+    "to": 0.05,
+    "reports": 1105,
+    "seen_share": 0.32941176470588235,
+    "mean_chance": 0.0029318989984832822
+   },
+   {
+    "from": 0.05,
+    "to": 0.2,
+    "reports": 318,
+    "seen_share": 0.41509433962264153,
+    "mean_chance": 0.1298098189925842
+   },
+   {
+    "from": 0.2,
+    "to": 0.5,
+    "reports": 974,
+    "seen_share": 0.5872689938398358,
+    "mean_chance": 0.351962261612145
+   },
+   {
+    "from": 0.5,
+    "to": 1.0,
+    "reports": 3074,
+    "seen_share": 0.813597918022121,
+    "mean_chance": 0.7893122583246558
+   }
+  ]
+ },
+ "test_clear_sky": {
+  "reports": 2842,
+  "seen": 0,
+  "not_seen": 2842,
+  "auc": null,
+  "log_likelihood": -0.650891412410975,
+  "brier": 0.21152931663333427,
+  "seen_possible_share": null,
+  "not_seen_possible_share": 0.5756509500351865,
+  "calibration": [
+   {
+    "from": 0.0,
+    "to": 0.05,
+    "reports": 902,
+    "seen_share": 0.0,
+    "mean_chance": 0.002870788323215271
+   },
+   {
+    "from": 0.05,
+    "to": 0.2,
+    "reports": 304,
+    "seen_share": 0.0,
+    "mean_chance": 0.13093364953001024
+   },
+   {
+    "from": 0.2,
+    "to": 0.5,
+    "reports": 708,
+    "seen_share": 0.0,
+    "mean_chance": 0.33925256057610986
+   },
+   {
+    "from": 0.5,
+    "to": 1.0,
+    "reports": 928,
+    "seen_share": 0.0,
+    "mean_chance": 0.7226271480465848
+   }
+  ]
+ },
+ "test_without_moon": {
+  "reports": 15573,
+  "seen": 11408,
+  "not_seen": 4165,
+  "auc": 0.7858870231121902,
+  "log_likelihood": -0.6291555336759872,
+  "brier": 0.18661995758761576,
+  "seen_possible_share": 0.9074333800841514,
+  "not_seen_possible_share": 0.5733493397358943,
+  "calibration": [
+   {
+    "from": 0.0,
+    "to": 0.05,
+    "reports": 2281,
+    "seen_share": 0.3516001753616835,
+    "mean_chance": 0.0020520076782975954
+   },
+   {
+    "from": 0.05,
+    "to": 0.2,
+    "reports": 552,
+    "seen_share": 0.4601449275362319,
+    "mean_chance": 0.12490049650511856
+   },
+   {
+    "from": 0.2,
+    "to": 0.5,
+    "reports": 2009,
+    "seen_share": 0.5709308113489299,
+    "mean_chance": 0.35861557576446096
+   },
+   {
+    "from": 0.5,
+    "to": 1.0,
+    "reports": 10731,
+    "seen_share": 0.857795172863666,
+    "mean_chance": 0.873645916128268
+   }
+  ]
+ },
+ "test_g_scale": {
+  "reports": 15573,
+  "seen": 11408,
+  "not_seen": 4165,
+  "auc": 0.7018994168494888,
+  "log_likelihood": -1.6589684439395638,
+  "brier": 0.43851285744330626,
+  "seen_possible_share": 0.4582748948106592,
+  "not_seen_possible_share": 0.08715486194477791,
+  "calibration": [
+   {
+    "from": 0.0,
+    "to": 0.05,
+    "reports": 9442,
+    "seen_share": 0.6117348019487396,
+    "mean_chance": 0.0003825410704442189
+   },
+   {
+    "from": 0.05,
+    "to": 0.2,
+    "reports": 540,
+    "seen_share": 0.7481481481481481,
+    "mean_chance": 0.1258717149786167
+   },
+   {
+    "from": 0.2,
+    "to": 0.5,
+    "reports": 1126,
+    "seen_share": 0.8374777975133215,
+    "mean_chance": 0.3490871622643828
+   },
+   {
+    "from": 0.5,
+    "to": 1.0,
+    "reports": 4465,
+    "seen_share": 0.9596864501679732,
+    "mean_chance": 0.8346816637309866
+   }
+  ]
+ },
+ "test_kp_only": {
+  "reports": 15573,
+  "seen": 11408,
+  "not_seen": 4165,
+  "auc": 0.7369994140713789,
+  "log_likelihood": -0.5540913059355549,
+  "brier": 0.18590675211370108,
+  "seen_possible_share": 0.9646739130434783,
+  "not_seen_possible_share": 0.8280912364945978,
+  "calibration": [
+   {
+    "from": 0.0,
+    "to": 0.05,
+    "reports": 237,
+    "seen_share": 0.19831223628691982,
+    "mean_chance": 0.030755274261603377
+   },
+   {
+    "from": 0.05,
+    "to": 0.2,
+    "reports": 882,
+    "seen_share": 0.4036281179138322,
+    "mean_chance": 0.13741055681531872
+   },
+   {
+    "from": 0.2,
+    "to": 0.5,
+    "reports": 3697,
+    "seen_share": 0.5964295374628077,
+    "mean_chance": 0.37423102816097137
+   },
+   {
+    "from": 0.5,
+    "to": 1.0,
+    "reports": 10757,
+    "seen_share": 0.8180719531467882,
+    "mean_chance": 0.8155825457324946
+   }
+  ]
+ },
+ "nights": {
+  "2024-05-10/11": {
+   "world": {
+    "reports": 3763,
+    "seen": 3497,
+    "not_seen": 266,
+    "auc": 0.7561884407902799,
+    "log_likelihood": -0.41565538598071133,
+    "brier": 0.12148283943507454,
+    "seen_possible_share": 0.9616814412353446,
+    "not_seen_possible_share": 0.7030075187969925,
+    "calibration": [
+     {
+      "from": 0.0,
+      "to": 0.05,
+      "reports": 147,
+      "seen_share": 0.6326530612244898,
+      "mean_chance": 0.0024803487556466514
+     },
+     {
+      "from": 0.05,
+      "to": 0.2,
+      "reports": 66,
+      "seen_share": 0.6212121212121212,
+      "mean_chance": 0.13980363866624537
+     },
+     {
+      "from": 0.2,
+      "to": 0.5,
+      "reports": 352,
+      "seen_share": 0.8352272727272727,
+      "mean_chance": 0.3739993085444475
+     },
+     {
+      "from": 0.5,
+      "to": 1.0,
+      "reports": 3198,
+      "seen_share": 0.9596622889305816,
+      "mean_chance": 0.8504150363866204
+     }
+    ]
+   },
+   "europe": {
+    "reports": 1111,
+    "seen": 998,
+    "not_seen": 113,
+    "auc": 0.7890870236047316,
+    "log_likelihood": -0.5155560503037767,
+    "brier": 0.15219214594956634,
+    "seen_possible_share": 0.9478957915831663,
+    "not_seen_possible_share": 0.5929203539823009,
+    "calibration": [
+     {
+      "from": 0.0,
+      "to": 0.05,
+      "reports": 73,
+      "seen_share": 0.5753424657534246,
+      "mean_chance": 0.0025199147744171552
+     },
+     {
+      "from": 0.05,
+      "to": 0.2,
+      "reports": 25,
+      "seen_share": 0.4,
+      "mean_chance": 0.1391191070686562
+     },
+     {
+      "from": 0.2,
+      "to": 0.5,
+      "reports": 148,
+      "seen_share": 0.8108108108108109,
+      "mean_chance": 0.3795389677797333
+     },
+     {
+      "from": 0.5,
+      "to": 1.0,
+      "reports": 865,
+      "seen_share": 0.9549132947976878,
+      "mean_chance": 0.8060071130040397
+     }
+    ]
+   }
+  },
+  "2024-05-11/12": {
+   "world": {
+    "reports": 887,
+    "seen": 333,
+    "not_seen": 554,
+    "auc": 0.5684050476469249,
+    "log_likelihood": -1.005086248005771,
+    "brier": 0.32417255152226543,
+    "seen_possible_share": 0.7447447447447447,
+    "not_seen_possible_share": 0.6931407942238267,
+    "calibration": [
+     {
+      "from": 0.0,
+      "to": 0.05,
+      "reports": 211,
+      "seen_share": 0.3696682464454976,
+      "mean_chance": 0.0015365572727497996
+     },
+     {
+      "from": 0.05,
+      "to": 0.2,
+      "reports": 44,
+      "seen_share": 0.1590909090909091,
+      "mean_chance": 0.1323704630743778
+     },
+     {
+      "from": 0.2,
+      "to": 0.5,
+      "reports": 164,
+      "seen_share": 0.2865853658536585,
+      "mean_chance": 0.35378027062687634
+     },
+     {
+      "from": 0.5,
+      "to": 1.0,
+      "reports": 468,
+      "seen_share": 0.42948717948717946,
+      "mean_chance": 0.7600259123361204
+     }
+    ]
+   },
+   "europe": {
+    "reports": 411,
+    "seen": 79,
+    "not_seen": 332,
+    "auc": 0.5480402623150831,
+    "log_likelihood": -0.9025766927898469,
+    "brier": 0.31863834365642346,
+    "seen_possible_share": 0.8227848101265823,
+    "not_seen_possible_share": 0.7289156626506024,
+    "calibration": [
+     {
+      "from": 0.0,
+      "to": 0.05,
+      "reports": 77,
+      "seen_share": 0.14285714285714285,
+      "mean_chance": 0.0031229585407221783
+     },
+     {
+      "from": 0.05,
+      "to": 0.2,
+      "reports": 27,
+      "seen_share": 0.1111111111111111,
+      "mean_chance": 0.1388175340532101
+     },
+     {
+      "from": 0.2,
+      "to": 0.5,
+      "reports": 85,
+      "seen_share": 0.16470588235294117,
+      "mean_chance": 0.3757331721770392
+     },
+     {
+      "from": 0.5,
+      "to": 1.0,
+      "reports": 222,
+      "seen_share": 0.22972972972972974,
+      "mean_chance": 0.7348814961769401
+     }
+    ]
+   }
+  },
+  "2024-10-10/11": {
+   "world": {
+    "reports": 1516,
+    "seen": 1446,
+    "not_seen": 70,
+    "auc": 0.6214088124876507,
+    "log_likelihood": -0.6592438175542363,
+    "brier": 0.19784137978293673,
+    "seen_possible_share": 0.9080221300138313,
+    "not_seen_possible_share": 0.5285714285714286,
+    "calibration": [
+     {
+      "from": 0.0,
+      "to": 0.05,
+      "reports": 103,
+      "seen_share": 0.7281553398058253,
+      "mean_chance": 0.004690777219299564
+     },
+     {
+      "from": 0.05,
+      "to": 0.2,
+      "reports": 63,
+      "seen_share": 0.9206349206349206,
+      "mean_chance": 0.13542680977112537
+     },
+     {
+      "from": 0.2,
+      "to": 0.5,
+      "reports": 221,
+      "seen_share": 0.9683257918552036,
+      "mean_chance": 0.36861965472845276
+     },
+     {
+      "from": 0.5,
+      "to": 1.0,
+      "reports": 1129,
+      "seen_share": 0.9734278122232064,
+      "mean_chance": 0.793202614359484
+     }
+    ]
+   },
+   "europe": {
+    "reports": 847,
+    "seen": 788,
+    "not_seen": 59,
+    "auc": 0.649488083971436,
+    "log_likelihood": -0.681276930402339,
+    "brier": 0.2026705909164996,
+    "seen_possible_share": 0.8984771573604061,
+    "not_seen_possible_share": 0.4915254237288136,
+    "calibration": [
+     {
+      "from": 0.0,
+      "to": 0.05,
+      "reports": 73,
+      "seen_share": 0.6301369863013698,
+      "mean_chance": 0.003908490735022807
+     },
+     {
+      "from": 0.05,
+      "to": 0.2,
+      "reports": 37,
+      "seen_share": 0.918918918918919,
+      "mean_chance": 0.13410053287008122
+     },
+     {
+      "from": 0.2,
+      "to": 0.5,
+      "reports": 111,
+      "seen_share": 0.9459459459459459,
+      "mean_chance": 0.35095846844425943
+     },
+     {
+      "from": 0.5,
+      "to": 1.0,
+      "reports": 626,
+      "seen_share": 0.963258785942492,
+      "mean_chance": 0.8093384221957431
+     }
+    ]
+   }
+  },
+  "2025-01-01/02": {
+   "world": {
+    "reports": 222,
+    "seen": 189,
+    "not_seen": 33,
+    "auc": 0.5343915343915344,
+    "log_likelihood": -1.0562887400191403,
+    "brier": 0.30619141345784007,
+    "seen_possible_share": 0.8201058201058201,
+    "not_seen_possible_share": 0.7575757575757576,
+    "calibration": [
+     {
+      "from": 0.0,
+      "to": 0.05,
+      "reports": 32,
+      "seen_share": 0.875,
+      "mean_chance": 0.0
+     },
+     {
+      "from": 0.05,
+      "to": 0.2,
+      "reports": 10,
+      "seen_share": 0.6,
+      "mean_chance": 0.12288231352605947
+     },
+     {
+      "from": 0.2,
+      "to": 0.5,
+      "reports": 38,
+      "seen_share": 0.8421052631578947,
+      "mean_chance": 0.31899143072661207
+     },
+     {
+      "from": 0.5,
+      "to": 1.0,
+      "reports": 142,
+      "seen_share": 0.8661971830985915,
+      "mean_chance": 0.8585815353033688
+     }
+    ]
+   },
+   "europe": {
+    "reports": 148,
+    "seen": 123,
+    "not_seen": 25,
+    "auc": 0.42097560975609755,
+    "log_likelihood": -1.1521095153462746,
+    "brier": 0.3280067229344463,
+    "seen_possible_share": 0.8211382113821138,
+    "not_seen_possible_share": 0.88,
+    "calibration": [
+     {
+      "from": 0.0,
+      "to": 0.05,
+      "reports": 21,
+      "seen_share": 0.9047619047619048,
+      "mean_chance": 0.0
+     },
+     {
+      "from": 0.05,
+      "to": 0.2,
+      "reports": 4,
+      "seen_share": 0.75,
+      "mean_chance": 0.10887112341864175
+     },
+     {
+      "from": 0.2,
+      "to": 0.5,
+      "reports": 23,
+      "seen_share": 0.8260869565217391,
+      "mean_chance": 0.3419791914463293
+     },
+     {
+      "from": 0.5,
+      "to": 1.0,
+      "reports": 100,
+      "seen_share": 0.82,
+      "mean_chance": 0.8289006269938455
+     }
+    ]
+   }
+  },
+  "2025-06-01/02": {
+   "world": {
+    "reports": 198,
+    "seen": 46,
+    "not_seen": 152,
+    "auc": 0.6419479405034325,
+    "log_likelihood": -0.6844537259197352,
+    "brier": 0.2181578161988386,
+    "seen_possible_share": 0.7608695652173914,
+    "not_seen_possible_share": 0.5855263157894737,
+    "calibration": [
+     {
+      "from": 0.0,
+      "to": 0.05,
+      "reports": 38,
+      "seen_share": 0.15789473684210525,
+      "mean_chance": 0.0067723208748365436
+     },
+     {
+      "from": 0.05,
+      "to": 0.2,
+      "reports": 36,
+      "seen_share": 0.1388888888888889,
+      "mean_chance": 0.13432433393326215
+     },
+     {
+      "from": 0.2,
+      "to": 0.5,
+      "reports": 69,
+      "seen_share": 0.2318840579710145,
+      "mean_chance": 0.35058411581988197
+     },
+     {
+      "from": 0.5,
+      "to": 1.0,
+      "reports": 55,
+      "seen_share": 0.34545454545454546,
+      "mean_chance": 0.7133815667123231
+     }
+    ]
+   },
+   "europe": {
+    "reports": 25,
+    "seen": 7,
+    "not_seen": 18,
+    "auc": 0.5277777777777778,
+    "log_likelihood": -0.8660435651705995,
+    "brier": 0.24257603900870614,
+    "seen_possible_share": 0.14285714285714285,
+    "not_seen_possible_share": 0.05555555555555555,
+    "calibration": [
+     {
+      "from": 0.0,
+      "to": 0.05,
+      "reports": 15,
+      "seen_share": 0.26666666666666666,
+      "mean_chance": 0.0060183763527749175
+     },
+     {
+      "from": 0.05,
+      "to": 0.2,
+      "reports": 8,
+      "seen_share": 0.25,
+      "mean_chance": 0.11730906652842926
+     },
+     {
+      "from": 0.2,
+      "to": 0.5,
+      "reports": 2,
+      "seen_share": 0.5,
+      "mean_chance": 0.2994138475560713
+     },
+     {
+      "from": 0.5,
+      "to": 1.0,
+      "reports": 0,
+      "seen_share": null,
+      "mean_chance": null
+     }
+    ]
+   }
+  }
+ },
+ "criterion": {
+  "points": {
+   "1 auc >= 0.75": {
+    "value": 0.7854026428243106,
+    "holds": true
+   },
+   "2 calibration increases": {
+    "value": [
+     0.3527382492453644,
+     0.44596443228454175,
+     0.6257355825814045,
+     0.8691598155203529
+    ],
+    "holds": true
+   },
+   "3 named nights, seen in the dark, >= 70 % possible": {
+    "value": {
+     "2024-05-10/11 world": {
+      "dark_seen_reports": 3322,
+      "possible_share": 0.9762191450933173,
+      "holds": true
+     },
+     "2024-05-10/11 europe": {
+      "dark_seen_reports": 913,
+      "possible_share": 0.963855421686747,
+      "holds": true
+     },
+     "2024-10-10/11 world": {
+      "dark_seen_reports": 1355,
+      "possible_share": 0.9380073800738007,
+      "holds": true
+     },
+     "2024-10-10/11 europe": {
+      "dark_seen_reports": 753,
+      "possible_share": 0.9136786188579017,
+      "holds": true
+     }
+    },
+    "holds": true
+   },
+   "4 better than the G-scale line": {
+    "value": {
+     "vigie": -0.6457174835291556,
+     "g_scale": -1.6589684439395638
+    },
+    "holds": true
+   }
+  },
+  "holds": true
+ }
+}

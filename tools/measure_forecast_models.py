@@ -1740,11 +1740,14 @@ def production_cost() -> dict[str, Any]:
     The refresh of the daily forecast is every ``DAILY_TTL_SECONDS`` for each cell of the forecast grid.
     """
     current = OpenMeteoCollector.request_params("daily", 48.8, 2.3)
+    # The models are compared on the daily variables only: the hourly cloud cover the request also carries (for the aurora) is left
+    # out of the hypotheses; the request of today is weighed as it is sent.
+    daily_only = {k: v for k, v in current.items() if k not in ("hourly", "forecast_hours")}
     measured = ["temperature_2m_max", "temperature_2m_min", "precipitation_sum", "wind_speed_10m_max"]
     models = ",".join(MODELS)
-    temperatures = {**current, "daily": "temperature_2m_max,temperature_2m_min", "models": models}
-    only_measured = {**current, "daily": ",".join(measured), "models": models}
-    all_daily = {**current, "models": models}
+    temperatures = {**daily_only, "daily": "temperature_2m_max,temperature_2m_min", "models": models}
+    only_measured = {**daily_only, "daily": ",".join(measured), "models": models}
+    all_daily = {**daily_only, "models": models}
     refreshes_a_day = 86400 // OpenMeteoCollector.DAILY_TTL_SECONDS
     weights = {
         "daily_request_today": request_weight(current),
