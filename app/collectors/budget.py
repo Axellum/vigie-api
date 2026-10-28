@@ -90,10 +90,14 @@ QUOTAS: dict[str, Quota] = {
     # (an index and five byte ranges per lead) and a check every 30 minutes (one or two HEAD) make about 400 a day; 1,000 leaves room
     # for a run read again after a failure.
     "ecmwf_opendata": Quota("ecmwf-opendata", (Limit(DAY_S, 1_000),), "https://github.com/Axellum/vigie-api/blob/main/SOURCES.md"),
+    # GOV.UK Content API (the FCDO's travel advice): "There is a maximum limit of 10 requests per second per client"
+    # (https://content-api.publishing.service.gov.uk/, read 2026-10-28). The pages are read one after the other, 0.2 s apart.
+    "travel_gb": Quota("gov-uk-content-api", (Limit(1, 10),), "https://content-api.publishing.service.gov.uk/"),
     # Not listed, no published quota: usgs_eq, emsc_seismic, gdacs_global, noaa_nws (a limit exists but "is
     # not public information"), usgs_volcano_gvp, noaa_swpc, and the other warning services: dwd_cap, metservice_cap and
     # vigicrues_flow publish none (nothing about a request rate on their terms or documentation pages, 2026-10-20: not
-    # verified), meteoalarm_atom and meteoalarm_cap neither.
+    # verified), meteoalarm_atom and meteoalarm_cap neither. The other travel advice sources (travel_us, travel_ca, travel_au,
+    # travel_nl) publish none on the pages read on 2026-10-28 (not verified that none exists).
 }
 
 

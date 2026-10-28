@@ -47,6 +47,13 @@ from app.collectors.seismic import EMSCCollector, USGSCollector
 from app.collectors.space_weather import NOAASWPCCollector
 from app.collectors.swic import SwicCollector
 from app.collectors.swic_registry import SwicRegistryCollector, wmo_sources_from_env
+from app.collectors.travel import (
+    CanadaTravelCollector,
+    FCDOTravelCollector,
+    NetherlandsTravelCollector,
+    SmartravellerCollector,
+    USTravelCollector,
+)
 from app.collectors.tsunami import TsunamiCollector
 from app.collectors.vigicrues import VigicruesCollector
 from app.collectors.weather import (
@@ -109,6 +116,7 @@ from app.services.geodesy import (
 from app.services.geoindex import CountryIndex, GeometryIndex, default_countries, default_geometries
 from app.services.places import FaultIndex, NearPlacesService, PlaceSettings
 from app.services.storage_wal import DEFAULT_WATCHLIST_SEED, SQLiteWALStorage
+from app.services.travel_store import TravelStore
 from app.services.vigilance import NWS_COUNTRY, TSUNAMI_SOURCE, VigilanceService
 from app.services.vigilance_archive import VigilanceArchive
 from app.services.watch import SourceReads, build_status, candidate_ids, parse_window_days
@@ -185,6 +193,11 @@ class AggregatorService:
         geometries: Optional[GeometryIndex] = None,
         place_settings: Optional[PlaceSettings] = None,
         faults: Optional[FaultIndex] = None,
+        travel_gb: Optional[FCDOTravelCollector] = None,
+        travel_us: Optional[USTravelCollector] = None,
+        travel_ca: Optional[CanadaTravelCollector] = None,
+        travel_au: Optional[SmartravellerCollector] = None,
+        travel_nl: Optional[NetherlandsTravelCollector] = None,
     ) -> None:
         self.started_at_utc = int(time.time())
         # How far the hazards look for the places near them (faults, volcanoes in alert): settings, not
@@ -218,6 +231,12 @@ class AggregatorService:
         self.tsunami = tsunami or TsunamiCollector()
         self.swic = swic or SwicCollector()
         self.swic_registry = swic_registry or SwicRegistryCollector()
+        # The travel advice of five foreign ministries (read when asked for, and kept fresh by the scheduler).
+        self.travel_gb = travel_gb or FCDOTravelCollector()
+        self.travel_us = travel_us or USTravelCollector()
+        self.travel_ca = travel_ca or CanadaTravelCollector()
+        self.travel_au = travel_au or SmartravellerCollector()
+        self.travel_nl = travel_nl or NetherlandsTravelCollector()
         # NASA FIRMS (active fires) is read from its static files, which need no key, unless ``VIGIE_ENABLE_FIRMS=0`` (or no collector is
         # given): then there is no collector, ``GET /v1/health`` lists the source as disabled and the fire routes say so. An optional
         # ``VIGIE_FIRMS_MAP_KEY`` lets a source whose file could not be read be read from the area API.
@@ -231,6 +250,10 @@ class AggregatorService:
         share_budgets(self.get_all_collectors())  # the four Open-Meteo APIs share one quota
 
         self.storage = storage or SQLiteWALStorage(db_path=db_path)
+        # The FCDO pages read one by one survive a restart, in the same database (a storage without a file keeps none).
+        db_file = getattr(self.storage, "db_path", None)
+        if self.travel_gb.store is None and db_file is not None:
+            self.travel_gb.store = TravelStore(db_file)
         self.monitored_zones: list[dict[str, Any]] = [
             z.model_dump() for z in self.storage.list_zones()
         ]
@@ -383,6 +406,11 @@ class AggregatorService:
             self.tsunami,
             self.swic,
             self.swic_registry,
+            self.travel_gb,
+            self.travel_us,
+            self.travel_ca,
+            self.travel_au,
+            self.travel_nl,
         ]
         off = [
             c
