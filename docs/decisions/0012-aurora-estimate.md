@@ -1,6 +1,6 @@
 # 0012. The aurora estimate: a chance of our own, measured on past nights before it is shown, and SWPC's data as SWPC gives it
 
-- Status: proposed (the criterion below is fixed; the measure decides whether the estimate is served)
+- Status: accepted (the measure of 2026-10-28 meets the criterion on all four points; see "Measured" below)
 - Date: 2026-10-28
 
 ## Context
@@ -64,7 +64,8 @@ at random, the traced latitude minus the `mlat` of the report has a median of -0
 `EDGE_PER_KP = 1.9` degrees a Kp unit (mean log-likelihood -0.502). The edge is then at 62.5 degrees at Kp 0, 53.0 at Kp 5 and 45.4 at
 Kp 9; with the 1,000 km reach (9.0 degrees), an aurora can be counted down to 36.4 degrees of magnetic latitude at Kp 9.
 
-The levels the answers name are ours: `likely` from 50 %, `possible` from 20 %, `unlikely` from 5 %, `no` below. The best window is the
+The levels the answers name are ours: `likely` from 50 %, `possible` from 20 %, `unlikely` from 5 %, `very_unlikely` below (named `no`
+until the measure: see "Measured"). The best window is the
 run of hours whose chance is at least 80 % of the best hour's, around the best hour.
 
 ### The criterion (fixed on 2026-10-28, before the test set was scored)
@@ -96,8 +97,24 @@ changed and a new measure on the same split.
 - The reports of Aurorasaurus are under CC BY-NC 4.0: they are used for this measure only, never copied into the repository or served;
   the figures computed from them are. Whether a paid app may rely on a method measured on them is an open point for the owner.
 
+## Measured (2026-10-28)
+
+[`docs/measurements/aurora-2026-10.md`](../measurements/aurora-2026-10.md): on the 15,573 reports of 2023 to 2025, area under the curve
+**0.785** (0.750 in Europe), the share seen grows over the bins (35, 45, 63, 87 %), **97.6 % and 96.4 %** of the reports that saw an aurora
+in the dark on 10-11 May 2024 (world, Europe) got "possible" or better and **93.8 % and 91.4 %** on 10-11 October 2024, and the
+log-likelihood beats the G-scale line (-0.646 against -1.659). **The criterion holds: the estimate is served, marked as ours.**
+
+What the measure also shows, and what changed for it:
+
+- Of the reports put under 5 %, 35 % saw an aurora: the lowest level is named `very_unlikely`, not `no` (a word, not a setting: the method is
+  unchanged).
+- Half the reports that saw nothing got 20 % or more, 58 % of those under a clear sky: the answer and the site say "estimate", never a promise.
+- Within one night the ranking of places is weak (0.42 to 0.79): the Kp is one number for the planet.
+- The Moon factor does not help (same ranking, a better log-likelihood without it). It stays as committed; see the open points.
+
 ## Open points
 
 - Measuring OVATION itself: an archive would have to be kept by the instance (the grid every 5 minutes), then compared with reports.
 - Measuring SWPC's Kp forecast as the input: its archive of 3-day forecasts would be read for the same nights.
+- The Moon factor: drop it or weigh it again, in a new measure on a new split (the test set of this one is spent).
 - The apex grid is for one epoch (2026.5); it should be rebuilt every few years (the tool takes the epoch).

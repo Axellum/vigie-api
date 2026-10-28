@@ -76,7 +76,7 @@ class Report:
     lat: float
     lon: float
     seen: bool
-    clear_sky: bool  # the author ticked "clear" (only some reports say anything about the sky)
+    clear_sky: bool  # the author ticked "clear": the form asks it only of those who saw no aurora
     kp: float
     magnetic_lat: float
     sun_altitude: float
@@ -411,7 +411,7 @@ def markdown(result: dict[str, Any]) -> str:
         ("train", "2014-2022 (fit)"),
         ("test", "2023-2025 (test)"),
         ("test_europe", "2023-2025, Europe"),
-        ("test_clear_sky", "2023-2025, sky said clear"),
+        ("test_clear_sky", "2023-2025, not seen under a clear sky (the only ones that say)"),
         ("test_without_moon", "2023-2025, without the Moon factor"),
         ("test_g_scale", "2023-2025, G-scale line instead"),
         ("test_kp_only", "2023-2025, Kp alone"),

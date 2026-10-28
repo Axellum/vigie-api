@@ -37,7 +37,8 @@ TWILIGHT_SUN_ALTITUDE = -6.0  # no aurora is counted while the Sun is higher tha
 MOON_WEIGHT = 0.5  # the share of the chance a full Moon above the horizon takes away
 
 # The words the answers use for a chance (ours).
-LEVELS: tuple[tuple[float, str], ...] = ((0.5, "likely"), (0.2, "possible"), (0.05, "unlikely"), (0.0, "no"))
+# "very_unlikely", not "no": of the reports the estimate put under 5 %, 35 % saw an aurora (docs/measurements/aurora-2026-10.md).
+LEVELS: tuple[tuple[float, str], ...] = ((0.5, "likely"), (0.2, "possible"), (0.05, "unlikely"), (0.0, "very_unlikely"))
 
 
 def magnetic_latitude(lat: float, lon: float) -> float:
@@ -89,11 +90,11 @@ def cloud_factor(cloud_cover_pct: Optional[float]) -> Optional[float]:
 
 
 def level_of(chance: float) -> str:
-    """The word for a chance: ``likely`` from 0.5, ``possible`` from 0.2, ``unlikely`` from 0.05, else ``no``."""
+    """The word for a chance: ``likely`` from 0.5, ``possible`` from 0.2, ``unlikely`` from 0.05, else ``very_unlikely``."""
     for floor, word in LEVELS:
-        if chance >= floor and (floor > 0.0 or chance > 0.0):
+        if chance >= floor:
             return word
-    return "no"
+    return "very_unlikely"
 
 
 def sun_and_moon(lat: float, lon: float, when_utc: float) -> tuple[float, float, float]:
