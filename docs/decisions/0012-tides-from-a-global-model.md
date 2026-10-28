@@ -1,7 +1,8 @@
 # 0012. Tides computed from a global ocean tide model (EOT20), measured before they are served
 
-- Status: proposed (this record fixes the criterion **before** the measure; the result is added below once measured)
-- Date: 2026-10-28
+- Status: accepted, with the limit the measure found: the criterion **holds in France** (9 of 10) and **fails in the United States** (5
+  of 10, every failure inside a harbour, a bay or a sound). See "Result" at the end; the criterion above it was not changed.
+- Date: 2026-10-28 (criterion committed in `acb9417`, before the measure; result the same day)
 
 ## Context
 
@@ -80,3 +81,22 @@ which should stay near the 20 and 120 that the coefficient scale is said to span
 - `GET /v1/tides?lat=&lon=&days=`: computed locally, no request to any provider and no quota; the data files are built by
   `tools/build_tides.py` and bundled in `app/data/` (EOT20, CC BY 4.0: credit in every answer and a row in `SOURCES.md`).
 - The measure is `tools/measure_tides.py` and its report in `docs/measurements/`; this record gets its result and its status then.
+
+## Result (measured on 2026-10-28)
+
+[`docs/measurements/tides-2026-10.md`](../measurements/tides-2026-10.md), by `tools/measure_tides.py`, with the criterion above unchanged:
+
+- **France: holds, 9 of 10.** Le Havre fails on the times only (23 minutes, 20 allowed). Elsewhere the high and low waters are within 3 to
+  18 minutes, their heights within 2 to 5 % of the range.
+- **United States: fails, 5 of 10.** Boston, Bob Hall Pier, San Diego, San Francisco and Honolulu pass. The Battery (New York), Charleston,
+  Virginia Key and Pensacola are inside a harbour or a bay that a 1/8 degree cell does not enter: the model gives the earlier tide of the
+  open coast (21 minutes to 2 h 22 early). At Seattle (Puget Sound) EOT20's constants are wrong (M2 phase about four hours off).
+- Estimated coefficient: 3 points from the same formula on the observed tide of Brest (median), 25 to 118 over 2026-2044.
+
+What follows from it:
+
+1. The tide is served wherever the model has a cell, as decided, and **every answer says its limit in words**: the tide of the open coast
+   near the point; inside a bay, a harbour, an estuary, a lagoon or a sound the real tide can come an hour or more later and differ, and the
+   model can be wrong there. The API cannot tell whether a point is in a bay, so it does not pretend to flag one.
+2. **FES2022 is the way to do better there**, and it needs the owner's AVISO registration (the report says where). It will be measured
+   with the same tool and the same criterion before it replaces EOT20.
