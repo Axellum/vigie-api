@@ -213,7 +213,7 @@ its terms were not looked at. The other reasons, read on 2026-10-20 ([`app/servi
 
 `GET /v1/tides` and `GET /v1/tides/coast` compute the tide from the harmonic constants of a global ocean tide model **bundled in the
 repository** (`app/data/tides-eot20.npz` and `app/data/tides-arguments.npz`, rebuilt by [`tools/build_tides.py`](tools/build_tides.py));
-nothing is read from a provider while the API runs ([ADR 0013](docs/decisions/0013-tides-from-a-global-model.md)). **Not for navigation.**
+nothing is read from a provider while the API runs ([ADR 0015](docs/decisions/0015-tides-from-a-global-model.md)). **Not for navigation.**
 
 | Data (id) | Licence | Terms | Credit in the responses | Clauses, and what is not verified |
 | --- | --- | --- | --- | --- |

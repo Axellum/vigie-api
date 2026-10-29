@@ -1,4 +1,4 @@
-"""Models of the tide (``GET /v1/tides``, ``GET /v1/tides/coast``; ADR 0013).
+"""Models of the tide (``GET /v1/tides``, ``GET /v1/tides/coast``; ADR 0015).
 
 Every figure here is computed by Vigie from the EOT20 ocean tide model at the nearest model cell: nothing is a provider's report, no
 provider is asked, and it is **not for navigation**. The heights are relative to the mean sea level of the model, not to the chart

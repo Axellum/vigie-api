@@ -1,9 +1,9 @@
-# 0013. Tides computed from a global ocean tide model (EOT20), measured before they are served
+# 0015. Tides computed from a global ocean tide model (EOT20), measured before they are served
 
 - Status: accepted, with the limit the measure found: the criterion **holds in France** (9 of 10) and **fails in the United States** (5
   of 10, every failure inside a harbour, a bay or a sound). See "Result" at the end; the criterion above it was not changed.
 - Date: 2026-10-28 (the criterion is the first commit of its pull request, authored at 21:42 UTC+1 and pushed before the measure; the result came the same evening)
-- Number: written as 0012; renumbered 0013 before its merge, because the events took 0012 and were merged first. Nothing else changed.
+- Number: written as 0012, renumbered 0013 before its merge (the events took 0012), then 0015 after it: four ADRs had been merged with two numbers on 2026-10-28, renumbered on 2026-10-29 in the order of their merges (0012 events, 0013 aurora, 0014 travel advice, 0015 tides). Nothing else changed.
 
 ## Context
 

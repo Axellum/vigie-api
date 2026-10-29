@@ -43,7 +43,7 @@ All notable changes to this project are documented here. The format follows
 - **Tides, computed by Vigie** from the EOT20 ocean tide model (DGFI-TUM, CC BY 4.0, bundled in `app/data`, 2.2 MB):
   `GET /v1/tides?lat=&lon=` gives the heights, the high and low waters with their ranges, the tide now and an estimated (unofficial)
   French coefficient; `GET /v1/tides/coast?bbox=` gives the tide now along the coasts of a box, for a map. No provider is asked. Measured
-  before release against the criterion of [ADR 0013](docs/decisions/0013-tides-from-a-global-model.md), fixed beforehand: it holds in
+  before release against the criterion of [ADR 0015](docs/decisions/0015-tides-from-a-global-model.md), fixed beforehand: it holds in
   France (9 of 10 REFMAR ports) and fails in the United States (5 of 10 NOAA stations, inside harbours and bays); every answer says so.
   Not for navigation. The data is built by `tools/build_tides.py`, the measure is `tools/measure_tides.py`
   ([report](docs/measurements/tides-2026-10.md)).
@@ -57,7 +57,7 @@ All notable changes to this project are documented here. The format follows
   an official level), with the ministries that are not read and why (Germany, France). **`GET /v1/travel/{country}`**: every advice
   of one country with its text untouched, the FCDO's own history of changes, and the versions this instance archives from the day it
   first reads the ministries. The scheduler keeps them fresh in a loop of its own, every 10 minutes (a request only once an hour per
-  ministry). [ADR 0013](docs/decisions/0013-travel-advice-side-by-side.md).
+  ministry). [ADR 0014](docs/decisions/0014-travel-advice-side-by-side.md).
 - **`GET /v1/travel/health`**: the latest publications of the ECDC on communicable disease threats (its epidemiological updates,
   threat and risk assessments and weekly threats report), each in its words, read from its RSS feeds an hour at a time
   (conditionally); the countries each one names are matched by Vigie (`derived`). `GET /v1/travel/{country}` carries the items that
@@ -68,6 +68,12 @@ All notable changes to this project are documented here. The format follows
   (the website and the API stay free), each credit says whether its terms allow commercial use (allowed, forbidden, not
   verified), with the pages read. A block of data takes the most restrictive status of its credits: everything that
   comes from Open-Meteo's free API is forbidden. A test fails when a credit has no line.
+
+### Changed
+
+- **ADR numbers**: four ADRs had been merged with two numbers; they follow the order of their merges: 0012 the events (unchanged),
+  0013 the aurora estimate (was 0012), 0014 the travel advice (was 0013), 0015 the tides (was 0013). The aurora estimate's `method`
+  names ADR 0013.
 
 ## [1.1.0] - 2026-10-28
 

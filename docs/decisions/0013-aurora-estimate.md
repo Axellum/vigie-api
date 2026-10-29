@@ -1,7 +1,7 @@
 # 0013. The aurora estimate: a chance of our own, measured on past nights before it is shown, and SWPC's data as SWPC gives it
 
 - Status: accepted (the measure of 2026-10-28 meets the criterion on all four points; see "Measured" below)
-- Number: written as 0012 and committed so before the test; renumbered 0013 when the events (Axellum/vigie-api#35) were merged first with 0012. Nothing else changed.
+- Number: written as 0012 and committed so before the test, merged as 0012 (Axellum/vigie-api#33) after the events (#35) had taken it; renumbered 0013: four ADRs had been merged with two numbers on 2026-10-28, renumbered on 2026-10-29 in the order of their merges (0012 events, 0013 aurora, 0014 travel advice, 0015 tides). Nothing else changed.
 - Date: 2026-10-28
 
 ## Context

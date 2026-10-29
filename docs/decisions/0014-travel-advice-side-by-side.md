@@ -1,7 +1,8 @@
-# ADR 0013: travel advice, the ministries side by side
+# ADR 0014: travel advice, the ministries side by side
 
 - Status: accepted
 - Date: 2026-10-28
+- Number: merged as 0013, renumbered 0014: four ADRs had been merged with two numbers on 2026-10-28, renumbered on 2026-10-29 in the order of their merges (0012 events, 0013 aurora, 0014 travel advice, 0015 tides). Nothing else changed.
 
 ## Context
 

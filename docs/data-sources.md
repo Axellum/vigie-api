@@ -630,7 +630,7 @@ settings and its measure: [ADR 0013](decisions/0013-aurora-estimate.md) and [the
 ## Tides (computed, no provider)
 
 `GET /v1/tides` and `GET /v1/tides/coast` ask **no provider**: the tide is the sum of 34 cosines, from the constants of the EOT20 cells near
-a coast and a table of the astronomical arguments, both in `app/data` ([ADR 0013](decisions/0013-tides-from-a-global-model.md),
+a coast and a table of the astronomical arguments, both in `app/data` ([ADR 0015](decisions/0015-tides-from-a-global-model.md),
 `app/services/tides.py`). They cost no call and no quota, whatever the number of clients.
 
 | What | Where it comes from | Cost |

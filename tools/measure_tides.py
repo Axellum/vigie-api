@@ -1,9 +1,9 @@
-"""Measure the tide the API computes (EOT20, ``app/services/tides.py``) against references, by the criterion of ADR 0013.
+"""Measure the tide the API computes (EOT20, ``app/services/tides.py``) against references, by the criterion of ADR 0015.
 
     python tools/measure_tides.py --cache-dir DIR                       # download what is missing into DIR, print the report
     python tools/measure_tides.py --cache-dir DIR --write               # and write docs/measurements/tides-2026-10.md and its results
 
-The criterion, the window and the stations were fixed in ADR 0013 before any figure was seen (the first commit of its pull request); this tool applies
+The criterion, the window and the stations were fixed in ADR 0015 before any figure was seen (the first commit of its pull request); this tool applies
 them and changes none:
 
 - **France**: the observations of REFMAR (SHOM, Licence Ouverte 2.0), raw high-frequency data (``sources=1``, one value a minute, UTC,
@@ -48,7 +48,7 @@ USER_AGENT = "vigie-api measure_tides (personal project)"
 REFMAR_URL = "https://services.data.shom.fr/maregraphie/observation/json/{station}"
 NOAA_URL = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
 
-# ADR 0013: the window, the thresholds and the stations.
+# ADR 0015: the window, the thresholds and the stations.
 WINDOW_START = dt.datetime(2026, 9, 27, tzinfo=dt.UTC)
 WINDOW_END = dt.datetime(2026, 10, 27, tzinfo=dt.UTC)
 MARGIN = dt.timedelta(days=1)
