@@ -227,6 +227,7 @@ from the Internet, like `POST /v1/zones` and `POST /v1/simulate`, so put the ins
 | --- | --- | --- |
 | **Open-Meteo** forecast ([docs](https://open-meteo.com/en/docs)) | **Primary.** Current conditions, 4 x 15-minute precipitation (`minutely_15`, the only source of the frame's short-term rain; Open-Meteo documents that it is native only in Central Europe and North America and interpolated from hourly data elsewhere), daily forecast (weather code, min/max, precipitation sum and probability, wind, UV). | 15 minutes per cell (0.05 degree): the [docs](https://open-meteo.com/en/docs) say "Current conditions are based on 15-minutely weather model data", and list the model updates (GFS, HRRR, AROME every hour, ICON every 3 hours, IFS every 6 hours); they do not say how often `current` changes. The 4 x 15-minute rain of the frame is at most one TTL old. Which model blend to ask for (`best_match`, or the mean of several) was measured against observations: [ADR 0010](decisions/0010-forecast-model-blend.md). |
 | **Open-Meteo Marine** ([docs](https://open-meteo.com/en/docs/marine-weather-api)) | Waves, swell, ocean current at a GPS position. | 1 hour per cell (0.1 degree): the [docs](https://open-meteo.com/en/docs/marine-weather-api) list hourly (some 3-hourly) data from models updated every 6 to 24 hours. |
+| **Open-Meteo Marine, MFWAM** (`models=meteofrance_wave`, [docs](https://open-meteo.com/en/docs/marine-weather-api)) and **Open-Meteo forecast**, for the surf spots | The hourly sea state, primary and secondary swell and wind waves of Météo-France's MFWAM model, 7 days; the hourly wind, gusts and direction and the sunrise and sunset, 7 days (`open_meteo_surf`, see "Surf") | Per spot (a fixed point, no grid needed): the swell 3 hours (MFWAM is 3-hourly and updated every 12 hours, by the [docs](https://open-meteo.com/en/docs/marine-weather-api)), the wind 1 hour (the models are updated every hour at best). Always 7 days: the days asked are not in the key. |
 | **Open-Meteo Flood API**, based on Copernicus GloFAS ([docs](https://open-meteo.com/en/docs/flood-api)) | Daily river discharge, ensemble mean and maximum. | 6 hours per cell (0.1 degree): the [docs](https://open-meteo.com/en/docs/flood-api) list the GloFAS forecast as updated daily. |
 | **Open-Meteo Air Quality**, based on Copernicus CAMS ([docs](https://open-meteo.com/en/docs/air-quality-api)) | European AQI, US AQI, PM2.5, PM10, UV, dust. | 1 hour per cell (0.1 degree): the [docs](https://open-meteo.com/en/docs/air-quality-api) list hourly values (Europe, updated every 24 hours) and 3-hourly ones (global, updated every 12 hours). |
 | **MET Norway Locationforecast 2.0**, compact ([terms of service](https://api.met.no/doc/TermsOfService), [licence](https://api.met.no/doc/License)) | **Fallback** when Open-Meteo fails or its call budget is used up: current conditions and hourly series. It has no gust, no apparent temperature, no UV and no 15-minute nowcast: those stay unknown. | Until the `Expires` of each answer (the terms: "don't repeat requests until the time indicated in the `Expires` response header"); 300 s only if an answer has none (**not verified**). |
@@ -626,6 +627,39 @@ minutes on 2026-10-28) and sends them with `max-age=60`; the cache lifetimes bel
 The Sun and the Moon of every hour are computed by `astronomy-engine` (MIT), the magnetic latitude is read from
 `app/data/apex-latitudes.json.gz` (IGRF-14, `tools/build_magnetic_latitudes.py`): nothing is asked for them. The estimate itself, its
 settings and its measure: [ADR 0013](decisions/0013-aurora-estimate.md) and [the measure](measurements/aurora-2026-10.md).
+
+## Surf (spots, swell, wind, tide and a rating of ours)
+
+`GET /v1/surf/spots` lists the spots of `app/data/surf-spots.json`; `GET /v1/surf/spots/{id}` gives the forecast of one, hour by hour
+from the current hour for 1 to 7 days (`app/services/surf.py`).
+
+**The spots** are built once by `tools/build_spots.py` from OpenStreetMap (ODbL, `app/data/surf-spots.NOTICE.md`): an element tagged
+`sport=surfing` that is a place, not a business; or a named beach within 1 km of a surf school or club tagged so. The coastline must be
+within 650 m (a beach on a lake or on a lagoon behind the dunes is dropped), and two spots closer than 600 m are one. The **facing** (the direction from the beach to the open
+sea) is ours: OpenStreetMap draws the coastline with the water on its right, so the facing is the direction of the coastline over 400 m on
+each side of the beach, turned 90 degrees to the right. The **bottom**, the **best tide** and the **best swell** of a spot are `null`: no
+open source gives them, and none is guessed.
+
+**Per hour**, as the providers give them: the sea state (`waves`), the primary and secondary swell (height, period, where it comes from)
+and the wind waves of MFWAM; the wind at 10 m, its gusts and where it comes from (Open-Meteo); the sunrise and sunset. A value the provider
+leaves out is `null`. **Worked out by Vigie** (`derived`): `daylight` (between the sunrise and the sunset Open-Meteo gives), the swell's
+`swell_angle_deg` to the facing, its power `swell_power_kw_m` (deep water, 1025 kg/m3 x g² x height² x period / 64 pi, about 0.49 x
+height² x period in kW per metre of crest, with the swell period standing for the energy period), the wind `relative` to the coast
+(offshore: from the land side within 45 degrees of the facing turned round; onshore: from the sea side within 45 degrees; cross-shore
+otherwise), and the tide at the spot (EOT20, as `GET /v1/tides`): height, rising or falling, and its stage (the third of the range between the
+low and high water around the hour).
+
+**The rating is ours** (`rules` in every answer; nobody else's scale): 2 points at most per criterion. Primary swell under 0.5 m: 0, 0.5 to
+1 m: 1, 1 to 2.5 m: 2, 2.5 to 4 m: 1, 4 m and over: 0. Period under 8 s: 0, 8 to 11 s: 1, 11 s and over: 2. Swell angle to the facing up to 30
+degrees: 2, up to 60: 1, more: 0. Wind under 10 km/h: 2, offshore under 35 km/h: 2, cross-shore under 20 km/h: 1, otherwise 0. Tide: 2 when
+the stage is the spot's best, 0 otherwise, **left out** while the spot's best tide is unknown (every spot today). A criterion whose value is
+unknown is left out, listed in `unknown`, and lowers `out_of`; without the swell height there is no rating. The **best slot** is the
+daylight hour of the next 72 with the highest share of points among those where at least three criteria were scored; the first one on a
+tie.
+
+**Calls.** Two requests per spot: the swell (10 hourly variables, 7 days, one model: weight 1.0) kept 3 hours, the wind (3 hourly and 2
+daily variables, 7 days: weight 1.0) kept 1 hour, so at most 9 + 25 = 34 a day per spot whatever the number of clients, and 34 x the number
+of spots if every spot is asked all day (`tests/test_surf_sobriety.py`). They share the one Open-Meteo quota and budget.
 
 ## Tides (computed, no provider)
 

@@ -44,6 +44,7 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | `app/collectors/flood_air.py` | River discharge (GloFAS), air quality and dust, USGS volcanoes. |
 | `app/collectors/weather.py` | Open-Meteo (primary), MET Norway (fallback), RainViewer (radar). |
 | `app/collectors/marine.py`, `space_weather.py` | Open-Meteo Marine, NOAA SWPC Kp index. |
+| `app/collectors/surf.py` | The surf forecast of a spot: the hourly swell of MFWAM (Open-Meteo Marine, `models=meteofrance_wave`) and the hourly wind with sunrise and sunset (Open-Meteo), each cached by spot. |
 | `app/services/aggregator.py` | Orchestration: weather fallback chain, hazard fusion, `build_snapshot`, `build_point_response`, frame, GeoJSON, CAP, simulator. |
 | `app/models/vigilance.py` | The `Vigilance` model (an official warning) and the answers built on it. |
 | `app/geo.py`, `app/services/geoindex.py` | Polygons of a CAP message; the country of a point and the shape of a code (shapely), from the files of `app/data/`. |
@@ -55,6 +56,7 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | `app/models/earthquakes.py`, `app/services/earthquakes.py` | The earthquakes near a position (`GET /v1/earthquakes`): the earthquakes the feeds list now and those of the history, merged when two sources report one, within a radius and a window; no weather provider is asked. |
 | `app/models/watch.py`, `app/services/watch.py` | The status of the watched points (`GET /v1/watched-points/status`): the events within each radius, and `quiet` only when every hazard source answered and has been read without a gap (`SourceReads`). |
 | `app/models/tides.py`, `app/services/tides.py` | The tide computed from the EOT20 model bundled in `app/data` (`GET /v1/tides`, `GET /v1/tides/coast`): the nearest cell within 30 km, the sum of the 34 constituents, the high and low waters, the estimated coefficient; no provider is asked ([ADR 0015](decisions/0015-tides-from-a-global-model.md)). |
+| `app/models/surf.py`, `app/services/surf.py` | The surf spots (`app/data/surf-spots.json`, built by `tools/build_spots.py` from OpenStreetMap) and the forecast of one (`GET /v1/surf/spots`, `GET /v1/surf/spots/{spot_id}`): the providers' swell and wind hour by hour, the tide of `tides`, and what Vigie works out (wind relative to the coast, swell angle and power, a rating with its rules, the best slot of the next 72 hours). |
 | `app/services/geodesy.py` | Haversine distance, bearing, tsunami ETA, de-duplication of hazards across agencies. |
 | `app/services/embedded_frame.py` | Serializes the snapshot (and an optional GPS point) to the text frame, with its CRC32. |
 | `app/services/storage_wal.py` | SQLite in WAL mode: watchlist, watched points, hazard history, last snapshot, the runs of readings of the hazard sources, the archive of the official warnings. |

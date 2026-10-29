@@ -182,6 +182,19 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "copernicus_mfwam",
+            "Copernicus Marine (Météo-France MFWAM, through Open-Meteo Marine)",
+            "Generated using E.U. Copernicus Marine Service Information; https://doi.org/10.48670/moi-00017",
+            "provider",
+        ),
+        Credit(
+            "osm_spots",
+            "OpenStreetMap (surf spots)",
+            "Surf spots: © OpenStreetMap contributors, ODbL 1.0 (https://www.openstreetmap.org/copyright); chosen and their "
+            "facing worked out by Vigie",
+            "ours",
+        ),
+        Credit(
             "vigicrues",
             "Vigicrues (SCHAPI)",
             "Source: Vigicrues, Service central d'hydrométéorologie et d'appui à la prévision des inondations (SCHAPI), "
@@ -277,6 +290,7 @@ RADAR = ("rainviewer",)
 FIRES = ("nasa_firms",)
 PREALERT = ("ecmwf_opendata",)
 TIDES = ("eot20",)
+SURF = ("open_meteo", "copernicus_mfwam", "osm_spots", "eot20")
 
 
 def credit_text(*keys: str) -> str:

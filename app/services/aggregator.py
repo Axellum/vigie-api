@@ -60,6 +60,7 @@ from app.collectors.metservice import MetServiceCollector, metservice_enabled_fr
 from app.collectors.nhc import NHCCollector
 from app.collectors.seismic import EMSCCollector, USGSCollector
 from app.collectors.space_weather import NOAASWPCCollector
+from app.collectors.surf import SurfForecastCollector
 from app.collectors.swic import SwicCollector
 from app.collectors.swic_registry import SwicRegistryCollector, wmo_sources_from_env
 from app.collectors.travel import (
@@ -189,6 +190,7 @@ class AggregatorService:
         met_norway: Optional[MetNorwayCollector] = None,
         rainviewer: Optional[RainViewerCollector] = None,
         marine: Optional[OpenMeteoMarineCollector] = None,
+        surf: Optional[SurfForecastCollector] = None,
         flood: Optional[OpenMeteoFloodCollector] = None,
         air_quality: Optional[OpenMeteoAirQualityCollector] = None,
         swpc: Optional[NOAASWPCCollector] = None,
@@ -242,6 +244,7 @@ class AggregatorService:
         self.met_norway = met_norway or MetNorwayCollector()
         self.rainviewer = rainviewer or RainViewerCollector()
         self.marine = marine or OpenMeteoMarineCollector()
+        self.surf = surf or SurfForecastCollector()
         self.flood = flood or OpenMeteoFloodCollector()
         self.air_quality = air_quality or OpenMeteoAirQualityCollector()
         self.swpc = swpc or NOAASWPCCollector()
@@ -436,6 +439,7 @@ class AggregatorService:
             self.met_norway,
             self.rainviewer,
             self.marine,
+            self.surf,
             self.flood,
             self.air_quality,
             self.swpc,

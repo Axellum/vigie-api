@@ -123,6 +123,7 @@ def test_quotas_are_declared_in_one_place_with_their_source() -> None:
         "open_meteo_aqi",
         "open_meteo_flood",
         "open_meteo_marine",
+        "open_meteo_surf",
         "met_norway_fallback",
         "rainviewer_radar",
         "eccc_alerts",

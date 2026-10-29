@@ -223,6 +223,20 @@ nothing is read from a provider while the API runs ([ADR 0015](docs/decisions/00
 | **Not used:** the tide predictions and the tide coefficients of SHOM | SHOM's own licence, with fees | [SHOM licences](https://diffusion.shom.fr/media/wysiwyg/licence/Document_RIP_2026-VF.pdf) | None | The coefficient of the answers is Vigie's estimate from the model at Brest, named as such; SHOM's is not read. |
 | **Not used yet:** FES2022 (CNES, LEGOS, NOVELTIS, CLS, distributed by AVISO), 1/30 degree | "Any purpose (scientific, commercial...)" with the credit, after a free AVISO registration and acceptance of the AVISO licence | [FES2022](https://www.aviso.altimetry.fr/en/data/products/auxiliary-products/global-tide-fes/release-fes22.html) | None | The registration is the owner's to make; it would be measured with the same tool before it replaces EOT20. **Not verified:** the full text of the AVISO licence (not read). |
 
+## Surf (spots from OpenStreetMap, swell from Copernicus Marine)
+
+`GET /v1/surf/spots` lists the surf spots of the French Atlantic and Channel coasts, **bundled in the repository**
+(`app/data/surf-spots.json`, rebuilt by [`tools/build_spots.py`](tools/build_spots.py) from OpenStreetMap; nothing is read from it
+while the API runs). `GET /v1/surf/spots/{id}` asks Open-Meteo for the hourly swell of Météo-France's MFWAM model and the hourly wind of
+the spot (`open_meteo_surf`, the same free quota as the other Open-Meteo APIs), adds the tide computed by Vigie (EOT20) and a rating
+of ours, explained criterion by criterion. **Not for safety.**
+
+| Data (id) | Licence | Terms | Credit in the responses | Clauses, and what is not verified |
+| --- | --- | --- | --- | --- |
+| **MFWAM**, the global wave model of Météo-France (Copernicus Marine product `GLOBAL_ANALYSISFORECAST_WAV_001_027`), through Open-Meteo Marine with `models=meteofrance_wave` (`open_meteo_surf`) | Copernicus Marine licence: royalty free, value-added products and derivative works "for any purpose" (clause 2.2, read on 2026-10-28) | [Licence](https://marine.copernicus.eu/user-corner/service-commitments-and-licence), [Open-Meteo Marine](https://open-meteo.com/en/docs/marine-weather-api), [DOI](https://doi.org/10.48670/moi-00017) | The Open-Meteo credit, then `Generated using E.U. Copernicus Marine Service Information; https://doi.org/10.48670/moi-00017` (wording: provider; clause 2.4(a) asks for this sentence and the DOI of the product; Open-Meteo gives the same) | Reached through **Open-Meteo's free API**, whose terms (non-commercial, the quota) apply on top. MFWAM is 3-hourly, updated every 12 hours; Open-Meteo interpolates it to every hour. **Not verified:** how Open-Meteo interpolates. |
+| **OpenStreetMap**, the surf spots: elements tagged `sport=surfing`, named beaches (`natural=beach`) with a surf school or club within 1 km, the coastline (`natural=coastline`) and the names of places, asked once through the Overpass API by the build tool (`osm_spots`) | **ODbL 1.0**: the spot file is a database made from it and is shared under the ODbL too (`app/data/surf-spots.NOTICE.md`) | [Copyright](https://www.openstreetmap.org/copyright), [ODbL](https://opendatacommons.org/licenses/odbl/1-0/) | `Surf spots: © OpenStreetMap contributors, ODbL 1.0 (https://www.openstreetmap.org/copyright); chosen and their facing worked out by Vigie` (wording: ours; OpenStreetMap asks for "© OpenStreetMap contributors" and a link to its copyright page) | Which beaches are spots, their facing and their nearest place are Vigie's work (`derived`). The bottom, the best tide and the best swell of a spot are **unknown** (`null`): no open source gives them. **Not verified:** that every school's beach is surfed (the evidence is listed per spot). |
+| **CANDHIS** (Cerema), the wave buoys of the French coasts: **not used yet** | Licence Ouverte 2.0 (Etalab): any use, commercial included, with the source ("Candhis" at least) and the date of the data (`01_Utilisation.fr.pdf`, V1 of 2025-05-27, read on 2026-10-28) | [Terms](https://candhis.cerema.fr/doc/01_Utilisation.fr.pdf), [API v1](https://candhis.cerema.fr/doc/04_Candhis_API_v1_Utilisateur.pdf) | None yet | The API (`https://candhis.cerema.fr/API/v1/`, the latest hourly measure of a list of buoys with `getCampListeTR.php`) needs an access key asked by e-mail to the Candhis team (name, field of activity, kind of structure): the owner's to ask. |
+
 ## Reference data: what a hazard is close to
 
 `near_places` (the places an earthquake or a volcanic event is close to, calculated by Vigie; [`docs/data-sources.md`](docs/data-sources.md),
@@ -311,7 +325,7 @@ The website and this API stay free and non-commercial. An Android app with a pai
 (decision of 2026-10-28), and an app with a subscription or ads is **commercial use**: it may only show the data of
 sources whose terms allow it. Each credit has one line here, declared once in [`app/commercial.py`](app/commercial.py)
 (a test fails when a credit has none, or when this table drifts from it). A block of data carrying several credits
-takes the most restrictive status: the weather, marine, flood and air quality blocks are **forbidden** while they
+takes the most restrictive status: the weather, marine, surf, flood and air quality blocks are **forbidden** while they
 come from Open-Meteo's free API, whatever the licence of the model behind it.
 
 **allowed**: the terms read allow it, within their conditions (credit, no alteration, no suggested endorsement).
@@ -352,6 +366,8 @@ anything commercial.
 | `travel_au` | Smartraveller (Australian Government, DFAT) | not verified | The site is under the latest CC BY, but the same page keeps downloadable digital material from commercial use without DFAT's written consent, and does not say whether the export is such material. Never the logo. | [1](https://www.smartraveller.gov.au/copyright), [2](https://www.smartraveller.gov.au/our-role/resources) | 2026-10-28 |
 | `travel_nl` | Ministerie van Buitenlandse Zaken (NederlandWereldwijd) | **allowed** | CC0 1.0 Universal, in the licence field of every advice of the v2 feed. | [1](https://opendata.nederlandwereldwijd.nl/v2/sources/nederlandwereldwijd/infotypes/traveladvice), [2](https://www.nederlandwereldwijd.nl/open-data) | 2026-10-28 |
 | `health_ecdc` | European Centre for Disease Prevention and Control (ECDC) | **allowed** | CC BY 4.0, "for commercial or non-commercial purposes": ECDC named as the creator, a link to the licence, and the changes said. Not for content of third parties, nor the logo. | [1](https://www.ecdc.europa.eu/en/copyright) | 2026-10-28 |
+| `copernicus_mfwam` | Copernicus Marine (Météo-France MFWAM, through Open-Meteo Marine) | **allowed** | Copernicus Marine licence: value-added products and derivative works may be distributed "for any purpose", royalty free, with the credit and the product's DOI. Here it comes through Open-Meteo's free API, which is not: the surf block stays forbidden while it does. | [1](https://marine.copernicus.eu/user-corner/service-commitments-and-licence) | 2026-10-28 |
+| `osm_spots` | OpenStreetMap (surf spots) | **allowed** | ODbL 1.0: any use, with the credit, and a database made from it is shared under the ODbL too (the spot file is). | [1](https://www.openstreetmap.org/copyright), [2](https://opendatacommons.org/licenses/odbl/1-0/) | 2026-10-28 |
 
 ## The sky: aurora
 

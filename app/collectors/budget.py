@@ -66,6 +66,7 @@ QUOTAS: dict[str, Quota] = {
     "open_meteo_aqi": OPEN_METEO_QUOTA,
     "open_meteo_flood": OPEN_METEO_QUOTA,
     "open_meteo_marine": OPEN_METEO_QUOTA,
+    "open_meteo_surf": OPEN_METEO_QUOTA,  # the swell (MFWAM) and the wind of the surf spots: the same free API
     # "Anything over 20 requests/second per application (total, not per client) requires special agreement."
     "met_norway_fallback": Quota("met-norway", (Limit(1, 20),), "https://api.met.no/doc/TermsOfService"),
     # "Rate limiting set to 100 requests/IP/minute" (since 2026-01-01).
