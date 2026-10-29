@@ -87,6 +87,7 @@ from app.collectors.metservice import MetServiceCollector  # noqa: E402
 from app.collectors.nhc import NHCCollector  # noqa: E402
 from app.collectors.seismic import EMSCCollector, USGSCollector  # noqa: E402
 from app.collectors.space_weather import NOAASWPCCollector  # noqa: E402
+from app.collectors.surf import SurfForecastCollector  # noqa: E402
 from app.collectors.swic import SwicCollector  # noqa: E402
 from app.collectors.swic_registry import SwicRegistryCollector, bundled_registry  # noqa: E402
 from app.collectors.swic_terms import TERMS as WMO_TERMS  # noqa: E402
@@ -100,6 +101,7 @@ from app.services.geoindex import default_countries, default_geometries, localiz
 # Fixed points: Paris for the land sources, the Bay of Biscay for the sea.
 LAND = (48.8566, 2.3522)
 SEA = (46.0, -3.0)
+SURF_SPOT = (43.6644, -1.4432)  # Hossegor, where the answers of tests/fixtures/surf were recorded
 
 # MeteoAlarm: France, whose warnings all carry a code the bundled shapes know (and which has warnings most days).
 WARNING_COUNTRY = "FR"
@@ -285,6 +287,15 @@ async def check_marine(client: httpx.AsyncClient) -> Result:
     """Open-Meteo Marine: at least one wave, swell or current value (the parser raises otherwise)."""
     marine = await OpenMeteoMarineCollector()._collect(client, lat=SEA[0], lon=SEA[1])
     return Result("open_meteo_marine", "ok", f"waves {marine.wave_height_m} m, swell {marine.swell_wave_height_m} m")
+
+
+async def check_surf(client: httpx.AsyncClient) -> Result:
+    """Open-Meteo for the surf: the hourly swell of MFWAM and the hourly wind at a spot (each parser raises without its values)."""
+    collector = SurfForecastCollector()
+    swell = await collector._collect(client, kind="swell", lat=SURF_SPOT[0], lon=SURF_SPOT[1])
+    wind = await collector._collect(client, kind="wind", lat=SURF_SPOT[0], lon=SURF_SPOT[1])
+    known = sum(h is not None for h in swell["swell_wave_height"])
+    return Result("open_meteo_surf", "ok", f"{known} hours of MFWAM swell, {len(wind['times'])} hours of wind")
 
 
 async def check_flood(client: httpx.AsyncClient) -> Result:
@@ -833,6 +844,7 @@ CHECKS: dict[str, Check] = {
     "noaa_swpc_alerts": check_swpc_alerts,
     "open_meteo_hd": check_open_meteo,
     "open_meteo_marine": check_marine,
+    "open_meteo_surf": check_surf,
     "open_meteo_flood": check_flood,
     "open_meteo_aqi": check_air_quality,
     "met_norway_fallback": check_met_norway,

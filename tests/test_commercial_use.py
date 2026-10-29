@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from app.attribution import AIR_QUALITY, CREDITS, FLOOD, MARINE, OPEN_METEO_WEATHER, PREALERT
+from app.attribution import AIR_QUALITY, CREDITS, FLOOD, MARINE, OPEN_METEO_WEATHER, PREALERT, SURF
 from app.commercial import COMMERCIAL_USE, commercial_status
 
 SOURCES_PAGE = (Path(__file__).resolve().parents[1] / "SOURCES.md").read_text(encoding="utf-8")
@@ -47,7 +47,7 @@ def test_a_block_with_no_credit_or_an_unknown_one_is_not_allowed() -> None:
     assert commercial_status("a_source_with_no_line") == "not_verified"
 
 
-@pytest.mark.parametrize("block", [OPEN_METEO_WEATHER, AIR_QUALITY, FLOOD, MARINE])
+@pytest.mark.parametrize("block", [OPEN_METEO_WEATHER, AIR_QUALITY, FLOOD, MARINE, SURF])
 def test_what_comes_from_the_free_open_meteo_api_is_not_for_a_paid_app(block: tuple[str, ...]) -> None:
     assert commercial_status(*block) == "forbidden"
 

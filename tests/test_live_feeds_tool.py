@@ -145,6 +145,22 @@ def swpc_answer(request: httpx.Request) -> httpx.Response:
     return httpx.Response(200, json=GOOD_KP)
 
 
+SURF_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "surf"
+
+
+def surf_or(other: Callable[[httpx.Request], httpx.Response], fixture: str) -> Callable[[httpx.Request], httpx.Response]:
+    """An Open-Meteo host that gives the recorded surf answer to the surf requests (MFWAM swell, wind with sunrise), else ``other``."""
+    surf = (SURF_FIXTURES / fixture).read_bytes()
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        params = request.url.params
+        if params.get("models") == "meteofrance_wave" or "sunrise" in params.get("daily", ""):
+            return httpx.Response(200, content=surf)
+        return other(request)
+
+    return answer
+
+
 def good_answers() -> dict[str, Callable[[httpx.Request], httpx.Response]]:
     """What each provider answers when nothing changed, keyed by host."""
     marine = samples.marine_payload()
@@ -155,8 +171,8 @@ def good_answers() -> dict[str, Callable[[httpx.Request], httpx.Response]]:
         "api.weather.gov": lambda r: httpx.Response(200, json=GOOD_NWS),
         "volcanoes.usgs.gov": lambda r: httpx.Response(200, json=GOOD_VOLCANO),
         "services.swpc.noaa.gov": swpc_answer,
-        "api.open-meteo.com": lambda r: httpx.Response(200, json=samples.open_meteo_payload()),
-        "marine-api.open-meteo.com": lambda r: httpx.Response(200, json=marine),
+        "api.open-meteo.com": surf_or(lambda r: httpx.Response(200, json=samples.open_meteo_payload()), "wind-hossegor.json"),
+        "marine-api.open-meteo.com": surf_or(lambda r: httpx.Response(200, json=marine), "mfwam-hossegor.json"),
         "flood-api.open-meteo.com": lambda r: httpx.Response(200, json=GOOD_FLOOD),
         "air-quality-api.open-meteo.com": lambda r: httpx.Response(200, json=GOOD_AIR),
         "api.met.no": lambda r: httpx.Response(200, json=samples.metno_payload(), headers=METNO_HEADERS),
@@ -289,6 +305,7 @@ async def test_a_changed_format_is_a_failure_for_each_kind_of_source() -> None:
         "noaa_swpc_alerts",
         "open_meteo_hd",
         "open_meteo_marine",
+        "open_meteo_surf",
         "open_meteo_flood",
         "open_meteo_aqi",
         "rainviewer_radar",

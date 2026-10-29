@@ -209,6 +209,22 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             ("https://www.etalab.gouv.fr/licence-ouverte-open-licence/",),
         ),
         CommercialUse(
+            "copernicus_mfwam",
+            "allowed",
+            "Copernicus Marine licence: value-added products and derivative works may be distributed \"for any purpose\", "
+            "royalty free, with the credit and the product's DOI. Here it comes through Open-Meteo's free API, which is not: "
+            "the surf block stays forbidden while it does.",
+            ("https://marine.copernicus.eu/user-corner/service-commitments-and-licence",),
+            "2026-10-28",
+        ),
+        CommercialUse(
+            "osm_spots",
+            "allowed",
+            "ODbL 1.0: any use, with the credit, and a database made from it is shared under the ODbL too (the spot file is).",
+            ("https://www.openstreetmap.org/copyright", "https://opendatacommons.org/licenses/odbl/1-0/"),
+            "2026-10-28",
+        ),
+        CommercialUse(
             "eot20",
             "allowed",
             "CC BY 4.0 (the SEANOE page): the credit, a link to the licence and a statement of the changes. Computed by "

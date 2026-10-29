@@ -38,6 +38,8 @@ Endpoints:
                                      Vigie from NASA's Besselian elements).
 - ``GET    /v1/sky/eclipses/{date}``: one eclipse; for a position its contacts, the disc from C1 to C4 and, within 48 hours, the clouds.
 - ``GET    /v1/sky/eclipses/{date}.geojson``: its path, central line and bands of the share of the Sun hidden (RFC 7946).
+- ``GET    /v1/surf/spots``        : The surf spots of the French Atlantic and Channel coasts (OpenStreetMap, ODbL).
+- ``GET    /v1/surf/spots/{id}``   : The hourly surf forecast of a spot (MFWAM swell, wind, tide) with a rating of ours, explained.
 - ``GET    /v1/experimental/prealert`` : EXPERIMENTAL, UNOFFICIAL: the pre-alert levels Vigie computes for a province of Turkey
                                      (ADR 0011); 404 unless ``VIGIE_PREALERT_TR`` is on. Not an official warning.
 - ``GET    /v1/geojson/hazards``   : IETF RFC 7946 GeoJSON (``FeatureCollection``): one point per hazard.
@@ -113,6 +115,7 @@ from app.models.schemas import (
     SnapshotResponse,
 )
 from app.models.sky import AuroraOvalCollection, AuroraResponse, EclipseDetail, EclipseList, EclipseMapCollection
+from app.models.surf import SurfForecast, SurfSpots
 from app.models.tides import CoastalTides, TidesResponse
 from app.models.travel import TravelCountryDetail, TravelHealth, TravelOverview
 from app.models.vigilance import (
@@ -129,7 +132,7 @@ from app.models.watch import WatchedPointsStatus
 from app.routers.dashboard import router as dashboard_router
 from app.security import AdminTokenMiddleware, admin_token, document_admin_token
 from app.services import earthquakes as quakes
-from app.services import tides
+from app.services import surf, tides
 from app.services.aggregator import AggregatorService
 from app.services.events import FAMILIES, FAMILIES_NOTE, FAMILY_IDS, WORLD_MIN_IMPACT
 from app.services.fires import (
@@ -683,6 +686,58 @@ async def get_coastal_tides(
         tides.coastal_tides, box.south, box.north, box.lon_ranges, box.asked, clock.wall(), limit
     )
     response.headers["Cache-Control"] = TIDES_CACHE
+    return answer
+
+
+SURF_ERRORS: dict[int | str, dict[str, Any]] = {
+    404: {"description": "No spot has this id (`GET /v1/surf/spots` lists them)."},
+    503: {"description": "The wave model gave no answer for this spot, and nothing is cached."},
+}
+SURF_CACHE = "public, max-age=600"
+
+
+@app.get(
+    "/v1/surf/spots",
+    response_model=SurfSpots,
+    tags=["Sea"],
+    description=(
+        "The surf spots of the French Atlantic and Channel coasts: OpenStreetMap places to surf, and named beaches with a surf school "
+        "or club within 1 km (`evidence`), each with the direction it faces, worked out by Vigie from the OpenStreetMap coastline. "
+        "The bottom and the tide and swell a spot works best with are unknown (`null`): no open source gives them. ODbL 1.0."
+    ),
+)
+async def get_surf_spots(response: Response) -> SurfSpots:
+    """The list of the surf spots."""
+    response.headers["Cache-Control"] = "public, max-age=86400"
+    return surf.spots()
+
+
+@app.get(
+    "/v1/surf/spots/{spot_id}",
+    response_model=SurfForecast,
+    tags=["Sea"],
+    responses=SURF_ERRORS,
+    description=(
+        "The surf forecast of a spot, hour by hour from the current hour for `days` (1 to 7): the sea state, the primary and secondary "
+        "swell and the wind waves of Météo-France's MFWAM model (through Open-Meteo Marine), the wind (Open-Meteo), the tide computed "
+        "by Vigie (EOT20), and what Vigie works out from them (`derived`): whether it is daylight, the swell's power and angle to the "
+        "beach, the wind relative to the coast, the tide stage, a **rating of ours** with each criterion, its value and its points "
+        "(`rules` gives the thresholds), and the best daylight slot of the next 72 hours. **Not for safety.**"
+    ),
+)
+async def get_surf_forecast(
+    response: Response,
+    spot_id: str,
+    days: int = Query(default=3, ge=1, le=7, description="Number of days from the current hour (1 to 7)"),
+) -> SurfForecast:
+    """The surf forecast of a spot."""
+    try:
+        answer = await surf.forecast(aggregator.surf, spot_id, days, clock.wall())
+    except surf.UnknownSpot:
+        raise HTTPException(status_code=404, detail=f"no surf spot {spot_id!r}") from None
+    except surf.NoSurfForecast as error:
+        raise HTTPException(status_code=503, detail=str(error)) from None
+    response.headers["Cache-Control"] = SURF_CACHE
     return answer
 
 
