@@ -2,7 +2,7 @@
 (``GET /v1/sky/eclipses``, ``GET /v1/sky/eclipses/{date}``, ``GET /v1/sky/eclipses/{date}.geojson``).
 
 Two kinds of values, never mixed: what the source publishes, as it publishes it (SWPC's OVATION grid, Kp intervals, solar wind and
-messages; NASA's eclipse catalogue and Besselian elements), and what Vigie computes from it (the aurora **estimate** of ADR 0012, a
+messages; NASA's eclipse catalogue and Besselian elements), and what Vigie computes from it (the aurora **estimate** of ADR 0013, a
 method measured on past nights; the local circumstances and the map of an eclipse, worked out from NASA's elements by the textbook
 method and checked against NASA's tables), listed in ``derived``.
 """
@@ -72,7 +72,7 @@ class OvationNearby(BaseModel):
 
 
 class AuroraHour(BaseModel):
-    """One hour of the coming night at the place: the factors of the estimate and the estimate (ADR 0012)."""
+    """One hour of the coming night at the place: the factors of the estimate and the estimate (ADR 0013)."""
 
     time_utc: int = Field(..., description="Start of the hour (UTC epoch seconds)")
     kp: Optional[float] = Field(default=None, description="SWPC's Kp of the 3-hour interval of that hour")
@@ -105,7 +105,7 @@ class AuroraWindow(BaseModel):
 
 
 class AuroraEstimate(BaseModel):
-    """The estimate of Vigie for the coming night at the place (ADR 0012): ours, not SWPC's, not an official forecast."""
+    """The estimate of Vigie for the coming night at the place (ADR 0013): ours, not SWPC's, not an official forecast."""
 
     night_start_utc: Optional[int] = Field(default=None, description="First hour of the coming night with the Sun below -6 degrees")
     night_end_utc: Optional[int] = Field(default=None, description="End of the last such hour")

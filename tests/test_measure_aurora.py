@@ -1,4 +1,4 @@
-"""The statistics of ``tools/measure_aurora.py`` (ADR 0012): pure functions, no network, no download."""
+"""The statistics of ``tools/measure_aurora.py`` (ADR 0013): pure functions, no network, no download."""
 
 from __future__ import annotations
 

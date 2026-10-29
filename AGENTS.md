@@ -104,7 +104,7 @@ owner (no `&&`).
     `Authorization: Bearer <token>`), not by a dependency on each route; nothing to add on a new route, and no route is to be exempted.
     `tests/test_admin_token.py` walks the routes of the application and fails if one with a write method answers without the token. The
     token appears in no log, answer or document (`GET /v1/health` only says `admin_token_set`); never write one in the repository.
-18. **Travel advice keeps each ministry's words, side by side** ([ADR 0013](docs/decisions/0013-travel-advice-side-by-side.md)). A level, a
+18. **Travel advice keeps each ministry's words, side by side** ([ADR 0014](docs/decisions/0014-travel-advice-side-by-side.md)). A level, a
     text and a date are the ministry's, untouched; the country code, `part`, the common scale and the comparison are Vigie's, named in
     `derived`, never an official level. No shape is made from a text. A destination no table of `app/collectors/travel_codes.py` places
     is counted, never guessed. A ministry whose feed is not open (Germany, France) is not scraped: it is listed with the reason.

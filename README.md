@@ -74,7 +74,7 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
 | `GET /v1/geojson/hazards` | Active hazards as GeoJSON (RFC 7946): one point each. `has_forecast` says whether a storm or a tsunami has a forecast; `near_places` and `derived` say what an earthquake or a volcanic event is close to (calculated by Vigie). See "Places near a hazard" below. |
 | `GET /v1/geojson/hazards/{id}/forecast` | The forecast of a hazard as GeoJSON: the cone, track and positions of a tropical cyclone, the epicentre and arrival times of a tsunami. See "Storms and tsunamis" below. |
 | `GET /v1/earthquakes?lat=&lon=` | The earthquakes (USGS and EMSC, merged) within `radius_km` of a position over the last `hours`, the strongest first, with their distance; `min_magnitude` filters them. No weather provider is asked. Not an official warning. |
-| `GET /v1/sky/aurora?lat=&lon=` | The aurora: NOAA SWPC's data as it gives it (OVATION summary, Kp observed and predicted for 3 days, solar wind, geomagnetic messages) and, for a place, **Vigie's own estimate** of the chance to see one hour by hour over the coming night, with its best window (magnetic latitude, Kp, darkness, Moon, forecast clouds; [ADR 0012](docs/decisions/0012-aurora-estimate.md), measured on past nights). Not an official forecast. |
+| `GET /v1/sky/aurora?lat=&lon=` | The aurora: NOAA SWPC's data as it gives it (OVATION summary, Kp observed and predicted for 3 days, solar wind, geomagnetic messages) and, for a place, **Vigie's own estimate** of the chance to see one hour by hour over the coming night, with its best window (magnetic latitude, Kp, darkness, Moon, forecast clouds; [ADR 0013](docs/decisions/0013-aurora-estimate.md), measured on past nights). Not an official forecast. |
 | `GET /v1/sky/aurora.geojson` | SWPC's OVATION aurora forecast (30 to 90 minutes ahead) as map bands (GeoJSON). |
 | `GET /v1/sky/eclipses?year_from=&year_to=&lat=&lon=` | NASA's solar eclipses (2001 to 2100; by default the next ten years) as NASA states them and, for a place, what it sees of each: contacts, share of the Sun hidden, totality or annularity, computed by Vigie from NASA's Besselian elements and checked against NASA's tables ([the check](docs/measurements/eclipse-2027-08-02.md)). |
 | `GET /v1/sky/eclipses/{date}?lat=&lon=` | One eclipse; for a place, also the Moon on the Sun's disc from the first contact to the last and, within 48 hours, the forecast clouds of the hour of the maximum. |
@@ -537,7 +537,7 @@ GET /v1/point?lat=-15.4&lon=28.3&fire_radius_km=50        fires_nearby: count, n
 
 `GET /v1/tides` and `GET /v1/tides/coast` compute the tide **locally**, from the harmonic constants of the **EOT20** ocean tide model
 (DGFI-TUM, CC BY 4.0) bundled in `app/data` (2.2 MB, built by `tools/build_tides.py`, which checks the result against pyTMD to within
-4 mm). No provider is asked and no quota is spent ([ADR 0013](docs/decisions/0013-tides-from-a-global-model.md)).
+4 mm). No provider is asked and no quota is spent ([ADR 0015](docs/decisions/0015-tides-from-a-global-model.md)).
 
 ```
 GET /v1/tides?lat=43.48&lon=-1.56                          the next two days at Biarritz, every 30 minutes

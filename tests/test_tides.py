@@ -1,4 +1,4 @@
-"""The tide computed from EOT20 (``app/services/tides.py``, ``GET /v1/tides``, ``GET /v1/tides/coast``; ADR 0013).
+"""The tide computed from EOT20 (``app/services/tides.py``, ``GET /v1/tides``, ``GET /v1/tides/coast``; ADR 0015).
 
 The prediction is checked against pyTMD's own (``tests/fixtures/tides/pytmd-reference.json``); the rest is arithmetic on curves worked
 out by hand. Nothing here reads the network: the tide is computed from the files of ``app/data``.

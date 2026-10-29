@@ -82,7 +82,7 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
 | `GET /v1/geojson/hazards` | Dangers actifs en GeoJSON (RFC 7946) : un point chacun. `has_forecast` dit si une tempête ou un tsunami a une prévision ; `near_places` et `derived` disent de quoi un séisme ou un événement volcanique est proche (calculé par Vigie). Voir « Lieux proches d'un danger » plus bas. |
 | `GET /v1/geojson/hazards/{id}/forecast` | La prévision d'un danger en GeoJSON : le cône, la trajectoire et les positions d'un cyclone tropical, l'épicentre et les heures d'arrivée d'un tsunami. Voir « Tempêtes et tsunamis » plus bas. |
 | `GET /v1/earthquakes?lat=&lon=` | Les séismes (USGS et EMSC, fusionnés) dans un rayon `radius_km` autour d'une position sur les dernières `hours` heures, le plus fort d'abord, avec leur distance ; `min_magnitude` les filtre. Aucun fournisseur météo n'est appelé. Ce n'est pas une vigilance officielle. |
-| `GET /v1/sky/aurora?lat=&lon=` | Les aurores : les données de NOAA SWPC telles qu'il les donne (résumé OVATION, Kp observé et prévu à 3 jours, vent solaire, messages géomagnétiques) et, pour un lieu, **l'estimation propre à Vigie** de la chance d'en voir une, heure par heure sur la nuit qui vient, avec le meilleur créneau (latitude magnétique, Kp, nuit, Lune, nuages prévus ; [ADR 0012](docs/decisions/0012-aurora-estimate.md), mesurée sur des nuits passées). Ce n'est pas une prévision officielle. |
+| `GET /v1/sky/aurora?lat=&lon=` | Les aurores : les données de NOAA SWPC telles qu'il les donne (résumé OVATION, Kp observé et prévu à 3 jours, vent solaire, messages géomagnétiques) et, pour un lieu, **l'estimation propre à Vigie** de la chance d'en voir une, heure par heure sur la nuit qui vient, avec le meilleur créneau (latitude magnétique, Kp, nuit, Lune, nuages prévus ; [ADR 0013](docs/decisions/0013-aurora-estimate.md), mesurée sur des nuits passées). Ce n'est pas une prévision officielle. |
 | `GET /v1/sky/aurora.geojson` | La prévision d'aurores OVATION de SWPC (30 à 90 minutes) en bandes pour la carte (GeoJSON). |
 | `GET /v1/sky/eclipses?year_from=&year_to=&lat=&lon=` | Les éclipses de Soleil de la NASA (2001 à 2100 ; par défaut les dix ans à venir) telles que la NASA les donne et, pour un lieu, ce qu'il en voit : contacts, part du Soleil cachée, totalité ou anneau, calculés par Vigie à partir des éléments de Bessel de la NASA et vérifiés contre ses tables ([la vérification](docs/measurements/eclipse-2027-08-02.md)). |
 | `GET /v1/sky/eclipses/{date}?lat=&lon=` | Une éclipse ; pour un lieu, aussi la Lune sur le disque du Soleil du premier au dernier contact et, à moins de 48 heures, les nuages prévus à l'heure du maximum. |
@@ -553,7 +553,7 @@ GET /v1/point?lat=-15.4&lon=28.3&fire_radius_km=50        fires_nearby : nombre,
 `GET /v1/tides` et `GET /v1/tides/coast` calculent la marée **sur place**, à partir des constantes harmoniques du modèle de marée
 océanique **EOT20** (DGFI-TUM, CC BY 4.0) embarquées dans `app/data` (2,2 Mo, construites par `tools/build_tides.py`, qui vérifie le
 résultat contre pyTMD à 4 mm près). Aucune source n'est appelée, aucun quota n'est consommé
-([ADR 0013](docs/decisions/0013-tides-from-a-global-model.md)).
+([ADR 0015](docs/decisions/0015-tides-from-a-global-model.md)).
 
 ```
 GET /v1/tides?lat=43.48&lon=-1.56                          les deux prochains jours à Biarritz, toutes les 30 minutes

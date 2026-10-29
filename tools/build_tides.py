@@ -1,4 +1,4 @@
-"""Build the tide data the API computes the tide with (``app/data/tides-eot20.npz``, ``app/data/tides-arguments.npz``; ADR 0013).
+"""Build the tide data the API computes the tide with (``app/data/tides-eot20.npz``, ``app/data/tides-arguments.npz``; ADR 0015).
 
     python tools/build_tides.py --eot20 DIR      # DIR holds ocean_tides/*_ocean_eot20.nc
     python tools/build_tides.py --eot20 DIR --check-only

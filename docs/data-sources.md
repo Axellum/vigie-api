@@ -611,7 +611,7 @@ table `prealert_tr_levels` of the database. `tools/backtest_prealert_tr.py` comp
 
 ## The sky: aurora
 
-`GET /v1/sky/aurora` and `GET /v1/sky/aurora.geojson` ([ADR 0012](decisions/0012-aurora-estimate.md)). Four SWPC files, one copy each for
+`GET /v1/sky/aurora` and `GET /v1/sky/aurora.geojson` ([ADR 0013](decisions/0013-aurora-estimate.md)). Four SWPC files, one copy each for
 the whole instance, asked with `If-Modified-Since`. SWPC rewrites them every one to three minutes (their `Last-Modified`, watched for 12
 minutes on 2026-10-28) and sends them with `max-age=60`; the cache lifetimes below follow what each one is used for.
 
@@ -625,12 +625,12 @@ minutes on 2026-10-28) and sends them with `max-age=60`; the cache lifetimes bel
 
 The Sun and the Moon of every hour are computed by `astronomy-engine` (MIT), the magnetic latitude is read from
 `app/data/apex-latitudes.json.gz` (IGRF-14, `tools/build_magnetic_latitudes.py`): nothing is asked for them. The estimate itself, its
-settings and its measure: [ADR 0012](decisions/0012-aurora-estimate.md) and [the measure](measurements/aurora-2026-10.md).
+settings and its measure: [ADR 0013](decisions/0013-aurora-estimate.md) and [the measure](measurements/aurora-2026-10.md).
 
 ## Tides (computed, no provider)
 
 `GET /v1/tides` and `GET /v1/tides/coast` ask **no provider**: the tide is the sum of 34 cosines, from the constants of the EOT20 cells near
-a coast and a table of the astronomical arguments, both in `app/data` ([ADR 0013](decisions/0013-tides-from-a-global-model.md),
+a coast and a table of the astronomical arguments, both in `app/data` ([ADR 0015](decisions/0015-tides-from-a-global-model.md),
 `app/services/tides.py`). They cost no call and no quota, whatever the number of clients.
 
 | What | Where it comes from | Cost |
