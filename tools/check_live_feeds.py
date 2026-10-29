@@ -46,6 +46,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from app import clock  # noqa: E402
+from app.collectors import health as health_feeds  # noqa: E402
+from app.collectors import travel as travel_feeds  # noqa: E402
+from app.collectors import travel_codes  # noqa: E402
 from app.collectors.aurora import (  # noqa: E402
     SWPCAlertsCollector,
     SWPCKpForecastCollector,
@@ -730,6 +733,93 @@ async def check_ecmwf_opendata(client: httpx.AsyncClient) -> Result:
     return Result("ecmwf_opendata", "ok", f"run {run:%Y-%m-%d %H} UTC f003: {size} bytes, the five fields")
 
 
+def _travel_result(source: str, feed: travel_feeds.TravelFeed, unknown: list[str], extra: str = "") -> Result:
+    """The outcome of a travel advice feed: a destination no table places or an item that cannot be read is a failure (the
+    tables of ``app/collectors/travel_codes.py`` or the parser need an update)."""
+    if unknown:
+        return Result(source, "FAIL", f"destinations no table of app/collectors/travel_codes.py places: {', '.join(sorted(unknown)[:12])}")
+    if feed.skipped:
+        return Result(source, "FAIL", f"{feed.skipped} destinations could not be read")
+    if not feed.advices:
+        return Result(source, "FAIL", "no advice in the answer")
+    levels = sum(1 for advice in feed.advices if advice.level is not None or advice.common_min is not None)
+    return Result(source, "ok", f"{len(feed.advices)} advices, {levels} with a level{extra}")
+
+
+async def check_travel_us(client: httpx.AsyncClient) -> Result:
+    """The Department of State: every advice read, its level in its title, every page placed (or known not to be)."""
+    resp = await travel_feeds.USTravelCollector()._get(client, travel_feeds.US_URL)
+    resp.raise_for_status()
+    payload = resp.json()
+    feed = travel_feeds.parse_us(payload, int(clock.wall()))
+    pages = [str(item.get("Link", "")).rsplit("/", 1)[-1].removesuffix(".html") for item in payload if isinstance(item, dict)]
+    unknown = [page for page in pages if page not in travel_codes.US_PAGES and not travel_codes.us_countries(page)]
+    return _travel_result("travel_us", feed, unknown)
+
+
+async def check_travel_ca(client: httpx.AsyncClient) -> Result:
+    """Global Affairs Canada: the index (every destination with a level) and the text of one destination (Mexico)."""
+    collector = travel_feeds.CanadaTravelCollector()
+    feed = (await collector._collect(client)).value
+    unknown = list(feed.unplaced)
+    detail = (await collector._collect(client, detail="MX")).value
+    if not any(text.language == "en" for text in detail) or not any(text.language == "fr" for text in detail):
+        return Result("travel_ca", "FAIL", "the destination Mexico has no 'advisories' text in English and in French")
+    return _travel_result("travel_ca", feed, unknown, "; Mexico's risk levels read in English and French")
+
+
+async def check_travel_au(client: httpx.AsyncClient) -> Result:
+    """Smartraveller: every destination placed, every level one of its four."""
+    feed = (await travel_feeds.SmartravellerCollector()._collect(client)).value
+    words = sorted({words for a in feed.advices if a.level is None for words in a.level_texts.values()})
+    if words:
+        return Result("travel_au", "FAIL", f"levels not in AU_LEVELS of app/collectors/travel.py: {', '.join(words)}")
+    return _travel_result("travel_au", feed, list(feed.unplaced))
+
+
+async def check_travel_nl(client: httpx.AsyncClient) -> Result:
+    """NederlandWereldwijd: every destination placed; the summaries still state the colour (most give one)."""
+    feed = await travel_feeds.NetherlandsTravelCollector()._collect(client)
+    stated = sum(1 for advice in feed.advices if advice.level is not None)
+    if feed.advices and stated < len(feed.advices) // 2:
+        return Result("travel_nl", "FAIL", f"only {stated} of {len(feed.advices)} summaries state a single colour: the sentence changed?")
+    return _travel_result("travel_nl", feed, list(feed.unplaced))
+
+
+async def check_travel_gb(client: httpx.AsyncClient) -> Result:
+    """The FCDO: the index (every page placed) and one page (France), whose statuses and part "Warnings and insurance" are read.
+    The 226 pages are not read here: a page has the same form as the others."""
+    collector = travel_feeds.FCDOTravelCollector()
+    resp = await collector._get(client, travel_feeds.GB_INDEX_URL)
+    resp.raise_for_status()
+    entries = travel_feeds.parse_gb_index(resp.json())
+    unknown = [entry.page for entry in entries if not travel_codes.gb_countries(entry.page)]
+    if unknown:
+        return Result("travel_gb", "FAIL", f"pages no table of app/collectors/travel_codes.py places: {', '.join(sorted(unknown)[:12])}")
+    page = await collector._read_page(client, "france")
+    if any(status not in travel_feeds.GB_STATUSES for status in page.statuses):
+        return Result("travel_gb", "FAIL", f"statuses not in GB_STATUSES: {', '.join(page.statuses)}")
+    if page.warnings_html is None:
+        return Result("travel_gb", "FAIL", "the page of France has no part 'warnings-and-insurance'")
+    return Result("travel_gb", "ok", f"{len(entries)} pages in the index, all placed; France read ({len(page.history)} changes in its history)")
+
+
+async def check_health_ecdc(client: httpx.AsyncClient) -> Result:
+    """The ECDC: its three feeds answer, each with items that have a title, a link and a date."""
+    collector = health_feeds.ECDCHealthCollector()
+    counts: list[str] = []
+    for kind, url in health_feeds.ECDC_FEEDS.items():
+        resp = await collector._get(client, url)
+        resp.raise_for_status()
+        items = health_feeds.parse_ecdc(resp.content, kind)
+        if not items:
+            return Result("health_ecdc", "FAIL", f"the feed of {kind} has no item with a title and a link")
+        if any(item.published_utc is None for item in items):
+            return Result("health_ecdc", "FAIL", f"an item of {kind} has no date that can be read")
+        counts.append(f"{len(items)} {kind.replace('_', ' ')}s")
+    return Result("health_ecdc", "ok", ", ".join(counts))
+
+
 CHECKS: dict[str, Check] = {
     "usgs_eq": check_usgs,
     "emsc_seismic": check_emsc,
@@ -759,6 +849,12 @@ CHECKS: dict[str, Check] = {
     "wmo_swic": check_wmo_swic,
     "nasa_firms": check_firms,
     "ecmwf_opendata": check_ecmwf_opendata,
+    "travel_gb": check_travel_gb,
+    "travel_us": check_travel_us,
+    "travel_ca": check_travel_ca,
+    "travel_au": check_travel_au,
+    "travel_nl": check_travel_nl,
+    "health_ecdc": check_health_ecdc,
 }
 
 

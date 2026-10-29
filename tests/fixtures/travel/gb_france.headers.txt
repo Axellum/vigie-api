@@ -1,0 +1,8 @@
+# https://www.gov.uk/api/content/foreign-travel-advice/france
+# recorded 2026-10-28T20:48:33Z, HTTP 200
+content-length: 29667
+content-type: application/json; charset=utf-8
+cache-control: max-age=10, public
+etag: W/"a7faacc0c5b1136e861ea7a9db7b4863"
+age: 0
+date: Wed, 28 Oct 2026 20:48:32 GMT

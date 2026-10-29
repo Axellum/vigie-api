@@ -53,6 +53,7 @@ from app.collectors.flood_air import (
     OpenMeteoFloodCollector,
     USGSVolcanoCollector,
 )
+from app.collectors.health import ECDCHealthCollector
 from app.collectors.marine import OpenMeteoMarineCollector
 from app.collectors.meteoalarm import MeteoAlarmCapCollector, MeteoAlarmCollector
 from app.collectors.metservice import MetServiceCollector, metservice_enabled_from_env
@@ -61,6 +62,13 @@ from app.collectors.seismic import EMSCCollector, USGSCollector
 from app.collectors.space_weather import NOAASWPCCollector
 from app.collectors.swic import SwicCollector
 from app.collectors.swic_registry import SwicRegistryCollector, wmo_sources_from_env
+from app.collectors.travel import (
+    CanadaTravelCollector,
+    FCDOTravelCollector,
+    NetherlandsTravelCollector,
+    SmartravellerCollector,
+    USTravelCollector,
+)
 from app.collectors.tsunami import TsunamiCollector
 from app.collectors.vigicrues import VigicruesCollector
 from app.collectors.weather import (
@@ -123,8 +131,11 @@ from app.services.geodesy import (
     haversine_km,
 )
 from app.services.geoindex import CountryIndex, GeometryIndex, default_countries, default_geometries
+from app.services.health import HealthService
 from app.services.places import FaultIndex, NearPlacesService, PlaceSettings
 from app.services.storage_wal import DEFAULT_WATCHLIST_SEED, SQLiteWALStorage
+from app.services.travel import TravelService
+from app.services.travel_store import TravelStore
 from app.services.vigilance import NWS_COUNTRY, TSUNAMI_SOURCE, VigilanceService
 from app.services.vigilance_archive import VigilanceArchive
 from app.services.watch import SourceReads, build_status, candidate_ids, parse_window_days
@@ -205,6 +216,12 @@ class AggregatorService:
         swpc_kp_forecast: Optional[SWPCKpForecastCollector] = None,
         swpc_solar_wind: Optional[SWPCSolarWindCollector] = None,
         swpc_alerts: Optional[SWPCAlertsCollector] = None,
+        travel_gb: Optional[FCDOTravelCollector] = None,
+        travel_us: Optional[USTravelCollector] = None,
+        travel_ca: Optional[CanadaTravelCollector] = None,
+        travel_au: Optional[SmartravellerCollector] = None,
+        travel_nl: Optional[NetherlandsTravelCollector] = None,
+        health_ecdc: Optional[ECDCHealthCollector] = None,
     ) -> None:
         self.started_at_utc = int(time.time())
         # How far the hazards look for the places near them (faults, volcanoes in alert): settings, not
@@ -247,6 +264,14 @@ class AggregatorService:
         self.tsunami = tsunami or TsunamiCollector()
         self.swic = swic or SwicCollector()
         self.swic_registry = swic_registry or SwicRegistryCollector()
+        # The travel advice of five foreign ministries (read when asked for, and kept fresh by the scheduler).
+        self.travel_gb = travel_gb or FCDOTravelCollector()
+        self.travel_us = travel_us or USTravelCollector()
+        self.travel_ca = travel_ca or CanadaTravelCollector()
+        self.travel_au = travel_au or SmartravellerCollector()
+        self.travel_nl = travel_nl or NetherlandsTravelCollector()
+        # The ECDC's publications on communicable disease threats, for the travel pages.
+        self.health_ecdc = health_ecdc or ECDCHealthCollector()
         # NASA FIRMS (active fires) is read from its static files, which need no key, unless ``VIGIE_ENABLE_FIRMS=0`` (or no collector is
         # given): then there is no collector, ``GET /v1/health`` lists the source as disabled and the fire routes say so. An optional
         # ``VIGIE_FIRMS_MAP_KEY`` lets a source whose file could not be read be read from the area API.
@@ -260,6 +285,11 @@ class AggregatorService:
         share_budgets(self.get_all_collectors())  # the four Open-Meteo APIs share one quota
 
         self.storage = storage or SQLiteWALStorage(db_path=db_path)
+        # The FCDO pages read one by one survive a restart, in the same database (a storage without a file keeps none).
+        db_file = getattr(self.storage, "db_path", None)
+        travel_store = TravelStore(db_file) if db_file is not None else None
+        if self.travel_gb.store is None:
+            self.travel_gb.store = travel_store
         self.monitored_zones: list[dict[str, Any]] = [
             z.model_dump() for z in self.storage.list_zones()
         ]
@@ -292,6 +322,13 @@ class AggregatorService:
             swic_registry=self.swic_registry if self.wmo_sources != "off" else None,
             swic_mode=self.wmo_sources,
             archive=self.vigilance_archive,
+        )
+        # The travel advice: every ministry's level for each country, one country's texts, and the archive of the versions.
+        self.travel = TravelService(
+            {"gb": self.travel_gb, "us": self.travel_us, "ca": self.travel_ca, "au": self.travel_au, "nl": self.travel_nl},
+            countries=self.vigilances.countries,
+            store=travel_store,
+            health=HealthService(self.health_ecdc, self.vigilances.countries),
         )
 
     @property
@@ -416,6 +453,12 @@ class AggregatorService:
             self.tsunami,
             self.swic,
             self.swic_registry,
+            self.travel_gb,
+            self.travel_us,
+            self.travel_ca,
+            self.travel_au,
+            self.travel_nl,
+            self.health_ecdc,
         ]
         off = [
             c

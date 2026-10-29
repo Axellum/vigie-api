@@ -1,0 +1,7 @@
+# https://data.international.gc.ca/travel-voyage/cta-cap-mx.json
+# recorded 2026-10-28T20:48:31Z, HTTP 200
+content-type: application/json
+last-modified: Fri, 23 Oct 2026 17:40:19 GMT
+etag: "64cd58921563dd1:0"
+date: Wed, 28 Oct 2026 20:48:27 GMT
+content-length: 283607

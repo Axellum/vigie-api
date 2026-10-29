@@ -47,6 +47,21 @@ All notable changes to this project are documented here. The format follows
   France (9 of 10 REFMAR ports) and fails in the United States (5 of 10 NOAA stations, inside harbours and bays); every answer says so.
   Not for navigation. The data is built by `tools/build_tides.py`, the measure is `tools/measure_tides.py`
   ([report](docs/measurements/tides-2026-10.md)).
+- **The travel advice of five foreign ministries is read** (the United Kingdom's FCDO, the U.S. Department of State, Global
+  Affairs Canada, Australia's Smartraveller and the Netherlands' NederlandWereldwijd), each from its open feed, whole, an hour
+  at a time: the level in the ministry's own words, its text untouched, the date of its version and the time Vigie read it. The
+  FCDO's 226 pages are read once and then only when they change, and kept in the database across restarts. The country codes and
+  a common scale to compare the ministries are Vigie's, named in `derived`, never an official level; the areas inside a country
+  stay text. Five new providers in `GET /v1/providers` (`travel_*`), licences and commercial use in `SOURCES.md`.
+- **`GET /v1/travel`**: every ministry's level for each country and whether they disagree (Vigie's comparison on a common scale, not
+  an official level), with the ministries that are not read and why (Germany, France). **`GET /v1/travel/{country}`**: every advice
+  of one country with its text untouched, the FCDO's own history of changes, and the versions this instance archives from the day it
+  first reads the ministries. The scheduler keeps them fresh in a loop of its own, every 10 minutes (a request only once an hour per
+  ministry). [ADR 0013](docs/decisions/0013-travel-advice-side-by-side.md).
+- **`GET /v1/travel/health`**: the latest publications of the ECDC on communicable disease threats (its epidemiological updates,
+  threat and risk assessments and weekly threats report), each in its words, read from its RSS feeds an hour at a time
+  (conditionally); the countries each one names are matched by Vigie (`derived`). `GET /v1/travel/{country}` carries the items that
+  name the country. The WHO and the CDC are linked, not read (their terms, in `SOURCES.md`). A new provider, `health_ecdc`.
 - The Vigie logo, an eye with an orange iris, at the top of the README (`docs/logo.svg`), the same as the
   website's.
 - **Commercial use, per source** (`app/commercial.py`, a new section of `SOURCES.md`): for the paid Android app to come

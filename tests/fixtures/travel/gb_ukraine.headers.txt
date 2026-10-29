@@ -1,0 +1,8 @@
+# https://www.gov.uk/api/content/foreign-travel-advice/ukraine
+# recorded 2026-10-28T20:48:33Z, HTTP 200
+content-length: 23634
+content-type: application/json; charset=utf-8
+cache-control: max-age=10, public
+etag: W/"1e8d59f941850f71fdf36d00d314dc24"
+age: 0
+date: Wed, 28 Oct 2026 20:48:32 GMT

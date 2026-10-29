@@ -608,6 +608,7 @@ How a run becomes levels (local days of UTC+3, the 90 % quantile of a province's
 `app/data/prealert-tr-thresholds.json`) is in the docstrings of `app/prealert/gfs.py` and `app/prealert/levels.py`; the rows go to the
 table `prealert_tr_levels` of the database. `tools/backtest_prealert_tr.py` computes the same on past runs of the AWS archives.
 
+
 ## The sky: aurora
 
 `GET /v1/sky/aurora` and `GET /v1/sky/aurora.geojson` ([ADR 0012](decisions/0012-aurora-estimate.md)). Four SWPC files, one copy each for
@@ -661,6 +662,68 @@ eclipse (the elements, delta-T, gamma, magnitude, greatest eclipse: the values N
 
 The method and its check against NASA's path table of 2027-08-02 (0.2 s on the times, 0.12 km on the limits) and against astronomy-engine:
 [the measure](measurements/eclipse-2027-08-02.md).
+
+## Travel advice
+
+The travel advice of five foreign ministries (`app/collectors/travel.py`; licences and credits in [`SOURCES.md`](../SOURCES.md), "Travel
+advice"). Each ministry is read **as a whole**: one answer (or a few) holds every destination, so the cost does not grow with the
+destinations or the clients.
+
+| Source | What is read | How often, and why | Requests |
+| --- | --- | --- | --- |
+| **FCDO** (`travel_gb`), GOV.UK Content API | The index (`/api/content/foreign-travel-advice`, 300 kB, `ETag`), then **only the pages whose version is newer than the one kept** (`/api/content/foreign-travel-advice/<page>`, about 66 kB each; the index and the page carry the same date, checked on the 226 pages on 2026-10-28). | The index every hour, conditionally (a `304` when nothing changed). The pages kept survive a restart (table `travel_pages`), so the 226 pages (15 MB) are read once in the life of a database, one after the other, 0.2 s apart (the Content API allows 10 a second). | 24 index requests a day (mostly `304`) and the changed pages: 6 in the 24 hours before 2026-10-28 20:48 UTC, 35 in the 7 days (about 0.4 MB a day). |
+| **Department of State** (`travel_us`) | `cadataapi.state.gov/api/TravelAdvisories`: every advice with its text (490 kB, 103 kB gzipped on the wire). | Every hour; the answer has no validator (`Cache-Control: no-cache`): read whole. | 24 a day, about 2.5 MB on the wire. |
+| **Global Affairs Canada** (`travel_ca`) | `index-updated.json` (195 kB, `ETag` and `Last-Modified`): every destination and its level in English and French. The text of one destination, `cta-cap-<code>.json` (283 kB for Mexico: it also holds the embassies), **only when that destination is asked for**. | The index every hour, conditionally. A destination's text six hours, then conditionally. | 24 a day (a `304` when nothing changed), plus one per destination asked for per 6 hours. |
+| **Smartraveller** (`travel_au`) | `destinations-export`: every destination with its texts (298 kB, 52 kB gzipped; regenerated every 15 minutes, `ETag`). | Every hour, conditionally. | 24 a day. |
+| **NederlandWereldwijd** (`travel_nl`) | `/v2/.../traveladvice?output=json&rows=200`, then `offset=200`: every destination with its summary "In het kort" (177 kB and 25 kB; no validator). The page of one destination is not read: the summary is the text served. | Every hour. | 48 a day. |
+
+**The rhythm of the sources.** The recorded answers of 2026-10-28 (versions dated in the last 24 hours / 7 days): the FCDO 6 / 35, Canada
+6 / 27, Smartraveller about 7 / 20 (its dates have no time zone), the Netherlands 1 / 25, the Department of State 0 / 13. An advice
+stays for weeks: an hour of delay is the trade-off (`TTL_S`).
+
+### Which country an advice is about
+
+Each ministry names its destinations its own way; the conversion to ISO 3166-1 alpha-2 is ours (`app/collectors/travel_codes.py`):
+the Department of State's `Category` is a FIPS code (`IZ` is Iraq), so the alpha-3 in the address of the advice is read
+(`destination.irq`); the FCDO and Smartraveller give a page name only, looked up in a table of their pages; Canada gives alpha-2 (and
+`PT-20`, the Azores, and `IC`, the Canary Islands, which become Portugal and Spain); the Netherlands give alpha-3 (and `XKX`, `BQ-BO`,
+`BQ-SA`, `BQ-SE`). The alpha-3 table is the UN M49 list, plus `TWN` and `XKX`. A destination no table knows is **not placed**, never
+guessed. An advice about a part of a country (the American "Gaza" and "The West Bank", the Canadian "Azores") is an advice of that
+country under its own title; a page about several territories (the FCDO's "Cook Islands, Tokelau and Niue") is the advice of each.
+Three codes have no border in `app/data/countries.geojson.gz` (Bonaire, Sint Eustatius and Saba `BQ`, Svalbard and Jan Mayen `SJ`,
+Tokelau `TK`): their advice is served, and cannot be drawn.
+
+### The levels, and the common scale (ours)
+
+Each ministry's level is served in its own words (`level_texts`) and, where its scale is numbered or ordered, as its step (`level`, 1 to 4):
+
+| Ministry | Step 1 | Step 2 | Step 3 | Step 4 | Where it is read |
+| --- | --- | --- | --- | --- | --- |
+| Department of State | Level 1: Exercise Normal Precautions | Level 2: Exercise Increased Caution | Level 3: Reconsider Travel | Level 4: Do Not Travel | The title of the advice (`Iraq - Level 4: Do Not Travel`) |
+| Global Affairs Canada | Exercise normal security precautions | Exercise a high degree of caution | Avoid non-essential travel | Avoid all travel | `advisory-state` 0 to 3, worded in `advisory-text` (English and French; "(with regional advisories)" added when `has-regional-advisory` is 1) |
+| Smartraveller | Exercise normal safety precautions | Exercise a high degree of caution | Reconsider your need to travel | Do not travel | `field_overall_advice_level` (any other words: no step) |
+| NederlandWereldwijd | groen | geel | oranje | rood | The summary's own sentence ("De kleurcode van het reisadvies voor Réunion is groen."), only when the summary names a single colour: 155 of 226 on 2026-10-28; the others name several (a colour per region), and get no step for the whole destination |
+| FCDO | (no numbered scale) | | | | `alert_status`: `avoid_all_but_essential_travel_to_parts`, `avoid_all_travel_to_parts`, `avoid_all_but_essential_travel_to_whole_country`, `avoid_all_travel_to_whole_country`, or none |
+
+**The common scale** lets the ministries be compared. It is ours, it is **not an official level**, and every advice that carries it says so
+(`common_min`, `common_max` in `derived`): 1 normal precautions, 2 increased caution, 3 avoid non-essential travel, 4 avoid all travel.
+The four numbered scales above map step for step. The FCDO's statuses give a range, because it has no step for "normal" or "caution":
+against all travel to the whole country is 4; against all but essential travel to the whole country is 3; with no status for the whole
+country, 1 to 2 when there is no status at all, and **1 up to the strictest status for parts** otherwise (a status for parts says nothing
+of the rest of the country: in Ukraine, on 2026-10-28, the two statuses for parts cover the whole map). A Dutch advice that names several
+colours, a level of words no table knows, and an unknown FCDO status give no common step (`null`).
+
+### Health threats (ECDC)
+
+`app/collectors/health.py` reads three RSS feeds of the ECDC, each the ten latest items: the epidemiological updates
+(`taxonomy/term/1310`, 6.8 kB), the threat and risk assessments (`1295`, 9.0 kB) and the weekly Communicable disease threats report
+(`1505`, 8.9 kB). Each answers `ETag` and `Last-Modified` and a conditional request was answered `304` (measured on 2026-10-28). They
+are asked **every hour, conditionally**: 72 requests a day, mostly `304`. The ECDC publishes a report a week (on Fridays) and a few
+updates and assessments a month (on 2026-10-28 the ten latest updates spanned seven months): an hour of delay is the trade-off. An
+item keeps the ECDC's title, summary (HTML, as given), date and link. **The countries of an item are ours**: the feeds name none, so
+`app/services/health.py` looks for the English names of the countries (those of `app/data/countries.geojson.gz`, and the few other
+names of `ALIASES`) in the title and the summary, whole words with their capitals, the longest first ("Guinea-Bissau" is not
+"Guinea"); `countries` is listed in `derived`.
 
 ## Call volume
 
@@ -722,7 +785,7 @@ hours and reported by `GET /v1/providers` (`calls_24h`, `weight_24h`, `quota`). 
 `app/collectors/budget.py` (`QUOTAS`), and listed with their source page in [`SOURCES.md`](../SOURCES.md):
 Open-Meteo (one quota for its four APIs: forecast, air quality, river discharge, marine), MET Norway,
 RainViewer and ECCC (a usage-policy line of 86,400 requests a day: a threshold to tell ECCC about, kept as a limit all the same) have one. NASA FIRMS has one too for its area API, in transactions: 5,000 in 10 minutes, and a world read of a day weighs 36 (this API reads that API only as a fallback, with a key; the static files weigh nothing). NOAA NWS has a limit that "is not public information", and USGS, EMSC, GDACS,
-USGS Volcano, NOAA SWPC, the NHC, the tsunami centres, MeteoAlarm, the DWD, MetService and Vigicrues publish none: no budget for them (**not verified**), their calls are only counted. The services of the WMO registry publish none either; the set has a ceiling of 50,000 requests a day (`wmo_swic`), which is ours and not a published limit.
+USGS Volcano, NOAA SWPC, the NHC, the tsunami centres, MeteoAlarm, the DWD, MetService and Vigicrues publish none: no budget for them (**not verified**), their calls are only counted. Of the travel advice sources, the GOV.UK Content API publishes one (10 requests a second per client, `travel_gb`); the four others publish none that was found, and neither does the ECDC (`health_ecdc`). The services of the WMO registry publish none either; the set has a ceiling of 50,000 requests a day (`wmo_swic`), which is ours and not a published limit.
 
 The budget lets through 90 % of each limit (`VIGIE_BUDGET_FRACTION`): a margin for another program on
 the same IP address and for the difference between this count and the provider's. A request that

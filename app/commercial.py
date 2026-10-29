@@ -216,6 +216,53 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             ("https://www.seanoe.org/data/00683/79489/", "https://creativecommons.org/licenses/by/4.0/"),
             "2026-10-28",
         ),
+        CommercialUse(
+            "travel_gb",
+            "allowed",
+            "Open Government Licence v3.0: commercial and non-commercial use, with the statement it prescribes; no crest or "
+            "logo, no suggested official status or endorsement.",
+            ("https://www.gov.uk/help/reuse-govuk-content", "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/"),
+            "2026-10-28",
+        ),
+        CommercialUse(
+            "travel_us",
+            "allowed",
+            "Public domain unless a copyright is indicated (read on the archived copy of 2025-01-07: the live page answered "
+            "with a bot check).",
+            ("https://travel.state.gov/content/travel/en/copyright-disclaimer.html",),
+            "2026-10-28",
+        ),
+        CommercialUse(
+            "travel_ca",
+            "allowed",
+            "Open Government Licence – Canada, including for commercial purposes, with the statement it prescribes; no "
+            "official symbol, no suggested endorsement.",
+            ("https://open.canada.ca/data/en/dataset/bef2ebb3-ca9a-485f-aaff-5dc36eb89426", "https://open.canada.ca/en/open-government-licence-canada"),
+            "2026-10-28",
+        ),
+        CommercialUse(
+            "travel_au",
+            "not_verified",
+            "The site is under the latest CC BY, but the same page keeps downloadable digital material from commercial use "
+            "without DFAT's written consent, and does not say whether the export is such material. Never the logo.",
+            ("https://www.smartraveller.gov.au/copyright", "https://www.smartraveller.gov.au/our-role/resources"),
+            "2026-10-28",
+        ),
+        CommercialUse(
+            "travel_nl",
+            "allowed",
+            "CC0 1.0 Universal, in the licence field of every advice of the v2 feed.",
+            ("https://opendata.nederlandwereldwijd.nl/v2/sources/nederlandwereldwijd/infotypes/traveladvice", "https://www.nederlandwereldwijd.nl/open-data"),
+            "2026-10-28",
+        ),
+        CommercialUse(
+            "health_ecdc",
+            "allowed",
+            "CC BY 4.0, \"for commercial or non-commercial purposes\": ECDC named as the creator, a link to the licence, and the "
+            "changes said. Not for content of third parties, nor the logo.",
+            ("https://www.ecdc.europa.eu/en/copyright",),
+            "2026-10-28",
+        ),
     )
 }
 

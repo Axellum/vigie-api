@@ -61,6 +61,12 @@ Endpoints:
                                      earthquakes of one sequence, each other hazard, of the world or of a country, ranked by an
                                      impact score (``min_impact=60``: what counts in a world view) and filtered by family (ADR 0012).
 - ``GET    /v1/families``          : The families of phenomena (wind, rain and floods, ..., space weather) and what each holds.
+- ``GET    /v1/travel``            : The travel advice of five foreign ministries: each one's level for each country (its own
+                                     words), the comparison (ours, not official) and the ministries not read, with why.
+- ``GET    /v1/travel/health``     : The ECDC's recent publications on communicable disease threats (the countries they name are
+                                     matched by Vigie), and the WHO and the CDC, linked only.
+- ``GET    /v1/travel/{country}``  : One country: every ministry's advice with its text untouched, the comparison, the versions
+                                     this instance has archived, and the ECDC's publications that name it.
 - ``POST   /v1/simulate``          : Inject a simulated scenario (always labelled as a simulation). Off unless
                                      ``VIGIE_ENABLE_SIMULATION=1``: it answers 403 otherwise.
 - ``WS     /v1/stream``            : Real-time WebSocket stream for connected terminals.
@@ -77,7 +83,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Literal, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Path, Query, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi import Path as FastAPIPath
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -108,6 +114,7 @@ from app.models.schemas import (
 )
 from app.models.sky import AuroraOvalCollection, AuroraResponse, EclipseDetail, EclipseList, EclipseMapCollection
 from app.models.tides import CoastalTides, TidesResponse
+from app.models.travel import TravelCountryDetail, TravelHealth, TravelOverview
 from app.models.vigilance import (
     UncoveredCountry,
     VigilanceArchiveQuery,
@@ -1226,6 +1233,59 @@ async def get_vigilance_archive_stats(
 ) -> VigilanceArchiveStats:
     """The size of the archive of the official warnings, per day."""
     return await aggregator.vigilance_archive.stats(days)
+
+
+TRAVEL_DESCRIPTION = (
+    "The travel advice of foreign ministries (the United Kingdom's FCDO, the U.S. Department of State, Global Affairs Canada, "
+    "Australia's Smartraveller, the Netherlands' NederlandWereldwijd), read from their open feeds: each level in the ministry's own "
+    "words (`level`, `level_texts`, the FCDO's `statuses`), the date of its version (`published_utc`, or `published_text` when the "
+    "ministry gives no time zone) and when Vigie read it (`checked_utc`). `ministries` lists every ministry with its scale, its "
+    "licence, whether its terms allow commercial use and the state of its feed (`loading` while a first read is still running), and the "
+    "ministries that are not read, with why (Germany, France). The country codes, the `part` flag, the common scale "
+    "(`common_min`, `common_max`) and the `comparison` (do the ministries disagree, how many steps apart) are Vigie's, listed in "
+    "`derived`, never an official level. The areas a ministry advises against inside a country are in its text only: no shape is "
+    "drawn. Read the ministry's own page before you travel."
+)
+
+
+@app.get("/v1/travel", response_model=TravelOverview, tags=["Travel"], description=TRAVEL_DESCRIPTION)
+async def get_travel() -> TravelOverview:
+    """Every ministry's level for each country, and how they compare (without the texts: see `/v1/travel/{country}`)."""
+    return await aggregator.travel.overview()
+
+
+@app.get(
+    "/v1/travel/health",
+    response_model=TravelHealth,
+    tags=["Travel"],
+    description=(
+        "The latest publications of the European Centre for Disease Prevention and Control (ECDC) on communicable disease "
+        "threats: its epidemiological updates, its threat and risk assessments and its weekly threats report, each in its words "
+        "(title, summary as given, date, link). The ECDC's feeds name no country: `countries` is matched by Vigie on the names in "
+        "the title and the summary (listed in `derived`), and a country can be named for another reason than a threat there. "
+        "The WHO and the CDC are listed in `agencies` with the reason they are linked, not read."
+    ),
+)
+async def get_travel_health() -> TravelHealth:
+    """The ECDC's recent publications on communicable disease threats (declared before `/v1/travel/{country}`)."""
+    return await aggregator.travel.health_answer()
+
+
+@app.get(
+    "/v1/travel/{country}",
+    response_model=TravelCountryDetail,
+    tags=["Travel"],
+    description=TRAVEL_DESCRIPTION
+    + " For one country: every advice with its text untouched (`summary`, HTML to sanitize before it is shown), the ministry's note "
+    "of its latest change, the FCDO's own history of changes, and `history`, the versions this instance has archived since it "
+    "started reading the ministries (`history_since_utc`).",
+    responses={422: {"description": "Not an ISO 3166-1 alpha-2 code."}},
+)
+async def get_travel_country(
+    country: str = Path(..., min_length=2, max_length=2, pattern=r"^[A-Za-z]{2}$", description="ISO 3166-1 alpha-2 country"),
+) -> TravelCountryDetail:
+    """Every ministry's advice for one country, its texts, the comparison and the archive of the versions."""
+    return await aggregator.travel.country(country.upper())
 
 
 @app.post(
