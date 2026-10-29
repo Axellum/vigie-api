@@ -44,6 +44,7 @@ from app.collectors.base import (
     http_date_to_epoch,
     optional_float,
     parse_iso_utc,
+    short_title,
 )
 from app.models.schemas import SEVERITY_RANK, HazardAlert, HazardCategory, SeverityLevel
 from app.models.vigilance import (
@@ -606,7 +607,7 @@ def hazard_of(event: TsunamiEvent) -> HazardAlert:
         id=event.hazard_id,
         category=HazardCategory.TSUNAMI,
         severity=event.level,
-        title=title[:96],
+        title=short_title(title),
         source=source,
         sources=[source],
         timestamp_utc=event.origin.time_utc or strongest.message.sent_utc or 0,

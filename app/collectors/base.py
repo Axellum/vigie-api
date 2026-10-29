@@ -57,6 +57,21 @@ def optional_float(value: Any) -> Optional[float]:
     return number if math.isfinite(number) else None
 
 
+TITLE_MAX = 96  # the longest title a hazard keeps; the embedded frame cuts its own, shorter (docs/embedded-frame.md)
+
+
+def short_title(text: str, limit: int = TITLE_MAX) -> str:
+    """``text`` as it is when it fits in ``limit`` characters; else cut at the end of a word, with "…" (never inside a word,
+    unless one word fills more than half of the limit)."""
+    if len(text) <= limit:
+        return text
+    cut = text[: limit - 1]
+    space = cut.rfind(" ")
+    if space > limit // 2:
+        cut = cut[:space]
+    return cut.rstrip(" ,;:·-–(") + "…"
+
+
 def parse_iso_utc(value: Any) -> Optional[int]:
     """Parse an ISO 8601 date-time to UTC epoch seconds (a value with no offset is taken as UTC); ``None`` if it is not one."""
     if not isinstance(value, str) or not value.strip():
