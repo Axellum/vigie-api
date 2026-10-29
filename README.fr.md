@@ -89,6 +89,7 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
 | `GET /v1/sky/eclipses/{date}.geojson` | Sa carte (GeoJSON), tracée par Vigie : bandes de la part du Soleil cachée, bande de totalité ou d'anneau et sa ligne centrale. |
 | `GET /v1/fires?bbox=w,s,e,n`, `GET /v1/fires/grid` | Les feux actifs vus par NASA FIRMS (VIIRS, NOAA-20 et NOAA-21) : les détections d'une zone en GeoJSON, ou comptées par cellule pour les petits zooms. Sans clé (404 seulement sur une instance qui a désactivé la source avec `VIGIE_ENABLE_FIRMS=0`). Voir « Feux actifs » plus bas. |
 | `GET /v1/tides?lat=&lon=`, `GET /v1/tides/coast?bbox=w,s,e,n` | La marée en un point de côte (hauteurs, pleines et basses mers, marnages, la marée maintenant, un coefficient français estimé), ou la marée maintenant le long des côtes d'une zone : **calculée par Vigie** à partir du modèle de marée océanique EOT20, sans appel à une source. **Pas pour la navigation.** Voir « Marées » plus bas. |
+| `GET /v1/surf/spots`, `GET /v1/surf/spots/{id}?days=` | Les spots de surf des côtes françaises de l'Atlantique et de la Manche (OpenStreetMap), et la prévision heure par heure de l'un d'eux : houle (MFWAM de Météo-France), vent, marée, et **une note à nous**, expliquée critère par critère, avec le meilleur créneau des trois prochains jours. **Pas pour la sécurité.** Voir « Surf » plus bas. |
 | `GET /v1/cap/alerts` | Dangers actifs en OASIS CAP 1.2. |
 | `GET /v1/vigilances?lat=&lon=` ou `?country=FR` ou `?source=tsunami` | Vigilances météo officielles qui couvrent un point, ou toutes celles d'un pays (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues et les services nationaux du registre de l'OMM), ou les messages de tsunami en cours, avec les mots de l'émetteur intacts. Voir plus bas. |
 | `GET /v1/vigilances/countries` | Les pays que cette instance sert avec ses réglages, les sources qui répondent pour chacun, et si leur licence est vérifiée. Avec `?uncovered=true`, tous les autres pays du monde aussi, chacun avec la raison pour laquelle rien n'y est lu. |
@@ -573,6 +574,32 @@ GET /v1/tides/coast?bbox=-6,43,3,51.5                      la marée maintenant 
   contre NOAA, 5 sur 10 : au fond d'un port, d'une baie ou d'un bras de mer, le modèle donne la marée plus précoce de la côte ouverte
   (New York 67 minutes, Pensacola plus de deux heures), et dans le Puget Sound il se trompe. Chaque réponse le dit (`limits`).
   **Pas pour la navigation.**
+
+## Surf
+
+`GET /v1/surf/spots` liste les 51 spots de `app/data/surf-spots.json`, construits une fois à partir d'OpenStreetMap par
+`tools/build_spots.py` (**ODbL 1.0**, « © OpenStreetMap contributors », `app/data/surf-spots.NOTICE.md`). `GET /v1/surf/spots/{id}?days=3`
+(1 à 7) donne la prévision de l'un d'eux, heure par heure.
+
+```
+GET /v1/surf/spots                                         les spots, avec la direction vers laquelle chaque plage regarde
+GET /v1/surf/spots/soorts-hossegor-plage-sud-point-d-or    les trois prochains jours à Hossegor
+```
+
+- **Tel que les sources le donnent** : l'état de la mer, la houle principale et secondaire (hauteur, période, direction) et la mer du
+  vent du modèle MFWAM de Météo-France (Copernicus Marine, par Open-Meteo Marine), le vent et ses rafales (Open-Meteo), le lever et le
+  coucher du soleil.
+- **Calculé par Vigie** (`derived`) : la direction vers laquelle la plage regarde (d'après le trait de côte d'OpenStreetMap), l'angle de
+  la houle avec elle et sa puissance, le vent par rapport à la côte (de terre, de mer, parallèle), la marée au spot (EOT20, comme
+  `GET /v1/tides`), et **une note à nous**, 2 points au plus par critère, chaque seuil dans `rules` et chaque critère montré avec sa
+  valeur. Le **meilleur créneau** est l'heure de jour des 72 prochaines qui a la meilleure part des points.
+- **Inconnu, donc `null`** : le fond d'un spot (sable, récif), la marée et la houle qui lui conviennent le mieux. Aucune source ouverte
+  ne les donne et rien n'est deviné ; la marée ne compte pas dans la note tant que la meilleure marée d'un spot n'est pas donnée avec
+  une source.
+- **Appels** : deux requêtes par spot, gardées 3 heures (houle) et 1 heure (vent) : 34 par jour et par spot au plus, quel que soit le
+  nombre de clients.
+
+**Pas pour la sécurité ni pour la navigation** : regarder la mer sur place, les drapeaux et les sauveteurs avant d'y aller.
 
 ## Lieux proches d'un danger, et points surveillés
 

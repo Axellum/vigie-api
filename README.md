@@ -81,6 +81,7 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
 | `GET /v1/sky/eclipses/{date}.geojson` | Its map (GeoJSON), drawn by Vigie: bands of the share of the Sun hidden, the path of totality or annularity and its central line. |
 | `GET /v1/fires?bbox=w,s,e,n`, `GET /v1/fires/grid` | The active fires seen by NASA FIRMS (VIIRS, NOAA-20 and NOAA-21): the detections of a box as GeoJSON, or counted per cell for small zooms. No key needed (404 only on an instance that turned the source off with `VIGIE_ENABLE_FIRMS=0`). See "Active fires" below. |
 | `GET /v1/tides?lat=&lon=`, `GET /v1/tides/coast?bbox=w,s,e,n` | The tide at a coastal point (heights, high and low waters, ranges, the tide now, an estimated French coefficient), or the tide now along the coasts of a box: **computed by Vigie** from the EOT20 ocean tide model, no provider asked. **Not for navigation.** See "Tides" below. |
+| `GET /v1/surf/spots`, `GET /v1/surf/spots/{id}?days=` | The surf spots of the French Atlantic and Channel coasts (OpenStreetMap), and the hourly forecast of one: swell (Météo-France MFWAM), wind, tide, and **a rating of ours**, explained criterion by criterion, with the best slot of the next three days. **Not for safety.** See "Surf" below. |
 | `GET /v1/cap/alerts` | Active hazards as OASIS CAP 1.2. |
 | `GET /v1/vigilances?lat=&lon=` or `?country=FR` or `?source=tsunami` | Official weather warnings that cover a point, or all those of a country (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues, and the national services of the WMO registry), or the tsunami messages in force, the issuer's words untouched. See below. |
 | `GET /v1/vigilances/countries` | The countries this instance serves with its settings, the sources that answer for each, and whether their licence is verified. With `?uncovered=true`, every other country of the world too, each with the reason nothing is read for it. |
@@ -555,6 +556,29 @@ GET /v1/tides/coast?bbox=-6,43,3,51.5                      the tide now along th
   9 ports of 10 pass the criterion fixed beforehand (high and low waters within 3 to 18 minutes, Le Havre 23); in the United States,
   against NOAA, 5 of 10: inside a harbour, a bay or a sound the model gives the earlier tide of the open coast (New York 67 minutes,
   Pensacola more than two hours), and in Puget Sound it is wrong. Every answer says so (`limits`). **Not for navigation.**
+
+## Surf
+
+`GET /v1/surf/spots` lists the 51 spots of `app/data/surf-spots.json`, built once from OpenStreetMap by `tools/build_spots.py`
+(**ODbL 1.0**, "© OpenStreetMap contributors", `app/data/surf-spots.NOTICE.md`). `GET /v1/surf/spots/{id}?days=3` (1 to 7) gives the
+forecast of one, hour by hour.
+
+```
+GET /v1/surf/spots                                         the spots, with the direction each beach faces
+GET /v1/surf/spots/soorts-hossegor-plage-sud-point-d-or    the next three days at Hossegor
+```
+
+- **As the providers give it**: the sea state, the primary and secondary swell (height, period, direction) and the wind waves of
+  Météo-France's MFWAM model (Copernicus Marine, through Open-Meteo Marine), the wind and its gusts (Open-Meteo), sunrise and sunset.
+- **Worked out by Vigie** (`derived`): the direction the beach faces (from the OpenStreetMap coastline), the swell's angle to it and its
+  power, the wind relative to the coast (offshore, onshore, cross-shore), the tide at the spot (EOT20, as `GET /v1/tides`), and **a
+  rating of ours**, 2 points at most per criterion, every threshold in `rules` and every criterion shown with its value. The **best slot**
+  is the daylight hour of the next 72 with the best share of points.
+- **Not known, so `null`**: the bottom of a spot (sand, reef), the tide and the swell it works best with. No open source gives them and
+  none is guessed; the tide does not count in the rating until a spot's best tide is given with a source.
+- **Calls**: two requests per spot, kept 3 hours (swell) and 1 hour (wind): at most 34 a day per spot, whatever the number of clients.
+
+**Not for safety and not for navigation**: look at the sea on the spot, the flags and the lifeguards before going in.
 
 ## Places near a hazard, and watched points
 

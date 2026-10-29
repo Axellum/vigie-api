@@ -7,6 +7,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Surf**: `GET /v1/surf/spots` lists 51 surf spots of the French Atlantic and Channel coasts, built from OpenStreetMap (ODbL 1.0,
+  `tools/build_spots.py`), each with the direction its beach faces, worked out from the coastline. `GET /v1/surf/spots/{id}?days=` gives
+  the hourly forecast of one for 1 to 7 days: the swell of Météo-France's MFWAM model (Copernicus Marine, through Open-Meteo Marine),
+  the wind, the tide (EOT20), and a rating of ours with every criterion and threshold shown, and the best slot of the next three days.
+  The bottom of a spot and the tide and swell it works best with are not known and stay `null`. Not for safety.
 - **Solar eclipses**: `GET /v1/sky/eclipses` lists NASA's solar eclipses of 2001 to 2100 (by default the next ten years) as NASA
   states them, and `GET /v1/sky/eclipses/{date}` gives one. With `lat` and `lon`, what that place sees: the contacts and the Sun's
   altitude at each, the share of the Sun hidden, totality or annularity and its length, the Moon on the Sun's disc from the first contact
