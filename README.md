@@ -81,7 +81,7 @@ the licence, the terms, the credit it asks for, its quota, and what could not be
 | `GET /v1/sky/eclipses/{date}.geojson` | Its map (GeoJSON), drawn by Vigie: bands of the share of the Sun hidden, the path of totality or annularity and its central line. |
 | `GET /v1/fires?bbox=w,s,e,n`, `GET /v1/fires/grid` | The active fires seen by NASA FIRMS (VIIRS, NOAA-20 and NOAA-21): the detections of a box as GeoJSON, or counted per cell for small zooms. No key needed (404 only on an instance that turned the source off with `VIGIE_ENABLE_FIRMS=0`). See "Active fires" below. |
 | `GET /v1/tides?lat=&lon=`, `GET /v1/tides/coast?bbox=w,s,e,n` | The tide at a coastal point (heights, high and low waters, ranges, the tide now, an estimated French coefficient), or the tide now along the coasts of a box: **computed by Vigie** from the EOT20 ocean tide model, no provider asked. **Not for navigation.** See "Tides" below. |
-| `GET /v1/surf/spots`, `GET /v1/surf/spots/{id}?days=` | The surf spots of the French Atlantic and Channel coasts (OpenStreetMap), and the hourly forecast of one: swell (Météo-France MFWAM), wind, tide, and **a rating of ours**, explained criterion by criterion, with the best slot of the next three days. **Not for safety.** See "Surf" below. |
+| `GET /v1/surf/spots`, `GET /v1/surf/spots/{id}?days=`, `GET /v1/surf/overview` | The surf spots of the French Atlantic and Channel coasts (OpenStreetMap), and the hourly forecast of one: swell (Météo-France MFWAM), wind, tide, and **a rating of ours**, explained criterion by criterion, with the best slot of the next three days; the overview gives every spot's current hour and best slot at once. **Not for safety.** See "Surf" below. |
 | `GET /v1/cap/alerts` | Active hazards as OASIS CAP 1.2. |
 | `GET /v1/vigilances?lat=&lon=` or `?country=FR` or `?source=tsunami` | Official weather warnings that cover a point, or all those of a country (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues, and the national services of the WMO registry), or the tsunami messages in force, the issuer's words untouched. See below. |
 | `GET /v1/vigilances/countries` | The countries this instance serves with its settings, the sources that answer for each, and whether their licence is verified. With `?uncovered=true`, every other country of the world too, each with the reason nothing is read for it. |
@@ -566,6 +566,7 @@ forecast of one, hour by hour.
 ```
 GET /v1/surf/spots                                         the spots, with the direction each beach faces
 GET /v1/surf/spots/soorts-hossegor-plage-sud-point-d-or    the next three days at Hossegor
+GET /v1/surf/overview                                      every spot now, and its best slot of the next three days
 ```
 
 - **As the providers give it**: the sea state, the primary and secondary swell (height, period, direction) and the wind waves of

@@ -12,6 +12,11 @@ Two requests per spot, each refreshed at the pace of what it carries (``docs/dat
 A spot is a fixed point of ``app/data/surf-spots.json``: the cache key is the spot, never the number of days asked (7 are
 always fetched, the service cuts them). A variable the provider leaves out stays ``None``; an answer with no swell at all
 raises (the spot then has no forecast).
+
+**Every spot at once** (``GET /v1/surf/overview``): one request names every spot (Open-Meteo answers a list, one item per
+location, and weighs it one call per location), the swell kept 3 hours and the wind 3 hours too: the overview is a summary, the
+hourly wind of a spot is on its own page. While these entries are fresh, a spot's own forecast is read from them (the swell, and
+the wind while it is under an hour old) instead of being asked again.
 """
 
 from __future__ import annotations
@@ -21,6 +26,7 @@ from typing import Any, Optional
 
 import httpx
 
+from app import clock
 from app.collectors.base import BaseCollector, optional_float
 from app.collectors.grid import coord_str
 from app.collectors.weights import open_meteo_weight
@@ -88,6 +94,24 @@ def parse_wind(payload: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _items(payload: Any, count: int) -> list[Optional[Mapping[str, Any]]]:
+    """The items of a multi-location answer, in the order of the locations asked (``location_id``, absent on the first)."""
+    items: list[Optional[Mapping[str, Any]]] = [None] * count
+    if not isinstance(payload, list):
+        payload = [payload]
+    numbered = any(isinstance(item, Mapping) and "location_id" in item for item in payload)
+    for position, item in enumerate(payload):
+        if not isinstance(item, Mapping):
+            continue
+        index = item.get("location_id", 0) if numbered else position
+        if isinstance(index, int) and 0 <= index < count:
+            items[index] = item
+    return items
+
+
+Point = tuple[str, float, float]
+
+
 class SurfForecastCollector(BaseCollector[dict[str, Any]]):
     """The swell (MFWAM) and the wind of the surf spots, from Open-Meteo's free APIs (one quota with the other Open-Meteo ones)."""
 
@@ -95,6 +119,7 @@ class SurfForecastCollector(BaseCollector[dict[str, Any]]):
     FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
     SWELL_TTL_SECONDS = 3 * 3600
     WIND_TTL_SECONDS = 3600
+    OVERVIEW_WIND_TTL_SECONDS = 3 * 3600
 
     def __init__(self, http_client: Optional[httpx.AsyncClient] = None) -> None:
         super().__init__(
@@ -109,8 +134,25 @@ class SurfForecastCollector(BaseCollector[dict[str, Any]]):
         """Weight under the Open-Meteo rule: 10 or 5 variables over 7 days, one model, weigh 1.0."""
         return open_meteo_weight(params, default_forecast_days=FORECAST_DAYS)
 
+    def _from_all(self, kind: str, spot_id: str, max_age_s: float) -> Optional[dict[str, Any]]:
+        """The spot's part of the every-spot entry of ``kind``, when that entry is under ``max_age_s`` old."""
+        entry = self._cache.get(f"surf-{kind}:all")
+        if entry is None or clock.monotonic() - entry.stored_at > max_age_s:
+            return None
+        return entry.value.get(spot_id)
+
+    async def fetch_all(self, kind: str, points: tuple[Point, ...]) -> tuple[dict[str, dict[str, Any]], bool]:
+        """The swell or the wind (``kind``) of every spot of ``points`` (id, lat, lon), by spot id, in one request; and whether
+        it is a stale copy. A spot whose item cannot be read is left out; none at all raises."""
+        ttl = self.SWELL_TTL_SECONDS if kind == "swell" else self.OVERVIEW_WIND_TTL_SECONDS
+        fetched = await self.fetch_ex(cache_key=f"surf-{kind}:all", kind=kind, points=points, ttl_seconds=ttl)
+        return fetched.value, fetched.stale
+
     async def fetch_swell(self, spot_id: str, lat: float, lon: float) -> tuple[dict[str, Any], bool]:
         """The hourly swell of a spot, and whether it is a stale copy."""
+        shared = self._from_all("swell", spot_id, self.SWELL_TTL_SECONDS)
+        if shared is not None:
+            return shared, False
         fetched = await self.fetch_ex(
             cache_key=f"surf-swell:{spot_id}", kind="swell", lat=lat, lon=lon, ttl_seconds=self.SWELL_TTL_SECONDS
         )
@@ -118,26 +160,47 @@ class SurfForecastCollector(BaseCollector[dict[str, Any]]):
 
     async def fetch_wind(self, spot_id: str, lat: float, lon: float) -> tuple[dict[str, Any], bool]:
         """The hourly wind and the daylight of a spot, and whether it is a stale copy."""
+        shared = self._from_all("wind", spot_id, self.WIND_TTL_SECONDS)
+        if shared is not None:
+            return shared, False
         fetched = await self.fetch_ex(
             cache_key=f"surf-wind:{spot_id}", kind="wind", lat=lat, lon=lon, ttl_seconds=self.WIND_TTL_SECONDS
         )
         return fetched.value, fetched.stale
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> dict[str, Any]:
-        lat, lon = float(kwargs["lat"]), float(kwargs["lon"])
+        points: Optional[tuple[Point, ...]] = kwargs.get("points")
+        if points is None:
+            lats, lons = coord_str(float(kwargs["lat"])), coord_str(float(kwargs["lon"]))
+        else:
+            lats = ",".join(coord_str(lat) for _, lat, _ in points)
+            lons = ",".join(coord_str(lon) for _, _, lon in points)
         common = {
-            "latitude": coord_str(lat),
-            "longitude": coord_str(lon),
+            "latitude": lats,
+            "longitude": lons,
             "forecast_days": str(FORECAST_DAYS),
             "timeformat": "unixtime",
             "timezone": "GMT",
         }
-        if kwargs["kind"] == "swell":
+        swell = kwargs["kind"] == "swell"
+        if swell:
             params = {**common, "hourly": ",".join(SWELL_VARIABLES), "models": MARINE_MODEL}
             response = await self._get(client, self.MARINE_URL, params=params)
-            response.raise_for_status()
-            return parse_swell(response.json())
-        params = {**common, "hourly": ",".join(WIND_VARIABLES), "daily": ",".join(DAYLIGHT_VARIABLES)}
-        response = await self._get(client, self.FORECAST_URL, params=params)
+        else:
+            params = {**common, "hourly": ",".join(WIND_VARIABLES), "daily": ",".join(DAYLIGHT_VARIABLES)}
+            response = await self._get(client, self.FORECAST_URL, params=params)
         response.raise_for_status()
-        return parse_wind(response.json())
+        parse = parse_swell if swell else parse_wind
+        if points is None:
+            return parse(response.json())
+        out: dict[str, Any] = {}
+        for (spot_id, _, _), item in zip(points, _items(response.json(), len(points)), strict=True):
+            if item is None:
+                continue
+            try:
+                out[spot_id] = parse(item)
+            except ValueError:
+                continue
+        if not out:
+            raise ValueError("Open-Meteo answer has no spot that could be read")
+        return out

@@ -631,14 +631,17 @@ settings and its measure: [ADR 0013](decisions/0013-aurora-estimate.md) and [the
 ## Surf (spots, swell, wind, tide and a rating of ours)
 
 `GET /v1/surf/spots` lists the spots of `app/data/surf-spots.json`; `GET /v1/surf/spots/{id}` gives the forecast of one, hour by hour
-from the current hour for 1 to 7 days (`app/services/surf.py`).
+from the current hour for 1 to 7 days (`app/services/surf.py`); `GET /v1/surf/overview` gives every spot in short: its current hour and its
+best slot, as the page of the spot gives them for three days.
 
 **The spots** are built once by `tools/build_spots.py` from OpenStreetMap (ODbL, `app/data/surf-spots.NOTICE.md`): an element tagged
 `sport=surfing` that is a place, not a business; or a named beach within 1 km of a surf school or club tagged so. The coastline must be
 within 650 m (a beach on a lake or on a lagoon behind the dunes is dropped), and two spots closer than 600 m are one. The **facing** (the direction from the beach to the open
 sea) is ours: OpenStreetMap draws the coastline with the water on its right, so the facing is the direction of the coastline over 400 m on
 each side of the beach, turned 90 degrees to the right. The **bottom**, the **best tide** and the **best swell** of a spot are `null`: no
-open source gives them, and none is guessed.
+open source gives them, and none is guessed. A name OpenStreetMap misspells is corrected by the table `tools/surf-spot-corrections.json`,
+with the evidence; the spot then keeps OpenStreetMap's name in `osm_name` (one today: "Plage de la Marbellla", Biarritz). OpenStreetMap
+is not edited from here.
 
 **Per hour**, as the providers give them: the sea state (`waves`), the primary and secondary swell (height, period, where it comes from)
 and the wind waves of MFWAM; the wind at 10 m, its gusts and where it comes from (Open-Meteo); the sunrise and sunset. A value the provider
@@ -660,6 +663,11 @@ tie.
 **Calls.** Two requests per spot: the swell (10 hourly variables, 7 days, one model: weight 1.0) kept 3 hours, the wind (3 hourly and 2
 daily variables, 7 days: weight 1.0) kept 1 hour, so at most 9 + 25 = 34 a day per spot whatever the number of clients, and 34 x the number
 of spots if every spot is asked all day (`tests/test_surf_sobriety.py`). They share the one Open-Meteo quota and budget.
+**The overview** asks every spot in one request per kind (Open-Meteo answers a list, one item per location, and weighs it one call per
+location): the swell kept 3 hours, and the wind kept 3 hours too, because the overview is a summary (the hourly wind of a spot, kept 1 hour,
+is on its own page). At most 9 + 9 requests a day, each weighing the number of spots: 918 calls a day for the 51 spots, whatever the number
+of clients. While these entries are fresh, a spot's page reads its swell from them, and its wind while it is under an hour old, instead of
+asking again. The overview is worked out once per hour and per answer (half a second of tide and rating for the 51 spots, in a worker thread).
 
 ## Tides (computed, no provider)
 

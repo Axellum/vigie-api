@@ -89,7 +89,7 @@ donne, pour chaque source, la licence, les conditions, le crédit demandé, le q
 | `GET /v1/sky/eclipses/{date}.geojson` | Sa carte (GeoJSON), tracée par Vigie : bandes de la part du Soleil cachée, bande de totalité ou d'anneau et sa ligne centrale. |
 | `GET /v1/fires?bbox=w,s,e,n`, `GET /v1/fires/grid` | Les feux actifs vus par NASA FIRMS (VIIRS, NOAA-20 et NOAA-21) : les détections d'une zone en GeoJSON, ou comptées par cellule pour les petits zooms. Sans clé (404 seulement sur une instance qui a désactivé la source avec `VIGIE_ENABLE_FIRMS=0`). Voir « Feux actifs » plus bas. |
 | `GET /v1/tides?lat=&lon=`, `GET /v1/tides/coast?bbox=w,s,e,n` | La marée en un point de côte (hauteurs, pleines et basses mers, marnages, la marée maintenant, un coefficient français estimé), ou la marée maintenant le long des côtes d'une zone : **calculée par Vigie** à partir du modèle de marée océanique EOT20, sans appel à une source. **Pas pour la navigation.** Voir « Marées » plus bas. |
-| `GET /v1/surf/spots`, `GET /v1/surf/spots/{id}?days=` | Les spots de surf des côtes françaises de l'Atlantique et de la Manche (OpenStreetMap), et la prévision heure par heure de l'un d'eux : houle (MFWAM de Météo-France), vent, marée, et **une note à nous**, expliquée critère par critère, avec le meilleur créneau des trois prochains jours. **Pas pour la sécurité.** Voir « Surf » plus bas. |
+| `GET /v1/surf/spots`, `GET /v1/surf/spots/{id}?days=`, `GET /v1/surf/overview` | Les spots de surf des côtes françaises de l'Atlantique et de la Manche (OpenStreetMap), et la prévision heure par heure de l'un d'eux : houle (MFWAM de Météo-France), vent, marée, et **une note à nous**, expliquée critère par critère, avec le meilleur créneau des trois prochains jours ; le résumé donne l'heure en cours et le meilleur créneau de tous les spots d'un coup. **Pas pour la sécurité.** Voir « Surf » plus bas. |
 | `GET /v1/cap/alerts` | Dangers actifs en OASIS CAP 1.2. |
 | `GET /v1/vigilances?lat=&lon=` ou `?country=FR` ou `?source=tsunami` | Vigilances météo officielles qui couvrent un point, ou toutes celles d'un pays (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues et les services nationaux du registre de l'OMM), ou les messages de tsunami en cours, avec les mots de l'émetteur intacts. Voir plus bas. |
 | `GET /v1/vigilances/countries` | Les pays que cette instance sert avec ses réglages, les sources qui répondent pour chacun, et si leur licence est vérifiée. Avec `?uncovered=true`, tous les autres pays du monde aussi, chacun avec la raison pour laquelle rien n'y est lu. |
@@ -584,6 +584,7 @@ GET /v1/tides/coast?bbox=-6,43,3,51.5                      la marée maintenant 
 ```
 GET /v1/surf/spots                                         les spots, avec la direction vers laquelle chaque plage regarde
 GET /v1/surf/spots/soorts-hossegor-plage-sud-point-d-or    les trois prochains jours à Hossegor
+GET /v1/surf/overview                                      tous les spots maintenant, et leur meilleur créneau des trois jours
 ```
 
 - **Tel que les sources le donnent** : l'état de la mer, la houle principale et secondaire (hauteur, période, direction) et la mer du
