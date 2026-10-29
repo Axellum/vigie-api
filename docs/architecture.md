@@ -72,6 +72,7 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | `tools/backtest_prealert_tr.py` | A measure, not part of the application: the same computation on the past GFS runs of the AWS archive, for the press episodes of [`measurements/prealert-tr-episodes.csv`](measurements/prealert-tr-episodes.csv) and for ordinary days; suggests thresholds from the learning set and scores a set once. |
 | `scripts/run.ps1` | Starts the API on Windows. |
 | `custom_components/vigie/`, `hacs.json`, `tests_ha/` | The Home Assistant integration (a client of `GET /v1/vigilances`, with `WS /v1/stream` as a hint to read again), its tests, and their CI. See [`home-assistant.md`](home-assistant.md). |
+| `tools/measure_archive.py` | A measure, not part of the application: asks a running instance for every served country at a fixed interval and records what the archive of the warnings takes in. Report: [`measurements/vigilance-archive-2026-10.md`](measurements/vigilance-archive-2026-10.md). |
 | `tools/fake_instance.py` | A fake instance (`/v1/health`, `/v1/vigilances`) with warnings added by hand, labelled `SIMULATION`, to try the integration. |
 | `Dockerfile`, `scripts/docker_smoke.sh` | The image (non-root, health check) and the script that proves it answers. |
 
