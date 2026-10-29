@@ -1,0 +1,11 @@
+{
+ "about": "Names of surf spots that OpenStreetMap misspells, corrected by Vigie in app/data/surf-spots.json (tools/build_spots.py). OpenStreetMap is not edited from here. Each correction names the element, the name as OpenStreetMap writes it, the name Vigie gives, and the evidence that the name is misspelt. A correction whose OpenStreetMap name has changed is not applied (the builder says so).",
+ "corrections": [
+  {
+   "osm": "way/249245278",
+   "osm_name": "Plage de la Marbellla",
+   "name": "Plage de la Marbella",
+   "evidence": "Three l's in OpenStreetMap; the surf club on this beach is named 'Marbella Surf Club' in OpenStreetMap itself (node/14222393485). Read on 2026-10-29."
+  }
+ ]
+}
