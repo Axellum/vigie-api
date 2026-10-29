@@ -21,7 +21,7 @@ from typing import Any, Optional
 import httpx
 
 from app.attribution import AIR_QUALITY, FLOOD, credit_text
-from app.collectors.base import BaseCollector, optional_float
+from app.collectors.base import BaseCollector, optional_float, short_title
 from app.collectors.grid import (
     DEFAULT_AIR_QUALITY_GRID_DEG,
     DEFAULT_FLOOD_GRID_DEG,
@@ -318,7 +318,7 @@ class USGSVolcanoCollector(BaseCollector[list[HazardAlert]]):
                         id=f"volcano_{v_id}",
                         category=HazardCategory.VOLCANO,
                         severity=severity,
-                        title=title[:96],
+                        title=short_title(title),
                         source="USGS_VOLCANO",
                         sources=["USGS_VOLCANO"],
                         timestamp_utc=ts_utc,

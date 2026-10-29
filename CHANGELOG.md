@@ -87,6 +87,11 @@ All notable changes to this project are documented here. The format follows
   0013 the aurora estimate (was 0012), 0014 the travel advice (was 0013), 0015 the tides (was 0013). The aurora estimate's `method`
   names ADR 0013.
 
+### Fixed
+
+- **Hazard titles are no longer cut inside a word**: a title longer than 96 characters (GDACS, NOAA NWS, USGS volcanoes, NHC,
+  tsunamis) is cut at the end of a word with "…" (`short_title`); it read "… China, South Kor" for CHAMPI-26 on 28 October.
+
 ## [1.1.0] - 2026-10-28
 
 ### Added

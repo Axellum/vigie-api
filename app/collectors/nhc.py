@@ -34,7 +34,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from app import clock
-from app.collectors.base import BaseCollector, CacheEntry, Collected, optional_float, parse_iso_utc
+from app.collectors.base import BaseCollector, CacheEntry, Collected, optional_float, parse_iso_utc, short_title
 from app.models.schemas import HazardAlert, HazardCategory, SeverityLevel
 from app.shapefile import POINT, ShapefileError, read_shapefile
 from app.storm_geo import geometry_of_shape
@@ -261,7 +261,7 @@ def hazard_of(storm: Storm) -> HazardAlert:
         id=f"nhc_{storm.id}",
         category=HazardCategory.HURRICANE,
         severity=level_of(storm.intensity_kt),
-        title=(f"{label} {storm.name}" if label else storm.name)[:96],
+        title=short_title(f"{label} {storm.name}" if label else storm.name),
         source="NHC",
         sources=["NHC"],
         timestamp_utc=storm.last_update_utc,

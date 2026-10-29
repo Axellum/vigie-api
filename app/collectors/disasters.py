@@ -22,7 +22,7 @@ import httpx
 
 from app import clock
 from app.attribution import credit_text
-from app.collectors.base import BaseCollector, Fetched, optional_float, parse_iso_utc
+from app.collectors.base import BaseCollector, Fetched, optional_float, parse_iso_utc, short_title
 from app.collectors.nhc import cyclone_key
 from app.collectors.tsunami import vtec_event_key
 from app.geo import geojson_to_shape
@@ -182,7 +182,7 @@ class GDACSCollector(BaseCollector[list[HazardAlert]]):
                     id=f"gdacs_{ev_type.lower()}_{event_id}",
                     category=category,
                     severity=severity,
-                    title=title[:96],
+                    title=short_title(title),
                     source="GDACS",
                     sources=["GDACS"],
                     timestamp_utc=ts_utc,
@@ -473,7 +473,7 @@ class NOAANWSCollector(BaseCollector[list[HazardAlert]]):
                     id=f"noaa_{alert_id[-20:]}",
                     category=category,
                     severity=severity,
-                    title=headline[:96],
+                    title=short_title(headline),
                     source="NOAA_NWS",
                     sources=["NOAA_NWS"],
                     timestamp_utc=ts_utc,
