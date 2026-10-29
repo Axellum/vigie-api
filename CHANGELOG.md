@@ -89,6 +89,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **The archive of the warnings never loses the issuer's words it holds**: a pass that no longer held a MeteoAlarm warning's CAP
+  document (it had left the cache, or the instance had restarted) rewrote the archived warning without its words; it now keeps them
+  and only moves the last sighting. Found by the measure of a real day.
 - **Hazard titles are no longer cut inside a word**: a title longer than 96 characters (GDACS, NOAA NWS, USGS volcanoes, NHC,
   tsunamis) is cut at the end of a word with "…" (`short_title`); it read "… China, South Kor" for CHAMPI-26 on 28 October.
 

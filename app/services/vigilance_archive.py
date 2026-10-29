@@ -87,6 +87,11 @@ def _fingerprint(vigilance: Vigilance, extra: Any) -> tuple[Any, ...]:
     )
 
 
+def _words_only_missing(before: tuple[Any, ...], now: tuple[Any, ...]) -> bool:
+    """The same warning seen without the CAP document it was archived with (the document left the cache): not a change."""
+    return before[:-1] == now[:-1] and before[-1] and not now[-1]
+
+
 def _service_of(vigilance: Vigilance) -> Optional[str]:
     """The registry service of a ``swic`` warning (the second part of its id), ``None`` for any other source."""
     if vigilance.source != "swic":
@@ -176,10 +181,10 @@ class VigilanceArchive:
                     continue  # listed twice in one pass (two sources, two countries)
                 fingerprint = _fingerprint(vigilance, extra)
                 known = self._seen.get(key)
-                if known is not None and known[0] == fingerprint:
+                if known is not None and (known[0] == fingerprint or _words_only_missing(known[0], fingerprint)):
                     if now - known[1] >= ARCHIVE_TOUCH_S:
                         touched.append(key)
-                        remembered[key] = (fingerprint, now)
+                        remembered[key] = (known[0], now)
                     continue
                 shape_hash, bounds = None, None
                 shape = vigilance.shape
