@@ -47,6 +47,7 @@ warning was in the feeds). By level: yellow 1,886, orange 281, red 23, no level 
 |---|---|
 | Database at the end of the first round | 2,070,456 |
 | Database at the end (`database_bytes`, WAL included) | 6,918,200 |
+| ... of which the database file / the WAL file, read on disk after the last round | 6,914,048 / 61,832 |
 | **Growth over 24 hours** | **4,847,744** |
 | Warnings as served (2,232 payloads, zlib) | 2,977,258, 1,333 a warning on average (7,637,446 as JSON: 2.6 times less) |
 | Shapes of the areas (640, each kept once; 1,546 warnings have one) | 916,245 |
@@ -99,7 +100,23 @@ This is what a public instance would send if it kept the world view of `GET /v1/
 [ADR 0012](../decisions/0012-events-and-impact.md)): about 9,000 requests a day to MeteoAlarm. Today an instance reads a country only
 when it is needed or asked for, and its archive holds only those countries.
 
-## 6. How long to keep it (a proposal; the owner decides)
+## 6. The world view of `GET /v1/events`, asked on demand
+
+Measured on 2026-10-29 at about 21:10 UTC on a fresh instance of the same code (empty database, scheduler off): `GET /v1/events` without
+a country three times, 20 seconds apart, then `?compact=true&min_impact=60`. Memory is the working set of the server process.
+
+| | Time | Answer | Memory after | Provider requests |
+|---|---|---|---|---|
+| Fresh instance | | | 116 MiB | |
+| World view, cold caches | 29.8 s | 2.07 MB, 94 events | 146 MiB | 274: 37 MeteoAlarm feeds, 40 CAP documents, 180 WMO, 17 others |
+| World view, warm (twice) | 6.3 s, 7.1 s | 2.1 to 2.2 MB | 156 MiB | 75 more CAP documents (40 new ones at most per request), 3 others |
+| `compact=true&min_impact=60`, warm | 0.5 s | 45 KB | | |
+
+On 2026-10-28 the same cold view took 66 s (MeteoAlarm answered in 15 s on average then). The feeds are cached 180 s: a world view
+asked more than 3 minutes after the last one is cold again for MeteoAlarm. Keeping it fresh means reading every country at that rhythm
+(the cost of section 5 for every 10 minutes) and keeping the computed answer, which the API does not do today.
+
+## 7. How long to keep it (a proposal; the owner decides)
 
 - **Keep everything** (`VIGIE_ARCHIVE_KEEP_DAYS=0`, the default) for at least a year: the archive is worth most when a season can be
   compared with the same season a year before, and a year is about 1.8 GB at this day's rate.
