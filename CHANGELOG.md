@@ -12,6 +12,13 @@ All notable changes to this project are documented here. The format follows
   the hourly forecast of one for 1 to 7 days: the swell of Météo-France's MFWAM model (Copernicus Marine, through Open-Meteo Marine),
   the wind, the tide (EOT20), and a rating of ours with every criterion and threshold shown, and the best slot of the next three days.
   The bottom of a spot and the tide and swell it works best with are not known and stay `null`. Not for safety.
+- **Surf overview**: `GET /v1/surf/overview` gives every spot at once, for a map or a list: its current hour (swell, wind and whether
+  it blows from the land, tide, the rating of ours in points) and its best slot of the next three days, as the page of the spot gives
+  them. The swell and the wind of every spot are asked in one request each and kept 3 hours (at most 18 requests a day, whatever the
+  number of clients), and a spot's page reads its swell from them.
+- **Surf spot names**: a name OpenStreetMap misspells is corrected by a table of ours with its evidence (`tools/surf-spot-corrections.json`),
+  and OpenStreetMap's name is kept in `osm_name`: "Plage de la Marbellla" is now "Plage de la Marbella" (id
+  `biarritz-plage-de-la-marbella`).
 - **Solar eclipses**: `GET /v1/sky/eclipses` lists NASA's solar eclipses of 2001 to 2100 (by default the next ten years) as NASA
   states them, and `GET /v1/sky/eclipses/{date}` gives one. With `lat` and `lon`, what that place sees: the contacts and the Sun's
   altitude at each, the share of the Sun hidden, totality or annularity and its length, the Moon on the Sun's disc from the first contact

@@ -12,6 +12,7 @@
   {
    "id": "trevou-treguignec-plage-de-trestel",
    "name": "Plage de Trestel",
+   "osm_name": null,
    "place": "Trévou-Tréguignec",
    "lat": 48.8225,
    "lon": -3.3552,
@@ -37,6 +38,7 @@
   {
    "id": "perros-guirec-plage-de-trestraou",
    "name": "Plage de Trestraou",
+   "osm_name": null,
    "place": "Perros-Guirec",
    "lat": 48.8171,
    "lon": -3.454,
@@ -57,6 +59,7 @@
   {
    "id": "locquirec-plage-de-porz-ar-villiec",
    "name": "Plage de Porz ar Villiec",
+   "osm_name": null,
    "place": "Locquirec",
    "lat": 48.6941,
    "lon": -3.6479,
@@ -82,6 +85,7 @@
   {
    "id": "mogueriec-mogueric",
    "name": "Mogueric",
+   "osm_name": null,
    "place": "Moguériec",
    "lat": 48.6935,
    "lon": -4.0874,
@@ -102,6 +106,7 @@
   {
    "id": "locquirec-plage-du-moulin-de-la-rive",
    "name": "Plage du Moulin de la Rive",
+   "osm_name": null,
    "place": "Locquirec",
    "lat": 48.6874,
    "lon": -3.6767,
@@ -122,6 +127,7 @@
   {
    "id": "saint-malo-plage-de-rochebonne",
    "name": "Plage de Rochebonne",
+   "osm_name": null,
    "place": "Saint-Malo",
    "lat": 48.6661,
    "lon": -1.9928,
@@ -147,6 +153,7 @@
   {
    "id": "sables-d-or-les-pins-greve-de-minieu",
    "name": "Grève de Minieu",
+   "osm_name": null,
    "place": "Sables-d'Or-les-Pins",
    "lat": 48.6444,
    "lon": -2.4073,
@@ -167,6 +174,7 @@
   {
    "id": "saint-lunaire-plage-de-longchamp",
    "name": "Plage de Longchamp",
+   "osm_name": null,
    "place": "Saint-Lunaire",
    "lat": 48.6368,
    "lon": -2.1223,
@@ -197,6 +205,7 @@
   {
    "id": "tremenac-h-greve-blanche",
    "name": "Grève Blanche",
+   "osm_name": null,
    "place": "Tremenac'h",
    "lat": 48.6296,
    "lon": -4.5296,
@@ -222,6 +231,7 @@
   {
    "id": "argenton-penfoul",
    "name": "Penfoul",
+   "osm_name": null,
    "place": "Argenton",
    "lat": 48.531,
    "lon": -4.7515,
@@ -242,6 +252,7 @@
   {
    "id": "locmaria-plouzane-plage-du-minou",
    "name": "Plage du Minou",
+   "osm_name": null,
    "place": "Locmaria-Plouzané",
    "lat": 48.3382,
    "lon": -4.6169,
@@ -267,6 +278,7 @@
   {
    "id": "camaret-sur-mer-plage-de-pen-hat",
    "name": "Plage de Pen Hat",
+   "osm_name": null,
    "place": "Camaret-sur-Mer",
    "lat": 48.2755,
    "lon": -4.6181,
@@ -287,6 +299,7 @@
   {
    "id": "plogoff-plage-des-trepasses",
    "name": "Plage des Trépassés",
+   "osm_name": null,
    "place": "Plogoff",
    "lat": 48.0464,
    "lon": -4.707,
@@ -312,6 +325,7 @@
   {
    "id": "primelin-dunes-du-trez-goarem",
    "name": "Dunes du Trez Goarem",
+   "osm_name": null,
    "place": "Primelin",
    "lat": 48.012,
    "lon": -4.5977,
@@ -332,6 +346,7 @@
   {
    "id": "penhors-plage-de-penhors",
    "name": "Plage de Penhors",
+   "osm_name": null,
    "place": "Penhors",
    "lat": 47.9399,
    "lon": -4.4039,
@@ -357,6 +372,7 @@
   {
    "id": "beuzec-plage-de-la-torche",
    "name": "Plage de la Torche",
+   "osm_name": null,
    "place": "Beuzec",
    "lat": 47.8432,
    "lon": -4.3476,
@@ -382,6 +398,7 @@
   {
    "id": "saint-philibert-plage-de-kersidan",
    "name": "Plage de Kersidan",
+   "osm_name": null,
    "place": "Saint-Philibert",
    "lat": 47.7962,
    "lon": -3.822,
@@ -402,6 +419,7 @@
   {
    "id": "saint-philibert-plage-de-dourveil",
    "name": "Plage de Dourveil",
+   "osm_name": null,
    "place": "Saint-Philibert",
    "lat": 47.7937,
    "lon": -3.812,
@@ -422,6 +440,7 @@
   {
    "id": "le-pouldu-plage-du-kerou",
    "name": "Plage du Kerou",
+   "osm_name": null,
    "place": "Le Pouldu",
    "lat": 47.7678,
    "lon": -3.5635,
@@ -442,6 +461,7 @@
   {
    "id": "plouharnel-la-grande-plage",
    "name": "La Grande Plage",
+   "osm_name": null,
    "place": "Plouharnel",
    "lat": 47.5832,
    "lon": -3.1499,
@@ -462,6 +482,7 @@
   {
    "id": "portivy-plage-de-l-isthme",
    "name": "Plage de l'isthme",
+   "osm_name": null,
    "place": "Portivy",
    "lat": 47.5517,
    "lon": -3.1366,
@@ -482,6 +503,7 @@
   {
    "id": "le-pouliguen-plage-de-la-govelle",
    "name": "Plage de la Govelle",
+   "osm_name": null,
    "place": "Le Pouliguen",
    "lat": 47.2657,
    "lon": -2.4568,
@@ -502,6 +524,7 @@
   {
    "id": "saint-gilles-croix-de-vie-grande-plage",
    "name": "Grande Plage",
+   "osm_name": null,
    "place": "Saint-Gilles-Croix-de-Vie",
    "lat": 46.6839,
    "lon": -1.936,
@@ -527,6 +550,7 @@
   {
    "id": "bretignolles-sur-mer-la-normandeliere",
    "name": "La Normandelière",
+   "osm_name": null,
    "place": "Bretignolles-sur-Mer",
    "lat": 46.6136,
    "lon": -1.8617,
@@ -552,6 +576,7 @@
   {
    "id": "brem-sur-mer-plage-des-dunes",
    "name": "Plage des Dunes",
+   "osm_name": null,
    "place": "Brem-sur-Mer",
    "lat": 46.5974,
    "lon": -1.8536,
@@ -572,6 +597,7 @@
   {
    "id": "les-sables-d-olonne-plage-de-tanchet",
    "name": "Plage de Tanchet",
+   "osm_name": null,
    "place": "Les Sables-d'Olonne",
    "lat": 46.4802,
    "lon": -1.7628,
@@ -592,6 +618,7 @@
   {
    "id": "la-couarde-sur-mer-plage-du-peu-ragot",
    "name": "Plage du Peu Ragot",
+   "osm_name": null,
    "place": "La Couarde-sur-Mer",
    "lat": 46.1923,
    "lon": -1.4368,
@@ -612,6 +639,7 @@
   {
    "id": "le-bois-plage-en-re-plage-du-petit-sergent",
    "name": "Plage du Petit Sergent",
+   "osm_name": null,
    "place": "Le Bois-Plage-en-Ré",
    "lat": 46.1726,
    "lon": -1.3827,
@@ -632,6 +660,7 @@
   {
    "id": "le-grand-village-plage-plage-de-vert-bois",
    "name": "Plage de Vert bois",
+   "osm_name": null,
    "place": "Le Grand-Village-Plage",
    "lat": 45.8698,
    "lon": -1.2587,
@@ -652,6 +681,7 @@
   {
    "id": "royan-plage-de-pontaillac",
    "name": "Plage de Pontaillac",
+   "osm_name": null,
    "place": "Royan",
    "lat": 45.6254,
    "lon": -1.0531,
@@ -672,6 +702,7 @@
   {
    "id": "lacanau-ocean-plage-centrale",
    "name": "Plage Centrale",
+   "osm_name": null,
    "place": "Lacanau-Océan",
    "lat": 45.0016,
    "lon": -1.2023,
@@ -707,6 +738,7 @@
   {
    "id": "lege-cap-ferret-zone-de-surf-du-grand-crohot",
    "name": "Zone de Surf du Grand Crohot",
+   "osm_name": null,
    "place": "Lège-Cap-Ferret",
    "lat": 44.798,
    "lon": -1.2399,
@@ -727,6 +759,7 @@
   {
    "id": "le-truc-vert-zone-de-surf-du-truc-vert",
    "name": "Zone de surf du Truc Vert",
+   "osm_name": null,
    "place": "Le Truc Vert",
    "lat": 44.7135,
    "lon": -1.2587,
@@ -747,6 +780,7 @@
   {
    "id": "biscarrosse-plage-la-nord",
    "name": "La nord",
+   "osm_name": null,
    "place": "Biscarrosse-Plage",
    "lat": 44.449,
    "lon": -1.2569,
@@ -767,6 +801,7 @@
   {
    "id": "lit-et-mixe-plage-du-cap-de-l-homy",
    "name": "Plage du Cap de L'Homy",
+   "osm_name": null,
    "place": "Lit-et-Mixe",
    "lat": 44.0413,
    "lon": -1.3407,
@@ -792,6 +827,7 @@
   {
    "id": "moliets-et-maa-plage-de-la-balise",
    "name": "Plage de la Balise",
+   "osm_name": null,
    "place": "Moliets-et-Maâ",
    "lat": 43.8531,
    "lon": -1.3926,
@@ -827,6 +863,7 @@
   {
    "id": "moliets-et-maa-plage-des-chenes-lieges",
    "name": "Plage des Chênes-Lièges",
+   "osm_name": null,
    "place": "Moliets-et-Maâ",
    "lat": 43.8424,
    "lon": -1.3972,
@@ -847,6 +884,7 @@
   {
    "id": "messanges-plage-nord",
    "name": "Plage Nord",
+   "osm_name": null,
    "place": "Messanges",
    "lat": 43.817,
    "lon": -1.4056,
@@ -867,6 +905,7 @@
   {
    "id": "vieux-boucau-les-bains-plage-du-nord",
    "name": "Plage du Nord",
+   "osm_name": null,
    "place": "Vieux-Boucau-les-Bains",
    "lat": 43.795,
    "lon": -1.4128,
@@ -902,6 +941,7 @@
   {
    "id": "vieux-boucau-les-bains-grand-plage",
    "name": "Grand'Plage",
+   "osm_name": null,
    "place": "Vieux-Boucau-les-Bains",
    "lat": 43.7879,
    "lon": -1.4131,
@@ -932,6 +972,7 @@
   {
    "id": "soorts-hossegor-plage-sud-point-d-or",
    "name": "Plage Sud (Point d'Or)",
+   "osm_name": null,
    "place": "Soorts-Hossegor",
    "lat": 43.6601,
    "lon": -1.4448,
@@ -987,6 +1028,7 @@
   {
    "id": "capbreton-plage-centrale",
    "name": "Plage Centrale",
+   "osm_name": null,
    "place": "Capbreton",
    "lat": 43.6517,
    "lon": -1.446,
@@ -1027,6 +1069,7 @@
   {
    "id": "ondres-plage-ondres-ocean",
    "name": "Plage Ondres-Océan",
+   "osm_name": null,
    "place": "Ondres",
    "lat": 43.5773,
    "lon": -1.4884,
@@ -1052,6 +1095,7 @@
   {
    "id": "ondres-plage-du-metro",
    "name": "Plage du Métro",
+   "osm_name": null,
    "place": "Ondres",
    "lat": 43.5641,
    "lon": -1.4974,
@@ -1072,6 +1116,7 @@
   {
    "id": "biarritz-plage-de-marinella",
    "name": "Plage de Marinella",
+   "osm_name": null,
    "place": "Biarritz",
    "lat": 43.5044,
    "lon": -1.5396,
@@ -1102,6 +1147,7 @@
   {
    "id": "biarritz-plage-du-port-vieux",
    "name": "Plage du Port Vieux",
+   "osm_name": null,
    "place": "Biarritz",
    "lat": 43.4825,
    "lon": -1.5679,
@@ -1125,8 +1171,9 @@
    ]
   },
   {
-   "id": "biarritz-plage-de-la-marbellla",
-   "name": "Plage de la Marbellla",
+   "id": "biarritz-plage-de-la-marbella",
+   "name": "Plage de la Marbella",
+   "osm_name": "Plage de la Marbellla",
    "place": "Biarritz",
    "lat": 43.4678,
    "lon": -1.5735,
@@ -1147,6 +1194,7 @@
   {
    "id": "guethary-uhabia",
    "name": "Uhabia",
+   "osm_name": null,
    "place": "Guéthary",
    "lat": 43.4316,
    "lon": -1.6001,
@@ -1167,6 +1215,7 @@
   {
    "id": "guethary-harotzen-kosta",
    "name": "Harotzen Kosta",
+   "osm_name": null,
    "place": "Guéthary",
    "lat": 43.4255,
    "lon": -1.6144,
@@ -1187,6 +1236,7 @@
   {
    "id": "saint-jean-de-luz-grande-plage",
    "name": "Grande Plage",
+   "osm_name": null,
    "place": "Saint-Jean-de-Luz",
    "lat": 43.3913,
    "lon": -1.6645,
@@ -1212,6 +1262,7 @@
   {
    "id": "hendaye-ondarraitz",
    "name": "Ondarraitz",
+   "osm_name": null,
    "place": "Hendaye",
    "lat": 43.3745,
    "lon": -1.7743,

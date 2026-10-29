@@ -4,6 +4,9 @@ The spots are ``app/data/surf-spots.json`` (``tools/build_spots.py``: OpenStreet
 the sea state, the primary and secondary swell and the wind waves (MFWAM), the wind (Open-Meteo), the tide (EOT20), and what
 Vigie works out from them, named in ``derived``. The rating gives each criterion its points by the thresholds of ``RULES``
 (ours, not a surf school's), leaves out a criterion whose value is unknown and says so, and never guesses a value.
+
+The overview (``overview``) gives every spot at once, from one request per kind for all of them (``SurfForecastCollector.fetch_all``):
+the current hour in short and the best slot of the next three days. It is worked out once per hour and per answer of the providers.
 """
 
 from __future__ import annotations
@@ -23,12 +26,17 @@ from app.collectors.surf import MARINE_MODEL, SurfForecastCollector
 from app.models.surf import (
     Criterion,
     SpotEvidence,
+    SurfBest,
     SurfCriterionScore,
     SurfForecast,
     SurfHour,
+    SurfNow,
+    SurfOverview,
     SurfRating,
+    SurfScore,
     SurfSlot,
     SurfSpot,
+    SurfSpotOverview,
     SurfSpots,
     SurfTide,
     SurfWind,
@@ -40,6 +48,8 @@ SPOTS_FILE = Path(__file__).resolve().parents[1] / "data" / "surf-spots.json"
 HOUR = 3600
 BEST_SLOT_HOURS = 72
 MAX_DAYS = 7
+OVERVIEW_DAYS = 3  # as the site asks a spot's page: the same hours, the same best slot
+SWELL_MODEL = "MFWAM (Météo-France, Copernicus Marine), through Open-Meteo Marine"
 # Deep-water wave power per metre of crest, P = rho g^2 H^2 T / (64 pi), in kW/m for H in m and T in s (rho = 1025 kg/m3).
 POWER_FACTOR = 1025 * 9.81**2 / (64 * math.pi) / 1000
 
@@ -92,6 +102,7 @@ def _spot(raw: dict[str, Any]) -> SurfSpot:
     return SurfSpot(
         id=raw["id"],
         name=raw["name"],
+        osm_name=raw.get("osm_name"),
         place=raw.get("place"),
         lat=raw["lat"],
         lon=raw["lon"],
@@ -330,7 +341,7 @@ def build_forecast(
         generated_utc=int(now_unix),
         spot=spot,
         days=days,
-        swell_model="MFWAM (Météo-France, Copernicus Marine), through Open-Meteo Marine",
+        swell_model=SWELL_MODEL,
         swell_cell=cell,
         hours=hours,
         best_slot=best_slot(hours, now_unix),
@@ -361,4 +372,97 @@ async def forecast(collector: SurfForecastCollector, spot_id: str, days: int, no
     return await clock.run_blocking(build_forecast, spot, swell_data, wind_data, days, now_unix, swell_stale or wind_stale)
 
 
-__all__ = ["MARINE_MODEL", "MAX_DAYS", "NoSurfForecast", "UnknownSpot", "build_forecast", "forecast", "find_spot", "spots"]
+def _now(hour: SurfHour) -> SurfNow:
+    rating = hour.rating
+    return SurfNow(
+        time_utc=hour.time_utc,
+        daylight=hour.daylight,
+        swell=hour.swell,
+        wind=hour.wind,
+        tide=hour.tide,
+        rating=None if rating is None else SurfScore(points=rating.points, out_of=rating.out_of, unknown=rating.unknown),
+    )
+
+
+def build_overview(
+    swell: dict[str, dict[str, Any]], wind: Optional[dict[str, dict[str, Any]]], now_unix: float, stale: bool = False
+) -> SurfOverview:
+    """Every spot in short from the parsed every-spot answers: its current hour and its best slot (``null`` where unknown)."""
+    current = int(now_unix // HOUR) * HOUR
+    listed: list[SurfSpotOverview] = []
+    for raw in spot_file()["spots"]:
+        spot = _spot(raw)
+        now: Optional[SurfNow] = None
+        best: Optional[SurfBest] = None
+        if spot.id in swell:
+            built = build_forecast(spot, swell[spot.id], (wind or {}).get(spot.id), OVERVIEW_DAYS, now_unix)
+            first = built.hours[0] if built.hours else None
+            if first is not None and first.time_utc == current:
+                now = _now(first)
+            if built.best_slot is not None:
+                slot = built.best_slot
+                best = SurfBest(time_utc=slot.time_utc, points=slot.rating.points, out_of=slot.rating.out_of)
+        listed.append(
+            SurfSpotOverview(
+                id=spot.id,
+                name=spot.name,
+                place=spot.place,
+                lat=spot.lat,
+                lon=spot.lon,
+                facing_deg=spot.facing_deg,
+                now=now,
+                best_slot=best,
+            )
+        )
+    return SurfOverview(
+        generated_utc=int(now_unix),
+        count=len(listed),
+        spots=listed,
+        swell_model=SWELL_MODEL,
+        rules=RULES,
+        derived=["spots.facing_deg", "spots.place", "spots.now.wind.relative", "spots.now.tide", "spots.now.rating", "spots.best_slot"],
+        stale=stale,
+        attribution=credit_text(*SURF),
+    )
+
+
+# The last overview worked out: the answers it was made from, the hour, and the overview.
+_overview_memo: Optional[tuple[object, object, int, SurfOverview]] = None
+
+
+async def overview(collector: SurfForecastCollector, now_unix: float) -> SurfOverview:
+    """Every spot in short. ``NoSurfForecast`` when the swell of no spot can be had."""
+    global _overview_memo
+    points = tuple((raw["id"], raw["lat"], raw["lon"]) for raw in spot_file()["spots"])
+    swell, wind = await asyncio.gather(
+        collector.fetch_all("swell", points), collector.fetch_all("wind", points), return_exceptions=True
+    )
+    if isinstance(swell, BaseException):
+        raise NoSurfForecast(f"the wave model gave no answer for the spots ({type(swell).__name__})")
+    swell_data, swell_stale = swell
+    wind_data: Optional[dict[str, dict[str, Any]]] = None
+    wind_stale = False
+    if not isinstance(wind, BaseException):
+        wind_data, wind_stale = wind
+    hour = int(now_unix // HOUR)
+    memo = _overview_memo
+    if memo is not None and memo[0] is swell_data and memo[1] is wind_data and memo[2] == hour:
+        return memo[3]
+    # 51 spots of tide and rating: a fraction of a second of numpy, in a worker thread.
+    built = await clock.run_blocking(build_overview, swell_data, wind_data, now_unix, swell_stale or wind_stale)
+    _overview_memo = (swell_data, wind_data, hour, built)
+    return built
+
+
+__all__ = [
+    "MARINE_MODEL",
+    "MAX_DAYS",
+    "NoSurfForecast",
+    "UnknownSpot",
+    "build_forecast",
+    "build_overview",
+    "forecast",
+    "find_spot",
+    "overview",
+    "spots",
+]
