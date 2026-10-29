@@ -1,0 +1,1238 @@
+{
+ "built_utc": "2026-10-29T07:18:06Z",
+ "source": "OpenStreetMap, through the Overpass API (tools/build_spots.py)",
+ "licence": "ODbL-1.0",
+ "attribution": "© OpenStreetMap contributors",
+ "derived": [
+  "facing_deg",
+  "place",
+  "id"
+ ],
+ "spots": [
+  {
+   "id": "trevou-treguignec-plage-de-trestel",
+   "name": "Plage de Trestel",
+   "place": "Trévou-Tréguignec",
+   "lat": 48.8225,
+   "lon": -3.3552,
+   "facing_deg": 322,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "node/5843735745",
+   "evidence": [
+    {
+     "osm": "node/11080650650",
+     "name": "École de Surf",
+     "kind": "school"
+    },
+    {
+     "osm": "node/5843735745",
+     "name": null,
+     "kind": "spot"
+    }
+   ]
+  },
+  {
+   "id": "perros-guirec-plage-de-trestraou",
+   "name": "Plage de Trestraou",
+   "place": "Perros-Guirec",
+   "lat": 48.8171,
+   "lon": -3.454,
+   "facing_deg": 349,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/121675782",
+   "evidence": [
+    {
+     "osm": "node/7894508171",
+     "name": "Seven Island Surf Club",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "locquirec-plage-de-porz-ar-villiec",
+   "name": "Plage de Porz ar Villiec",
+   "place": "Locquirec",
+   "lat": 48.6941,
+   "lon": -3.6479,
+   "facing_deg": 350,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/228737713",
+   "evidence": [
+    {
+     "osm": "node/7603589196",
+     "name": "Surfplaya",
+     "kind": "school"
+    },
+    {
+     "osm": "way/228737713",
+     "name": "Plage de Porz ar Villiec",
+     "kind": "spot"
+    }
+   ]
+  },
+  {
+   "id": "mogueriec-mogueric",
+   "name": "Mogueric",
+   "place": "Moguériec",
+   "lat": 48.6935,
+   "lon": -4.0874,
+   "facing_deg": 357,
+   "beach_surface": null,
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "node/1390570470",
+   "evidence": [
+    {
+     "osm": "node/1390570470",
+     "name": "Mogueric",
+     "kind": "spot"
+    }
+   ]
+  },
+  {
+   "id": "locquirec-plage-du-moulin-de-la-rive",
+   "name": "Plage du Moulin de la Rive",
+   "place": "Locquirec",
+   "lat": 48.6874,
+   "lon": -3.6767,
+   "facing_deg": 330,
+   "beach_surface": null,
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/396094896",
+   "evidence": [
+    {
+     "osm": "way/396094896",
+     "name": "Plage du Moulin de la Rive",
+     "kind": "spot"
+    }
+   ]
+  },
+  {
+   "id": "saint-malo-plage-de-rochebonne",
+   "name": "Plage de Rochebonne",
+   "place": "Saint-Malo",
+   "lat": 48.6661,
+   "lon": -1.9928,
+   "facing_deg": 293,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/142301906",
+   "evidence": [
+    {
+     "osm": "way/142301906",
+     "name": "Plage de Rochebonne",
+     "kind": "spot"
+    },
+    {
+     "osm": "way/94674148",
+     "name": "Hina Surf",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "sables-d-or-les-pins-greve-de-minieu",
+   "name": "Grève de Minieu",
+   "place": "Sables-d'Or-les-Pins",
+   "lat": 48.6444,
+   "lon": -2.4073,
+   "facing_deg": 358,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/46505869",
+   "evidence": [
+    {
+     "osm": "way/316601097",
+     "name": "Armor Surf School",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "saint-lunaire-plage-de-longchamp",
+   "name": "Plage de Longchamp",
+   "place": "Saint-Lunaire",
+   "lat": 48.6368,
+   "lon": -2.1223,
+   "facing_deg": 329,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/290703254",
+   "evidence": [
+    {
+     "osm": "node/11463519537",
+     "name": "Emeraude Surf School",
+     "kind": "school"
+    },
+    {
+     "osm": "node/11463560143",
+     "name": "Surf Harmony",
+     "kind": "school"
+    },
+    {
+     "osm": "way/290703254",
+     "name": "Plage de Longchamp",
+     "kind": "spot"
+    }
+   ]
+  },
+  {
+   "id": "tremenac-h-greve-blanche",
+   "name": "Grève Blanche",
+   "place": "Tremenac'h",
+   "lat": 48.6296,
+   "lon": -4.5296,
+   "facing_deg": 355,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "node/7148158745",
+   "evidence": [
+    {
+     "osm": "node/14078262998",
+     "name": "Surfing des Abers",
+     "kind": "school"
+    },
+    {
+     "osm": "node/7148158745",
+     "name": "Spor de surf la grève blanche",
+     "kind": "spot"
+    }
+   ]
+  },
+  {
+   "id": "argenton-penfoul",
+   "name": "Penfoul",
+   "place": "Argenton",
+   "lat": 48.531,
+   "lon": -4.7515,
+   "facing_deg": 346,
+   "beach_surface": null,
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/107372651",
+   "evidence": [
+    {
+     "osm": "node/2737126520",
+     "name": "Sweetspot - École de surf",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "locmaria-plouzane-plage-du-minou",
+   "name": "Plage du Minou",
+   "place": "Locmaria-Plouzané",
+   "lat": 48.3382,
+   "lon": -4.6169,
+   "facing_deg": 208,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/401782732",
+   "evidence": [
+    {
+     "osm": "way/401782732",
+     "name": "Plage du Minou",
+     "kind": "spot"
+    },
+    {
+     "osm": "way/42619346",
+     "name": "Minou Surf Club",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "camaret-sur-mer-plage-de-pen-hat",
+   "name": "Plage de Pen Hat",
+   "place": "Camaret-sur-Mer",
+   "lat": 48.2755,
+   "lon": -4.6181,
+   "facing_deg": 230,
+   "beach_surface": null,
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "node/7204452693",
+   "evidence": [
+    {
+     "osm": "node/7204452693",
+     "name": "Pen Hat break",
+     "kind": "spot"
+    }
+   ]
+  },
+  {
+   "id": "plogoff-plage-des-trepasses",
+   "name": "Plage des Trépassés",
+   "place": "Plogoff",
+   "lat": 48.0464,
+   "lon": -4.707,
+   "facing_deg": 298,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "node/7204448240",
+   "evidence": [
+    {
+     "osm": "node/7204448240",
+     "name": "Trépassés",
+     "kind": "spot"
+    },
+    {
+     "osm": "way/156788394",
+     "name": "École de Surf de Bretagne - Audierne",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "primelin-dunes-du-trez-goarem",
+   "name": "Dunes du Trez Goarem",
+   "place": "Primelin",
+   "lat": 48.012,
+   "lon": -4.5977,
+   "facing_deg": 226,
+   "beach_surface": null,
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "node/7204468674",
+   "evidence": [
+    {
+     "osm": "node/7204468674",
+     "name": "Cabestan break point",
+     "kind": "spot"
+    }
+   ]
+  },
+  {
+   "id": "penhors-plage-de-penhors",
+   "name": "Plage de Penhors",
+   "place": "Penhors",
+   "lat": 47.9399,
+   "lon": -4.4039,
+   "facing_deg": 220,
+   "beach_surface": null,
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/1432324576",
+   "evidence": [
+    {
+     "osm": "node/6681139332",
+     "name": "École de Char à Voile Plein Ouest",
+     "kind": "school"
+    },
+    {
+     "osm": "node/6681139334",
+     "name": "École de Surf de Bretagne de Penhors",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "beuzec-plage-de-la-torche",
+   "name": "Plage de la Torche",
+   "place": "Beuzec",
+   "lat": 47.8432,
+   "lon": -4.3476,
+   "facing_deg": 263,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/304662418",
+   "evidence": [
+    {
+     "osm": "node/1419294504",
+     "name": "École de Surf de Bretagne (La Torche)",
+     "kind": "school"
+    },
+    {
+     "osm": "node/6701819719",
+     "name": "La Torche",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "saint-philibert-plage-de-kersidan",
+   "name": "Plage de Kersidan",
+   "place": "Saint-Philibert",
+   "lat": 47.7962,
+   "lon": -3.822,
+   "facing_deg": 178,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/259338899",
+   "evidence": [
+    {
+     "osm": "way/259338899",
+     "name": "Plage de Kersidan",
+     "kind": "spot"
+    }
+   ]
+  },
+  {
+   "id": "saint-philibert-plage-de-dourveil",
+   "name": "Plage de Dourveil",
+   "place": "Saint-Philibert",
+   "lat": 47.7937,
+   "lon": -3.812,
+   "facing_deg": 197,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/259338900",
+   "evidence": [
+    {
+     "osm": "way/259338900",
+     "name": "Plage de Dourveil",
+     "kind": "spot"
+    }
+   ]
+  },
+  {
+   "id": "le-pouldu-plage-du-kerou",
+   "name": "Plage du Kerou",
+   "place": "Le Pouldu",
+   "lat": 47.7678,
+   "lon": -3.5635,
+   "facing_deg": 209,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/27085681",
+   "evidence": [
+    {
+     "osm": "way/94539482",
+     "name": "Base de Surf",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "plouharnel-la-grande-plage",
+   "name": "La Grande Plage",
+   "place": "Plouharnel",
+   "lat": 47.5832,
+   "lon": -3.1499,
+   "facing_deg": 247,
+   "beach_surface": null,
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/38708840",
+   "evidence": [
+    {
+     "osm": "way/38708840",
+     "name": "La Grande Plage",
+     "kind": "spot"
+    }
+   ]
+  },
+  {
+   "id": "portivy-plage-de-l-isthme",
+   "name": "Plage de l'isthme",
+   "place": "Portivy",
+   "lat": 47.5517,
+   "lon": -3.1366,
+   "facing_deg": 258,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/262554328",
+   "evidence": [
+    {
+     "osm": "node/12384504563",
+     "name": "Nature School",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "le-pouliguen-plage-de-la-govelle",
+   "name": "Plage de la Govelle",
+   "place": "Le Pouliguen",
+   "lat": 47.2657,
+   "lon": -2.4568,
+   "facing_deg": 216,
+   "beach_surface": null,
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "node/4511511355",
+   "evidence": [
+    {
+     "osm": "node/4511511355",
+     "name": null,
+     "kind": "spot"
+    }
+   ]
+  },
+  {
+   "id": "saint-gilles-croix-de-vie-grande-plage",
+   "name": "Grande Plage",
+   "place": "Saint-Gilles-Croix-de-Vie",
+   "lat": 46.6839,
+   "lon": -1.936,
+   "facing_deg": 233,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/88861411",
+   "evidence": [
+    {
+     "osm": "node/5971676523",
+     "name": "Mahalo - Ecole de surf",
+     "kind": "school"
+    },
+    {
+     "osm": "node/9850616634",
+     "name": "Surfing Club Saint-Gilles",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "bretignolles-sur-mer-la-normandeliere",
+   "name": "La Normandelière",
+   "place": "Bretignolles-sur-Mer",
+   "lat": 46.6136,
+   "lon": -1.8617,
+   "facing_deg": 225,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/1112019512",
+   "evidence": [
+    {
+     "osm": "node/11092312905",
+     "name": "Atlantic Lézard",
+     "kind": "school"
+    },
+    {
+     "osm": "node/13119606092",
+     "name": "Bréti Surfschool",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "brem-sur-mer-plage-des-dunes",
+   "name": "Plage des Dunes",
+   "place": "Brem-sur-Mer",
+   "lat": 46.5974,
+   "lon": -1.8536,
+   "facing_deg": 257,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/1112019511",
+   "evidence": [
+    {
+     "osm": "node/13123766229",
+     "name": "Keep Cool Surfing",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "les-sables-d-olonne-plage-de-tanchet",
+   "name": "Plage de Tanchet",
+   "place": "Les Sables-d'Olonne",
+   "lat": 46.4802,
+   "lon": -1.7628,
+   "facing_deg": 237,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/1163062789",
+   "evidence": [
+    {
+     "osm": "way/179499916",
+     "name": "Institut Sports Océan",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "la-couarde-sur-mer-plage-du-peu-ragot",
+   "name": "Plage du Peu Ragot",
+   "place": "La Couarde-sur-Mer",
+   "lat": 46.1923,
+   "lon": -1.4368,
+   "facing_deg": 215,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/194912872",
+   "evidence": [
+    {
+     "osm": "node/12530052893",
+     "name": "Neway",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "le-bois-plage-en-re-plage-du-petit-sergent",
+   "name": "Plage du Petit Sergent",
+   "place": "Le Bois-Plage-en-Ré",
+   "lat": 46.1726,
+   "lon": -1.3827,
+   "facing_deg": 219,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/1497408061",
+   "evidence": [
+    {
+     "osm": "node/14112910418",
+     "name": "Ré Surf",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "le-grand-village-plage-plage-de-vert-bois",
+   "name": "Plage de Vert bois",
+   "place": "Le Grand-Village-Plage",
+   "lat": 45.8698,
+   "lon": -1.2587,
+   "facing_deg": 246,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "node/5826913428",
+   "evidence": [
+    {
+     "osm": "node/5826913428",
+     "name": "Take Off Surf",
+     "kind": "spot"
+    }
+   ]
+  },
+  {
+   "id": "royan-plage-de-pontaillac",
+   "name": "Plage de Pontaillac",
+   "place": "Royan",
+   "lat": 45.6254,
+   "lon": -1.0531,
+   "facing_deg": 246,
+   "beach_surface": null,
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/285355870",
+   "evidence": [
+    {
+     "osm": "way/335135269",
+     "name": "Surf Club Royan",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "lacanau-ocean-plage-centrale",
+   "name": "Plage Centrale",
+   "place": "Lacanau-Océan",
+   "lat": 45.0016,
+   "lon": -1.2023,
+   "facing_deg": 274,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/373825572",
+   "evidence": [
+    {
+     "osm": "node/1214950425",
+     "name": "HCL Océan Club",
+     "kind": "school"
+    },
+    {
+     "osm": "node/1271546015",
+     "name": "Big Mama Surf School",
+     "kind": "school"
+    },
+    {
+     "osm": "node/7667130326",
+     "name": "UCPA - École de Surf",
+     "kind": "school"
+    },
+    {
+     "osm": "node/7667130327",
+     "name": "Ocean Ride Surf School",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "lege-cap-ferret-zone-de-surf-du-grand-crohot",
+   "name": "Zone de Surf du Grand Crohot",
+   "place": "Lège-Cap-Ferret",
+   "lat": 44.798,
+   "lon": -1.2399,
+   "facing_deg": 276,
+   "beach_surface": null,
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/98871897",
+   "evidence": [
+    {
+     "osm": "way/98871897",
+     "name": "Zone de Surf du Grand Crohot",
+     "kind": "spot"
+    }
+   ]
+  },
+  {
+   "id": "le-truc-vert-zone-de-surf-du-truc-vert",
+   "name": "Zone de surf du Truc Vert",
+   "place": "Le Truc Vert",
+   "lat": 44.7135,
+   "lon": -1.2587,
+   "facing_deg": 279,
+   "beach_surface": null,
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/98874326",
+   "evidence": [
+    {
+     "osm": "way/98874326",
+     "name": "Zone de surf du Truc Vert",
+     "kind": "spot"
+    }
+   ]
+  },
+  {
+   "id": "biscarrosse-plage-la-nord",
+   "name": "La nord",
+   "place": "Biscarrosse-Plage",
+   "lat": 44.449,
+   "lon": -1.2569,
+   "facing_deg": 278,
+   "beach_surface": null,
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "node/2785641712",
+   "evidence": [
+    {
+     "osm": "node/2785641712",
+     "name": "La nord",
+     "kind": "spot"
+    }
+   ]
+  },
+  {
+   "id": "lit-et-mixe-plage-du-cap-de-l-homy",
+   "name": "Plage du Cap de L'Homy",
+   "place": "Lit-et-Mixe",
+   "lat": 44.0413,
+   "lon": -1.3407,
+   "facing_deg": 281,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/222345105",
+   "evidence": [
+    {
+     "osm": "way/126505726",
+     "name": "Esprit Océan Surf School",
+     "kind": "school"
+    },
+    {
+     "osm": "way/126505744",
+     "name": "Cap Surf Cool",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "moliets-et-maa-plage-de-la-balise",
+   "name": "Plage de la Balise",
+   "place": "Moliets-et-Maâ",
+   "lat": 43.8531,
+   "lon": -1.3926,
+   "facing_deg": 282,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/234222592",
+   "evidence": [
+    {
+     "osm": "node/4966076269",
+     "name": "École de surf et skate Soonline, location de vélo",
+     "kind": "school"
+    },
+    {
+     "osm": "node/9643502576",
+     "name": "Moliets Surf School",
+     "kind": "school"
+    },
+    {
+     "osm": "node/9645706986",
+     "name": "Maâ Surf School",
+     "kind": "school"
+    },
+    {
+     "osm": "node/9645885380",
+     "name": "Surfing Courant d'Huchet",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "moliets-et-maa-plage-des-chenes-lieges",
+   "name": "Plage des Chênes-Lièges",
+   "place": "Moliets-et-Maâ",
+   "lat": 43.8424,
+   "lon": -1.3972,
+   "facing_deg": 282,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/112619456",
+   "evidence": [
+    {
+     "osm": "node/5062236927",
+     "name": "École de Surf du Golf",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "messanges-plage-nord",
+   "name": "Plage Nord",
+   "place": "Messanges",
+   "lat": 43.817,
+   "lon": -1.4056,
+   "facing_deg": 280,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/123209213",
+   "evidence": [
+    {
+     "osm": "node/12855068667",
+     "name": "WAITEUTEU Sauvetage Côtier",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "vieux-boucau-les-bains-plage-du-nord",
+   "name": "Plage du Nord",
+   "place": "Vieux-Boucau-les-Bains",
+   "lat": 43.795,
+   "lon": -1.4128,
+   "facing_deg": 280,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/923690705",
+   "evidence": [
+    {
+     "osm": "node/5111856736",
+     "name": "École de Surf Côte Française Vieux-Boucau",
+     "kind": "school"
+    },
+    {
+     "osm": "node/5464291537",
+     "name": "Vieux Boucau Surf Club",
+     "kind": "school"
+    },
+    {
+     "osm": "node/9643185077",
+     "name": "Messanges Surf School",
+     "kind": "school"
+    },
+    {
+     "osm": "node/9643400011",
+     "name": "Naéco Ecole Multiglisse",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "vieux-boucau-les-bains-grand-plage",
+   "name": "Grand'Plage",
+   "place": "Vieux-Boucau-les-Bains",
+   "lat": 43.7879,
+   "lon": -1.4131,
+   "facing_deg": 280,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/122113061",
+   "evidence": [
+    {
+     "osm": "node/8319044615",
+     "name": "Surf Univers",
+     "kind": "school"
+    },
+    {
+     "osm": "node/8319095261",
+     "name": "École de surf Dreamlandes",
+     "kind": "school"
+    },
+    {
+     "osm": "node/8319096470",
+     "name": "Alternative Surf School",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "soorts-hossegor-plage-sud-point-d-or",
+   "name": "Plage Sud (Point d'Or)",
+   "place": "Soorts-Hossegor",
+   "lat": 43.6601,
+   "lon": -1.4448,
+   "facing_deg": 288,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/916176499",
+   "evidence": [
+    {
+     "osm": "node/12882921537",
+     "name": "Natural Surf Lodge",
+     "kind": "school"
+    },
+    {
+     "osm": "node/8499654526",
+     "name": "Surftrip Surfschool",
+     "kind": "school"
+    },
+    {
+     "osm": "node/8521144860",
+     "name": "Hossegor Surf Club",
+     "kind": "school"
+    },
+    {
+     "osm": "node/8524681526",
+     "name": "Watermansport Surfschool",
+     "kind": "school"
+    },
+    {
+     "osm": "node/8621061270",
+     "name": "Tao Magic Glisse Surfschool",
+     "kind": "school"
+    },
+    {
+     "osm": "node/8794561340",
+     "name": "Yosurf School",
+     "kind": "school"
+    },
+    {
+     "osm": "node/9642790108",
+     "name": "Spirit Surf School",
+     "kind": "school"
+    },
+    {
+     "osm": "way/917846139",
+     "name": "Darrigood Surf School",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "capbreton-plage-centrale",
+   "name": "Plage Centrale",
+   "place": "Capbreton",
+   "lat": 43.6517,
+   "lon": -1.446,
+   "facing_deg": 264,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/233344667",
+   "evidence": [
+    {
+     "osm": "node/11883865273",
+     "name": "Prévent Surf Cool",
+     "kind": "school"
+    },
+    {
+     "osm": "node/8337366689",
+     "name": "Santocha Surf Club",
+     "kind": "school"
+    },
+    {
+     "osm": "node/8364656634",
+     "name": "Ted Surf school",
+     "kind": "school"
+    },
+    {
+     "osm": "node/9681662188",
+     "name": "Capbreton Surfer School",
+     "kind": "school"
+    },
+    {
+     "osm": "way/129043434",
+     "name": "Ecole de surf Supdivision",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "ondres-plage-ondres-ocean",
+   "name": "Plage Ondres-Océan",
+   "place": "Ondres",
+   "lat": 43.5773,
+   "lon": -1.4884,
+   "facing_deg": 296,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/552158217",
+   "evidence": [
+    {
+     "osm": "node/10994935221",
+     "name": "Ondres surf académy",
+     "kind": "school"
+    },
+    {
+     "osm": "node/5406105335",
+     "name": "Go and Surf",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "ondres-plage-du-metro",
+   "name": "Plage du Métro",
+   "place": "Ondres",
+   "lat": 43.5641,
+   "lon": -1.4974,
+   "facing_deg": 297,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/512630064",
+   "evidence": [
+    {
+     "osm": "node/5406105336",
+     "name": "Surfescapade",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "biarritz-plage-de-marinella",
+   "name": "Plage de Marinella",
+   "place": "Biarritz",
+   "lat": 43.5044,
+   "lon": -1.5396,
+   "facing_deg": 296,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/183134275",
+   "evidence": [
+    {
+     "osm": "node/13470179479",
+     "name": "Le Club de la Glisse",
+     "kind": "school"
+    },
+    {
+     "osm": "node/6605238110",
+     "name": "École de surf Uhaina",
+     "kind": "school"
+    },
+    {
+     "osm": "way/1194914654",
+     "name": "Le Club de la Glisse",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "biarritz-plage-du-port-vieux",
+   "name": "Plage du Port Vieux",
+   "place": "Biarritz",
+   "lat": 43.4825,
+   "lon": -1.5679,
+   "facing_deg": 267,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/156866444",
+   "evidence": [
+    {
+     "osm": "node/10973923405",
+     "name": "La Vague Basque",
+     "kind": "school"
+    },
+    {
+     "osm": "node/6577392285",
+     "name": "Jo Moraiz Surf School",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "biarritz-plage-de-la-marbellla",
+   "name": "Plage de la Marbellla",
+   "place": "Biarritz",
+   "lat": 43.4678,
+   "lon": -1.5735,
+   "facing_deg": 309,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/249245278",
+   "evidence": [
+    {
+     "osm": "node/14222393485",
+     "name": "Marbella Surf Club",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "guethary-uhabia",
+   "name": "Uhabia",
+   "place": "Guéthary",
+   "lat": 43.4316,
+   "lon": -1.6001,
+   "facing_deg": 312,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/172947079",
+   "evidence": [
+    {
+     "osm": "node/9951918830",
+     "name": "École de surf H2O",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "guethary-harotzen-kosta",
+   "name": "Harotzen Kosta",
+   "place": "Guéthary",
+   "lat": 43.4255,
+   "lon": -1.6144,
+   "facing_deg": 349,
+   "beach_surface": null,
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/454703748",
+   "evidence": [
+    {
+     "osm": "node/7112479119",
+     "name": "École de surf Christophe Reinhardt",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "saint-jean-de-luz-grande-plage",
+   "name": "Grande Plage",
+   "place": "Saint-Jean-de-Luz",
+   "lat": 43.3913,
+   "lon": -1.6645,
+   "facing_deg": 315,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/18893856",
+   "evidence": [
+    {
+     "osm": "node/7653001257",
+     "name": "École de surf Français Hendaia",
+     "kind": "school"
+    },
+    {
+     "osm": "node/7655236613",
+     "name": "Boutique 21 - Bakun école de surf",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "hendaye-ondarraitz",
+   "name": "Ondarraitz",
+   "place": "Hendaye",
+   "lat": 43.3745,
+   "lon": -1.7743,
+   "facing_deg": 358,
+   "beach_surface": "sand",
+   "bottom": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/234073850",
+   "evidence": [
+    {
+     "osm": "node/7845921785",
+     "name": "Arteka Océan",
+     "kind": "school"
+    },
+    {
+     "osm": "node/913120839",
+     "name": "Onaka",
+     "kind": "school"
+    }
+   ]
+  }
+ ]
+}
