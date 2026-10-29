@@ -20,6 +20,10 @@ draws the coastline with the land on its left and the water on its right, so the
 near the beach, turned 90 degrees to the right. It is computed by Vigie (``derived``), over ``FACING_SPAN_M`` of coastline on
 each side of the nearest point. Two spots closer than ``MERGE_KM`` are one.
 
+A name OpenStreetMap misspells is corrected by the table ``tools/surf-spot-corrections.json`` (the element, the name as
+OpenStreetMap writes it, the corrected name, the evidence); the spot then keeps the OpenStreetMap name in ``osm_name``.
+OpenStreetMap is not edited from here, and a correction whose OpenStreetMap name has changed is not applied.
+
 What is **not** in the file, because no open source gives it: the bottom (sand, reef, rocks) under the waves, the tide and the
 swell a spot works best with. ``beach_surface`` is the ``surface`` tag of the beach (what the beach is made of), not the
 bottom. These fields stay ``null`` until someone who knows the spot gives them with a source.
@@ -46,6 +50,7 @@ import httpx
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = REPO_ROOT / "app" / "data" / "surf-spots.json"
+CORRECTIONS = Path(__file__).resolve().parent / "surf-spot-corrections.json"
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 USER_AGENT = "vigie-api build_spots (https://github.com/Axellum/vigie-api)"
 
@@ -247,6 +252,22 @@ def nearest_place(places: list[dict[str, Any]], at: Point, within_km: float = PL
     return best[1] if best is not None and best[0] <= within_km else None
 
 
+def load_corrections(path: Path = CORRECTIONS) -> dict[str, dict[str, str]]:
+    """The corrected names, by OpenStreetMap element."""
+    return {c["osm"]: c for c in json.loads(path.read_text(encoding="utf-8"))["corrections"]}
+
+
+def corrected(name: str, osm: str, corrections: dict[str, dict[str, str]]) -> tuple[str, Optional[str]]:
+    """The name of a spot, and the name OpenStreetMap gives it when the table corrects it (else ``None``)."""
+    fix = corrections.get(osm)
+    if fix is None:
+        return name, None
+    if fix["osm_name"] != name:
+        print(f"correction not applied: {osm} is now {name!r} in OpenStreetMap, not {fix['osm_name']!r}", file=sys.stderr)
+        return name, None
+    return fix["name"], name
+
+
 def coastline_ways(answer: dict[str, Any]) -> list[list[Point]]:
     return [
         [(float(p["lat"]), float(p["lon"])) for p in element.get("geometry", [])]
@@ -293,16 +314,19 @@ def build(cache_dir: Optional[Path]) -> dict[str, Any]:
 
     out: list[dict[str, Any]] = []
     used: set[str] = set()
+    corrections = load_corrections()
     for spot in sorted(merge_close(spots), key=lambda s: (-round(s["at"][0], 3), s["at"][1])):
         place = nearest_place(places, spot["at"]) or nearest_place(suburbs, spot["at"], SUBURB_KM)
-        base = slug(f"{place or ''} {spot['name']}") or slug(spot["osm"])
+        name, osm_name = corrected(spot["name"], spot["osm"], corrections)
+        base = slug(f"{place or ''} {name}") or slug(spot["osm"])
         ident, n = base, 2
         while ident in used:
             ident, n = f"{base}-{n}", n + 1
         used.add(ident)
         out.append({
             "id": ident,
-            "name": spot["name"],
+            "name": name,
+            "osm_name": osm_name,
             "place": place,
             "lat": round(spot["at"][0], 4),
             "lon": round(spot["at"][1], 4),

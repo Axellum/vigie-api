@@ -1,4 +1,4 @@
-"""Models of the surf forecast (``GET /v1/surf/spots``, ``GET /v1/surf/spots/{spot_id}``).
+"""Models of the surf forecast (``GET /v1/surf/spots``, ``GET /v1/surf/spots/{spot_id}``, ``GET /v1/surf/overview``).
 
 The swell and the wind are the providers' (Météo-France's MFWAM and Open-Meteo, through Open-Meteo); the tide is computed by
 Vigie (EOT20, as ``GET /v1/tides``). Everything else is worked out by Vigie and named in ``derived``: the facing of a spot (from the
@@ -36,7 +36,13 @@ class SpotEvidence(BaseModel):
 
 class SurfSpot(BaseModel):
     id: str
-    name: str = Field(description="The name OpenStreetMap gives the spot or its beach")
+    name: str = Field(
+        description="The name OpenStreetMap gives the spot or its beach; when `osm_name` is set, Vigie's correction of a misspelling"
+    )
+    osm_name: Optional[str] = Field(
+        default=None,
+        description="The name as OpenStreetMap writes it, when Vigie corrected it (`tools/surf-spot-corrections.json`); null otherwise",
+    )
     place: Optional[str] = Field(
         default=None, description="The nearest city, town or village OpenStreetMap names, else a suburb within 2 km (ours)"
     )
@@ -117,6 +123,57 @@ class SurfHour(BaseModel):
 class SurfSlot(BaseModel):
     time_utc: int
     rating: SurfRating
+
+
+class SurfScore(BaseModel):
+    """A rating in short: its points, what they are out of, and the criteria left out."""
+
+    points: int
+    out_of: int
+    unknown: list[Criterion]
+
+
+class SurfNow(BaseModel):
+    """The current hour of a spot, in short."""
+
+    time_utc: int
+    daylight: Optional[bool] = None
+    swell: Swell = Field(description="The primary swell")
+    wind: SurfWind
+    tide: Optional[SurfTide] = None
+    rating: Optional[SurfScore] = None
+
+
+class SurfBest(BaseModel):
+    time_utc: int
+    points: int
+    out_of: int
+
+
+class SurfSpotOverview(BaseModel):
+    id: str
+    name: str
+    place: Optional[str] = None
+    lat: float
+    lon: float
+    facing_deg: int
+    now: Optional[SurfNow] = Field(default=None, description="null when the wave model gave nothing for this spot")
+    best_slot: Optional[SurfBest] = Field(
+        default=None, description="Ours: the daylight hour of the next 72 with the best rating (the first one on a tie)"
+    )
+
+
+class SurfOverview(BaseModel):
+    generated_utc: int
+    count: int
+    spots: list[SurfSpotOverview]
+    swell_model: str
+    rules: dict[str, str] = Field(description="The thresholds of the rating, criterion by criterion (ours)")
+    derived: list[str]
+    stale: bool = False
+    limits: str = SURF_LIMITS
+    disclaimer: str = SURF_DISCLAIMER
+    attribution: str
 
 
 class SurfForecast(BaseModel):

@@ -40,6 +40,8 @@ Endpoints:
 - ``GET    /v1/sky/eclipses/{date}.geojson``: its path, central line and bands of the share of the Sun hidden (RFC 7946).
 - ``GET    /v1/surf/spots``        : The surf spots of the French Atlantic and Channel coasts (OpenStreetMap, ODbL).
 - ``GET    /v1/surf/spots/{id}``   : The hourly surf forecast of a spot (MFWAM swell, wind, tide) with a rating of ours, explained.
+- ``GET    /v1/surf/overview``     : Every spot in short: the current hour and the best slot of the next three days (one request
+                                     to the providers for all of them).
 - ``GET    /v1/experimental/prealert`` : EXPERIMENTAL, UNOFFICIAL: the pre-alert levels Vigie computes for a province of Turkey
                                      (ADR 0011); 404 unless ``VIGIE_PREALERT_TR`` is on. Not an official warning.
 - ``GET    /v1/geojson/hazards``   : IETF RFC 7946 GeoJSON (``FeatureCollection``): one point per hazard.
@@ -115,7 +117,7 @@ from app.models.schemas import (
     SnapshotResponse,
 )
 from app.models.sky import AuroraOvalCollection, AuroraResponse, EclipseDetail, EclipseList, EclipseMapCollection
-from app.models.surf import SurfForecast, SurfSpots
+from app.models.surf import SurfForecast, SurfOverview, SurfSpots
 from app.models.tides import CoastalTides, TidesResponse
 from app.models.travel import TravelCountryDetail, TravelHealth, TravelOverview
 from app.models.vigilance import (
@@ -735,6 +737,28 @@ async def get_surf_forecast(
         answer = await surf.forecast(aggregator.surf, spot_id, days, clock.wall())
     except surf.UnknownSpot:
         raise HTTPException(status_code=404, detail=f"no surf spot {spot_id!r}") from None
+    except surf.NoSurfForecast as error:
+        raise HTTPException(status_code=503, detail=str(error)) from None
+    response.headers["Cache-Control"] = SURF_CACHE
+    return answer
+
+
+@app.get(
+    "/v1/surf/overview",
+    response_model=SurfOverview,
+    tags=["Sea"],
+    responses={503: {"description": "The wave model gave no answer for the spots, and nothing is cached."}},
+    description=(
+        "Every surf spot in short, for a map or a list: the current hour (the primary swell, the wind and whether it blows from the "
+        "land, the tide, the rating of ours in points) and the best daylight slot of the next 72 hours, as `GET /v1/surf/spots/{id}"
+        "?days=3` gives them. The swell and the wind of all the spots are asked in one request each and kept 3 hours (the hourly "
+        "wind of a spot is on its own page). `now` is `null` for a spot the wave model gave nothing for. **Not for safety.**"
+    ),
+)
+async def get_surf_overview(response: Response) -> SurfOverview:
+    """Every surf spot in short."""
+    try:
+        answer = await surf.overview(aggregator.surf, clock.wall())
     except surf.NoSurfForecast as error:
         raise HTTPException(status_code=503, detail=str(error)) from None
     response.headers["Cache-Control"] = SURF_CACHE
