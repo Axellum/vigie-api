@@ -607,7 +607,8 @@ class SQLiteWALStorage:
         """Write one pass of the archive in one transaction.
 
         ``written``: the warnings new or changed since the last pass, each a row (``ARCHIVE_COLUMNS``) and its compressed payload;
-        a warning already archived keeps its first sighting. ``shapes``: the compressed shapes by hash (one per shape, whatever the
+        a warning already archived keeps its first sighting, and the issuer's words: a row without them never replaces one that has
+        them (the pass did not hold the CAP document; after a restart nothing remembers it was read). ``shapes``: the compressed shapes by hash (one per shape, whatever the
         number of warnings that share it). ``touched``: the ``(id, identifier)`` of the warnings seen again, unchanged (their last
         sighting becomes ``now_utc``). ``reads``: ``(source_key, country, day, hour bit, time)`` of the sources that answered.
         """
@@ -615,6 +616,15 @@ class SQLiteWALStorage:
             if shapes:
                 conn.executemany("INSERT OR IGNORE INTO vigilance_shapes (hash, wkb) VALUES (?, ?)", list(shapes.items()))
             for row, payload in written:
+                held = conn.execute(
+                    "SELECT rowid, has_texts FROM vigilance_archive WHERE id = ? AND identifier = ?", (row["id"], row["identifier"])
+                ).fetchone()
+                if held is not None and held[1] and not row["has_texts"]:
+                    conn.execute(
+                        "UPDATE vigilance_archive SET last_seen_utc = MAX(last_seen_utc, ?) WHERE rowid = ?",
+                        (row["last_seen_utc"], int(held[0])),
+                    )
+                    continue
                 conn.execute(_ARCHIVE_UPSERT, tuple(row[column] for column in ARCHIVE_COLUMNS))
                 found = conn.execute(
                     "SELECT rowid FROM vigilance_archive WHERE id = ? AND identifier = ?", (row["id"], row["identifier"])

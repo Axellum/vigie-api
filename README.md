@@ -331,10 +331,12 @@ the onset to the later of end and expiry, overlaps them). The newest first seen 
   for a country that is needed (a watched zone, a followed point, a recent request). `reads` says, per UTC day, in which hours each
   source was read with success for the country asked.
 - **A MeteoAlarm warning has its words when the instance had read its CAP document**, which it does only for a warning an answer
-  returns (at most 40 new ones per request): the archived item is rewritten when the document comes. A warning that ended before
-  anyone asked for its country keeps its fields without its words.
+  returns (at most 40 new ones per request): the archived item is rewritten when the document comes, and keeps its words once it has
+  them. A warning that ended before anyone asked for its country keeps its fields without its words.
 - `last_seen_utc` is right to within ten minutes. The shape of an area, when the source gives one, is kept once whatever the number
   of warnings that share it.
+- **Measured over a real day** (every served country asked every 10 minutes, 28-29 October 2026): 1,308 new warnings, 4.8 MB on
+  disk, about 1.8 GB a year at that rate ([report](docs/measurements/vigilance-archive-2026-10.md)).
 - **How long**: `VIGIE_ARCHIVE_KEEP_DAYS` (0, the default, keeps everything); `keep_days` in the answers. `GET /v1/health` reports
   `vigilance_archive` (how many warnings, since when, the last write or error).
 

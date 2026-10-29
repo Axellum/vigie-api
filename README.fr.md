@@ -352,10 +352,12 @@ archivé le 28/10/2026 (abrégé) :
   une source que pour un pays dont elle a besoin (une zone surveillée, un point suivi, une demande récente). `reads` dit, par jour UTC,
   à quelles heures chaque source a été lue avec succès pour le pays demandé.
 - **Une vigilance MeteoAlarm a ses mots quand l'instance avait lu son document CAP**, ce qu'elle ne fait que pour une vigilance
-  qu'une réponse renvoie (40 nouveaux au plus par requête) : l'élément archivé est réécrit quand le document arrive. Une vigilance
-  terminée avant que quelqu'un demande son pays garde ses champs, sans ses mots.
+  qu'une réponse renvoie (40 nouveaux au plus par requête) : l'élément archivé est réécrit quand le document arrive, et garde ses mots
+  une fois qu'il les a. Une vigilance terminée avant que quelqu'un demande son pays garde ses champs, sans ses mots.
 - `last_seen_utc` est juste à dix minutes près. La forme d'une zone, quand la source la donne, est gardée une seule fois, quel que
   soit le nombre de vigilances qui la partagent.
+- **Mesuré sur une vraie journée** (chaque pays servi demandé toutes les 10 minutes, 28-29 octobre 2026) : 1 308 nouvelles
+  vigilances, 4,8 Mo sur le disque, environ 1,8 Go par an à ce rythme ([rapport](docs/measurements/vigilance-archive-2026-10.md)).
 - **Combien de temps** : `VIGIE_ARCHIVE_KEEP_DAYS` (0, par défaut, garde tout) ; `keep_days` dans les réponses. `GET /v1/health`
   donne `vigilance_archive` (combien de vigilances, depuis quand, la dernière écriture ou erreur).
 

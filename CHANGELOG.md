@@ -43,7 +43,8 @@ All notable changes to this project are documented here. The format follows
   words untouched), with when it was first and last seen, and filtered by country, area, source, phenomenon, level and period. `reads`
   says in which hours each source was read, so that a period without a warning is not taken for a period without danger. It sends no
   request of its own. `VIGIE_ARCHIVE_KEEP_DAYS` (0: keep everything) bounds it; `GET /v1/health` reports `vigilance_archive`.
-- `tools/measure_archive.py`: what the archive takes in over a real day on a running instance.
+- `tools/measure_archive.py`: what the archive takes in over a real day on a running instance; measured on 28-29 October
+  ([report](docs/measurements/vigilance-archive-2026-10.md): about 1,300 new warnings and 4.8 MB a day for every served country).
 - **The aurora** ([ADR 0013](docs/decisions/0013-aurora-estimate.md)): `GET /v1/sky/aurora` relays four more products of NOAA SWPC as
   SWPC gives them (the OVATION 30 to 90 minute forecast, the Kp observed, estimated and predicted for three days, the solar wind at
   L1, the geomagnetic messages of the last 72 hours, text untouched), and `GET /v1/sky/aurora.geojson` draws the OVATION grid as map
@@ -89,6 +90,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **The archive of the warnings never loses the issuer's words it holds**: a pass that no longer held a MeteoAlarm warning's CAP
+  document (it had left the cache, or the instance had restarted) rewrote the archived warning without its words; it now keeps them
+  and only moves the last sighting. Found by the measure of a real day.
 - **Hazard titles are no longer cut inside a word**: a title longer than 96 characters (GDACS, NOAA NWS, USGS volcanoes, NHC,
   tsunamis) is cut at the end of a word with "…" (`short_title`); it read "… China, South Kor" for CHAMPI-26 on 28 October.
 

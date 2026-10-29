@@ -98,6 +98,25 @@ async def test_the_words_of_a_meteoalarm_warning_come_when_the_document_is_held(
     assert item.vigilance.issuer == document.issuer
 
 
+async def test_the_words_once_archived_are_never_lost(archive: VigilanceArchive, store: SQLiteWALStorage, sim_clock: SimClock) -> None:
+    """A pass without the CAP document (it left the cache, or the instance restarted) keeps the words and moves the sighting."""
+    document = samples.cap()
+    warning = next(v for v in samples.feed("FR").vigilances if v.link and v.link.endswith("b77d3bc0-76a2-4886-8da8-bac8d99f57fc"))
+    await archive.observe([("meteoalarm", "FR")], [(warning, document)], as_served)
+    sim_clock.advance(ARCHIVE_TOUCH_S + 1)
+    await archive.observe([("meteoalarm", "FR")], [(warning, None)], as_served)
+    item = (await everything(archive))[0]
+    assert item.vigilance.texts == list(document.texts)
+    assert item.last_seen_utc == int(sim_clock.time())
+    restarted = VigilanceArchive(lambda: store, keep_days=0)  # remembers nothing of the pass before
+    sim_clock.advance(60)
+    await restarted.observe([("meteoalarm", "FR")], [(warning, None)], as_served)
+    [item] = await everything(restarted)
+    assert item.vigilance.texts == list(document.texts)  # untouched
+    assert item.vigilance.issuer == document.issuer
+    assert item.last_seen_utc == int(sim_clock.time())
+
+
 async def test_the_filters(archive: VigilanceArchive) -> None:
     seen = [
         (samples.warning("FR713", identifier="a", onset=1_000, expires=2_000), None),
