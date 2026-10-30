@@ -22,12 +22,27 @@ jobs:
         python-version: ["3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: requirements.txt
+
+      # A pull request adds a file to changelog.d/ or sources.d/ and leaves CHANGELOG.md alone (a release or assemble branch edits it).
+      - name: Fragments apply, and CHANGELOG.md is not edited by hand
+        env:
+          EVENT: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          case "$EVENT:$HEAD_REF" in
+            pull_request:release/* | pull_request:assemble/*) python scripts/fragments.py --check ;;
+            pull_request:*) python scripts/fragments.py --check --base "origin/$BASE_REF" ;;
+            *) python scripts/fragments.py --check ;;
+          esac
 
       - name: Install dependencies
         run: pip install -r requirements.txt

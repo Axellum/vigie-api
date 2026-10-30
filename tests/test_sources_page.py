@@ -9,9 +9,10 @@ import pytest
 from app.attribution import CREDITS
 from app.collectors.budget import QUOTAS
 from app.collectors.swic_terms import EXCLUDED, TERMS, SwicTerms
+from scripts.fragments import sources_page_text
 from tests.helpers import make_service
 
-SOURCES_PAGE = (Path(__file__).resolve().parents[1] / "SOURCES.md").read_text(encoding="utf-8")
+SOURCES_PAGE = sources_page_text()
 
 
 @pytest.mark.parametrize("key", sorted(CREDITS))

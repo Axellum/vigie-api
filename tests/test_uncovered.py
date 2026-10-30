@@ -7,7 +7,6 @@ then names it and gives a stable code and one sentence (``app/services/uncovered
 from __future__ import annotations
 
 from collections.abc import Iterator
-from pathlib import Path
 from typing import Any, get_args
 
 import pytest
@@ -18,10 +17,11 @@ from app.models.vigilance import ReasonCode, UncoveredCountry, VigilanceCountry,
 from app.services.geoindex import default_countries
 from app.services.uncovered import COUNTRY_REASONS, EXCLUDED_REASONS, NO_SOURCE, Reason, reason_for
 from app.services.vigilance import NO_COUNTRY_NOTE, VigilanceService
+from scripts.fragments import sources_page_text
 from tests.conftest import World
 from tests.swic_samples import service_serving_everything
 
-SOURCES_PAGE = (Path(__file__).resolve().parents[1] / "SOURCES.md").read_text(encoding="utf-8")
+SOURCES_PAGE = sources_page_text()
 TOKYO = (35.6762, 139.6503)
 SYDNEY = (-33.8688, 151.2093)
 BEIJING = (39.9042, 116.4074)
