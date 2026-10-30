@@ -6,14 +6,13 @@ also gets a line here, so no source joins without saying whether its terms allow
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from app.attribution import AIR_QUALITY, CREDITS, FLOOD, MARINE, OPEN_METEO_WEATHER, PREALERT, SURF
 from app.commercial import COMMERCIAL_USE, commercial_status
+from scripts.fragments import sources_page_text
 
-SOURCES_PAGE = (Path(__file__).resolve().parents[1] / "SOURCES.md").read_text(encoding="utf-8")
+SOURCES_PAGE = sources_page_text()
 WORDS = {"allowed": "**allowed**", "forbidden": "**forbidden**", "not_verified": "not verified"}
 
 

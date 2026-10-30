@@ -13,6 +13,8 @@ displays (separate repository, `vigie-display`) through a text frame. Read
 ```
 python -m pytest                          # all tests, no network
 python -m ruff check .                    # lint (CI runs it)
+python scripts/fragments.py --check        # the fragments of changelog.d/ and sources.d/ are valid and apply (CI runs it)
+python scripts/prochain_adr.py            # the next free ADR number, read on origin/main and in the open pull requests
 scripts\run.ps1                           # run the API on Windows (port 8080)
 python tools/capture_frame.py out.txt     # write a REAL frame from the live providers
 python tools/check_live_feeds.py          # ask each real provider once (the weekly live-feeds workflow does it)
@@ -59,7 +61,13 @@ owner (no `&&`).
    rhythm, with the evidence in [`docs/data-sources.md`](docs/data-sources.md). Do not send a
    request around these. `tests/test_call_sobriety.py` replays a day of 1,000 clients and fails if
    the Open-Meteo quota would be exceeded.
-10. Add a line to [`CHANGELOG.md`](CHANGELOG.md) (`[Unreleased]`) for any user-visible change.
+10. **Changelog and sources by fragments.** Do not edit [`CHANGELOG.md`](CHANGELOG.md) in a pull request, nor add or change a row of a
+    table of [`SOURCES.md`](SOURCES.md): every parallel pull request used to conflict on them. For a user-visible change add one
+    file to [`changelog.d/`](changelog.d/README.md) (`<slug>.<added|changed|fixed|...>.md`, one bullet); for a source row, one file
+    to [`sources.d/`](sources.d/README.md) (the section, the row, and the row it replaces if any). The tests read `SOURCES.md` with
+    the fragments applied (`sources_page_text()`), CI runs `python scripts/fragments.py --check --base origin/main` and fails a
+    pull request that edits `CHANGELOG.md`; a `release/` or `assemble/` branch puts the fragments in with
+    `python scripts/fragments.py --write [--release X.Y.Z]`. A change of prose in `SOURCES.md` is still edited there.
 11. **Credit every source.** A new source or block of data gets its credit text in `app/attribution.py`,
     an `attribution` field, and a row in [`SOURCES.md`](SOURCES.md) (`tests/test_sources_page.py` checks they
     match). The compact frame has no credit field. Write a text that is not the provider's own as "ours" and
@@ -108,3 +116,7 @@ owner (no `&&`).
     text and a date are the ministry's, untouched; the country code, `part`, the common scale and the comparison are Vigie's, named in
     `derived`, never an official level. No shape is made from a text. A destination no table of `app/collectors/travel_codes.py` places
     is counted, never guessed. A ministry whose feed is not open (Germany, France) is not scraped: it is listed with the reason.
+19. **ADR numbers are never taken from your own checkout.** Two parallel sessions took "the next free number" and four ADRs were
+    merged with two numbers (2026-10-28). Run `python scripts/prochain_adr.py` (it reads `origin/main` and every open pull request;
+    exit 3 means it could not read them, so do not trust the number), reserve that number where the sessions coordinate before
+    writing, and give the file this number from its first commit. `tests/test_fragments.py` fails on two ADR files with one number.

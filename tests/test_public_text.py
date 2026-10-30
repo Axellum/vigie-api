@@ -20,7 +20,9 @@ PUBLIC_FILES = sorted(
         *ROOT.glob("docs/**/*.md"),
         *(ROOT / "app").rglob("*.py"),
         *(ROOT / "tools").glob("*.py"),
-        *(ROOT / "scripts").glob("*"),
+        *(path for path in (ROOT / "scripts").glob("*") if path.is_file()),  # not __pycache__
+        *ROOT.glob("changelog.d/*.md"),
+        *ROOT.glob("sources.d/*.md"),
         ROOT / "Dockerfile",
         ROOT / "pyproject.toml",
         *(ROOT / ".github").rglob("*.yml"),
