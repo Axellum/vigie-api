@@ -66,6 +66,9 @@ AU_URL = "https://www.smartraveller.gov.au/destinations-export"
 # Smartraveller's server lets no answer through to a User-Agent that holds an address: with a URL or an e-mail in it (the
 # contact of ``VIGIE_CONTACT``) the request waits until it times out, with ``vigie-api``, ``vigie-api/1.1.0`` or
 # ``vigie-api (personal project)`` it is answered at once (measured on 2026-10-28). It is sent the name alone.
+# The User-Agent is not all it looks at (measured on 2026-11-01, from one address, with this name): Python with OpenSSL 3.0 is
+# answered at once, Python with OpenSSL 3.5 (the container image) waits until it times out, and so does curl. Its protection
+# tells clients apart by how they open the connection; Vigie does not imitate another client to get through it.
 AU_USER_AGENT = "vigie-api"
 NL_URL = "https://opendata.nederlandwereldwijd.nl/v2/sources/nederlandwereldwijd/infotypes/traveladvice"
 NL_PAGE_SIZE = 200  # the most the feed gives in one answer (rows=200)

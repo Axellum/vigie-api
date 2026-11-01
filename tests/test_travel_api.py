@@ -204,6 +204,40 @@ async def test_a_ministry_still_loading_does_not_hold_the_answer(tmp_path: Path,
 
 
 @pytest.mark.asyncio
+async def test_a_ministry_that_times_out_every_time_says_unavailable_not_loading(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Smartraveller seen on 2026-11-01: each request waits longer than the answer does, then times out.
+    monkeypatch.setattr(service_module, "WAIT_S", 0.05)
+    hosts = recorded_hosts()
+    release = asyncio.Event()
+    answer = False
+
+    async def slow_au(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "www.smartraveller.gov.au":
+            await release.wait()
+            if not answer:
+                raise httpx.ReadTimeout("", request=request)
+        return hosts(request)
+
+    def au(overview):  # type: ignore[no-untyped-def]
+        return next(m for m in overview.ministries if m.id == "au")
+
+    travel = make_travel(tmp_path, slow_au)  # type: ignore[arg-type]
+    assert au(await travel.overview()).state == "loading"  # the first read is running
+    release.set()
+    await asyncio.sleep(0.05)  # it times out
+    release.clear()
+    overview = await travel.overview()  # a new read is running, after one that failed
+    assert au(overview).state == "unavailable" and au(overview).advices == 0
+    assert all(a.ministry != "au" for c in overview.countries for a in c.advices)
+    answer = True
+    release.set()
+    await asyncio.sleep(0.05)
+    assert au(await travel.overview()).state == "ok"
+
+
+@pytest.mark.asyncio
 async def test_without_the_fcdo_its_kept_pages_are_served_and_said_to_be_kept(tmp_path: Path) -> None:
     await make_travel(tmp_path).overview()
     hosts = recorded_hosts()
