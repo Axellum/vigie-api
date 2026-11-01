@@ -10,7 +10,8 @@ scale (the FCDO's "no advice against travel" is 1 to 2); two ministries **disagr
 the number of steps between them. It never changes or replaces a ministry's level, and it is never called official.
 
 A ministry whose first read takes long (the FCDO's 226 pages, once in the life of a database) does not hold the answer: after
-``WAIT_S`` the answer is given without it, the ministry says ``loading``, and the read goes on.
+``WAIT_S`` the answer is given without it, the ministry says ``loading`` (``unavailable`` when its last read failed), and the read
+goes on.
 """
 
 from __future__ import annotations
@@ -248,7 +249,9 @@ class TravelService:
             pending = collector.fetch_ex("feed")
             fetched = await (asyncio.wait_for(pending, wait_s) if wait_s is not None else pending)
         except asyncio.TimeoutError:
-            return self._kept(collector, "loading")
+            # Still running: the first read, or a new try after a read that failed (a ministry that times out every time would
+            # otherwise say "loading" for ever).
+            return self._kept(collector, "unavailable" if collector.consecutive_failures else "loading")
         except CollectorUnavailableError:
             return self._kept(collector, "unavailable")
         feed = fetched.value

@@ -158,7 +158,8 @@ class TravelMinistry(BaseModel):
         description=(
             "For a ministry that is read: `ok`; `stale` (the last answer: the ministry did not answer again); `loading` (the first "
             "read is still running: ask again in a minute); `kept` (the FCDO did not answer: the pages read before are served, each "
-            "with the date it was last confirmed); `unavailable`"
+            "with the date it was last confirmed); `unavailable` (its last read failed and nothing read before is served, even when "
+            "a new read is running)"
         ),
     )
     advices: Optional[int] = Field(default=None, description="How many advices of this ministry are in the answer")
