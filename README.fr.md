@@ -2,13 +2,37 @@
 
 *[Read this document in English](README.md)*
 
+Les vigilances météo officielles et les dangers naturels du monde entier, rassemblés à partir de sources publiques
+et servis par une seule API : JSON, GeoJSON, OASIS CAP 1.2, ou une trame texte compacte pour les petits écrans.
+
 **Démo en ligne : [vigie.auxfilsdesidees.fr](https://vigie.auxfilsdesidees.fr)**, le site Vigie, tourne sur cette
-API ([vigie-web](https://github.com/Axellum/vigie-web)).
+API ([vigie-web](https://github.com/Axellum/vigie-web)). [Essayer](#essayer) · [Points d'accès](#points-daccès) ·
+[Lancer la vôtre](#lancer) · [Home Assistant](#home-assistant) · [Licence et données](#licence-données-et-crédits)
+
+| Le site, [vigie-web](https://github.com/Axellum/vigie-web) | Un écran sans Home Assistant, [vigie-display](https://github.com/Axellum/vigie-display) |
+| :---: | :---: |
+| ![La carte du monde du site Vigie : le point du moment, les alertes les plus fortes d'abord, les dangers sur la carte](docs/images/website-fr.png) | ![L'écran Vigie sur une Waveshare ESP32-P4 de 7 pouces : carte des dangers, liste des alertes et météo locale](docs/images/display-fr.png) |
 
 Un projet personnel, fait avec l'aide de l'IA et partagé au cas où il servirait à quelqu'un. Il est fourni
-tel quel, sans aucune promesse de support, de disponibilité ni d'exactitude.
+tel quel, sans aucune promesse de support, de disponibilité ni d'exactitude. Ce n'est pas un service d'alerte
+officiel : suivez les avertissements des autorités de votre pays ([avant de vous y fier](#avant-de-vous-y-fier)).
 
-Il rassemble des dangers naturels dans le monde (séismes, tsunamis, volcans, cyclones, tornades,
+## Essayer
+
+L'instance publique qui sert le site répond aux routes de lecture, sans clé :
+
+```
+curl "https://vigie.auxfilsdesidees.fr/v1/vigilances?lat=44.9334&lon=4.8924"   # les vigilances officielles en cours en un point
+curl "https://vigie.auxfilsdesidees.fr/v1/geojson/hazards"                     # les dangers actifs du monde, en GeoJSON
+curl "https://vigie.auxfilsdesidees.fr/v1/vigilances/countries"                # les pays servis, et le service de chacun
+```
+
+C'est un petit serveur personnel, avec une limite par adresse : de quoi essayer l'API ou alimenter un écran chez
+soi, pas de quoi bâtir un service. Pour ça, [lancez la vôtre](#lancer) (image Docker, ou Python sous Windows et Linux).
+
+## Ce qu'elle rassemble
+
+Elle rassemble des dangers naturels dans le monde (séismes, tsunamis, volcans, cyclones, tornades,
 inondations, incendies, orages géomagnétiques), de la météo (conditions actuelles, pluie à 15 minutes,
 prévisions, mer, débit des rivières, qualité de l'air) et les vigilances officielles des services nationaux
 (MeteoAlarm en Europe, le Deutscher Wetterdienst en Allemagne, Environnement et Changement climatique Canada,
@@ -27,6 +51,8 @@ France) à partir de sources publiques, puis les sert :
 Elle suit les normes internationales : GeoJSON (IETF RFC 7946), OASIS CAP 1.2 pour les vigilances, niveaux et textes
 des services émetteurs laissés tels quels, services nationaux du registre de l'OMM, horodatage en UTC.
 
+## Avant de vous y fier
+
 > **Ce n'est pas un service d'alerte officiel.** Les alertes sont relayées depuis des flux publics. Elles
 > peuvent arriver en retard, être incomplètes ou fausses, et ne doivent pas être la seule base d'une
 > décision. **Les alertes de GDACS sont automatiques et ne remplacent pas les alertes officielles.**
@@ -36,41 +62,6 @@ des services émetteurs laissés tels quels, services nationaux du registre de l
 > (`null` en JSON, champ vide dans la trame). Elle n'affiche jamais une valeur par défaut qui aurait l'air
 > plausible. Voir l'[ADR 0001](docs/decisions/0001-two-repos-no-fabricated-data-frame-format.md)
 > (en anglais).
-
-## Licence, données et crédits
-
-Le code est sous [licence MIT](LICENSE). **Les données n'en font pas partie** : elles appartiennent à
-chaque fournisseur et restent soumises à ses propres conditions. [`SOURCES.md`](SOURCES.md) (en anglais)
-donne, pour chaque source, la licence, les conditions, le crédit demandé, le quota, et ce qui n'a pas pu
-être vérifié.
-
-- Chaque bloc de données des réponses JSON porte un champ `attribution` avec le crédit que sa source
-  demande (la trame compacte n'a pas ce champ). Les textes sont déclarés dans
-  [`app/attribution.py`](app/attribution.py).
-- Ce que les conditions de chaque source disent de l'**usage commercial** (pour l'appli payante à venir : le site et
-  cette API restent gratuits) est déclaré une seule fois dans [`app/commercial.py`](app/commercial.py) et listé dans
-  [`SOURCES.md`](SOURCES.md#commercial-use-for-the-paid-app-to-come) : permis, interdit ou non vérifié. Une nouvelle
-  source ne peut pas entrer sans sa ligne (un test échoue).
-- **L'API gratuite d'Open-Meteo ne peut être utilisée qu'à des fins non commerciales**
-  ([conditions](https://open-meteo.com/en/terms)), dans la limite de 10 000 appels par jour, avec un lien
-  vers Open-Meteo partout où ses données sont affichées. Ce projet est personnel et non commercial.
-  **Ne l'utilisez pas à des fins commerciales sans abonnement payant à Open-Meteo**, et vérifiez les
-  conditions des autres fournisseurs.
-- L'API gratuite de RainViewer est réservée à un usage personnel et pédagogique. Désactivez-la sur une
-  instance qui relaie ses données à d'autres personnes (`VIGIE_ENABLE_RAINVIEWER=0` ; l'image Docker le
-  fait).
-- MetService (Nouvelle-Zélande) publie ses vigilances sous licence CC BY 4.0 et avec un code de bonne pratique, mais les
-  conditions du site auxquelles il renvoie n'autorisent qu'un usage personnel et interdisent la rediffusion. Aucun
-  souci pour une maison ; demandez à MetService avant de relayer ses vigilances à d'autres personnes, ou désactivez-la
-  sur une instance qui en sert (`VIGIE_ENABLE_METSERVICE=0` ; activée par défaut, l'image Docker la garde activée)
-  ([`SOURCES.md`](SOURCES.md)).
-- Le fichier des failles actives nommées (`app/data/gem-active-faults.geojson.gz`, utilisé pour `near_places`) est sous **CC BY-SA 4.0**
-  (GEM Global Active Faults Database, Styron et Pagani 2020), pas MIT : partage dans les mêmes conditions, avec sa notice à côté
-  ([`app/data/README.md`](app/data/README.md), [`SOURCES.md`](SOURCES.md)).
-- Les services nationaux du registre de l'OMM (`VIGIE_WMO_SOURCES`) : ce sont les conditions de chaque émetteur qui comptent,
-  et la plupart n'ont pas été trouvées ou limitent la copie. Le réglage par défaut ne lit que les 7 dont les conditions
-  propres ont été lues et permettent de les relayer ; `all` est pour une instance que son propriétaire est seul à utiliser.
-  Hong Kong et la Chine ne sont jamais lus ([`SOURCES.md`](SOURCES.md)).
 
 ## Points d'accès
 
@@ -886,6 +877,41 @@ NHC et les centres d'alerte aux tsunamis compris). Une exécution rouge
 Licence, conditions, crédit, quota et clauses de chaque source, et ce qui n'est pas vérifié :
 [`SOURCES.md`](SOURCES.md). Comment chacune est mise en cache et ce qu'elle coûte en appels :
 [`docs/data-sources.md`](docs/data-sources.md).
+
+## Licence, données et crédits
+
+Le code est sous [licence MIT](LICENSE). **Les données n'en font pas partie** : elles appartiennent à
+chaque fournisseur et restent soumises à ses propres conditions. [`SOURCES.md`](SOURCES.md) (en anglais)
+donne, pour chaque source, la licence, les conditions, le crédit demandé, le quota, et ce qui n'a pas pu
+être vérifié.
+
+- Chaque bloc de données des réponses JSON porte un champ `attribution` avec le crédit que sa source
+  demande (la trame compacte n'a pas ce champ). Les textes sont déclarés dans
+  [`app/attribution.py`](app/attribution.py).
+- Ce que les conditions de chaque source disent de l'**usage commercial** (pour l'appli payante à venir : le site et
+  cette API restent gratuits) est déclaré une seule fois dans [`app/commercial.py`](app/commercial.py) et listé dans
+  [`SOURCES.md`](SOURCES.md#commercial-use-for-the-paid-app-to-come) : permis, interdit ou non vérifié. Une nouvelle
+  source ne peut pas entrer sans sa ligne (un test échoue).
+- **L'API gratuite d'Open-Meteo ne peut être utilisée qu'à des fins non commerciales**
+  ([conditions](https://open-meteo.com/en/terms)), dans la limite de 10 000 appels par jour, avec un lien
+  vers Open-Meteo partout où ses données sont affichées. Ce projet est personnel et non commercial.
+  **Ne l'utilisez pas à des fins commerciales sans abonnement payant à Open-Meteo**, et vérifiez les
+  conditions des autres fournisseurs.
+- L'API gratuite de RainViewer est réservée à un usage personnel et pédagogique. Désactivez-la sur une
+  instance qui relaie ses données à d'autres personnes (`VIGIE_ENABLE_RAINVIEWER=0` ; l'image Docker le
+  fait).
+- MetService (Nouvelle-Zélande) publie ses vigilances sous licence CC BY 4.0 et avec un code de bonne pratique, mais les
+  conditions du site auxquelles il renvoie n'autorisent qu'un usage personnel et interdisent la rediffusion. Aucun
+  souci pour une maison ; demandez à MetService avant de relayer ses vigilances à d'autres personnes, ou désactivez-la
+  sur une instance qui en sert (`VIGIE_ENABLE_METSERVICE=0` ; activée par défaut, l'image Docker la garde activée)
+  ([`SOURCES.md`](SOURCES.md)).
+- Le fichier des failles actives nommées (`app/data/gem-active-faults.geojson.gz`, utilisé pour `near_places`) est sous **CC BY-SA 4.0**
+  (GEM Global Active Faults Database, Styron et Pagani 2020), pas MIT : partage dans les mêmes conditions, avec sa notice à côté
+  ([`app/data/README.md`](app/data/README.md), [`SOURCES.md`](SOURCES.md)).
+- Les services nationaux du registre de l'OMM (`VIGIE_WMO_SOURCES`) : ce sont les conditions de chaque émetteur qui comptent,
+  et la plupart n'ont pas été trouvées ou limitent la copie. Le réglage par défaut ne lit que les 7 dont les conditions
+  propres ont été lues et permettent de les relayer ; `all` est pour une instance que son propriétaire est seul à utiliser.
+  Hong Kong et la Chine ne sont jamais lus ([`SOURCES.md`](SOURCES.md)).
 
 ## Documentation
 

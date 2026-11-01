@@ -2,11 +2,35 @@
 
 *[Lire ce document en français](README.fr.md)*
 
+Official weather warnings and natural hazards from around the world, gathered from public sources and served by
+one API: JSON, GeoJSON, OASIS CAP 1.2, or a compact text frame for small screens.
+
 **Live demo: [vigie.auxfilsdesidees.fr](https://vigie.auxfilsdesidees.fr)**, the Vigie website, runs on this API
-([vigie-web](https://github.com/Axellum/vigie-web)).
+([vigie-web](https://github.com/Axellum/vigie-web)). [Try it](#try-it) · [Endpoints](#endpoints) ·
+[Run your own](#run) · [Home Assistant](#home-assistant) · [Licence and data](#licence-data-and-credits)
+
+| The website, [vigie-web](https://github.com/Axellum/vigie-web) | A screen without Home Assistant, [vigie-display](https://github.com/Axellum/vigie-display) |
+| :---: | :---: |
+| ![The world map of the Vigie website: the point of the moment, the alerts the strongest first, the hazards on the map](docs/images/website-en.png) | ![The Vigie screen on a Waveshare ESP32-P4 7-inch display: world map of the hazards, alert list and local weather](docs/images/display-en.png) |
 
 A personal project, made with the help of AI and shared in case it helps someone. It comes as is, with
-no promise of support, availability or accuracy.
+no promise of support, availability or accuracy. It is not an official warning service: follow the warnings
+of your national authorities ([before you rely on it](#before-you-rely-on-it)).
+
+## Try it
+
+The public instance behind the website answers the read routes, with no key:
+
+```
+curl "https://vigie.auxfilsdesidees.fr/v1/vigilances?lat=44.9334&lon=4.8924"   # the official warnings in force at a point
+curl "https://vigie.auxfilsdesidees.fr/v1/geojson/hazards"                     # the active hazards of the world, GeoJSON
+curl "https://vigie.auxfilsdesidees.fr/v1/vigilances/countries"                # the countries served, and the service for each
+```
+
+It is one small personal server with a limit per address: enough to try the API or feed a screen at home, not
+to build a service on. For that, [run your own](#run) (a Docker image, or Python on Windows and Linux).
+
+## What it gathers
 
 It gathers world natural hazards (earthquakes, tsunamis, volcanoes, cyclones, tornadoes, floods, fires,
 geomagnetic storms), weather (current conditions, 15-minute rain, forecast, marine, river discharge,
@@ -26,6 +50,8 @@ Service in the United States, and Vigicrues for the rivers of France) from publi
 It sticks to the international standards: GeoJSON (IETF RFC 7946), OASIS CAP 1.2 for the warnings, the levels and
 words of the issuing services left as they are, the national services listed in the WMO registry, UTC timestamps.
 
+## Before you rely on it
+
 > **This is not an official warning service.** The alerts are relayed from public feeds. They can be
 > late, incomplete or wrong, and must not be the only thing a decision rests on. **GDACS alerts are
 > automatic and do not replace official warnings.** Follow the warnings of your national authorities.
@@ -33,36 +59,6 @@ words of the issuing services left as they are, the national services listed in 
 > **No fabricated data.** When a provider does not supply a value, the API reports it as unknown
 > (`null` in JSON, an empty field in the frame). It never shows a plausible default. See
 > [ADR 0001](docs/decisions/0001-two-repos-no-fabricated-data-frame-format.md).
-
-## Licence, data and credits
-
-The code is under the [MIT licence](LICENSE). **The data is not covered by it**: it belongs to each
-provider and stays under that provider's own terms. [`SOURCES.md`](SOURCES.md) lists, for each source,
-the licence, the terms, the credit it asks for, its quota, and what could not be verified.
-
-- Every block of data in the JSON responses carries an `attribution` field with the credit its source
-  asks for (the compact frame has no such field). The texts are declared in
-  [`app/attribution.py`](app/attribution.py).
-- Whether each source's terms allow **commercial use** (for the paid app to come: the website and this API stay
-  free) is declared once in [`app/commercial.py`](app/commercial.py) and listed in
-  [`SOURCES.md`](SOURCES.md#commercial-use-for-the-paid-app-to-come): allowed, forbidden or not verified. A new source
-  cannot be added without its line (a test fails).
-- **Open-Meteo's free API may only be used for non-commercial purposes**
-  ([terms](https://open-meteo.com/en/terms)), within 10,000 calls a day, with a link to Open-Meteo wherever
-  its data is shown. This project is personal and non-commercial. **Do not use it commercially without
-  a paid Open-Meteo plan**, and check the terms of the other providers.
-- RainViewer's free API is for personal and educational use only. Turn it off on an instance that relays
-  its data to others (`VIGIE_ENABLE_RAINVIEWER=0`; the Docker image does).
-- MetService (New Zealand) publishes its warnings as CC BY 4.0 under a Code of Practice, but the website terms it points
-  to allow personal use only and forbid resupply. Fine for one home; ask MetService before relaying its warnings to
-  other people, or turn it off on an instance that serves them (`VIGIE_ENABLE_METSERVICE=0`; on by default, the Docker
-  image keeps it on) ([`SOURCES.md`](SOURCES.md)).
-- The file of named active faults (`app/data/gem-active-faults.geojson.gz`, used for `near_places`) is **CC BY-SA 4.0**
-  (GEM Global Active Faults Database, Styron and Pagani 2020), not MIT: share-alike, with its notice beside it
-  ([`app/data/README.md`](app/data/README.md), [`SOURCES.md`](SOURCES.md)).
-- The national services of the WMO registry (`VIGIE_WMO_SOURCES`): the terms of each issuer count, and most were not found or
-  restrict copying. The default reads only the 7 whose own terms were read and allow relaying them; `all` is for an instance
-  that only its owner uses. Hong Kong and China are never read ([`SOURCES.md`](SOURCES.md)).
 
 ## Endpoints
 
@@ -855,6 +851,36 @@ CI (`.github/workflows/`):
 
 Licence, terms, credit, quota and clauses of each source, and what is not verified: [`SOURCES.md`](SOURCES.md).
 How each one is cached and what it costs in calls: [`docs/data-sources.md`](docs/data-sources.md).
+
+## Licence, data and credits
+
+The code is under the [MIT licence](LICENSE). **The data is not covered by it**: it belongs to each
+provider and stays under that provider's own terms. [`SOURCES.md`](SOURCES.md) lists, for each source,
+the licence, the terms, the credit it asks for, its quota, and what could not be verified.
+
+- Every block of data in the JSON responses carries an `attribution` field with the credit its source
+  asks for (the compact frame has no such field). The texts are declared in
+  [`app/attribution.py`](app/attribution.py).
+- Whether each source's terms allow **commercial use** (for the paid app to come: the website and this API stay
+  free) is declared once in [`app/commercial.py`](app/commercial.py) and listed in
+  [`SOURCES.md`](SOURCES.md#commercial-use-for-the-paid-app-to-come): allowed, forbidden or not verified. A new source
+  cannot be added without its line (a test fails).
+- **Open-Meteo's free API may only be used for non-commercial purposes**
+  ([terms](https://open-meteo.com/en/terms)), within 10,000 calls a day, with a link to Open-Meteo wherever
+  its data is shown. This project is personal and non-commercial. **Do not use it commercially without
+  a paid Open-Meteo plan**, and check the terms of the other providers.
+- RainViewer's free API is for personal and educational use only. Turn it off on an instance that relays
+  its data to others (`VIGIE_ENABLE_RAINVIEWER=0`; the Docker image does).
+- MetService (New Zealand) publishes its warnings as CC BY 4.0 under a Code of Practice, but the website terms it points
+  to allow personal use only and forbid resupply. Fine for one home; ask MetService before relaying its warnings to
+  other people, or turn it off on an instance that serves them (`VIGIE_ENABLE_METSERVICE=0`; on by default, the Docker
+  image keeps it on) ([`SOURCES.md`](SOURCES.md)).
+- The file of named active faults (`app/data/gem-active-faults.geojson.gz`, used for `near_places`) is **CC BY-SA 4.0**
+  (GEM Global Active Faults Database, Styron and Pagani 2020), not MIT: share-alike, with its notice beside it
+  ([`app/data/README.md`](app/data/README.md), [`SOURCES.md`](SOURCES.md)).
+- The national services of the WMO registry (`VIGIE_WMO_SOURCES`): the terms of each issuer count, and most were not found or
+  restrict copying. The default reads only the 7 whose own terms were read and allow relaying them; `all` is for an instance
+  that only its owner uses. Hong Kong and China are never read ([`SOURCES.md`](SOURCES.md)).
 
 ## Documentation
 
