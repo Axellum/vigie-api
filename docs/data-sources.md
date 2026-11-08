@@ -669,6 +669,42 @@ is on its own page). At most 9 + 9 requests a day, each weighing the number of s
 of clients. While these entries are fresh, a spot's page reads its swell from them, and its wind while it is under an hour old, instead of
 asking again. The overview is worked out once per hour and per answer (half a second of tide and rating for the 51 spots, in a worker thread).
 
+## Activities (verdicts of ours on the surf forecast, the tide and the coastal warnings)
+
+`GET /v1/activities/{id}?days=&wind_min_kn=&wind_max_kn=` (`app/services/activities.py`, [ADR 0016](decisions/0016-activity-verdicts-from-rules-of-ours.md))
+gives, for a surf spot, a verdict hour by hour from the current hour for 1 to 3 days (default 2) for `surf`, `kite` (kite, wing, windsurf),
+`boat` and `shore_fishing`. **It asks no provider of its own**: the swell and the wind are the two answers the surf page reads
+(`surf.fetch`), the sunrise and sunset are in the wind answer, the tide is computed (`tides.tides_at`), and the warnings are
+`VigilanceService.for_point`, the cached ones of `GET /v1/vigilances` (`tests/test_activities.py` counts the requests).
+
+**Every threshold is ours** and is in `rules` of every answer. What is official: the Beaufort scale (in knots, the lower bound of each
+force: 1, 4, 7, 11, 17, 22, 28, 34, 41, 48, 56, 64), the colour of an official warning, and the SNSM's advice on the coefficient (100 and
+over is a danger). A verdict is `good`, `possible` or `poor`, the lowest of the criteria of the hour; a criterion whose value is unknown
+counts for nothing and is shown with a `null` verdict, except the one an activity cannot be judged without (the wind for the kite and the
+boat, the low water and the wind for the shore fishing), which makes the verdict `null`.
+
+| Activity | Criterion | `good` | `possible` | `poor` |
+| --- | --- | --- | --- | --- |
+| `surf` | share of the points of the surf rating | 75 % and over | 50 % and over | less (`null` with fewer than 3 criteria scored) |
+| `kite` | `wind` against the range asked for (default 12 to 25 kn) | within it | within 3 kn of it | further |
+| `kite` | `gust_gap` (gusts minus mean wind) | 5 kn or less | 6 to 8 kn | more |
+| `kite` | `wind_direction` | onshore, cross-shore | offshore (from the land) | |
+| `boat` | `wind_force` (Beaufort of the mean wind, knots rounded) | 4 or less | 5 | 6 and over |
+| `boat` | `gust_force` (Beaufort of the gusts) | 5 or less | 6 to 7 | 8 and over |
+| `boat`, `shore_fishing` | `sea_height` (significant wave height) | under 1.25 m | under 2.5 m | more |
+| `shore_fishing` | `low_water` (middle of the hour before a low water) | within 2 hours of it | | outside |
+| `shore_fishing` | `coefficient` (estimated, of the Brest high water nearest in time) | 70 to 99 | 50 to 69, and 100 and over | under 50 |
+| `shore_fishing` | `wind_force` | 5 or less | 6 | 7 and over |
+
+**The day**: `verdict` is the best verdict among the daylight hours of the next 24 hours (a night hour is never the day's verdict);
+`best_slot` the longest run of consecutive daylight hours at that verdict, the first on a tie, none when it is `poor`; `detail` the criteria
+of the first hour of the slot, else of the first daylight hour. Without the wind answer there is no daylight, so no verdict of the day.
+**The warnings** of phenomenon `coastal` (in France the wave-submersion vigilance), not cancelled, cap the hours they overlap: red makes
+every verdict `poor` (`vigilance.red`), orange keeps `boat` and `shore_fishing` at `possible` at best (`vigilance.orange`). When no source
+answered for the spot or the call failed, `vigilance.status` is `unknown`: nothing is capped, and an empty list is not "nothing to fear".
+**The tide** is `tide.extremes` (high and low waters) and `tide.coefficients_estimated`, as `GET /v1/tides`; where the model has no cell
+near the spot or does not reach the dates, `tide` is `null` and `shore_fishing` is `available: false`.
+
 ## Tides (computed, no provider)
 
 `GET /v1/tides` and `GET /v1/tides/coast` ask **no provider**: the tide is the sum of 34 cosines, from the constants of the EOT20 cells near

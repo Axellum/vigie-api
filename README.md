@@ -78,6 +78,7 @@ words of the issuing services left as they are, the national services listed in 
 | `GET /v1/fires?bbox=w,s,e,n`, `GET /v1/fires/grid` | The active fires seen by NASA FIRMS (VIIRS, NOAA-20 and NOAA-21): the detections of a box as GeoJSON, or counted per cell for small zooms. No key needed (404 only on an instance that turned the source off with `VIGIE_ENABLE_FIRMS=0`). See "Active fires" below. |
 | `GET /v1/tides?lat=&lon=`, `GET /v1/tides/coast?bbox=w,s,e,n` | The tide at a coastal point (heights, high and low waters, ranges, the tide now, an estimated French coefficient), or the tide now along the coasts of a box: **computed by Vigie** from the EOT20 ocean tide model, no provider asked. **Not for navigation.** See "Tides" below. |
 | `GET /v1/surf/spots`, `GET /v1/surf/spots/{id}?days=`, `GET /v1/surf/overview` | The surf spots of the French Atlantic and Channel coasts (OpenStreetMap), and the hourly forecast of one: swell (Météo-France MFWAM), wind, tide, and **a rating of ours**, explained criterion by criterion, with the best slot of the next three days; the overview gives every spot's current hour and best slot at once. **Not for safety.** See "Surf" below. |
+| `GET /v1/activities/{id}?days=&wind_min_kn=&wind_max_kn=` | For a surf spot, a verdict hour by hour (`good`, `possible`, `poor`) for **surf, kite or wing or windsurf, boat and shore fishing**, with the criteria behind it, the best daylight slot of the next 24 hours, the tide (high and low waters, **estimated** coefficient) and the coastal warnings that cap it. **Every verdict is a rule of ours**, its thresholds in `rules`. **Not for safety.** See "Activities" below. |
 | `GET /v1/cap/alerts` | Active hazards as OASIS CAP 1.2. |
 | `GET /v1/vigilances?lat=&lon=` or `?country=FR` or `?source=tsunami` | Official weather warnings that cover a point, or all those of a country (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues, and the national services of the WMO registry), or the tsunami messages in force, the issuer's words untouched. See below. |
 | `GET /v1/vigilances/countries` | The countries this instance serves with its settings, the sources that answer for each, and whether their licence is verified. With `?uncovered=true`, every other country of the world too, each with the reason nothing is read for it. |
@@ -578,6 +579,34 @@ GET /v1/surf/overview                                      every spot now, and i
 - **Calls**: two requests per spot, kept 3 hours (swell) and 1 hour (wind): at most 34 a day per spot, whatever the number of clients.
 
 **Not for safety and not for navigation**: look at the sea on the spot, the flags and the lifeguards before going in.
+
+## Activities
+
+`GET /v1/activities/{id}` answers, for one surf spot, the question the surf page leaves open: **should I go?** For surf, kite or wing or
+windsurf, boat and shore fishing, each hour from now gets a verdict, `good`, `possible` or `poor` (`null` when too little is known), with
+the criteria behind it.
+
+```
+GET /v1/activities/soorts-hossegor-plage-sud-point-d-or                                       the next two days at Hossegor
+GET /v1/activities/soorts-hossegor-plage-sud-point-d-or?days=1&wind_min_kn=15&wind_max_kn=30  for a kite that wants 15 to 30 knots
+```
+
+- **Every verdict is a rule of ours**, written in `rules` with its thresholds, from the swell and the wind of the surf forecast, the tide
+  computed by Vigie and the official coastal warnings. Only the Beaufort scale, the colours of a warning and the SNSM's advice on the
+  coefficient come from an official source. It knows neither the beach nor the person: the wind range of the kite is the one you ask for
+  (default 12 to 25 knots).
+- **The day**: `verdict` is the best of the daylight hours of the next 24 hours, `best_slot` the longest run of consecutive daylight hours
+  at that verdict (none when it is `poor`), `detail` the criteria of its first hour.
+- **Shore fishing** is judged in the two hours before a low water, with the coefficient **estimated** by Vigie (not SHOM's); 100 and over
+  is `possible` at best, since the SNSM warns of a danger.
+- **Warnings**: a red official coastal warning (in France the wave-submersion vigilance) makes everything `poor`; an orange one keeps the
+  boat and the shore fishing at `possible` at best. When the warnings could not be read, `vigilance.status` is `unknown` and nothing is
+  capped.
+- **Calls**: none more than the surf page's (the same swell and wind answers); the tide is computed and the warnings are the cached ones.
+  [ADR 0016](docs/decisions/0016-activity-verdicts-from-rules-of-ours.md).
+
+**Not for safety and not for navigation**: look at the sea on the spot, the flags and the lifeguards, read the tide tables and the official
+warnings.
 
 ## Places near a hazard, and watched points
 
