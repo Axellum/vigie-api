@@ -1,2 +1,0 @@
-<!-- section: Commercial use (for the paid app to come) -->
-| `shom_refmar` | REFMAR tide gauges (SHOM) | **allowed** | Licence Ouverte 2.0 (Etalab): any use, commercial included, with the source named (the REFMAR data page of data.gouv.fr). Not verified: the exact mention REFMAR asks for. | [1](https://www.data.gouv.fr/datasets/reseaux-de-reference-des-observations-maregraphiques-refmar-maregraphes-ronim/informations) | 2026-11-08 |

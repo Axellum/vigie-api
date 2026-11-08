@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-08
+
 ### Added
 
 - **Surf**: `GET /v1/surf/spots` lists 51 surf spots of the French Atlantic and Channel coasts, built from OpenStreetMap (ODbL 1.0,
@@ -81,12 +83,27 @@ All notable changes to this project are documented here. The format follows
   (the website and the API stay free), each credit says whether its terms allow commercial use (allowed, forbidden, not
   verified), with the pages read. A block of data takes the most restrictive status of its credits: everything that
   comes from Open-Meteo's free API is forbidden. A test fails when a credit has no line.
+- `GET /v1/activities/overview` (ADR 0016): every surf spot's four activities in one request, for a list or a ranking: the headline of each (best verdict of the daylight hours of the next 24 hours, why it is not `good`, its best slot) and the verdict of the current hour, with the highest official coastal warning level (`coastal_level`) and whether the warnings could be read (`warnings`). The same rules and the same code as `GET /v1/activities/{spot_id}`, the kite's wind range asked for the same way (`wind_min_kn`, `wind_max_kn`). No request is added to a provider: it reads the two every-spot answers the surf overview keeps. A spot the wave model gave nothing for is left out. Not for safety.
+- `GET /v1/activities/{spot_id}` (ADR 0016): for a surf spot, a verdict hour by hour (`good`, `possible`, `poor`) for surf, kite or wing or windsurf, boat and shore fishing, with the criteria behind it, the best daylight slot of the next 24 hours, the tide (high and low waters, estimated coefficient) and the official coastal warnings that cap it (red: everything `poor`; orange: the boat and the shore fishing at `possible` at best). Every verdict is a rule of Vigie, its thresholds in `rules` (a surf swell too small or too big, 0 points of the rating, makes the surf `poor`); the kite's wind range is asked for (`wind_min_kn`, `wind_max_kn`). No request is added to a provider: it reads the surf forecast's answers. Not for safety.
+- `GET /v1/embedded/frame` takes `spot` (a surf spot id), `wind_min_kn` and `wind_max_kn`: the frame then carries the activities of that spot, a `SEA` line (spot, sun, tide, strongest coastal warning), an `ACT` line per activity (verdict, reason, best slot, 24 hours of verdicts) and the `CRIT` lines of the hour each verdict stands on. Decoders that skip unknown tags read the frame as before; without `spot` it does not change (contract: `docs/embedded-frame.md`, ADR 0016).
+- `GET /v1/sea/places` and `GET /v1/sea/places/{id}` (ADR 0021): a catalogue of the places of the French coast, about 4,000, built once from open data and read from a bundled file (nothing is asked of a source when you ask): the ports with pleasure boats (Sandre, completed by OpenStreetMap), public slipways, anchorages and authorised mooring zones, dive sites (OpenStreetMap, ODbL) and the monitored bathing sites with the sanitary class of their water over 2021 to 2024 (TACCT from the Ministry of Health's results, Licence Ouverte 2.0). Filter by kind, by distance from a point (nearest first), by box and by a word of the name; paged. A catalogue, not a forecast: no fee, depth, state or authorisation is given, and the class of a bathing site is not the water of today. The three sources are `allowed` for commercial use in `app/commercial.py`; the file carries its own ODbL notice (`app/data/sea-places.NOTICE.md`).
+- `marine.sea_surface_temperature_c` in `GET /v1/point?marine=true`: the temperature of the sea at the point, in °C, read from the same Open-Meteo Marine request as the waves (one more of its 9 variables: no extra request, weight unchanged). It is a value of an ocean model for a cell of about 8 km, not a measurement at the beach, and it is `null` where the model has none or gives a value that cannot be sea water. A point with this temperature and no wave still gets a `marine` block. The credit of the Copernicus Marine service joins the others when the temperature is given. Not for safety.
+- `GET /v1/surf/buoys`: the nearest CANDHIS wave buoy of each surf spot and its distance (calculated by Vigie; the list only, no measure is read yet).
+- The surf forecasts the API reads (swell height, period and direction, wind) are kept with the instant they were issued and the hour they are valid for, to measure their error against buoys later; no request is added, `VIGIE_FORECAST_ARCHIVE_KEEP_DAYS` sets how long they are kept (90 days by default).
+- `GET /v1/tides` can serve a tide calibrated against the REFMAR tide gauge nearest to the point (within 15 km), only where the correction (amplitude and delay) was measured to reduce the error on held-out data; the answer's new `calibration` field says whether one is applied and which (Brest is; Lorient is not, the gain was not measurable). `tools/calibrate_tides.py` rebuilds `app/data/tides-calibration.json` (ADR 0019).
+- `GET /v1/tides` says how the estimated coefficient is worked out: `coefficient_method` (formula, unit, place, and `tide`: `model` for the uncorrected bundled model). SHOM's own definition was measured on six months of Brest's observed tide and did not come closer, so the formula is unchanged (ADR 0018). The coefficient stays estimated.
 
 ### Changed
 
 - **ADR numbers**: four ADRs had been merged with two numbers; they follow the order of their merges: 0012 the events (unchanged),
   0013 the aurora estimate (was 0012), 0014 the travel advice (was 0013), 0015 the tides (was 0013). The aurora estimate's `method`
   names ADR 0013.
+- **Changelog, sources and ADR numbers without conflicts**: a pull request adds a file to `changelog.d/` (an entry) or `sources.d/`
+  (a row of a table of `SOURCES.md`) instead of editing those files, which every parallel pull request used to conflict on.
+  `scripts/fragments.py` checks them (CI) and puts them in at a release; the tests read `SOURCES.md` with the fragments applied.
+  `scripts/prochain_adr.py` gives the next ADR number from `origin/main` and the open pull requests, and a test fails on two ADRs
+  with one number.
+- **Tides**: `GET /v1/tides?correct=true` corrects the modelled tide with the gap that the nearest REFMAR tide gauge (SHOM, Licence Ouverte 2.0, within 50 km, 11 gauges) measured in the last hour, fading over 12 hours (ADR 0017). Off by default (`VIGIE_TIDE_CORRECTION=on` turns it on for an instance): measured on 14 days it lowers the error of the heights by 7 to 15 % (+1 to +6 h) but not that of the high and low waters at the two ports checked. The new `correction` field says whether it was applied, from which gauge and measure, or why not. The coefficient stays an estimate.
 
 ### Fixed
 
@@ -95,6 +112,8 @@ All notable changes to this project are documented here. The format follows
   and only moves the last sighting. Found by the measure of a real day.
 - **Hazard titles are no longer cut inside a word**: a title longer than 96 characters (GDACS, NOAA NWS, USGS volcanoes, NHC,
   tsunamis) is cut at the end of a word with "…" (`short_title`); it read "… China, South Kor" for CHAMPI-26 on 28 October.
+- Travel advice: a ministry whose last read failed now says `unavailable` while a new read runs, instead of `loading` for ever
+  (Smartraveller, which times out from the container image, said `loading` with no advice).
 
 ## [1.1.0] - 2026-10-28
 

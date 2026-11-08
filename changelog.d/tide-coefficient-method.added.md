@@ -1,1 +1,0 @@
-- `GET /v1/tides` says how the estimated coefficient is worked out: `coefficient_method` (formula, unit, place, and `tide`: `model` for the uncorrected bundled model). SHOM's own definition was measured on six months of Brest's observed tide and did not come closer, so the formula is unchanged (ADR 0018). The coefficient stays estimated.
