@@ -79,6 +79,7 @@ from app.collectors.weather import (
     as_stale_bundle,
     rainviewer_enabled_from_env,
 )
+from app.models.activities import ActivitiesForecast
 from app.models.earthquakes import EarthquakesQuery, EarthquakesResponse
 from app.models.events import EventsQuery, EventsResponse
 from app.models.forecast import HazardForecast
@@ -117,6 +118,8 @@ from app.models.schemas import (
     ZoneWeather,
 )
 from app.models.watch import WatchedPointsStatus, WatchedSource
+from app.services import activities as activities_service
+from app.services import surf as surf_service
 from app.services.aurora import AuroraService
 from app.services.earthquakes import build_earthquakes, ids_within
 from app.services.eclipses import EclipseService
@@ -952,8 +955,22 @@ class AggregatorService:
         lon: Optional[float] = None,
         marine: bool = False,
         max_hazards: int = 12,
+        spot_id: Optional[str] = None,
+        wind_min_kn: float = activities_service.DEFAULT_WIND_MIN_KN,
+        wind_max_kn: float = activities_service.DEFAULT_WIND_MAX_KN,
     ) -> str:
-        """Build the compact text frame (``HEAD|...``, ``ZONE|...``, ``HAZ|...``, ``END|CRC32``)."""
+        """Build the compact text frame (``HEAD|...``, ``ZONE|...``, ``HAZ|...``, ``END|CRC32``).
+
+        With ``spot_id`` (a surf spot) the frame also carries the ``SEA|``, ``ACT|`` and ``CRIT|`` lines of that spot's activities,
+        read before anything else so that an unknown spot (``surf.UnknownSpot``) fails fast. When the swell cannot be had
+        (``surf.NoSurfForecast``) the frame goes out without those lines: the weather and the alerts are not held back by the sea.
+        ``wind_min_kn`` and ``wind_max_kn`` are the wind range of the kite (``ValueError`` when they do not make a range)."""
+        sea: Optional[ActivitiesForecast] = None
+        if spot_id is not None:
+            try:
+                sea = await activities_service.forecast(self.surf, self.vigilances, spot_id, 1, clock.wall(), wind_min_kn, wind_max_kn)
+            except surf_service.NoSurfForecast:
+                log.warning("embedded frame: no swell for spot %s, the frame goes out without its activities", spot_id)
         snapshot = await self.build_snapshot(
             device_type=device_type,
             max_hazards=max_hazards,
@@ -969,7 +986,7 @@ class AggregatorService:
                 max_hazards=max_hazards,
                 compact=True,
             )
-        return serialize_embedded_frame(snapshot=snapshot, point=point_resp)
+        return serialize_embedded_frame(snapshot=snapshot, point=point_resp, activities=sea)
 
     async def build_geojson_feature_collection(self) -> GeoJSONFeatureCollection:
         """Build an IETF RFC 7946 ``FeatureCollection`` for GIS tools (MapLibre, Leaflet, QGIS)."""

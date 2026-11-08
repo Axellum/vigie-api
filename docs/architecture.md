@@ -192,8 +192,10 @@ says whose words they are (the provider's, suggested by it, or ours) and what co
    zone the weather (with fallback) and the air quality.
 2. If `lat` and `lon` are given, `build_point_response` adds the GPS position: weather, forecast,
    marine, river discharge, air quality, nearby hazards.
-3. `serialize_embedded_frame` writes `HEAD`, the zones (`ZONE`, `RAIN5M`, `DAY`), the hazards
-   (`HAZ`) and `END|<CRC32>`.
+3. If `spot` is given, `activities.forecast` (the same service as `GET /v1/activities/{spot_id}`, for 24 hours) is read
+   first, so that an unknown spot fails fast; when the swell cannot be had, the frame goes out without it.
+4. `serialize_embedded_frame` writes `HEAD`, the zones (`ZONE`, `RAIN5M`, `DAY`), the hazards
+   (`HAZ`), the activities of the spot (`SEA`, `ACT`, `CRIT`) and `END|<CRC32>`.
 
 Every call goes through the collectors' caches, so a display polling every minute costs a few
 provider calls per TTL, not per request.

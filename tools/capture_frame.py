@@ -9,6 +9,7 @@ Usage (from the repository root)::
 
     python tools/capture_frame.py frame.txt
     python tools/capture_frame.py frame.txt --device-type tab5 --lat 47.75 --lon -3.36 --marine
+    python tools/capture_frame.py frame.txt --device-type tab5 --spot soorts-hossegor-plage-sud-point-d-or
 
 By default a temporary database with the initial watchlist is used, so the developer's
 ``vigie.db`` is neither read nor changed. Use ``--db`` to capture with another watchlist.
@@ -35,6 +36,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--lon", type=float, help="optional GPS longitude")
     parser.add_argument("--marine", action="store_true", help="include marine conditions in the GPS zone")
     parser.add_argument("--max-hazards", type=int, default=12, help="maximum number of HAZ lines (default: 12)")
+    parser.add_argument("--spot", help="a surf spot id (GET /v1/surf/spots): adds the SEA, ACT and CRIT lines of its activities")
+    parser.add_argument("--wind-min-kn", type=float, help="kite: the lightest wind wanted, with --spot (default: the API's)")
+    parser.add_argument("--wind-max-kn", type=float, help="kite: the strongest wind wanted, with --spot (default: the API's)")
     parser.add_argument("--db", type=Path, help="SQLite database holding the watchlist (default: a temporary one)")
     args = parser.parse_args(argv)
 
@@ -57,6 +61,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     params: dict[str, object] = {"device_type": args.device_type, "max_hazards": args.max_hazards}
     if args.lat is not None:
         params.update(lat=args.lat, lon=args.lon, marine=str(args.marine).lower())
+    if args.spot is not None:
+        params["spot"] = args.spot
+        if args.wind_min_kn is not None:
+            params["wind_min_kn"] = args.wind_min_kn
+        if args.wind_max_kn is not None:
+            params["wind_max_kn"] = args.wind_max_kn
 
     with TestClient(app) as client:
         response = client.get("/v1/embedded/frame", params=params, timeout=120.0)

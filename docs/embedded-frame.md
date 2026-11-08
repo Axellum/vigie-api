@@ -11,6 +11,7 @@ Generator: `app/services/embedded_frame.py`.
 
 ```
 GET /v1/embedded/frame?device_type=waveshare-7b&lat=47.75&lon=-3.36&marine=true&max_hazards=12
+GET /v1/embedded/frame?device_type=tab5&spot=soorts-hossegor-plage-sud-point-d-or&wind_min_kn=12&wind_max_kn=25
 ```
 
 | Parameter | Default | Meaning |
@@ -19,6 +20,8 @@ GET /v1/embedded/frame?device_type=waveshare-7b&lat=47.75&lon=-3.36&marine=true&
 | `lat`, `lon` | none | Optional GPS position. When both are given, a first zone `GPS` is added. |
 | `marine` | `false` | Add waves, swell and current to the `GPS` zone (also implied by `device_type=marine`). |
 | `max_hazards` | `12` (1 to 30) | Maximum number of `HAZ` lines. |
+| `spot` | none | Optional surf spot id (`GET /v1/surf/spots`). Adds the `SEA`, `ACT` and `CRIT` lines of that spot's activities. An unknown id answers `404`. |
+| `wind_min_kn`, `wind_max_kn` | `12`, `25` (knots, `0 < min < max <= 60`) | The wind range of the kite, wing or windsurf (only read with `spot`). Anything else answers `422`. |
 
 The response is `text/plain; charset=utf-8`.
 
@@ -32,8 +35,11 @@ The response is `text/plain; charset=utf-8`.
 4. Every line type has a fixed number of fields, **tag included**. Fields are positional
    (index 0 is the tag).
 5. Numbers use `.` as decimal separator, no thousands separator, a fixed number of decimals
-   per column (given below). Temperatures are in degrees Celsius, speeds in km/h.
+   per column (given below). Temperatures are in degrees Celsius, speeds in km/h (except the
+   `CRIT` lines, which give the unit of each value: knots, Beaufort, metres...).
 6. The last line is `END|<CRC32>`.
+7. **A decoder skips a tag it does not know** (the CRC still covers the line). Tags are added this
+   way (`SEA`, `ACT`, `CRIT` were), and then `HEAD` field 4 stays `1.1`.
 
 ## Line order
 
@@ -42,11 +48,14 @@ HEAD
 ZONE, RAIN5M, DAY x n      <- the GPS zone, only when lat and lon are given
 ZONE, RAIN5M, DAY x n      <- one block per watched zone, in zone id order
 HAZ x m
+SEA                        <- only with `spot`, and only when the swell could be read
+ACT, CRIT x k              <- four times: surf, kite, boat, shore_fishing, in that order
 END
 ```
 
 Each `ZONE` is immediately followed by its own `RAIN5M` (always present, possibly empty) and
-then its `DAY` lines (none when the zone has no weather).
+then its `DAY` lines (none when the zone has no weather). Each `ACT` is immediately followed by
+the `CRIT` lines of its own verdict.
 
 ## `HEAD`
 
@@ -167,6 +176,152 @@ sorted by severity then by value; with a GPS position they are the hazards near 
 | 10 | `sources` | agencies joined by `+` (for example `USGS+EMSC`), at most 24 characters | never |
 | 11 | `title` | at most 64 characters | never |
 
+## Activities of a surf spot: `SEA`, `ACT`, `CRIT`
+
+Only with `spot`. These lines carry what `GET /v1/activities/{spot_id}` says for 24 hours from the
+current hour (the question the display asks is "can I go today?"), in the order `SEA`, then for each of
+`surf`, `kite`, `boat`, `shore_fishing` its `ACT` line followed by its `CRIT` lines. They are **additive**:
+a decoder that does not know these tags skips them (the CRC still covers them) and `HEAD` field 4 stays
+`1.1`.
+
+- **Every verdict is a rule of Vigie** (ADR 0016: thresholds written in `rules` of
+  `GET /v1/activities/{spot_id}`), not an official one, and **not for safety**. A display that shows a
+  verdict says so, and says that the coefficient of the tide is an estimate (`tide_coefficients`), not
+  the SHOM's.
+- No block without `spot`. With `spot`, the block is missing when the swell could not be read: the
+  weather and the alerts of the frame are not held back by the sea, and a display reads the missing
+  block as **unknown**, not as "nothing to do".
+- It costs the providers nothing more than the surf page of the same spot (the swell and the wind, both
+  cached); the tide is computed by Vigie and the coastal warnings are the cached ones of
+  `GET /v1/vigilances`.
+- Times are UTC epoch seconds. Speeds are in the unit of the criterion (`CRIT` field 4), not always km/h.
+
+### `SEA`
+
+`SEA` has 18 fields: one line, the spot and what is common to the four activities.
+
+| Index | Name | Format / unit | Unknown |
+| --- | --- | --- | --- |
+| 0 | tag | `SEA` | |
+| 1 | `spot_name` | at most 32 characters | never |
+| 2 | `spot_place` | the nearest town or village, at most 32 characters | empty |
+| 3 | `generated_utc` | when the verdicts were worked out | never |
+| 4 | `first_hour_utc` | start of the first of the 24 hours of the `ACT` strips (the current hour) | empty when no activity has an hour |
+| 5 | `stale` | `1` when a provider did not answer and its last answer is served, else `0` | never |
+| 6 | `wind_min_kn` | the kite's range as asked (default 12), 1 decimal | never |
+| 7 | `wind_max_kn` | 1 decimal (default 25) | never |
+| 8 | `sunrise_utc` | the first sunset still to come, and the sunrise of that day | empty |
+| 9 | `sunset_utc` | | empty |
+| 10 | `sunrise2_utc` | the day after | empty |
+| 11 | `sunset2_utc` | | empty |
+| 12 | `tide_extremes` | the high and low waters from 6 hours before the first hour to 30 hours after it, at most 8, as `<H or L>:<time_utc>:<height_m>` joined by `,` (height to the model's mean sea level, 2 decimals) | empty where no tide model is near the spot |
+| 13 | `tide_coefficients` | the coefficients Vigie **estimates** (not the SHOM's), one per Brest high water of that window, at most 4, as `<brest_high_water_utc>:<value>` joined by `,` | empty with field 12 |
+| 14 | `vigilance_status` | `ok`, or `unknown` when the coastal warnings could not be read: nothing is capped then, and an empty field 15 is **not** "nothing to fear" | never |
+| 15 | `vigilance_level` | the highest level (`GREEN`, `YELLOW`, `ORANGE`, `RED`) of the official coastal warnings (in France the wave-submersion vigilance) that stand at some moment of the 24 hours; a warning whose level is not in that table is left out | empty when none stands, or with status `unknown` |
+| 16 | `vigilance_until_utc` | the latest end of the warnings at that level | empty with field 15, or when one of them gives no end |
+| 17 | `vigilance_source` | the source of the first warning at that level, at most 24 characters (`meteoalarm`...) | empty with field 15 |
+
+The official warnings keep priority: orange keeps the boat and the shore fishing at `possible` at
+best, red makes every verdict `poor` (the `ACT` lines already say so, with the reason
+`vigilance.orange` or `vigilance.red`).
+
+### `ACT`
+
+`ACT` has 12 fields: one activity.
+
+| Index | Name | Format / unit | Unknown |
+| --- | --- | --- | --- |
+| 0 | tag | `ACT` | |
+| 1 | `activity` | `surf`, `kite` (kite, wing or windsurf), `boat`, `shore_fishing` | never |
+| 2 | `available` | `1`, or `0` when the activity cannot be judged here (the shore fishing where no tide model is near): fields 3 to 11 are then empty | never |
+| 3 | `verdict` | `good`, `possible` or `poor`: the best verdict of the daylight hours of the 24 hours | empty when no daylight hour has a verdict |
+| 4 | `reason` | why it is not `good`: `<criterion>.<state>` of the hour field 9 stands on (the vocabulary below), or `vigilance.orange`, `vigilance.red` | empty when `good`, or with field 3 |
+| 5 | `slot_start_utc` | the best slot: the longest run of consecutive daylight hours at the verdict of field 3, the first on a tie | empty when the verdict is `poor` (no slot to go), or with field 3 |
+| 6 | `slot_end_utc` | the end of the last hour of the slot (exclusive) | empty with field 5 |
+| 7 | `hours` | 24 characters, one per hour from `first_hour_utc`: `G` good, `P` possible, `X` poor, `-` no verdict or no hour | all `-` |
+| 8 | `daylight` | 24 characters, one per hour: `1` daylight, `0` night, `-` unknown | all `-` |
+| 9 | `detail_utc` | the hour the verdict stands on (the first hour of the slot, else the first daylight hour with a verdict): its criteria are the `CRIT` lines that follow | empty when there is none |
+| 10 | `points` | surf only: the points of the rating of that hour | empty |
+| 11 | `out_of` | surf only: the most the criteria that could be scored give | empty |
+
+The headline looks at the daylight hours only; the strips show the night hours too, so that the display
+draws all 24 bars.
+
+### `CRIT`
+
+`CRIT` has 9 fields: one criterion of the hour `ACT` field 9 names, in the order the verdict reads them.
+
+| Index | Name | Format / unit | Unknown |
+| --- | --- | --- | --- |
+| 0 | tag | `CRIT` | |
+| 1 | `activity` | the activity of the `ACT` line just above | never |
+| 2 | `name` | the criterion (the table below) | never |
+| 3 | `value` | 1 decimal, in the unit of field 4 | empty |
+| 4 | `unit` | `m`, `s`, `deg`, `km/h`, `kn`, `Beaufort`, `min`, or empty (the coefficient) | never |
+| 5 | `state` | what the rule makes of the value, as a code (the table below) | empty when the value, or what it is compared with, is unknown |
+| 6 | `verdict` | `good`, `possible` or `poor` | empty: the criterion counts for nothing |
+| 7 | `points` | surf only: the points the rating gives, `0` to `max_points` | empty |
+| 8 | `max_points` | surf only | empty |
+
+The vocabulary (the display writes its own text for each code; the thresholds are in `rules` of
+`GET /v1/activities/{spot_id}` and in ADR 0016). `swell_height.too_small` and `swell_height.too_big` are
+worth 0 points: the surf is then `poor` whatever the other criteria give. A surf criterion with no
+points (the tide, which Vigie does not know the best stage of) is shown with its value only and is not
+counted.
+
+| Activity | Criterion | Unit | States |
+| --- | --- | --- | --- |
+| `surf` | `swell_height` | m | `too_small`, `small`, `right`, `big`, `too_big` |
+| `surf` | `swell_period` | s | `short`, `medium`, `long` |
+| `surf` | `swell_direction` | deg | `facing`, `oblique`, `off_axis` |
+| `surf` | `wind` | km/h | `light`, `offshore`, `cross_shore`, `onshore`, `strong` |
+| `surf` | `tide` | m | `right_stage`, `wrong_stage` |
+| `kite` | `wind` | kn | `in_range`, `a_bit_light`, `a_bit_strong`, `too_light`, `too_strong` |
+| `kite` | `gust_gap` | kn | `steady`, `gusty`, `very_gusty` |
+| `kite` | `wind_direction` | deg | `onshore`, `offshore`, `cross_shore` |
+| `boat` | `wind_force` | Beaufort | `up_to_moderate`, `fresh`, `strong_or_more` |
+| `boat` | `gust_force` | Beaufort | `up_to_fresh`, `strong`, `gale_or_more` |
+| `boat` | `sea_height` | m | `low`, `moderate`, `high` |
+| `shore_fishing` | `low_water` | min | `in_window`, `outside_window` |
+| `shore_fishing` | `coefficient` | (empty) | `small`, `moderate`, `large`, `very_large` |
+| `shore_fishing` | `wind_force` | Beaufort | `up_to_fresh`, `strong`, `near_gale_or_more` |
+| `shore_fishing` | `sea_height` | m | `low`, `moderate`, `high` |
+
+`swell_direction` is the angle between where the swell comes from and the direction the beach faces
+(0 is straight on); `wind_direction` is where the wind comes from, degrees from north; `gust_gap` is the
+gust minus the mean wind; `low_water` is the minutes from the middle of the hour to the low water that
+follows; `coefficient` is the one Vigie estimates for that low water.
+
+### Example
+
+The recorded swell and wind of Hossegor (the fixture of the tests) and an orange coastal warning. This
+block is generated by the code: a test fails if it drifts.
+
+<!-- example-activities:start -->
+```text
+SEA|Plage Centrale|Hossegor|1793182200|1793181600|0|12.0|25.0|1793169372|1793206936|1793255849|1793293253|H:1793160780:1.95,L:1793183100:-1.98,H:1793205480:1.86,L:1793227560:-1.79,H:1793249760:1.85,L:1793272320:-1.84|1793162580:97,1793207100:93,1793251500:91|ok|ORANGE|1793210400|meteoalarm
+ACT|surf|1|good||1793181600|1793196000|GGGGPPPGPPPGGGGGGGGGGGGG|111111110000000000000111|1793181600|6|8
+CRIT|surf|swell_height|2.6|m|big|possible|1|2
+CRIT|surf|swell_period|10.0|s|medium|possible|1|2
+CRIT|surf|swell_direction|21.0|deg|facing|good|2|2
+CRIT|surf|wind|18.7|km/h|offshore|good|2|2
+CRIT|surf|tide|-1.9|m||||2
+ACT|kite|1|possible|wind.a_bit_light|1793199600|1793206800|PXXXXPPXPXXXXXXXXXXXXXXX|111111110000000000000111|1793199600||
+CRIT|kite|wind|11.9|kn|a_bit_light|possible||
+CRIT|kite|gust_gap|0.0|kn|steady|good||
+CRIT|kite|wind_direction|350.0|deg|cross_shore|good||
+ACT|boat|1|possible|sea_height.moderate|1793257200|1793268000|XXXXXXXXXXXXXXXXPPPPPPPP|111111110000000000000111|1793257200||
+CRIT|boat|wind_force|2.0|Beaufort|up_to_moderate|good||
+CRIT|boat|gust_force|3.0|Beaufort|up_to_fresh|good||
+CRIT|boat|sea_height|1.9|m|moderate|possible||
+ACT|shore_fishing|1|possible|sea_height.moderate|1793264400|1793268000|XXXXXXXXXXXXXXXXXXXXXXXP|111111110000000000000111|1793264400||
+CRIT|shore_fishing|low_water|102.0|min|in_window|good||
+CRIT|shore_fishing|coefficient|91.0||large|good||
+CRIT|shore_fishing|wind_force|2.0|Beaufort|up_to_fresh|good||
+CRIT|shore_fishing|sea_height|1.7|m|moderate|possible||
+```
+<!-- example-activities:end -->
+
 ## `END` and the CRC
 
 `END` has 2 fields: `END|<CRC32>`.
@@ -180,8 +335,11 @@ from the first byte of `HEAD` up to and including the `\n` that ends the last li
 ## Size budget and decoder limits
 
 - The whole frame stays under **8 KiB** (8192 bytes) for the default zone set (GPS zone, 5
-  watched zones, 5 days each, 12 hazards). A test enforces it.
-- No line exceeds **512 bytes**.
+  watched zones, 5 days each, 12 hazards). A test enforces it, and enforces it again with the
+  activities block of a spot added.
+- The activities block (`SEA`, `ACT`, `CRIT`) is under **2 KiB** by itself. A test enforces it.
+- No line exceeds **512 bytes**. The `SEA` line is the one that can grow (the tide): it holds at most
+  8 high and low waters and 4 coefficients, which keeps it under 480 bytes with the longest names.
 - Limits currently set in the display decoder (display repository, `firmware/core/vigie_model.cpp`,
   read on 2026-10-20): 32 fields per line, 10 zones, 30 hazards, 10 forecast days per zone. The
   API must stay within them.
@@ -227,3 +385,9 @@ Column order and counts are unchanged. Relative to the previous frames:
   invented 20 % decay on the last step).
 - The `GPS` zone has its own forecast and local UTC offset (it used to repeat the first
   watched zone's forecast and a longitude-based offset), and is named `GPS position`.
+
+### Added later: the activities of a surf spot
+
+`SEA`, `ACT` and `CRIT` lines, and the request parameters `spot`, `wind_min_kn` and `wind_max_kn`. Nothing
+else changes: without `spot` the frame is byte for byte what it was, and a decoder that skips unknown tags
+reads it as before.
