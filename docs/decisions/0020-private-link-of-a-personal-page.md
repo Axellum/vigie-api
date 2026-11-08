@@ -1,9 +1,9 @@
 # 0020. A personal page on a screen: a secret link, shown once, kept as a hash
 
-- Status: **proposed**, to be accepted by the owner of the site. The server side is written and merged in vigie-web
-  (`src/lib/server/pageLinks.ts`, not deployed); the television route that reads it (`/tv/p/<secret>`) belongs to the
-  television work and does not exist yet. The shape of the link (address, secret, what it shows) was agreed between the
-  two pieces of work, not yet decided by the owner: if it changes, this record and `pageLinks.ts` change together.
+- Status: **accepted** by the owner of the site on 2026-11-08, as written here. The server side is written and merged in
+  vigie-web (`src/lib/server/pageLinks.ts`, not deployed); the television route that reads it (`/tv/p/<secret>`) belongs
+  to the television work and does not exist yet. The shape of the link (address, secret, what it shows) was agreed between
+  the two pieces of work and is now decided: if it changes, this record and `pageLinks.ts` change together.
 - Date: 2026-11-08
 
 ## Context
