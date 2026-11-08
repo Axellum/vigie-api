@@ -1,0 +1,1 @@
+- The surf forecasts the API reads (swell height, period and direction, wind) are kept with the instant they were issued and the hour they are valid for, to measure their error against buoys later; no request is added, `VIGIE_FORECAST_ARCHIVE_KEEP_DAYS` sets how long they are kept (90 days by default).

@@ -124,6 +124,7 @@ from app.services.embedded_frame import serialize_embedded_frame
 from app.services.events import count as count_events
 from app.services.events import group_hazards, group_warnings, sorted_events
 from app.services.fires import NEARBY_RADIUS_DEFAULT_KM, FireService
+from app.services.forecast_archive import SurfForecastArchive
 from app.services.forecasts import empty as empty_forecast
 from app.services.forecasts import has_storm_forecast, has_tsunami_forecast, storm_forecast, tsunami_forecast
 from app.services.geodesy import (
@@ -307,6 +308,9 @@ class AggregatorService:
         self.last_weather_fallback_used: bool = False
         # Every official warning a source lists is archived (``GET /v1/vigilances/archive``), in the database of the moment.
         self.vigilance_archive = VigilanceArchive(lambda: self.storage)
+        # The surf forecasts the API reads are kept, with their issue time, to measure their error (no request of its own).
+        self.surf_archive = SurfForecastArchive(lambda: self.storage)
+        self.surf.on_fetched = self.surf_archive.record
         # The official warnings (MeteoAlarm, the national services, the NWS): the NWS answer is the hazards' own, no
         # request of its own.
         self.vigilances = VigilanceService(

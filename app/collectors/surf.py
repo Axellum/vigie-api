@@ -21,7 +21,7 @@ the wind while it is under an hour old) instead of being asked again.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Any, Optional
 
 import httpx
@@ -122,6 +122,8 @@ class SurfForecastCollector(BaseCollector[dict[str, Any]]):
     OVERVIEW_WIND_TTL_SECONDS = 3 * 3600
 
     def __init__(self, http_client: Optional[httpx.AsyncClient] = None) -> None:
+        # Told of every answer read from the provider (never of a cache hit): ``(kind, {spot id: parsed answer})``, set by the archive.
+        self.on_fetched: Optional[Callable[[str, dict[str, dict[str, Any]]], None]] = None
         super().__init__(
             provider_id="open_meteo_surf",
             name="Open-Meteo surf (MFWAM swell, wind)",
@@ -154,7 +156,7 @@ class SurfForecastCollector(BaseCollector[dict[str, Any]]):
         if shared is not None:
             return shared, False
         fetched = await self.fetch_ex(
-            cache_key=f"surf-swell:{spot_id}", kind="swell", lat=lat, lon=lon, ttl_seconds=self.SWELL_TTL_SECONDS
+            cache_key=f"surf-swell:{spot_id}", kind="swell", spot_id=spot_id, lat=lat, lon=lon, ttl_seconds=self.SWELL_TTL_SECONDS
         )
         return fetched.value, fetched.stale
 
@@ -164,7 +166,7 @@ class SurfForecastCollector(BaseCollector[dict[str, Any]]):
         if shared is not None:
             return shared, False
         fetched = await self.fetch_ex(
-            cache_key=f"surf-wind:{spot_id}", kind="wind", lat=lat, lon=lon, ttl_seconds=self.WIND_TTL_SECONDS
+            cache_key=f"surf-wind:{spot_id}", kind="wind", spot_id=spot_id, lat=lat, lon=lon, ttl_seconds=self.WIND_TTL_SECONDS
         )
         return fetched.value, fetched.stale
 
@@ -191,8 +193,11 @@ class SurfForecastCollector(BaseCollector[dict[str, Any]]):
             response = await self._get(client, self.FORECAST_URL, params=params)
         response.raise_for_status()
         parse = parse_swell if swell else parse_wind
+        kind = str(kwargs["kind"])
         if points is None:
-            return parse(response.json())
+            parsed = parse(response.json())
+            self._tell(kind, {str(kwargs["spot_id"]): parsed} if "spot_id" in kwargs else {})
+            return parsed
         out: dict[str, Any] = {}
         for (spot_id, _, _), item in zip(points, _items(response.json(), len(points)), strict=True):
             if item is None:
@@ -203,4 +208,13 @@ class SurfForecastCollector(BaseCollector[dict[str, Any]]):
                 continue
         if not out:
             raise ValueError("Open-Meteo answer has no spot that could be read")
+        self._tell(kind, out)
         return out
+
+    def _tell(self, kind: str, answers: dict[str, dict[str, Any]]) -> None:
+        if self.on_fetched is None or not answers:
+            return
+        try:
+            self.on_fetched(kind, answers)
+        except Exception:  # noqa: BLE001 - the archive is a side effect: it never fails a read
+            pass

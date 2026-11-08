@@ -368,6 +368,7 @@ async def get_health() -> dict[str, Any]:
         "active_scenario": aggregator.active_scenario.value,
         "scheduler": scheduler.get_status(),
         "vigilance_archive": aggregator.vigilance_archive.health(),
+        "surf_forecast_archive": aggregator.surf_archive.health(),
         "disabled_sources": aggregator.disabled_sources(),
         "supported_devices": [d.value for d in DeviceType],
         "providers_summary": {
