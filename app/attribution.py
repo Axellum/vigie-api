@@ -202,6 +202,27 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "osm_places",
+            "OpenStreetMap (places of the coast)",
+            "Places and localities: © OpenStreetMap contributors, ODbL 1.0 (https://www.openstreetmap.org/copyright); chosen, merged "
+            "and named after the nearest locality by Vigie",
+            "ours",
+        ),
+        Credit(
+            "sandre_ports",
+            "Sandre (Système d'Information sur l'Eau), ports",
+            "Ports: Sandre / Système d'Information sur l'Eau, \"Ports - Espace maritime français\" (file of 2023-12-19), Licence Ouverte; "
+            "the ports with pleasure boats are chosen by Vigie",
+            "ours",
+        ),
+        Credit(
+            "qsb_bathing",
+            "Quality of the bathing sites (TACCT, from the Ministry of Health's results)",
+            "Bathing sites: \"Qualité des sites de baignade\", TACCT on data.gouv.fr (Licence Ouverte 2.0), classes of the four years "
+            "2021 to 2024 calculated by TACCT from the results of the Ministère des Solidarités et de la Santé",
+            "ours",
+        ),
+        Credit(
             "candhis_stations",
             "CANDHIS (Cerema), list of the wave buoys",
             "Source: Candhis, Cerema (Licence Ouverte 2.0), list of the stations of 2024-12-03; the distances to the surf spots are "

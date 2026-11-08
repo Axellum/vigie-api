@@ -597,6 +597,22 @@ GET /v1/surf/overview                                      tous les spots mainte
 
 **Pas pour la sécurité ni pour la navigation** : regarder la mer sur place, les drapeaux et les sauveteurs avant d'y aller.
 
+## Lieux du littoral
+
+`GET /v1/sea/places` liste les ports, cales de mise à l'eau, mouillages, sites de plongée et sites de baignade contrôlés du littoral français
+(environ 4 000 lieux, France métropolitaine avec la Corse, chacun à moins de 2 km du trait de côte d'OpenStreetMap), d'après
+`app/data/sea-places.json.gz`, construit une fois par `tools/build_places.py` à partir d'OpenStreetMap (**ODbL 1.0**), des ports du Sandre et
+de la qualité sanitaire des sites de baignade (tous deux sous Licence Ouverte) (`app/data/sea-places.NOTICE.md`,
+[ADR 0021](docs/decisions/0021-sea-places-catalogue-from-open-data.md)). Aucune source n'est interrogée quand vous demandez.
+**Un catalogue, pas une prévision** : il dit où sont les lieux, pas s'ils sont utilisables ni si l'eau est saine aujourd'hui.
+
+```
+GET /v1/sea/places?near_lat=44.66&near_lon=-1.17&radius_km=10&limit=5   les lieux les plus proches d'Arcachon, du plus proche au plus loin, avec la distance
+GET /v1/sea/places?type=slipway&type=port&bbox=-2,47,-1,48            les cales et les ports d'un cadre (ouest,sud,est,nord)
+GET /v1/sea/places?q=joinville                                          par un mot du nom, de la localité voisine ou de la commune
+GET /v1/sea/places/{id}                                                 un lieu
+```
+
 ## Activités
 
 `GET /v1/activities/{id}` répond, pour un spot de surf, à la question que la page de surf laisse ouverte : **faut-il y aller ?** Pour le

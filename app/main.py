@@ -42,6 +42,8 @@ Endpoints:
 - ``GET    /v1/surf/spots``        : The surf spots of the French Atlantic and Channel coasts (OpenStreetMap, ODbL).
 - ``GET    /v1/surf/spots/{id}``   : The hourly surf forecast of a spot (MFWAM swell, wind, tide) with a rating of ours, explained.
 - ``GET    /v1/surf/buoys``        : The nearest CANDHIS wave buoy of each surf spot and its distance (the list only).
+- ``GET    /v1/sea/places``        : The ports, slipways, anchorages, dive sites and bathing sites of the French coast (OpenStreetMap, Sandre, QSB).
+- ``GET    /v1/sea/places/{id}``   : One of them.
 - ``GET    /v1/activities/{id}``   : A verdict hour by hour for surf, kite, boat and shore fishing at a spot, with the tide and the
                                      coastal warnings (ADR 0016); every verdict is a rule of Vigie, written in the answer.
 - ``GET    /v1/activities/overview``: Every spot's four activities in short (best verdict of the next 24 hours, why, best slot, now),
@@ -124,6 +126,7 @@ from app.models.schemas import (
     SimulationResponse,
     SnapshotResponse,
 )
+from app.models.sea_places import PlaceAnswer, PlaceList, PlaceType
 from app.models.sky import AuroraOvalCollection, AuroraResponse, EclipseDetail, EclipseList, EclipseMapCollection
 from app.models.surf import SurfForecast, SurfOverview, SurfSpots
 from app.models.tides import CoastalTides, TidesResponse
@@ -141,7 +144,7 @@ from app.models.vigilance import (
 from app.models.watch import WatchedPointsStatus
 from app.routers.dashboard import router as dashboard_router
 from app.security import AdminTokenMiddleware, admin_token, document_admin_token
-from app.services import activities, buoys, surf, tide_correction, tides
+from app.services import activities, buoys, sea_places, surf, tide_correction, tides
 from app.services import activities_overview as activities_summary
 from app.services import earthquakes as quakes
 from app.services.aggregator import AggregatorService
@@ -823,6 +826,65 @@ async def get_surf_buoys(response: Response) -> SpotBuoys:
     """The nearest buoy of every surf spot."""
     response.headers["Cache-Control"] = SURF_CACHE
     return await clock.run_blocking(buoys.spot_buoys)
+
+
+PLACES_CACHE = "public, max-age=86400"  # the file changes with a release, not by the hour
+
+
+@app.get(
+    "/v1/sea/places",
+    response_model=PlaceList,
+    tags=["Sea"],
+    responses={422: {"description": "`near_lat` without `near_lon` (or the other way round), or a `bbox` that is not a box."}},
+    description=(
+        "The catalogue of the places of the French coast (metropolitan France with Corsica): ports with pleasure boats (the Sandre, "
+        "completed by OpenStreetMap), public slipways, anchorages and authorised mooring zones, dive sites (OpenStreetMap) and the "
+        "monitored bathing sites with the sanitary class of their water over four years (2021 to 2024). Every place is within 2 km of the "
+        "OpenStreetMap coastline. Filter by kind (`type`, repeatable), by distance from a point (`near_lat`, `near_lon`, `radius_km`: "
+        "nearest first, with `distance_km`), by box (`bbox`, `west,south,east,north`) or by a word of the name, the nearest locality or "
+        "the commune (`q`). A catalogue, **not a forecast** and not a statement that a place can be used. No request to any source is "
+        "made when you ask: the file is built by `tools/build_places.py`."
+    ),
+)
+async def get_sea_places(
+    response: Response,
+    types: Optional[list[PlaceType]] = Query(default=None, alias="type", description="Only these kinds (repeat the parameter)"),
+    near_lat: Optional[float] = Query(default=None, ge=-90.0, le=90.0, description="Latitude of the point places are looked for around"),
+    near_lon: Optional[float] = Query(default=None, ge=-180.0, le=180.0, description="Longitude of that point"),
+    radius_km: float = Query(default=25.0, gt=0.0, le=sea_places.MAX_RADIUS_KM, description="Radius around `near_lat`, `near_lon` (km)"),
+    bbox: Optional[str] = Query(default=None, description="`west,south,east,north` in degrees, e.g. `-2,46,-1,47`"),
+    q: Optional[str] = Query(default=None, max_length=80, description="A word of the name, the nearest locality or the commune (no accents or capitals needed)"),
+    limit: int = Query(default=50, ge=1, le=500, description="Most places returned"),
+    offset: int = Query(default=0, ge=0, description="Places to skip (the order is nearest first with `near_lat`, else by kind and name)"),
+) -> PlaceList:
+    """The places of the French coast that match the filters."""
+    if (near_lat is None) != (near_lon is None):
+        raise HTTPException(status_code=422, detail="near_lat and near_lon go together")
+    try:
+        box = sea_places.parse_bbox(bbox) if bbox else None
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+    near = (near_lat, near_lon) if near_lat is not None and near_lon is not None else None
+    answer = await clock.run_blocking(sea_places.search, types, near, radius_km, box, q, limit, offset)
+    response.headers["Cache-Control"] = PLACES_CACHE
+    return answer
+
+
+@app.get(
+    "/v1/sea/places/{place_id}",
+    response_model=PlaceAnswer,
+    tags=["Sea"],
+    responses={404: {"description": "No place has this id (`GET /v1/sea/places` lists them)."}},
+    description="One place of the catalogue (`GET /v1/sea/places`) by its id. The id changes only if the source reference of the place does.",
+)
+async def get_sea_place(response: Response, place_id: str) -> PlaceAnswer:
+    """One place of the catalogue."""
+    try:
+        answer = await clock.run_blocking(sea_places.find, place_id)
+    except sea_places.UnknownPlace:
+        raise HTTPException(status_code=404, detail=f"no place {place_id!r}") from None
+    response.headers["Cache-Control"] = PLACES_CACHE
+    return answer
 
 
 ACTIVITIES_ERRORS: dict[int | str, dict[str, Any]] = {

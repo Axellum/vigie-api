@@ -669,6 +669,22 @@ is on its own page). At most 9 + 9 requests a day, each weighing the number of s
 of clients. While these entries are fresh, a spot's page reads its swell from them, and its wind while it is under an hour old, instead of
 asking again. The overview is worked out once per hour and per answer (half a second of tide and rating for the 51 spots, in a worker thread).
 
+## Places of the coast (ports, slipways, anchorages, dive sites, bathing sites)
+
+`GET /v1/sea/places` and `GET /v1/sea/places/{id}` read `app/data/sea-places.json.gz`, built by `tools/build_places.py` ([ADR 0021](decisions/0021-sea-places-catalogue-from-open-data.md)).
+Nothing is read from a source while the API runs. The sources, one per kind and completed only where it is missing: the **Sandre** ports with
+a pleasure-boat activity (Licence Ouverte), plus the OpenStreetMap marinas that no Sandre port is within 1.5 km of; the **slipways**,
+**anchorages**, **declared moorings** and **dive sites** of OpenStreetMap (ODbL, `app/data/sea-places.NOTICE.md`); the coastal **bathing
+sites** of the "Qualité des sites de baignade" file that TACCT republishes from the Ministry of Health's results (Licence Ouverte 2.0).
+
+What makes a place: metropolitan France with Corsica, **within 2 km of the OpenStreetMap coastline** (a setting of ours); a slipway marked
+private, closed, for customers or destination only, and an anchorage or mooring marked private, are left out; two places of one kind closer
+than 150 m (slipways) to 600 m (marinas) are one. A place has `near`, the nearest named locality of OpenStreetMap within 6 km, which is
+worked out by Vigie (`derived`) and is what an unnamed slipway or anchorage is called after (most are unnamed). `quality` of a bathing site
+is the class of the water over the four years 2021 to 2024, not the water of today. **No fee, depth, state or authorisation is given**: no
+source says them; an anchorage is a charted area, not a permission to anchor. The filters (`type`, `near_lat`/`near_lon`/`radius_km`, `bbox`,
+`q`, `limit`, `offset`) and the answer are in the OpenAPI description. The answer is the same for a day.
+
 ## Activities (verdicts of ours on the surf forecast, the tide and the coastal warnings)
 
 `GET /v1/activities/{id}?days=&wind_min_kn=&wind_max_kn=` (`app/services/activities.py`, [ADR 0016](decisions/0016-activity-verdicts-from-rules-of-ours.md))
