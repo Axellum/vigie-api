@@ -202,6 +202,13 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "refmar_tides",
+            "REFMAR (SHOM), tide gauge observations",
+            "Calibration of the tide: observations of REFMAR, SHOM (Licence Ouverte 2.0, https://refmar.shom.fr); the correction is "
+            "calculated by Vigie",
+            "ours",
+        ),
+        Credit(
             "vigicrues",
             "Vigicrues (SCHAPI)",
             "Source: Vigicrues, Service central d'hydrométéorologie et d'appui à la prévision des inondations (SCHAPI), "
@@ -297,6 +304,7 @@ RADAR = ("rainviewer",)
 FIRES = ("nasa_firms",)
 PREALERT = ("ecmwf_opendata",)
 TIDES = ("eot20",)
+TIDES_CALIBRATED = ("eot20", "refmar_tides")
 SURF = ("open_meteo", "copernicus_mfwam", "osm_spots", "eot20")
 SURF_BUOYS = ("candhis_stations", "osm_spots")
 

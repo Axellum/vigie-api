@@ -715,6 +715,7 @@ a coast and a table of the astronomical arguments, both in `app/data` ([ADR 0015
 | --- | --- | --- |
 | `tides-eot20.npz` (2.0 MB): 110,685 ocean cells of EOT20 (1/8 degree) within 3 cells of the model's land, between 66 S and 66 N, 17 complex constants each, to the millimetre | `tools/build_tides.py`, from the ocean tide files of EOT20 (SEANOE, 2.3 GB downloaded once, by whoever rebuilds) | Read once: 9 MB of arrays in memory; a 7-day answer takes about 35 ms of one core and 7 MB while it is computed (measured on the PC) |
 | `tides-arguments.npz` (0.2 MB): the nodal factor and the phase of the 34 constituents every 10 days, 2024 to 2045 | The same tool, with pyTMD 3.0.9 (FES nodal corrections; the inference of the 17 minor constituents read from pyTMD itself) | The API answers 422 outside these years: rebuild before 2045 |
+| `tides-calibration.json`: per REFMAR station, the amplitude and the delay of the tide, kept only where they reduced the error on data not used to fit them | `tools/calibrate_tides.py`: raw minute observations (`sources=1`) from 2026-03-01 to 2026-10-27, 16 days a request (31 allowed), requests 1.5 s apart, about 15 a station, cached, run by hand; nothing at run time | Applied within 15 km of an applied station; the coastal map and the estimated coefficient are not corrected |
 
 - **Checked against pyTMD** by the build tool (7 places, 2026, 2035 and 2044: 3.9 mm at most) and by `tests/test_tides.py` (a fixture of
   pyTMD's own prediction).

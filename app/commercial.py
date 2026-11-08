@@ -233,6 +233,14 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-11-08",
         ),
         CommercialUse(
+            "refmar_tides",
+            "allowed",
+            "Licence Ouverte 2.0 (data.gouv.fr, the RONIM network): any use, with the source. Used offline, by the tool that fits the "
+            "correction; the answer carries two numbers and the credit, not the observations. The exact mention REFMAR asks for was not read.",
+            ("https://refmar.shom.fr/donnees-refmar-sur-data.shom.fr/telechargement-des-donnees",),
+            "2026-11-08",
+        ),
+        CommercialUse(
             "eot20",
             "allowed",
             "CC BY 4.0 (the SEANOE page): the credit, a link to the licence and a statement of the changes. Computed by "

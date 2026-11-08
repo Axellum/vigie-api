@@ -15,6 +15,7 @@ heights are relative to the mean sea level of the model, not to the chart datum 
 
 from __future__ import annotations
 
+import json
 import math
 import threading
 import time
@@ -25,12 +26,13 @@ from typing import Literal, Optional
 
 import numpy as np
 
-from app.attribution import TIDES, credit_text
+from app.attribution import TIDES, TIDES_CALIBRATED, credit_text
 from app.models.tides import (
     CoastalTideFeature,
     CoastalTideProperties,
     CoastalTides,
     CoastalTidesMetadata,
+    TideCalibration,
     TideCell,
     TideCoefficient,
     TideExtreme,
@@ -44,6 +46,7 @@ from app.services.geodesy import haversine_km
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 CONSTANTS_FILE = DATA_DIR / "tides-eot20.npz"
 ARGUMENTS_FILE = DATA_DIR / "tides-arguments.npz"
+CALIBRATION_FILE = DATA_DIR / "tides-calibration.json"
 
 # A point further than this from every model cell kept by the build has no tide (inland, or a coast the model does not resolve).
 MAX_DISTANCE_KM = 30.0
@@ -286,6 +289,7 @@ def tides_at(lat: float, lon: float, start_unix: int, days: float, interval_minu
     outside the table of the arguments)."""
     tide_model = model()
     cell = tide_model.nearest_cell(lat, lon)
+    calibration = calibration_for(lat, lon)
     start = mjd_from_unix(start_unix)
     end = start + days
     now = mjd_from_unix(now_unix)
@@ -294,10 +298,10 @@ def tides_at(lat: float, lon: float, start_unix: int, days: float, interval_minu
         raise ValueError(f"the tide can be computed from {first} to {last}")
     grid = start + np.arange(int(round(days * 1440 / interval_minutes)) + 1) * interval_minutes * MINUTE
     curve = np.arange(start - PADDING_DAYS, end + PADDING_DAYS, MINUTE)
-    extremes = find_extremes(curve, tide_model.heights(cell.constants, curve))
+    extremes = find_extremes(curve, calibrated_heights(tide_model, cell.constants, curve, calibration))
     around_now = now + np.arange(-12 * 60, 36 * 60 + 1) * MINUTE
-    now_curve = tide_model.heights(cell.constants, around_now)
-    first_two = tide_model.heights(cell.constants, np.array([now, now + MINUTE]))
+    now_curve = calibrated_heights(tide_model, cell.constants, around_now, calibration)
+    first_two = calibrated_heights(tide_model, cell.constants, np.array([now, now + MINUTE]), calibration)
     height, trend, next_high, next_low = _now(now, first_two, find_extremes(around_now, now_curve))
     return TidesResponse(
         generated_utc=int(now_unix),
@@ -307,12 +311,14 @@ def tides_at(lat: float, lon: float, start_unix: int, days: float, interval_minu
         end_utc=int(round(unix_from_mjd(end))),
         heights=[
             TideHeight(time_utc=int(round(unix_from_mjd(moment))), height_m=round(float(value), 2))
-            for moment, value in zip(grid, tide_model.heights(cell.constants, grid), strict=True)
+            for moment, value in zip(grid, calibrated_heights(tide_model, cell.constants, grid, calibration), strict=True)
         ],
         extremes=[_extreme(extreme, extremes[i - 1] if i else None) for i, extreme in enumerate(extremes) if start <= extreme.mjd <= end],
         now=TideNow(time_utc=int(now_unix), height_m=round(height, 2), trend=trend, next_high=next_high, next_low=next_low),
         coefficients_estimated=_coefficients(tide_model, start, end),
-        attribution=credit_text(*TIDES),
+        calibration=_calibration_answer(calibration),
+        derived=["heights", "extremes", "now", "coefficients_estimated"] + (["calibration"] if calibration else []),
+        attribution=credit_text(*(TIDES_CALIBRATED if calibration else TIDES)),
     )
 
 
@@ -324,6 +330,72 @@ def _coefficients(tide_model: TideModel, start: float, end: float) -> list[TideC
         for high, value in estimated_coefficients(find_extremes(curve, tide_model.heights(brest.constants, curve)))
         if start <= high.mjd <= end
     ]
+
+
+# ------------------------------------------------------------------------------------------------- the calibration (ADR 0019)
+
+# A point is corrected by a calibrated station within this distance (ours: the correction was measured at the station only).
+CALIBRATION_RADIUS_KM = 15.0
+
+
+@dataclass(frozen=True)
+class Calibration:
+    """The correction measured at a REFMAR station: ``amplitude * model(t - delay_minutes)``, kept only if it reduced the error on held-out data."""
+
+    station_id: str
+    name: str
+    lat: float
+    lon: float
+    amplitude: float
+    delay_minutes: float
+    fit_period: tuple[str, ...]
+    test_period: tuple[str, ...]
+    source: str
+    method: str
+    distance_km: float = 0.0
+
+
+@lru_cache(maxsize=1)
+def calibrations(path: Path = CALIBRATION_FILE) -> tuple[Calibration, ...]:
+    """The calibrations to apply: the stations of the file whose ``applied`` is true. No file, none."""
+    if not path.exists():
+        return ()
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return tuple(
+        Calibration(
+            station["station_id"], station["name"], station["lat"], station["lon"], station["amplitude"], station["delay_minutes"],
+            tuple(data["fit_period"]), tuple(data["test_period"]), data["source"], data["method"],
+        )
+        for station in data["stations"]
+        if station.get("applied")
+    )  # fmt: skip
+
+
+def calibration_for(lat: float, lon: float, path: Path = CALIBRATION_FILE) -> Optional[Calibration]:
+    """The applied calibration of the station nearest to the point, if that station is within ``CALIBRATION_RADIUS_KM``."""
+    best: Optional[Calibration] = None
+    for item in calibrations(path):
+        distance = haversine_km(lat, lon, item.lat, item.lon)
+        if distance <= CALIBRATION_RADIUS_KM and (best is None or distance < best.distance_km):
+            best = Calibration(**{**item.__dict__, "distance_km": distance})
+    return best
+
+
+def calibrated_heights(tide_model: TideModel, constants: np.ndarray, mjd: np.ndarray, calibration: Optional[Calibration]) -> np.ndarray:
+    """``TideModel.heights``, or the heights of the calibrated curve: ``amplitude * model(t - delay)``."""
+    if calibration is None:
+        return tide_model.heights(constants, mjd)
+    return calibration.amplitude * tide_model.heights(constants, np.asarray(mjd, dtype=np.float64) - calibration.delay_minutes * MINUTE)
+
+
+def _calibration_answer(calibration: Optional[Calibration]) -> TideCalibration:
+    if calibration is None:
+        return TideCalibration(applied=False)
+    return TideCalibration(
+        applied=True, station_id=calibration.station_id, station_name=calibration.name, station_distance_km=round(calibration.distance_km, 1),
+        amplitude=calibration.amplitude, delay_minutes=calibration.delay_minutes, fit_period=list(calibration.fit_period),
+        test_period=list(calibration.test_period), source=calibration.source, method=calibration.method,
+    )  # fmt: skip
 
 
 def _date(mjd: float) -> str:

@@ -1,6 +1,6 @@
 # 0019. EOT20 calibrated port by port against REFMAR, applied only where a held-out period says it helps
 
-- Status: **criterion written before any figure was seen** (first commit of its pull request). The result is added at the end.
+- Status: accepted. The criterion was written before any figure was seen (first commit of its pull request); the result is at the end: applied at Brest, not at Lorient.
 - Date: 2026-11-08
 
 ## Context
@@ -37,3 +37,25 @@ not used.
 7. **The answer says it**: `calibration` is `null` when none is applied, otherwise it names the station, the two numbers, the period and the
    source, and `derived` lists it. The credit of the answer adds REFMAR when a calibration is applied.
 8. If the gain cannot be measured at a station, it is not applied, and if it is measured at none, **nothing is delivered as a default**.
+
+## Result (measured on 2026-11-08, criterion above unchanged)
+
+`tools/calibrate_tides.py`, REFMAR observations from 2026-03-01 to 2026-10-27, both stations complete (100 % of the 10-minute values).
+Figures are the model as it is, then corrected. Cross-validation: 812 high and low waters in four blocks of the fit period; final test:
+2026-09-27 to 2026-10-26, 116 high and low waters, not used for the stored fit.
+
+| Station | Amplitude, delay | Set | RMS of the series (cm) | Median time error (min) | Median height error (cm) | Result |
+| --- | --- | --- | --- | --- | --- | --- |
+| Brest (REFMAR 3; cell 0.9 km away) | 1.021, +5 min | cross-validation | 13.2 > 11.5 (-13 %) | 7.1 > 5.5 | 9.2 > 7.6 | **applied** |
+| | | final test | 17.9 > 15.7 (-12 %) | 8.9 > 6.9 | 10.9 > 9.6 | RMS falls in 4 of 4 blocks |
+| Lorient (REFMAR 6349, the nearest to Lorient in the service's list, 1.5 km from the port; cell 12.6 km away) | 0.999, +2 min | cross-validation | 9.7 > 9.6 (-1 %) | 6.6 > 6.3 | 6.4 > 6.4 | **not applied**: the gain is not measurable |
+| | | final test | 13.1 > 12.8 (-2 %) | 6.7 > 5.9 | 8.0 > 8.0 | |
+
+Read: at Brest the model's range is 2 % too small and a few minutes early, and fixing that cuts the series error by 12 to 13 % and the
+time error of the high and low waters by about 2 minutes. It is a modest gain (the observed series still carries the weather, which the
+model does not, and a 10-minute error is small beside the range of 4.3 m). At Lorient the model already agrees with the gauge to within a
+tenth of a percent in amplitude and 2 minutes, and nothing is gained: the file lists the station with `applied: false` and the API serves the
+plain model. The ports of the French coast other than these two were **not** calibrated (not requested); a point near them gets the plain model.
+
+Limits: one period of eight months (the amplitude of the shallow-water constituents varies with the year); the observed series is smoothed
+over 61 minutes and includes surge, so the RMS figures are an error against reality and not against a pure tide; the 15 km radius is ours.
