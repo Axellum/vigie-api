@@ -41,6 +41,8 @@ Endpoints:
 - ``GET    /v1/surf/spots``        : The surf spots of the French Atlantic and Channel coasts (OpenStreetMap, ODbL).
 - ``GET    /v1/surf/spots/{id}``   : The hourly surf forecast of a spot (MFWAM swell, wind, tide) with a rating of ours, explained.
 - ``GET    /v1/surf/buoys``        : The nearest CANDHIS wave buoy of each surf spot and its distance (the list only).
+- ``GET    /v1/activities/{id}``   : A verdict hour by hour for surf, kite, boat and shore fishing at a spot, with the tide and the
+                                     coastal warnings (ADR 0016); every verdict is a rule of Vigie, written in the answer.
 - ``GET    /v1/surf/overview``     : Every spot in short: the current hour and the best slot of the next three days (one request
                                      to the providers for all of them).
 - ``GET    /v1/experimental/prealert`` : EXPERIMENTAL, UNOFFICIAL: the pre-alert levels Vigie computes for a province of Turkey
@@ -96,6 +98,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app import __version__, clock
+from app.models.activities import ActivitiesForecast
 from app.models.buoys import SpotBuoys
 from app.models.earthquakes import EarthquakesQuery, EarthquakesResponse
 from app.models.events import EventsResponse, FamiliesResponse
@@ -135,7 +138,7 @@ from app.models.vigilance import (
 from app.models.watch import WatchedPointsStatus
 from app.routers.dashboard import router as dashboard_router
 from app.security import AdminTokenMiddleware, admin_token, document_admin_token
-from app.services import buoys, surf, tides
+from app.services import activities, buoys, surf, tides
 from app.services import earthquakes as quakes
 from app.services.aggregator import AggregatorService
 from app.services.events import FAMILIES, FAMILIES_NOTE, FAMILY_IDS, WORLD_MIN_IMPACT
@@ -782,6 +785,48 @@ async def get_surf_buoys(response: Response) -> SpotBuoys:
     """The nearest buoy of every surf spot."""
     response.headers["Cache-Control"] = SURF_CACHE
     return await clock.run_blocking(buoys.spot_buoys)
+
+
+ACTIVITIES_ERRORS: dict[int | str, dict[str, Any]] = {
+    **SURF_ERRORS,
+    422: {"description": "`wind_min_kn` and `wind_max_kn` do not make a range (0 < min < max)."},
+}
+ACTIVITIES_CACHE = "public, max-age=300"  # shorter than the surf page: a warning can come in
+
+
+@app.get(
+    "/v1/activities/{spot_id}",
+    response_model=ActivitiesForecast,
+    tags=["Sea"],
+    responses=ACTIVITIES_ERRORS,
+    description=(
+        "For a surf spot (`GET /v1/surf/spots`), a verdict hour by hour from the current hour for `days` (1 to 3) for four activities: "
+        "surf, kite or wing or windsurf, boat and shore fishing. Each verdict is `good`, `possible` or `poor` (or `null` when too little "
+        "is known), with the criteria behind it, the best daylight slot of the next 24 hours and the hour it stands on. The swell and "
+        "the wind are the surf forecast's; the tide (high and low waters, and the coefficient **estimated** by Vigie, not SHOM's) is "
+        "computed by Vigie; the official coastal warnings that cover the spot cap the verdicts (red: everything `poor`; orange: the boat "
+        "and the shore fishing at `possible` at best). **Every verdict is a rule of Vigie**, with its thresholds in `rules`: it knows "
+        "neither the spot nor the person. `wind_min_kn` and `wind_max_kn` set the wind range of the kite. **Not for safety.**"
+    ),
+)
+async def get_activities(
+    response: Response,
+    spot_id: str,
+    days: int = Query(default=2, ge=1, le=activities.MAX_DAYS, description="Number of days from the current hour (1 to 3)"),
+    wind_min_kn: float = Query(default=activities.DEFAULT_WIND_MIN_KN, gt=0, le=activities.MAX_WIND_KN, description="Kite: the lightest wind wanted (knots)"),
+    wind_max_kn: float = Query(default=activities.DEFAULT_WIND_MAX_KN, gt=0, le=activities.MAX_WIND_KN, description="Kite: the strongest wind wanted (knots)"),
+) -> ActivitiesForecast:
+    """The activities of a surf spot."""
+    if wind_min_kn >= wind_max_kn:
+        raise HTTPException(status_code=422, detail="wind_min_kn has to be lower than wind_max_kn")
+    try:
+        answer = await activities.forecast(aggregator.surf, aggregator.vigilances, spot_id, days, clock.wall(), wind_min_kn, wind_max_kn)
+    except surf.UnknownSpot:
+        raise HTTPException(status_code=404, detail=f"no surf spot {spot_id!r}") from None
+    except surf.NoSurfForecast as error:
+        raise HTTPException(status_code=503, detail=str(error)) from None
+    response.headers["Cache-Control"] = ACTIVITIES_CACHE
+    return answer
 
 
 @app.get(
