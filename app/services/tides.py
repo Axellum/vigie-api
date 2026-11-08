@@ -55,7 +55,10 @@ EXTREMES_STEP_MINUTES = 1
 MIN_EXTREME_DIFFERENCE_M = 0.02
 
 # The estimated French coefficient (ours, unofficial; ADR 0015): the range of a semi-diurnal tide at Brest divided by this unit, times 100.
-# 6.10 m is the unit that secondary sources give for Brest (the mean range of equinoctial spring tides); SHOM's own text was not read.
+# 6.10 m is the unit that secondary sources give for Brest (the mean range of equinoctial spring tides). SHOM's data sheet on tide prediction
+# (Refmar, May 2024) was read: it gives C = (H - N0) / U x 100 (H the high water above the chart datum, N0 the mid-tide level, U the unit),
+# says the coefficient is worked out at Brest only and applies to the whole coast, but gives no value of U or N0. ADR 0018 measured that
+# form against the one used here: it did not come closer to the observed tide of Brest, so the range form stays.
 COEFFICIENT_UNIT_M = 6.10
 # The tide gauge of Brest (REFMAR 3, the SHOM's position): the model cell nearest to it gives the coefficient.
 BREST = (48.3829, -4.4950)

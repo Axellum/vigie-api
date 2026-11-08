@@ -24,8 +24,19 @@ LIMITS = (
 COEFFICIENT_NOTE = (
     "Estimated by Vigie from the model's tide at Brest: 100 times the range of each semi-diurnal tide at Brest divided by 6.10 m. Not the "
     "official coefficient, which is SHOM's. In France the coefficient is used for the Atlantic, Channel and North Sea coasts, with the "
-    "value of the high water at Brest; it says nothing of the Mediterranean or of other countries."
+    "value of the high water at Brest; it says nothing of the Mediterranean or of other countries. SHOM's own definition (height of the high "
+    "water above the mid-tide level, over a unit, times 100) was measured against this one on the tide observed at Brest and did not come "
+    "closer (ADR 0018); the model's tide is not corrected, so the coefficient inherits the model's error."
 )
+
+
+class TideCoefficientMethod(BaseModel):
+    """How the estimated coefficient is worked out, and from which tide (ours; ADR 0018)."""
+
+    formula: str = Field(..., description="The formula, in words")
+    unit_m: float = Field(..., description="The unit the range is divided by (m)")
+    place: str = Field(..., description="The place the coefficient is worked out at, and used for the whole coast")
+    tide: Literal["model"] = Field(..., description="The tide the coefficient comes from: `model` is the bundled model's tide, with no correction")
 
 
 class TideCell(BaseModel):
@@ -90,6 +101,12 @@ class TidesResponse(BaseModel):
         default_factory=list, description="The estimated French coefficient of each high water at Brest in the window (ours, unofficial)"
     )
     coefficient_note: str = COEFFICIENT_NOTE
+    coefficient_method: TideCoefficientMethod = Field(
+        default_factory=lambda: TideCoefficientMethod(
+            formula="100 x (high water - mean of the two neighbouring low waters) / unit", unit_m=6.10, place="Brest", tide="model"
+        ),
+        description="How `coefficients_estimated` is calculated, and from which tide (ours, unofficial)",
+    )
     derived: list[str] = Field(
         default_factory=lambda: ["heights", "extremes", "now", "coefficients_estimated"],
         description="The fields computed by Vigie: here, all of them",
