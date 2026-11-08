@@ -686,6 +686,7 @@ boat, the low water and the wind for the shore fishing), which makes the verdict
 | Activity | Criterion | `good` | `possible` | `poor` |
 | --- | --- | --- | --- | --- |
 | `surf` | share of the points of the surf rating | 75 % and over | 50 % and over | less (`null` with fewer than 3 criteria scored) |
+| `surf` | `swell_height` (primary swell) | | | under 0.5 m or 4 m and over (0 points), whatever the other criteria give |
 | `kite` | `wind` against the range asked for (default 12 to 25 kn) | within it | within 3 kn of it | further |
 | `kite` | `gust_gap` (gusts minus mean wind) | 5 kn or less | 6 to 8 kn | more |
 | `kite` | `wind_direction` | onshore, cross-shore | offshore (from the land) | |

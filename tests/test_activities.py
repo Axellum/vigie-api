@@ -107,10 +107,10 @@ def states(criteria: list[Any]) -> dict[str, tuple[Optional[str], Optional[str]]
     return {c.name: (c.state, c.verdict) for c in criteria}
 
 
-def rating(*points: Optional[int], period_s: float = 12.0) -> SurfRating:
+def rating(*points: Optional[int], period_s: float = 12.0, height_m: float = 1.5) -> SurfRating:
     names = ("swell_height", "swell_period", "swell_direction", "wind", "tide")
     units = ("m", "s", "deg", "km/h", "m")
-    values = (1.5, period_s, 10.0, 8.0, 1.0)
+    values = (height_m, period_s, 10.0, 8.0, 1.0)
     scores = [SurfCriterionScore(name=n, value=v, unit=u, points=p, max_points=2) for n, v, u, p in zip(names, values, units, points, strict=True)]  # type: ignore[arg-type]
     known = [s for s in scores if s.points is not None]
     return SurfRating(points=sum(s.points or 0 for s in known), out_of=2 * len(known), criteria=scores, unknown=[s.name for s in scores if s.points is None])
@@ -335,6 +335,27 @@ def test_the_surf_reason_is_the_criterion_that_lost_the_most() -> None:
     assert (verdict, reason) == ("good", None)  # 8 of 10: 0.8
 
 
+@pytest.mark.parametrize(("height_m", "state"), [(0.3, "too_small"), (0.49, "too_small"), (4.0, "too_big"), (6.5, "too_big")])
+def test_a_swell_too_small_or_too_big_makes_the_surf_poor_whatever_the_rest(height_m: float, state: str) -> None:
+    # Every other criterion at the top: 8 of 10 would be `good` by the share (the owner's call of 2026-11-08: no waves, no surf).
+    hour = make_hour(rating=rating(0, 2, 2, 2, 2, height_m=height_m))
+    verdict, reason, criteria, points, out_of = activities._judge_surf(hour)
+    assert (verdict, reason, points, out_of) == ("poor", f"swell_height.{state}", 8, 10)
+    assert states(criteria)["swell_height"] == (state, "poor") and states(criteria)["wind"][1] == "good"
+    # Judged first: three criteria are no longer needed to say it, since the swell height is always known when there is a rating.
+    only_two = activities._judge_surf(make_hour(rating=rating(0, 2, None, None, None, height_m=height_m)))
+    assert only_two[:2] == ("poor", f"swell_height.{state}")
+
+
+@pytest.mark.parametrize("height_m", [0.5, 0.99, 2.6, 3.9])
+def test_a_swell_worth_one_point_is_left_to_the_share(height_m: float) -> None:
+    # 0.5 m is the first height that scores (1 point), and 3.9 m the last before the 4 m that scores 0 again.
+    good = activities._judge_surf(make_hour(rating=rating(1, 2, 2, 2, 2, height_m=height_m)))
+    assert good[:2] == ("good", None)  # 9 of 10
+    low = activities._judge_surf(make_hour(rating=rating(1, 0, 0, 0, 0, height_m=height_m)))
+    assert low[0] == "poor" and low[1] is not None and low[1].startswith("swell_period.")  # 1 of 10: the share decides, not the height
+
+
 def test_without_a_rating_there_is_no_surf_verdict() -> None:
     assert activities._judge_surf(make_hour(rating=None)) == (None, None, [], None, None)
 
@@ -545,6 +566,11 @@ def test_the_surf_verdict_of_each_hour_follows_the_rating_of_the_surf_page() -> 
     seen = set()
     for hour, mine in zip(base.hours, surf_hours, strict=True):
         r = hour.rating
+        swell_points = None if r is None else next(c.points for c in r.criteria if c.name == "swell_height")
+        if r is not None and swell_points == 0:
+            assert (mine.verdict, mine.reason.split(".")[0]) == ("poor", "swell_height")  # no waves, or too big: nothing makes up for it
+            seen.add(mine.verdict)
+            continue
         if r is None or r.out_of < surf.MIN_OUT_OF_FOR_BEST:
             assert mine.verdict is None
             continue
@@ -714,7 +740,7 @@ def test_the_answer_is_json_with_its_rules_and_its_limits() -> None:
 
 def test_the_rules_say_every_threshold_the_code_uses() -> None:
     text = " ".join(activities.RULES.values())
-    for number in ("75 %", "50 %", "12 to 25 knots", "3 knots", "5 knots", "1.25 m", "2.5 m", "70 to 99", "50 to 69", "2 hours before a low water", "100 and over"):
+    for number in ("75 %", "50 %", "12 to 25 knots", "3 knots", "5 knots", "1.25 m", "2.5 m", "70 to 99", "50 to 69", "2 hours before a low water", "100 and over", "0 points (under 0.5 m, or 4 m and over)"):
         assert number in text, number
     assert (activities.SURF_GOOD_SHARE, activities.SURF_POSSIBLE_SHARE) == (0.75, 0.5)
     assert (activities.SEA_GOOD_BELOW_M, activities.SEA_POSSIBLE_BELOW_M) == (1.25, 2.5)

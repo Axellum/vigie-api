@@ -41,7 +41,10 @@ official number. A federation or a school has its own, and they differ with the 
    consecutive daylight hours** at that verdict as `best_slot` (the first on a tie), and no slot when the best is `poor`. The `detail` is the
    criteria of the first hour of the slot, else of the first daylight hour. Hours are whole hours.
 5. **Surf**: the rating of the surf page, by its share of points, 75 % and over `good`, 50 % and over `possible`, less `poor`; `null` with
-   fewer than three criteria scored (the rule of the best slot there).
+   fewer than three criteria scored (the rule of the best slot there). **A primary swell worth 0 points (under 0.5 m, or 4 m and over) makes
+   the verdict `poor` whatever the other criteria give**, with the reason `swell_height.too_small` or `swell_height.too_big` (added the day
+   of the first version, 2026-11-08, after its first look at a real day: a swell of 0.4 m at Hossegor with an offshore wind scored 5 of 8,
+   `possible`; the owner chose to make it `poor`).
 6. **Kite, wing, windsurf**: the wind in knots against **a range the person sets** (default 12 to 25; within 3 knots of it, `possible`);
    the gust gap (mean to gusts, 5 knots or less `good`, 6 to 8 `possible`, more `poor`); a wind from the land side (offshore) is `possible` at
    best, because it carries a rider out to sea. The range is a query parameter: the owner's default is not everyone's.
