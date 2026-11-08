@@ -581,6 +581,21 @@ GET /v1/surf/overview                                      every spot now, and i
 
 **Not for safety and not for navigation**: look at the sea on the spot, the flags and the lifeguards before going in.
 
+## Places of the coast
+
+`GET /v1/sea/places` lists the ports, slipways, anchorages, dive sites and monitored bathing sites of the French coast (about 4,000
+places, metropolitan France with Corsica, each within 2 km of the OpenStreetMap coastline), from `app/data/sea-places.json.gz`, built once
+by `tools/build_places.py` from OpenStreetMap (**ODbL 1.0**), the Sandre ports and the sanitary quality of the bathing sites (both Licence
+Ouverte) (`app/data/sea-places.NOTICE.md`, [ADR 0021](docs/decisions/0021-sea-places-catalogue-from-open-data.md)). Nothing is asked of a
+source when you ask. **A catalogue, not a forecast**: it says where places are, not whether they can be used or whether the water is safe today.
+
+```
+GET /v1/sea/places?near_lat=44.66&near_lon=-1.17&radius_km=10&limit=5   the nearest places around Arcachon, nearest first, with their distance
+GET /v1/sea/places?type=slipway&type=port&bbox=-2,47,-1,48            the slipways and ports of a box (west,south,east,north)
+GET /v1/sea/places?q=joinville                                          by a word of the name, the nearest locality or the commune
+GET /v1/sea/places/{id}                                                 one place
+```
+
 ## Activities
 
 `GET /v1/activities/{id}` answers, for one surf spot, the question the surf page leaves open: **should I go?** For surf, kite or wing or
