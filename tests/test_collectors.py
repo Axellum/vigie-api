@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import httpx
 import pytest
 
+from app.attribution import credit_text
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector
 from app.collectors.flood_air import (
     OpenMeteoAirQualityCollector,
@@ -339,6 +340,37 @@ def test_marine_parser_keeps_missing_values_unknown() -> None:
 def test_marine_parser_raises_without_any_value() -> None:
     with pytest.raises(ValueError):
         OpenMeteoMarineCollector.parse_response({"current": {"wave_height": None}})
+    with pytest.raises(ValueError):
+        OpenMeteoMarineCollector.parse_response({"current": {"wave_height": None, "sea_surface_temperature": None}})
+
+
+def test_marine_parser_reads_the_sea_temperature_to_the_tenth_and_credits_its_source() -> None:
+    parsed = OpenMeteoMarineCollector.parse_response(samples.marine_with_sea_temperature())
+    assert parsed.sea_surface_temperature_c == 16.8
+    assert parsed.wave_height_m == 0.46 and parsed.sea_state_label == "SMOOTH"
+    assert parsed.attribution == credit_text("open_meteo", "dwd_icon_wave", "copernicus_ocean")
+    assert "https://doi.org/10.48670/moi-00016" in (parsed.attribution or "")
+
+
+def test_marine_parser_leaves_the_temperature_unknown_and_uncredited_when_the_model_has_none() -> None:
+    without = {"current": {k: v for k, v in samples.marine_with_sea_temperature()["current"].items() if k != "sea_surface_temperature"}}
+    parsed = OpenMeteoMarineCollector.parse_response(without)
+    assert parsed.sea_surface_temperature_c is None
+    assert parsed.attribution == credit_text("open_meteo", "dwd_icon_wave")  # no Copernicus credit for data not given
+
+
+@pytest.mark.parametrize("value", [99.9, -9.0, "warm", float("nan"), None])
+def test_marine_parser_does_not_take_a_number_that_cannot_be_sea_water_for_a_temperature(value: object) -> None:
+    payload = {"current": {**samples.marine_with_sea_temperature()["current"], "sea_surface_temperature": value}}
+    parsed = OpenMeteoMarineCollector.parse_response(payload)
+    assert parsed.sea_surface_temperature_c is None and parsed.wave_height_m == 0.46
+
+
+def test_the_temperature_of_the_sea_alone_is_an_answer() -> None:
+    # A bay or a lagoon can have a temperature and no wave: the block is there, with the waves unknown.
+    parsed = OpenMeteoMarineCollector.parse_response({"current": {"wave_height": None, "sea_surface_temperature": 14.2}})
+    assert parsed.sea_surface_temperature_c == 14.2
+    assert parsed.wave_height_m is None and parsed.sea_state_label is None and parsed.navigation_warning is False
 
 
 # ============================================================================

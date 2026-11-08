@@ -195,6 +195,12 @@ CREDITS: dict[str, Credit] = {
             "provider",
         ),
         Credit(
+            "copernicus_ocean",
+            "Copernicus Marine (Météo-France ocean model, through Open-Meteo Marine)",
+            "Generated using E.U. Copernicus Marine Service Information; https://doi.org/10.48670/moi-00016",
+            "provider",
+        ),
+        Credit(
             "osm_spots",
             "OpenStreetMap (surf spots)",
             "Surf spots: © OpenStreetMap contributors, ODbL 1.0 (https://www.openstreetmap.org/copyright); chosen and their "
@@ -336,6 +342,8 @@ TIDES_CALIBRATED = ("eot20", "refmar_tides")
 TIDE_CORRECTION = ("shom_refmar",)
 SURF = ("open_meteo", "copernicus_mfwam", "osm_spots", "eot20")
 SURF_BUOYS = ("candhis_stations", "osm_spots")
+# Added to the credit of marine conditions that carry the temperature of the sea.
+MARINE_SEA_TEMPERATURE = ("copernicus_ocean",)
 
 
 def credit_text(*keys: str) -> str:

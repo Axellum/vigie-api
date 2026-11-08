@@ -203,6 +203,13 @@ class MarineConditions(BaseModel):
     ocean_current_direction_deg: Optional[int] = Field(
         default=None, ge=0, le=360, description="Ocean current direction (degrees)"
     )
+    sea_surface_temperature_c: Optional[float] = Field(
+        default=None,
+        ge=-3.0,
+        le=45.0,
+        description="Sea surface temperature (°C) of the ocean model, for a cell of about 8 km. Not a measurement: near a river "
+        "mouth, in a lagoon or in the surf it can differ by degrees",
+    )
     sea_state_label: Optional[
         Literal["CALM", "SMOOTH", "MODERATE", "ROUGH", "VERY_ROUGH", "HIGH", "PHENOMENAL"]
     ] = Field(default=None, description="Sea state (simplified Douglas scale), from the wave height")

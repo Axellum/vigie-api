@@ -127,6 +127,25 @@ def marine_payload() -> dict[str, Any]:
     }
 
 
+def marine_with_sea_temperature() -> dict[str, Any]:
+    """What Open-Meteo Marine answered for the coast of the Landes on 2026-11-08 (`current`, the 9 variables the collector asks for)."""
+    return {
+        "latitude": 43.708336,
+        "longitude": -1.4583282,
+        "current": {
+            "wave_height": 0.46,
+            "wave_direction": 297,
+            "wave_period": 9.1,
+            "swell_wave_height": 0.36,
+            "swell_wave_direction": 297,
+            "swell_wave_period": 9.1,
+            "ocean_current_velocity": 0.2,
+            "ocean_current_direction": 160,
+            "sea_surface_temperature": 16.84,
+        },
+    }
+
+
 def parsed_marine() -> MarineConditions:
     """The sample marine response after parsing."""
     return OpenMeteoMarineCollector.parse_response(marine_payload())

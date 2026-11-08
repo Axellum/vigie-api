@@ -218,6 +218,16 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-10-28",
         ),
         CommercialUse(
+            "copernicus_ocean",
+            "allowed",
+            "Copernicus Marine licence: value-added products and derivative works may be distributed \"for any purpose\", "
+            "royalty free, with the credit and the product's DOI. Here it comes through Open-Meteo's free API, which is not: "
+            "the surf block stays forbidden while it does. Open-Meteo names Météo-France and Copernicus Marine for the sea "
+            "temperature, not a product: the DOI is that of the global 1/12 degree product, not confirmed to be the one behind it.",
+            ("https://marine.copernicus.eu/user-corner/service-commitments-and-licence",),
+            "2026-11-08",
+        ),
+        CommercialUse(
             "osm_spots",
             "allowed",
             "ODbL 1.0: any use, with the credit, and a database made from it is shared under the ODbL too (the spot file is).",

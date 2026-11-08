@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from app.collectors.base import CollectorUnavailableError
+from app.collectors.marine import OpenMeteoMarineCollector
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector
 from app.main import aggregator, scheduler, ws_hub
 from app.models.schemas import CircuitState, SeverityLevel
@@ -143,6 +144,16 @@ def test_point_endpoint_marine_gps(world: World, monkeypatch: pytest.MonkeyPatch
     assert h0["value_primary"] == 6.6
     assert h0["tsunami_eta_minutes"] > 0
     assert h0["bearing_cardinal"] in {"N", "NE", "E", "SE", "S", "SW", "W", "NW"}
+
+
+def test_point_endpoint_gives_the_sea_temperature_in_the_marine_block(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    parsed = OpenMeteoMarineCollector.parse_response(samples.marine_with_sea_temperature())
+    monkeypatch.setattr(aggregator.marine, "fetch_marine", AsyncMock(return_value=parsed))
+    payload = world.client.get("/v1/point?lat=43.67&lon=-1.45&marine=true").json()
+    assert payload["marine"]["sea_surface_temperature_c"] == 16.8 and payload["marine"]["wave_height_m"] == 0.46
+    assert "Copernicus Marine" in payload["marine"]["attribution"]
+    # Without the parameter the block is not asked for, and the sample of the other tests has no temperature to give.
+    assert world.client.get("/v1/point?lat=43.67&lon=-1.45").json()["marine"] is None
 
 
 def test_point_endpoint_reports_unknown_as_null(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
