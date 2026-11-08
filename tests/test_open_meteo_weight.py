@@ -120,7 +120,9 @@ async def test_weight_of_the_other_open_meteo_requests() -> None:
 
     assert air_collector.call_weight(air.query()) == 1.0  # 6 variables
     assert flood_collector.call_weight(flood.query()) == 1.0  # 3 variables, 7 days
-    assert marine_collector.call_weight(marine.query()) == 1.0  # 8 variables
+    assert marine_collector.call_weight(marine.query()) == 1.0  # 9 variables, the sea temperature among them
+    assert "sea_surface_temperature" in marine.query()["current"].split(",")
+    assert len(marine.query()["current"].split(",")) == 9
 
 
 # ============================================================================

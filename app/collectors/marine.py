@@ -5,10 +5,12 @@ Provides, at the exact GPS position of a vessel (``lat, lon``):
 - Significant wave height, direction and period.
 - Primary swell height, direction and period.
 - Surface ocean current speed and direction.
+- The sea surface temperature, in °C: a value of the ocean model for a cell of about 8 km, not a measurement at the beach.
 - Sea state classification (Douglas scale) and a navigation warning.
 
 A variable the API does not supply stays ``None``. The Marine API returns nothing for
-inland points: the collector then raises, and the caller reports "no marine data".
+inland points: the collector then raises, and the caller reports "no marine data". The sea
+temperature alone is enough for an answer (a lagoon or a bay can have it and no wave).
 """
 
 from __future__ import annotations
@@ -18,11 +20,14 @@ from typing import Any, Literal, Optional
 
 import httpx
 
-from app.attribution import MARINE, credit_text
+from app.attribution import MARINE, MARINE_SEA_TEMPERATURE, credit_text
 from app.collectors.base import BaseCollector, optional_float
 from app.collectors.grid import DEFAULT_MARINE_GRID_DEG, coord_str, grid_step_from_env, snap_to_grid
 from app.collectors.weights import open_meteo_weight
 from app.models.schemas import MarineConditions
+
+# Sea water goes from -2 °C (ice at the pole) to the Red Sea; any other number is a gap of the provider, not a temperature.
+SEA_MIN_C, SEA_MAX_C = -3.0, 45.0
 
 SeaStateLabel = Literal["CALM", "SMOOTH", "MODERATE", "ROUGH", "VERY_ROUGH", "HIGH", "PHENOMENAL"]
 
@@ -48,6 +53,12 @@ def _direction(value: Any) -> Optional[int]:
     """Round a direction in degrees to ``[0, 359]``, or ``None`` when missing."""
     number = optional_float(value)
     return None if number is None else int(round(number)) % 360
+
+
+def _sea_temperature(value: Any) -> Optional[float]:
+    """The sea surface temperature to the tenth of a degree, or ``None`` when missing or not a sea temperature."""
+    number = optional_float(value)
+    return None if number is None or not SEA_MIN_C <= number <= SEA_MAX_C else round(number, 1)
 
 
 def _rounded(value: Any, digits: int) -> Optional[float]:
@@ -78,7 +89,7 @@ class OpenMeteoMarineCollector(BaseCollector[MarineConditions]):
         )
 
     def call_weight(self, params: Mapping[str, str]) -> float:
-        """Weight of one request under the Open-Meteo rule (8 current variables: 1.0)."""
+        """Weight of one request under the Open-Meteo rule (9 current variables: 1.0)."""
         return open_meteo_weight(params, default_forecast_days=7)
 
     async def fetch_marine(self, lat: float, lon: float) -> MarineConditions:
@@ -97,7 +108,7 @@ class OpenMeteoMarineCollector(BaseCollector[MarineConditions]):
             "current": (
                 "wave_height,wave_direction,wave_period,"
                 "swell_wave_height,swell_wave_direction,swell_wave_period,"
-                "ocean_current_velocity,ocean_current_direction"
+                "ocean_current_velocity,ocean_current_direction,sea_surface_temperature"
             ),
         }
         resp = await self._get(client, self.BASE_URL, params=params)
@@ -115,7 +126,8 @@ class OpenMeteoMarineCollector(BaseCollector[MarineConditions]):
         wave_h = _rounded(curr.get("wave_height"), 2)
         swell_h = _rounded(curr.get("swell_wave_height"), 2)
         curr_vel = _rounded(curr.get("ocean_current_velocity"), 2)
-        if wave_h is None and swell_h is None and curr_vel is None:
+        sea_temp = _sea_temperature(curr.get("sea_surface_temperature"))
+        if wave_h is None and swell_h is None and curr_vel is None and sea_temp is None:
             raise ValueError("Open-Meteo Marine response has no marine value")
 
         nav_warning = bool(
@@ -132,7 +144,8 @@ class OpenMeteoMarineCollector(BaseCollector[MarineConditions]):
             swell_wave_period_s=_rounded(curr.get("swell_wave_period"), 1),
             ocean_current_velocity_kmh=curr_vel,
             ocean_current_direction_deg=_direction(curr.get("ocean_current_direction")),
+            sea_surface_temperature_c=sea_temp,
             sea_state_label=None if wave_h is None else classify_sea_state_douglas(wave_h),
             navigation_warning=nav_warning,
-            attribution=credit_text(*MARINE),
+            attribution=credit_text(*MARINE, *(MARINE_SEA_TEMPERATURE if sea_temp is not None else ())),
         )
