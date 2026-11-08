@@ -677,6 +677,12 @@ gives, for a surf spot, a verdict hour by hour from the current hour for 1 to 3 
 (`surf.fetch`), the sunrise and sunset are in the wind answer, the tide is computed (`tides.tides_at`), and the warnings are
 `VigilanceService.for_point`, the cached ones of `GET /v1/vigilances` (`tests/test_activities.py` counts the requests).
 
+`GET /v1/activities/overview?wind_min_kn=&wind_max_kn=` (`app/services/activities_overview.py`) is the same thing for every spot at once. It
+reads the two every-spot answers of `GET /v1/surf/overview` (`SurfForecastCollector.fetch_all("swell")` and `("wind")`, the same cache entries,
+so **no request is added to a provider**), and asks `for_point` once per spot, kept five minutes (a failing source leaves that spot's
+`warnings` at `unknown`; nothing is capped there, and the failure is asked again at the next call). The answer is worked out once per hour,
+five minutes and wind range (`tests/test_activities_overview.py` counts the calls).
+
 **Every threshold is ours** and is in `rules` of every answer. What is official: the Beaufort scale (in knots, the lower bound of each
 force: 1, 4, 7, 11, 17, 22, 28, 34, 41, 48, 56, 64), the colour of an official warning, and the SNSM's advice on the coefficient (100 and
 over is a danger). A verdict is `good`, `possible` or `poor`, the lowest of the criteria of the hour; a criterion whose value is unknown
