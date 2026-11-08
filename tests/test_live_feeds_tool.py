@@ -146,6 +146,7 @@ def swpc_answer(request: httpx.Request) -> httpx.Response:
 
 
 SURF_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "surf"
+REFMAR_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "refmar"
 
 
 def surf_or(other: Callable[[httpx.Request], httpx.Response], fixture: str) -> Callable[[httpx.Request], httpx.Response]:
@@ -173,6 +174,7 @@ def good_answers() -> dict[str, Callable[[httpx.Request], httpx.Response]]:
         "services.swpc.noaa.gov": swpc_answer,
         "api.open-meteo.com": surf_or(lambda r: httpx.Response(200, json=samples.open_meteo_payload()), "wind-hossegor.json"),
         "marine-api.open-meteo.com": surf_or(lambda r: httpx.Response(200, json=marine), "mfwam-hossegor.json"),
+        "services.data.shom.fr": lambda r: httpx.Response(200, content=(REFMAR_FIXTURES / "brest-2026-11-08.json").read_bytes()),
         "flood-api.open-meteo.com": lambda r: httpx.Response(200, json=GOOD_FLOOD),
         "air-quality-api.open-meteo.com": lambda r: httpx.Response(200, json=GOOD_AIR),
         "api.met.no": lambda r: httpx.Response(200, json=samples.metno_payload(), headers=METNO_HEADERS),
@@ -289,6 +291,7 @@ async def test_a_changed_format_is_a_failure_for_each_kind_of_source() -> None:
             "www.vigicrues.gouv.fr": lambda r: httpx.Response(200, json={"error": "maintenance"}),
             "www.tsunami.gov": lambda r: httpx.Response(200, text="<html><body>maintenance</body></html>"),
             "www.nhc.noaa.gov": lambda r: httpx.Response(200, json={"error": "maintenance"}),
+            "services.data.shom.fr": lambda r: httpx.Response(200, json={"error": "maintenance"}),
         }
     )
     failed = {name for name, r in results.items() if r.outcome == "FAIL"}
@@ -306,6 +309,7 @@ async def test_a_changed_format_is_a_failure_for_each_kind_of_source() -> None:
         "open_meteo_hd",
         "open_meteo_marine",
         "open_meteo_surf",
+        "shom_refmar",
         "open_meteo_flood",
         "open_meteo_aqi",
         "rainviewer_radar",

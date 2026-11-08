@@ -58,6 +58,7 @@ from app.collectors.marine import OpenMeteoMarineCollector
 from app.collectors.meteoalarm import MeteoAlarmCapCollector, MeteoAlarmCollector
 from app.collectors.metservice import MetServiceCollector, metservice_enabled_from_env
 from app.collectors.nhc import NHCCollector
+from app.collectors.refmar import RefmarCollector
 from app.collectors.seismic import EMSCCollector, USGSCollector
 from app.collectors.space_weather import NOAASWPCCollector
 from app.collectors.surf import SurfForecastCollector
@@ -195,6 +196,7 @@ class AggregatorService:
         rainviewer: Optional[RainViewerCollector] = None,
         marine: Optional[OpenMeteoMarineCollector] = None,
         surf: Optional[SurfForecastCollector] = None,
+        refmar: Optional[RefmarCollector] = None,
         flood: Optional[OpenMeteoFloodCollector] = None,
         air_quality: Optional[OpenMeteoAirQualityCollector] = None,
         swpc: Optional[NOAASWPCCollector] = None,
@@ -249,6 +251,7 @@ class AggregatorService:
         self.rainviewer = rainviewer or RainViewerCollector()
         self.marine = marine or OpenMeteoMarineCollector()
         self.surf = surf or SurfForecastCollector()
+        self.refmar = refmar or RefmarCollector()
         self.flood = flood or OpenMeteoFloodCollector()
         self.air_quality = air_quality or OpenMeteoAirQualityCollector()
         self.swpc = swpc or NOAASWPCCollector()
@@ -447,6 +450,7 @@ class AggregatorService:
             self.rainviewer,
             self.marine,
             self.surf,
+            self.refmar,
             self.flood,
             self.air_quality,
             self.swpc,

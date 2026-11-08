@@ -85,6 +85,7 @@ from app.collectors.metservice import COLOUR_PARAMETER as METSERVICE_COLOUR  # n
 from app.collectors.metservice import EVENTS as METSERVICE_EVENTS  # noqa: E402
 from app.collectors.metservice import MetServiceCollector  # noqa: E402
 from app.collectors.nhc import NHCCollector  # noqa: E402
+from app.collectors.refmar import RefmarCollector  # noqa: E402
 from app.collectors.seismic import EMSCCollector, USGSCollector  # noqa: E402
 from app.collectors.space_weather import NOAASWPCCollector  # noqa: E402
 from app.collectors.surf import SurfForecastCollector  # noqa: E402
@@ -287,6 +288,15 @@ async def check_marine(client: httpx.AsyncClient) -> Result:
     """Open-Meteo Marine: at least one wave, swell or current value (the parser raises otherwise)."""
     marine = await OpenMeteoMarineCollector()._collect(client, lat=SEA[0], lon=SEA[1])
     return Result("open_meteo_marine", "ok", f"waves {marine.wave_height_m} m, swell {marine.swell_wave_height_m} m")
+
+
+async def check_refmar(client: httpx.AsyncClient) -> Result:
+    """REFMAR (SHOM): the last 14 hours of Brest's gauge (the parser raises on a shape it does not know); the newest value should be recent."""
+    observations = await RefmarCollector()._collect(client, station_id="3")
+    if not observations:
+        raise ValueError("REFMAR answered no measure for Brest in the last 14 hours")
+    age = int(datetime.now(timezone.utc).timestamp() - observations[-1][0]) // 60
+    return Result("shom_refmar", "ok", f"{len(observations)} measures, the newest {age} minutes old")
 
 
 async def check_surf(client: httpx.AsyncClient) -> Result:
@@ -845,6 +855,7 @@ CHECKS: dict[str, Check] = {
     "open_meteo_hd": check_open_meteo,
     "open_meteo_marine": check_marine,
     "open_meteo_surf": check_surf,
+    "shom_refmar": check_refmar,
     "open_meteo_flood": check_flood,
     "open_meteo_aqi": check_air_quality,
     "met_norway_fallback": check_met_norway,

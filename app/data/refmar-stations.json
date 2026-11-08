@@ -1,0 +1,82 @@
+{
+ "note": "REFMAR tide gauges (SHOM, Licence Ouverte 2.0) that correct the modelled tide (ADR 0017). offset_m: the mean of (smoothed measure - EOT20 at the cell nearest to the gauge) over 2026-09-27 to 2026-10-27, i.e. the chart datum of the gauge against the model's mean sea level; built by tools/measure_tide_correction.py.",
+ "stations": [
+  {
+   "id": "55",
+   "name": "Calais",
+   "lat": 50.9694,
+   "lon": 1.8677,
+   "offset_m": 4.167
+  },
+  {
+   "id": "4",
+   "name": "Le Havre",
+   "lat": 49.481892,
+   "lon": 0.10598,
+   "offset_m": 5.019
+  },
+  {
+   "id": "13",
+   "name": "Cherbourg",
+   "lat": 49.651447,
+   "lon": -1.635508,
+   "offset_m": 3.927
+  },
+  {
+   "id": "410",
+   "name": "Saint-Malo",
+   "lat": 48.640812,
+   "lon": -2.028103,
+   "offset_m": 6.853
+  },
+  {
+   "id": "54",
+   "name": "Roscoff",
+   "lat": 48.718426,
+   "lon": -3.965679,
+   "offset_m": 5.343
+  },
+  {
+   "id": "3",
+   "name": "Brest",
+   "lat": 48.3829,
+   "lon": -4.49504,
+   "offset_m": 4.216
+  },
+  {
+   "id": "160",
+   "name": "Concarneau",
+   "lat": 47.873549,
+   "lon": -3.907207,
+   "offset_m": 3.067
+  },
+  {
+   "id": "62",
+   "name": "Les Sables-d'Olonne",
+   "lat": 46.497358,
+   "lon": -1.793528,
+   "offset_m": 3.307
+  },
+  {
+   "id": "34",
+   "name": "La Rochelle-La Pallice",
+   "lat": 46.1585,
+   "lon": -1.22065,
+   "offset_m": 3.951
+  },
+  {
+   "id": "95",
+   "name": "Saint-Jean-de-Luz Socoa",
+   "lat": 43.39524,
+   "lon": -1.68162,
+   "offset_m": 2.58
+  },
+  {
+   "id": "6349",
+   "name": "Lorient",
+   "lat": 47.7375,
+   "lon": -3.3545,
+   "offset_m": 3.179
+  }
+ ]
+}

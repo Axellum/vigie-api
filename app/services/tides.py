@@ -22,7 +22,7 @@ import time
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal, Optional
+from typing import TYPE_CHECKING, Literal, Optional
 
 import numpy as np
 
@@ -42,6 +42,9 @@ from app.models.tides import (
     TidesResponse,
 )
 from app.services.geodesy import haversine_km
+
+if TYPE_CHECKING:
+    from app.services.tide_correction import Correction
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 CONSTANTS_FILE = DATA_DIR / "tides-eot20.npz"
@@ -287,9 +290,14 @@ def _now(mjd: float, first_two: np.ndarray, extremes: list[Extreme]) -> tuple[fl
     return float(first_two[0]), trend, following["high"], following["low"]
 
 
-def tides_at(lat: float, lon: float, start_unix: int, days: float, interval_minutes: int, now_unix: float) -> TidesResponse:
-    """The tide at a point over ``days`` from ``start_unix``. Raises ``NoTideHere`` (no model cell near) or ``ValueError`` (a time
-    outside the table of the arguments)."""
+def tides_at(
+    lat: float, lon: float, start_unix: int, days: float, interval_minutes: int, now_unix: float, correction: Optional[Correction] = None
+) -> TidesResponse:
+    """The tide at a point over ``days`` from ``start_unix``, corrected when ``correction`` carries a gap. Raises ``NoTideHere`` (no
+    model cell near) or ``ValueError`` (a time outside the table of the arguments)."""
+    from app.services import tide_correction
+
+    correction = correction or tide_correction.NO_CORRECTION
     tide_model = model()
     cell = tide_model.nearest_cell(lat, lon)
     calibration = calibration_for(lat, lon)
@@ -301,10 +309,13 @@ def tides_at(lat: float, lon: float, start_unix: int, days: float, interval_minu
         raise ValueError(f"the tide can be computed from {first} to {last}")
     grid = start + np.arange(int(round(days * 1440 / interval_minutes)) + 1) * interval_minutes * MINUTE
     curve = np.arange(start - PADDING_DAYS, end + PADDING_DAYS, MINUTE)
-    extremes = find_extremes(curve, calibrated_heights(tide_model, cell.constants, curve, calibration))
+    def height_at(moments: np.ndarray) -> np.ndarray:
+        return calibrated_heights(tide_model, cell.constants, moments, calibration) + correction.at(moments)
+
+    extremes = find_extremes(curve, height_at(curve))
     around_now = now + np.arange(-12 * 60, 36 * 60 + 1) * MINUTE
-    now_curve = calibrated_heights(tide_model, cell.constants, around_now, calibration)
-    first_two = calibrated_heights(tide_model, cell.constants, np.array([now, now + MINUTE]), calibration)
+    now_curve = height_at(around_now)
+    first_two = height_at(np.array([now, now + MINUTE]))
     height, trend, next_high, next_low = _now(now, first_two, find_extremes(around_now, now_curve))
     return TidesResponse(
         generated_utc=int(now_unix),
@@ -314,13 +325,14 @@ def tides_at(lat: float, lon: float, start_unix: int, days: float, interval_minu
         end_utc=int(round(unix_from_mjd(end))),
         heights=[
             TideHeight(time_utc=int(round(unix_from_mjd(moment))), height_m=round(float(value), 2))
-            for moment, value in zip(grid, calibrated_heights(tide_model, cell.constants, grid, calibration), strict=True)
+            for moment, value in zip(grid, height_at(grid), strict=True)
         ],
         extremes=[_extreme(extreme, extremes[i - 1] if i else None) for i, extreme in enumerate(extremes) if start <= extreme.mjd <= end],
         now=TideNow(time_utc=int(now_unix), height_m=round(height, 2), trend=trend, next_high=next_high, next_low=next_low),
         coefficients_estimated=_coefficients(tide_model, start, end),
         calibration=_calibration_answer(calibration),
-        derived=["heights", "extremes", "now", "coefficients_estimated"] + (["calibration"] if calibration else []),
+        correction=tide_correction.correction_report(correction),
+        derived=["heights", "extremes", "now", "coefficients_estimated"] + (["calibration"] if calibration else []) + ["correction"],
         attribution=credit_text(*(TIDES_CALIBRATED if calibration else TIDES)),
     )
 
