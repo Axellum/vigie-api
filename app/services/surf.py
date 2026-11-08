@@ -352,10 +352,9 @@ def build_forecast(
     )
 
 
-async def forecast(collector: SurfForecastCollector, spot_id: str, days: int, now_unix: float) -> SurfForecast:
-    """The forecast of a spot. ``UnknownSpot`` for an id that is not in the list; ``NoSurfForecast`` when the swell cannot be had
-    (the wind alone is not a surf forecast: without it, the wind is unknown and the rating says so)."""
-    spot = find_spot(spot_id)
+async def fetch(collector: SurfForecastCollector, spot: SurfSpot) -> tuple[dict[str, Any], Optional[dict[str, Any]], bool]:
+    """The swell, the wind (``None`` when it gave no answer) and whether one of them is a last answer served stale, for one spot.
+    ``NoSurfForecast`` when the swell cannot be had (the wind alone is not a surf forecast)."""
     swell, wind = await asyncio.gather(
         collector.fetch_swell(spot.id, spot.lat, spot.lon),
         collector.fetch_wind(spot.id, spot.lat, spot.lon),
@@ -368,8 +367,16 @@ async def forecast(collector: SurfForecastCollector, spot_id: str, days: int, no
     wind_stale = False
     if not isinstance(wind, BaseException):
         wind_data, wind_stale = wind
+    return swell_data, wind_data, swell_stale or wind_stale
+
+
+async def forecast(collector: SurfForecastCollector, spot_id: str, days: int, now_unix: float) -> SurfForecast:
+    """The forecast of a spot. ``UnknownSpot`` for an id that is not in the list; ``NoSurfForecast`` when the swell cannot be had
+    (the wind alone is not a surf forecast: without it, the wind is unknown and the rating says so)."""
+    spot = find_spot(spot_id)
+    swell_data, wind_data, stale = await fetch(collector, spot)
     # The tide and the rating are computed in a worker thread: a few milliseconds of numpy, kept off the event loop.
-    return await clock.run_blocking(build_forecast, spot, swell_data, wind_data, days, now_unix, swell_stale or wind_stale)
+    return await clock.run_blocking(build_forecast, spot, swell_data, wind_data, days, now_unix, stale)
 
 
 def _now(hour: SurfHour) -> SurfNow:
