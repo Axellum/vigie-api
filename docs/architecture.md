@@ -57,6 +57,7 @@ Two repositories cooperate: **this API** (Python, runs on the PC) and the **disp
 | `app/models/watch.py`, `app/services/watch.py` | The status of the watched points (`GET /v1/watched-points/status`): the events within each radius, and `quiet` only when every hazard source answered and has been read without a gap (`SourceReads`). |
 | `app/models/tides.py`, `app/services/tides.py` | The tide computed from the EOT20 model bundled in `app/data` (`GET /v1/tides`, `GET /v1/tides/coast`): the nearest cell within 30 km, the sum of the 34 constituents, the high and low waters, the estimated coefficient; no provider is asked ([ADR 0015](decisions/0015-tides-from-a-global-model.md)). |
 | `app/models/surf.py`, `app/services/surf.py` | The surf spots (`app/data/surf-spots.json`, built by `tools/build_spots.py` from OpenStreetMap) and the forecast of one (`GET /v1/surf/spots`, `GET /v1/surf/spots/{spot_id}`, `GET /v1/surf/overview`): the providers' swell and wind hour by hour, the tide of `tides`, and what Vigie works out (wind relative to the coast, swell angle and power, a rating with its rules, the best slot of the next 72 hours). |
+| `app/models/activities.py`, `app/services/activities.py` | The verdicts of `GET /v1/activities/{spot_id}` ([ADR 0016](decisions/0016-activity-verdicts-from-rules-of-ours.md)): for a surf spot, hour by hour, surf, kite, boat and shore fishing, from the surf forecast, the tide of `tides` and the coastal warnings of `vigilance`, by thresholds of ours written in the answer; no provider is asked beyond the surf page's. |
 | `app/services/geodesy.py` | Haversine distance, bearing, tsunami ETA, de-duplication of hazards across agencies. |
 | `app/services/embedded_frame.py` | Serializes the snapshot (and an optional GPS point) to the text frame, with its CRC32. |
 | `app/services/storage_wal.py` | SQLite in WAL mode: watchlist, watched points, hazard history, last snapshot, the runs of readings of the hazard sources, the archive of the official warnings. |
@@ -104,6 +105,7 @@ The decisions and their reasons: [ADR 0002](decisions/0002-official-warnings-kep
 criteria it must meet, and an opt-in experimental view for testers),
 [ADR 0012](decisions/0012-events-and-impact.md) (events instead of lines: how the warnings and hazards are grouped, the impact score, the families),
 [ADR 0015 (tides)](decisions/0015-tides-from-a-global-model.md) (the tide computed from a global model, and the criterion it was measured by),
+[ADR 0016 (activities)](decisions/0016-activity-verdicts-from-rules-of-ours.md) (the verdicts for surf, kite, boat and shore fishing: rules of ours, in the answer),
 [ADR 0014 (travel)](decisions/0014-travel-advice-side-by-side.md) (travel advice: each ministry in its words, side by side, compared on a
 scale of ours).
 Rules that hold the whole model:

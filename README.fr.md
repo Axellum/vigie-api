@@ -81,6 +81,7 @@ des services émetteurs laissés tels quels, services nationaux du registre de l
 | `GET /v1/fires?bbox=w,s,e,n`, `GET /v1/fires/grid` | Les feux actifs vus par NASA FIRMS (VIIRS, NOAA-20 et NOAA-21) : les détections d'une zone en GeoJSON, ou comptées par cellule pour les petits zooms. Sans clé (404 seulement sur une instance qui a désactivé la source avec `VIGIE_ENABLE_FIRMS=0`). Voir « Feux actifs » plus bas. |
 | `GET /v1/tides?lat=&lon=`, `GET /v1/tides/coast?bbox=w,s,e,n` | La marée en un point de côte (hauteurs, pleines et basses mers, marnages, la marée maintenant, un coefficient français estimé), ou la marée maintenant le long des côtes d'une zone : **calculée par Vigie** à partir du modèle de marée océanique EOT20, sans appel à une source. **Pas pour la navigation.** Voir « Marées » plus bas. |
 | `GET /v1/surf/spots`, `GET /v1/surf/spots/{id}?days=`, `GET /v1/surf/overview` | Les spots de surf des côtes françaises de l'Atlantique et de la Manche (OpenStreetMap), et la prévision heure par heure de l'un d'eux : houle (MFWAM de Météo-France), vent, marée, et **une note à nous**, expliquée critère par critère, avec le meilleur créneau des trois prochains jours ; le résumé donne l'heure en cours et le meilleur créneau de tous les spots d'un coup. **Pas pour la sécurité.** Voir « Surf » plus bas. |
+| `GET /v1/activities/{id}?days=&wind_min_kn=&wind_max_kn=` | Pour un spot de surf, un verdict heure par heure (`good`, `possible`, `poor`) pour le **surf, le kite, l'aile ou la planche à voile, le bateau et la pêche à pied**, avec les critères qui le fondent, le meilleur créneau de jour des 24 prochaines heures, la marée (pleines et basses mers, coefficient **estimé**) et les vigilances côtières qui le plafonnent. **Chaque verdict est une règle à nous**, ses seuils dans `rules`. **Pas pour la sécurité.** Voir « Activités » plus bas. |
 | `GET /v1/cap/alerts` | Dangers actifs en OASIS CAP 1.2. |
 | `GET /v1/vigilances?lat=&lon=` ou `?country=FR` ou `?source=tsunami` | Vigilances météo officielles qui couvrent un point, ou toutes celles d'un pays (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues et les services nationaux du registre de l'OMM), ou les messages de tsunami en cours, avec les mots de l'émetteur intacts. Voir plus bas. |
 | `GET /v1/vigilances/countries` | Les pays que cette instance sert avec ses réglages, les sources qui répondent pour chacun, et si leur licence est vérifiée. Avec `?uncovered=true`, tous les autres pays du monde aussi, chacun avec la raison pour laquelle rien n'y est lu. |
@@ -594,6 +595,34 @@ GET /v1/surf/overview                                      tous les spots mainte
   nombre de clients.
 
 **Pas pour la sécurité ni pour la navigation** : regarder la mer sur place, les drapeaux et les sauveteurs avant d'y aller.
+
+## Activités
+
+`GET /v1/activities/{id}` répond, pour un spot de surf, à la question que la page de surf laisse ouverte : **faut-il y aller ?** Pour le
+surf, le kite, l'aile ou la planche à voile, le bateau et la pêche à pied, chaque heure à partir de maintenant reçoit un verdict, `good`,
+`possible` ou `poor` (`null` quand on en sait trop peu), avec les critères qui le fondent.
+
+```
+GET /v1/activities/soorts-hossegor-plage-sud-point-d-or                                       les deux prochains jours à Hossegor
+GET /v1/activities/soorts-hossegor-plage-sud-point-d-or?days=1&wind_min_kn=15&wind_max_kn=30  pour un kite qui veut 15 à 30 nœuds
+```
+
+- **Chaque verdict est une règle à nous**, écrite dans `rules` avec ses seuils, à partir de la houle et du vent de la prévision de surf,
+  de la marée calculée par Vigie et des vigilances côtières officielles. Seuls l'échelle de Beaufort, les couleurs d'une vigilance et le
+  conseil de la SNSM sur le coefficient viennent d'une source officielle. Elle ne connaît ni la plage ni la personne : la plage de vent du
+  kite est celle qu'on demande (12 à 25 nœuds par défaut).
+- **La journée** : `verdict` est le meilleur des heures de jour des 24 prochaines heures, `best_slot` la plus longue suite d'heures de jour
+  consécutives à ce verdict (aucune s'il est `poor`), `detail` les critères de sa première heure.
+- **La pêche à pied** est jugée dans les deux heures avant une basse mer, avec le coefficient **estimé** par Vigie (pas celui du SHOM) ;
+  100 et plus donne `possible` au mieux, car la SNSM signale un danger.
+- **Vigilances** : une vigilance côtière officielle rouge (en France, vagues-submersion) met tout à `poor` ; une orange garde le bateau et
+  la pêche à pied à `possible` au mieux. Quand les vigilances n'ont pas pu être lues, `vigilance.status` vaut `unknown` et rien n'est
+  plafonné.
+- **Appels** : aucun de plus que la page de surf (les mêmes réponses de houle et de vent) ; la marée est calculée et les vigilances sont
+  celles du cache. [ADR 0016](docs/decisions/0016-activity-verdicts-from-rules-of-ours.md).
+
+**Pas pour la sécurité ni pour la navigation** : regarder la mer sur place, les drapeaux et les sauveteurs, lire les annuaires de marées et
+les vigilances officielles.
 
 ## Lieux proches d'un danger, et points surveillés
 
