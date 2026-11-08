@@ -195,6 +195,13 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "candhis_stations",
+            "CANDHIS (Cerema), list of the wave buoys",
+            "Source: Candhis, Cerema (Licence Ouverte 2.0), list of the stations of 2024-12-03; the distances to the surf spots are "
+            "calculated by Vigie",
+            "ours",
+        ),
+        Credit(
             "vigicrues",
             "Vigicrues (SCHAPI)",
             "Source: Vigicrues, Service central d'hydrométéorologie et d'appui à la prévision des inondations (SCHAPI), "
@@ -291,6 +298,7 @@ FIRES = ("nasa_firms",)
 PREALERT = ("ecmwf_opendata",)
 TIDES = ("eot20",)
 SURF = ("open_meteo", "copernicus_mfwam", "osm_spots", "eot20")
+SURF_BUOYS = ("candhis_stations", "osm_spots")
 
 
 def credit_text(*keys: str) -> str:

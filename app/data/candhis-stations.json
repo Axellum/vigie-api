@@ -1,0 +1,833 @@
+{
+ "source": "CANDHIS (Cerema), file 'Stations de mesure de Candhis' of 2024-12-03 (data.gouv.fr)",
+ "licence": "Licence Ouverte 2.0",
+ "count": 118,
+ "stations": [
+  {
+   "id": "00601",
+   "name": "Nice",
+   "lat": 43.6349,
+   "lon": 7.2291,
+   "real_time": null
+  },
+  {
+   "id": "01101",
+   "name": "Leucate",
+   "lat": 42.9167,
+   "lon": 3.125,
+   "real_time": null
+  },
+  {
+   "id": "01301",
+   "name": "Camargue",
+   "lat": 43.35,
+   "lon": 4.5667,
+   "real_time": null
+  },
+  {
+   "id": "01302",
+   "name": "Port-de-Bouc",
+   "lat": 43.3782,
+   "lon": 4.953,
+   "real_time": null
+  },
+  {
+   "id": "01303",
+   "name": "Fos",
+   "lat": 43.4088,
+   "lon": 4.8928,
+   "real_time": null
+  },
+  {
+   "id": "01304",
+   "name": "Marseille",
+   "lat": 43.33,
+   "lon": 5.3367,
+   "real_time": null
+  },
+  {
+   "id": "01305",
+   "name": "Le Planier",
+   "lat": 43.2083,
+   "lon": 5.23,
+   "real_time": null
+  },
+  {
+   "id": "01306",
+   "name": "Golfe de Fos",
+   "lat": 43.3161,
+   "lon": 4.9204,
+   "real_time": null
+  },
+  {
+   "id": "01702",
+   "name": "Oléron",
+   "lat": 46.1065,
+   "lon": -1.587,
+   "real_time": null
+  },
+  {
+   "id": "01703",
+   "name": "Oléron(SHOM)",
+   "lat": 45.8403,
+   "lon": -1.8137,
+   "real_time": null
+  },
+  {
+   "id": "01704",
+   "name": "Oléron large",
+   "lat": 45.9163,
+   "lon": -1.8336,
+   "real_time": true
+  },
+  {
+   "id": "01705",
+   "name": "Royan",
+   "lat": 45.61,
+   "lon": -1.0317,
+   "real_time": true
+  },
+  {
+   "id": "02201",
+   "name": "Lézardrieux",
+   "lat": 48.9117,
+   "lon": -3.1513,
+   "real_time": null
+  },
+  {
+   "id": "02202",
+   "name": "Les Minquiers",
+   "lat": 48.8925,
+   "lon": -2.443,
+   "real_time": null
+  },
+  {
+   "id": "02203",
+   "name": "Les Minquiers Nord",
+   "lat": 48.9884,
+   "lon": -2.343,
+   "real_time": null
+  },
+  {
+   "id": "02204",
+   "name": "Bréhat",
+   "lat": 49.0264,
+   "lon": -2.8895,
+   "real_time": null
+  },
+  {
+   "id": "02205",
+   "name": "Bréhat(Nord Horaine)",
+   "lat": 48.9067,
+   "lon": -2.9237,
+   "real_time": null
+  },
+  {
+   "id": "02206",
+   "name": "Basse des Sauvages",
+   "lat": 48.7683,
+   "lon": -2.2417,
+   "real_time": null
+  },
+  {
+   "id": "02902",
+   "name": "Ouessant large",
+   "lat": 48.5,
+   "lon": -5.75,
+   "real_time": null
+  },
+  {
+   "id": "02903",
+   "name": "Le Toulinguet",
+   "lat": 48.3065,
+   "lon": -4.6418,
+   "real_time": null
+  },
+  {
+   "id": "02906",
+   "name": "Ouessant",
+   "lat": 48.5017,
+   "lon": -5.76,
+   "real_time": null
+  },
+  {
+   "id": "02907",
+   "name": "Blancs Sablons",
+   "lat": 48.3802,
+   "lon": -4.7824,
+   "real_time": null
+  },
+  {
+   "id": "02908",
+   "name": "Porsmilin",
+   "lat": 48.3465,
+   "lon": -4.6729,
+   "real_time": null
+  },
+  {
+   "id": "02909",
+   "name": "Brest(Port du Château)",
+   "lat": 48.377,
+   "lon": -4.4884,
+   "real_time": null
+  },
+  {
+   "id": "02910",
+   "name": "Roscoff(port de Bloscon)",
+   "lat": 48.7167,
+   "lon": -3.9607,
+   "real_time": null
+  },
+  {
+   "id": "02911",
+   "name": "Les Pierres Noires",
+   "lat": 48.2903,
+   "lon": -4.9683,
+   "real_time": true
+  },
+  {
+   "id": "02914",
+   "name": "Penmarc'h",
+   "lat": 47.65,
+   "lon": -4.45,
+   "real_time": null
+  },
+  {
+   "id": "02915",
+   "name": "Île de Sein Sud",
+   "lat": 48.006,
+   "lon": -4.9205,
+   "real_time": null
+  },
+  {
+   "id": "02916",
+   "name": "Île de Sein Nord",
+   "lat": 48.0813,
+   "lon": -4.9205,
+   "real_time": null
+  },
+  {
+   "id": "02917",
+   "name": "Ouessant sud",
+   "lat": 48.247,
+   "lon": -5.1523,
+   "real_time": null
+  },
+  {
+   "id": "02919",
+   "name": "Kereon",
+   "lat": 48.4283,
+   "lon": -5.0277,
+   "real_time": null
+  },
+  {
+   "id": "02920",
+   "name": "Île de Sein",
+   "lat": 48.0213,
+   "lon": -4.8637,
+   "real_time": null
+  },
+  {
+   "id": "02921",
+   "name": "Esquibien",
+   "lat": 47.9914,
+   "lon": -4.5462,
+   "real_time": null
+  },
+  {
+   "id": "02922",
+   "name": "Ile de Batz",
+   "lat": 48.7283,
+   "lon": -4.0717,
+   "real_time": true
+  },
+  {
+   "id": "02A01",
+   "name": "Bonifacio",
+   "lat": 41.325,
+   "lon": 8.8733,
+   "real_time": null
+  },
+  {
+   "id": "02B02",
+   "name": "Cap Corse",
+   "lat": 43.061,
+   "lon": 9.2752,
+   "real_time": null
+  },
+  {
+   "id": "02B03",
+   "name": "Bastia",
+   "lat": 42.674,
+   "lon": 9.4545,
+   "real_time": null
+  },
+  {
+   "id": "02B04",
+   "name": "La Revellata",
+   "lat": 42.5692,
+   "lon": 8.65,
+   "real_time": null
+  },
+  {
+   "id": "02B05",
+   "name": "Alistro",
+   "lat": 42.2617,
+   "lon": 9.6433,
+   "real_time": null
+  },
+  {
+   "id": "03001",
+   "name": "Espiguette",
+   "lat": 43.411,
+   "lon": 4.1625,
+   "real_time": null
+  },
+  {
+   "id": "03302",
+   "name": "Cap Ferret",
+   "lat": 44.6525,
+   "lon": -1.4467,
+   "real_time": true
+  },
+  {
+   "id": "03303",
+   "name": "Cap Ferret",
+   "lat": 44.6525,
+   "lon": -1.4467,
+   "real_time": null
+  },
+  {
+   "id": "03401",
+   "name": "Sète(Marseillan)",
+   "lat": 43.3283,
+   "lon": 3.6592,
+   "real_time": null
+  },
+  {
+   "id": "03402",
+   "name": "Sète(Frontignan)",
+   "lat": 43.4087,
+   "lon": 3.7409,
+   "real_time": null
+  },
+  {
+   "id": "03403",
+   "name": "Sète",
+   "lat": 43.3715,
+   "lon": 3.7796,
+   "real_time": null
+  },
+  {
+   "id": "03404",
+   "name": "Sète",
+   "lat": 43.371,
+   "lon": 3.7796,
+   "real_time": null
+  },
+  {
+   "id": "03501",
+   "name": "Saint-Malo",
+   "lat": 48.7,
+   "lon": -2.0167,
+   "real_time": null
+  },
+  {
+   "id": "03502",
+   "name": "Basse Trouvée",
+   "lat": 48.8133,
+   "lon": -2.0833,
+   "real_time": null
+  },
+  {
+   "id": "04401",
+   "name": "Saint-Nazaire",
+   "lat": 47.1533,
+   "lon": -2.3383,
+   "real_time": null
+  },
+  {
+   "id": "04402",
+   "name": "Le Croisic",
+   "lat": 47.3967,
+   "lon": -2.6767,
+   "real_time": null
+  },
+  {
+   "id": "04403",
+   "name": "Plateau du Four",
+   "lat": 47.239,
+   "lon": -2.787,
+   "real_time": true
+  },
+  {
+   "id": "05001",
+   "name": "Mont-Saint-Michel",
+   "lat": 48.785,
+   "lon": -1.75,
+   "real_time": null
+  },
+  {
+   "id": "05002",
+   "name": "Cherbourg(petite rade)",
+   "lat": 49.6573,
+   "lon": -1.6068,
+   "real_time": null
+  },
+  {
+   "id": "05003",
+   "name": "Cherbourg(grande rade)",
+   "lat": 49.6685,
+   "lon": -1.65,
+   "real_time": null
+  },
+  {
+   "id": "05004",
+   "name": "Cherbourg(grande rade)",
+   "lat": 49.6717,
+   "lon": -1.59,
+   "real_time": null
+  },
+  {
+   "id": "05005",
+   "name": "Chausey Sud",
+   "lat": 48.8329,
+   "lon": -1.9,
+   "real_time": null
+  },
+  {
+   "id": "05006",
+   "name": "Chausey Ouest",
+   "lat": 48.8832,
+   "lon": -2.1372,
+   "real_time": null
+  },
+  {
+   "id": "05007",
+   "name": "Mont-Saint-Michel 2",
+   "lat": 48.785,
+   "lon": -1.7497,
+   "real_time": null
+  },
+  {
+   "id": "05008",
+   "name": "Cherbourg(extérieur)",
+   "lat": 49.695,
+   "lon": -1.62,
+   "real_time": null
+  },
+  {
+   "id": "05009",
+   "name": "Flamanville",
+   "lat": 49.5429,
+   "lon": -1.8984,
+   "real_time": null
+  },
+  {
+   "id": "05601",
+   "name": "Gâvres",
+   "lat": 47.6878,
+   "lon": -3.3095,
+   "real_time": null
+  },
+  {
+   "id": "05602",
+   "name": "Belle-Île",
+   "lat": 47.285,
+   "lon": -3.285,
+   "real_time": true
+  },
+  {
+   "id": "05901",
+   "name": "Dunkerque",
+   "lat": 51.1617,
+   "lon": 1.7683,
+   "real_time": null
+  },
+  {
+   "id": "05902",
+   "name": "Ruytingen",
+   "lat": 51.1608,
+   "lon": 1.767,
+   "real_time": null
+  },
+  {
+   "id": "05903",
+   "name": "Gravelines",
+   "lat": 51.0427,
+   "lon": 2.066,
+   "real_time": true
+  },
+  {
+   "id": "06201",
+   "name": "Vergoyer",
+   "lat": 50.6592,
+   "lon": 1.37,
+   "real_time": null
+  },
+  {
+   "id": "06202",
+   "name": "Calais",
+   "lat": 51.0217,
+   "lon": 1.7583,
+   "real_time": null
+  },
+  {
+   "id": "06401",
+   "name": "Bayonne",
+   "lat": 43.5467,
+   "lon": -1.5433,
+   "real_time": null
+  },
+  {
+   "id": "06402",
+   "name": "Anglet",
+   "lat": 43.5322,
+   "lon": -1.615,
+   "real_time": true
+  },
+  {
+   "id": "06403",
+   "name": "Saint-Jean-de-Luz",
+   "lat": 43.4083,
+   "lon": -1.6817,
+   "real_time": true
+  },
+  {
+   "id": "06601",
+   "name": "Banyuls",
+   "lat": 42.4895,
+   "lon": 3.1677,
+   "real_time": null
+  },
+  {
+   "id": "07601",
+   "name": "Antifer",
+   "lat": 49.6487,
+   "lon": 0.1265,
+   "real_time": null
+  },
+  {
+   "id": "07602",
+   "name": "Le Havre",
+   "lat": 49.5203,
+   "lon": -0.159,
+   "real_time": null
+  },
+  {
+   "id": "07603",
+   "name": "Le Havre LHA",
+   "lat": 49.5203,
+   "lon": -0.159,
+   "real_time": null
+  },
+  {
+   "id": "07604",
+   "name": "Dieppe",
+   "lat": 49.975,
+   "lon": 0.9833,
+   "real_time": null
+  },
+  {
+   "id": "07605",
+   "name": "Le Havre 2",
+   "lat": 49.5222,
+   "lon": -0.1613,
+   "real_time": null
+  },
+  {
+   "id": "07606",
+   "name": "Le Havre-Metzinger",
+   "lat": 49.544,
+   "lon": -0.034,
+   "real_time": null
+  },
+  {
+   "id": "07607",
+   "name": "Paluel",
+   "lat": 49.8717,
+   "lon": 0.6311,
+   "real_time": null
+  },
+  {
+   "id": "07608",
+   "name": "Penly",
+   "lat": 49.9893,
+   "lon": 1.201,
+   "real_time": null
+  },
+  {
+   "id": "07609",
+   "name": "Le Havre - Haut du Sud-Ouest",
+   "lat": 49.475,
+   "lon": 0.0842,
+   "real_time": true
+  },
+  {
+   "id": "07610",
+   "name": "Port d'Antifer",
+   "lat": 49.6576,
+   "lon": 0.1456,
+   "real_time": true
+  },
+  {
+   "id": "07611",
+   "name": "Le Havre - Nord du mouillage",
+   "lat": 49.48,
+   "lon": 0.0122,
+   "real_time": true
+  },
+  {
+   "id": "08001",
+   "name": "Cayeux",
+   "lat": 50.2975,
+   "lon": 1.1725,
+   "real_time": null
+  },
+  {
+   "id": "08002",
+   "name": "Baie de Somme",
+   "lat": 50.25,
+   "lon": 1.3353,
+   "real_time": true
+  },
+  {
+   "id": "08301",
+   "name": "Porquerolles",
+   "lat": 42.9667,
+   "lon": 6.2048,
+   "real_time": null
+  },
+  {
+   "id": "08302",
+   "name": "Porquerolles",
+   "lat": 42.9667,
+   "lon": 6.2048,
+   "real_time": null
+  },
+  {
+   "id": "08501",
+   "name": "Île d’Yeu",
+   "lat": 46.6667,
+   "lon": -2.4167,
+   "real_time": null
+  },
+  {
+   "id": "08502",
+   "name": "Île d’Yeu",
+   "lat": 46.6908,
+   "lon": -2.4275,
+   "real_time": null
+  },
+  {
+   "id": "08503",
+   "name": "Île d’Yeu",
+   "lat": 46.6908,
+   "lon": -2.4275,
+   "real_time": null
+  },
+  {
+   "id": "08504",
+   "name": "Île d’Yeu Nord",
+   "lat": 46.8332,
+   "lon": -2.295,
+   "real_time": null
+  },
+  {
+   "id": "08505",
+   "name": "Noirmoutier",
+   "lat": 46.9167,
+   "lon": -2.4663,
+   "real_time": true
+  },
+  {
+   "id": "97101",
+   "name": "Port-Louis",
+   "lat": 16.48,
+   "lon": -61.5412,
+   "real_time": null
+  },
+  {
+   "id": "97102",
+   "name": "La Désirade",
+   "lat": 16.4158,
+   "lon": -60.886,
+   "real_time": null
+  },
+  {
+   "id": "97103",
+   "name": "Pointe de la Grande Vigie",
+   "lat": 16.5364,
+   "lon": -61.4069,
+   "real_time": null
+  },
+  {
+   "id": "97104",
+   "name": "Pointe-à-Pitre",
+   "lat": 16.2051,
+   "lon": -61.5254,
+   "real_time": null
+  },
+  {
+   "id": "97105",
+   "name": "Port du Moule",
+   "lat": 16.34,
+   "lon": -61.31,
+   "real_time": null
+  },
+  {
+   "id": "97106",
+   "name": "Côte Caraïbes",
+   "lat": 16.1725,
+   "lon": -61.7966,
+   "real_time": null
+  },
+  {
+   "id": "97107",
+   "name": "La Vigie",
+   "lat": 16.5167,
+   "lon": -61.4167,
+   "real_time": null
+  },
+  {
+   "id": "97201",
+   "name": "Grand'Rivière",
+   "lat": 14.9033,
+   "lon": -61.1475,
+   "real_time": null
+  },
+  {
+   "id": "97202",
+   "name": "Basse Pointe",
+   "lat": 14.8905,
+   "lon": -61.1146,
+   "real_time": null
+  },
+  {
+   "id": "97204",
+   "name": "Fort-de-France",
+   "lat": 14.5482,
+   "lon": -61.0972,
+   "real_time": null
+  },
+  {
+   "id": "97205",
+   "name": "Sainte-Lucie",
+   "lat": 14.1763,
+   "lon": -60.9345,
+   "real_time": null
+  },
+  {
+   "id": "97301",
+   "name": "Guyane Mahury",
+   "lat": 4.9142,
+   "lon": -52.1643,
+   "real_time": null
+  },
+  {
+   "id": "97302",
+   "name": "Guyane Mahury",
+   "lat": 4.9368,
+   "lon": -52.194,
+   "real_time": null
+  },
+  {
+   "id": "97303",
+   "name": "Kourou",
+   "lat": 5.3875,
+   "lon": -52.5923,
+   "real_time": null
+  },
+  {
+   "id": "97304",
+   "name": "Ile de Cayenne",
+   "lat": 4.9833,
+   "lon": -52.05,
+   "real_time": null
+  },
+  {
+   "id": "97401",
+   "name": "Baie de la Possession",
+   "lat": -20.9102,
+   "lon": 55.346,
+   "real_time": null
+  },
+  {
+   "id": "97402",
+   "name": "Pointe du Phare",
+   "lat": -20.921,
+   "lon": 55.2868,
+   "real_time": null
+  },
+  {
+   "id": "97403",
+   "name": "Rivière des Galets",
+   "lat": -20.9457,
+   "lon": 55.2773,
+   "real_time": null
+  },
+  {
+   "id": "97404",
+   "name": "Pointe du Gouffre",
+   "lat": -20.8761,
+   "lon": 55.3903,
+   "real_time": null
+  },
+  {
+   "id": "97405",
+   "name": "Saint-Pierre",
+   "lat": -21.3528,
+   "lon": 55.4777,
+   "real_time": null
+  },
+  {
+   "id": "97406",
+   "name": "Sainte-Rose",
+   "lat": -21.1213,
+   "lon": 55.7842,
+   "real_time": null
+  },
+  {
+   "id": "97407",
+   "name": "Vincendo",
+   "lat": -21.381,
+   "lon": 55.681,
+   "real_time": null
+  },
+  {
+   "id": "97408",
+   "name": "Port Réunion Est",
+   "lat": -20.9245,
+   "lon": 55.3242,
+   "real_time": null
+  },
+  {
+   "id": "97501",
+   "name": "Saint-Pierre-et-Miquelon",
+   "lat": 46.7,
+   "lon": -56.1833,
+   "real_time": null
+  },
+  {
+   "id": "97601",
+   "name": "Mayotte",
+   "lat": -12.5495,
+   "lon": 45.0668,
+   "real_time": null
+  },
+  {
+   "id": "97801",
+   "name": "Saint-Martin",
+   "lat": 18.137,
+   "lon": -62.991,
+   "real_time": null
+  },
+  {
+   "id": "98000",
+   "name": "Monaco",
+   "lat": 43.7136,
+   "lon": 7.4262,
+   "real_time": null
+  }
+ ]
+}

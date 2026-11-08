@@ -225,6 +225,14 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-10-28",
         ),
         CommercialUse(
+            "candhis_stations",
+            "allowed",
+            "Licence Ouverte 2.0 (the dataset page of data.gouv.fr and the Candhis terms, `01_Utilisation.fr.pdf` read on 2026-10-28): any use, "
+            "with the source and the date. This is the list of the stations only; the measures need a key and are not used yet.",
+            ("https://www.data.gouv.fr/datasets/674ee38cbede289cf234d829", "https://candhis.cerema.fr/doc/01_Utilisation.fr.pdf"),
+            "2026-11-08",
+        ),
+        CommercialUse(
             "eot20",
             "allowed",
             "CC BY 4.0 (the SEANOE page): the credit, a link to the licence and a statement of the changes. Computed by "

@@ -40,6 +40,7 @@ Endpoints:
 - ``GET    /v1/sky/eclipses/{date}.geojson``: its path, central line and bands of the share of the Sun hidden (RFC 7946).
 - ``GET    /v1/surf/spots``        : The surf spots of the French Atlantic and Channel coasts (OpenStreetMap, ODbL).
 - ``GET    /v1/surf/spots/{id}``   : The hourly surf forecast of a spot (MFWAM swell, wind, tide) with a rating of ours, explained.
+- ``GET    /v1/surf/buoys``        : The nearest CANDHIS wave buoy of each surf spot and its distance (the list only).
 - ``GET    /v1/surf/overview``     : Every spot in short: the current hour and the best slot of the next three days (one request
                                      to the providers for all of them).
 - ``GET    /v1/experimental/prealert`` : EXPERIMENTAL, UNOFFICIAL: the pre-alert levels Vigie computes for a province of Turkey
@@ -95,6 +96,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app import __version__, clock
+from app.models.buoys import SpotBuoys
 from app.models.earthquakes import EarthquakesQuery, EarthquakesResponse
 from app.models.events import EventsResponse, FamiliesResponse
 from app.models.fires import FiresCollection, FiresGrid
@@ -133,8 +135,8 @@ from app.models.vigilance import (
 from app.models.watch import WatchedPointsStatus
 from app.routers.dashboard import router as dashboard_router
 from app.security import AdminTokenMiddleware, admin_token, document_admin_token
+from app.services import buoys, surf, tides
 from app.services import earthquakes as quakes
-from app.services import surf, tides
 from app.services.aggregator import AggregatorService
 from app.services.events import FAMILIES, FAMILIES_NOTE, FAMILY_IDS, WORLD_MIN_IMPACT
 from app.services.fires import (
@@ -764,6 +766,22 @@ async def get_surf_overview(response: Response) -> SurfOverview:
         raise HTTPException(status_code=503, detail=str(error)) from None
     response.headers["Cache-Control"] = SURF_CACHE
     return answer
+
+
+@app.get(
+    "/v1/surf/buoys",
+    response_model=SpotBuoys,
+    tags=["Sea"],
+    description=(
+        "For each surf spot, the nearest wave buoy of the CANDHIS list (Cerema, Licence Ouverte 2.0) and how far it is, and the nearest one "
+        "known to be real time. The distances and `comparable` (real time and within `max_comparable_km`) are calculated by Vigie; how "
+        "sheltered a spot is is not judged. The list only: no measure is read from the buoys yet."
+    ),
+)
+async def get_surf_buoys(response: Response) -> SpotBuoys:
+    """The nearest buoy of every surf spot."""
+    response.headers["Cache-Control"] = SURF_CACHE
+    return await clock.run_blocking(buoys.spot_buoys)
 
 
 @app.get(
