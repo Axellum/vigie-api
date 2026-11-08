@@ -225,6 +225,29 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-10-28",
         ),
         CommercialUse(
+            "osm_places",
+            "allowed",
+            "ODbL 1.0: any use, with the credit, and a database made from it is shared under the ODbL too (the place file is).",
+            ("https://www.openstreetmap.org/copyright", "https://opendatacommons.org/licenses/odbl/1-0/"),
+            "2026-11-08",
+        ),
+        CommercialUse(
+            "sandre_ports",
+            "allowed",
+            "Licence Ouverte (`fr-lo`, the dataset page of data.gouv.fr read on 2026-11-08): any use, with the source and the date of the "
+            "data. The version of the licence is not stated on the page.",
+            ("https://www.data.gouv.fr/datasets/ports-espace-maritime-francais",),
+            "2026-11-08",
+        ),
+        CommercialUse(
+            "qsb_bathing",
+            "allowed",
+            "Licence Ouverte 2.0 (`lov2`, the dataset page of data.gouv.fr read on 2026-11-08): any use, with the source and the date. "
+            "TACCT republishes the ministry's results and calculates the class: not the ministry's own file.",
+            ("https://www.data.gouv.fr/datasets/qualite-des-sites-de-baignade-1",),
+            "2026-11-08",
+        ),
+        CommercialUse(
             "candhis_stations",
             "allowed",
             "Licence Ouverte 2.0 (the dataset page of data.gouv.fr and the Candhis terms, `01_Utilisation.fr.pdf` read on 2026-10-28): any use, "
