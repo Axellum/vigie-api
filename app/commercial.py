@@ -249,6 +249,14 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-10-28",
         ),
         CommercialUse(
+            "shom_refmar",
+            "allowed",
+            "Licence Ouverte 2.0 (Etalab): any use, commercial included, with the source named (the REFMAR data page of data.gouv.fr). "
+            "Not verified: the exact mention REFMAR asks for.",
+            ("https://www.data.gouv.fr/datasets/reseaux-de-reference-des-observations-maregraphiques-refmar-maregraphes-ronim/informations",),
+            "2026-11-08",
+        ),
+        CommercialUse(
             "travel_gb",
             "allowed",
             "Open Government Licence v3.0: commercial and non-commercial use, with the statement it prescribes; no crest or "

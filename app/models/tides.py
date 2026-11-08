@@ -78,6 +78,34 @@ class TideCoefficient(BaseModel):
     value: int = Field(..., description="Estimated coefficient (ours, unofficial): 20 is a small tide, 120 the largest")
 
 
+class TideCorrectionStation(BaseModel):
+    id: str = Field(..., description="The REFMAR identifier of the tide gauge")
+    name: str
+    lat: float
+    lon: float
+    distance_km: float = Field(..., description="Distance from the point asked to the gauge (km)")
+
+
+class TideCorrection(BaseModel):
+    """Whether the modelled tide was corrected with the nearest REFMAR tide gauge (ADR 0017), and how. Always present."""
+
+    applied: bool = Field(..., description="True when `heights`, `extremes` and `now` include the correction below")
+    reason: Optional[Literal["no_station_near", "measure_unavailable", "no_recent_measure", "implausible_gap", "disabled", "not_asked"]] = Field(
+        default=None,
+        description="Why it was not applied: no gauge within 50 km, REFMAR could not be read, no measure from the last hour (or too few "
+        "in the last 12.4 hours), a gap over 1.5 m, the instance switched it off, or `correct=false` was asked",
+    )
+    station: Optional[TideCorrectionStation] = Field(default=None, description="The gauge, when there is one near the point")
+    measured_utc: Optional[int] = Field(default=None, description="Time of the last measure used (UTC epoch seconds); the gap fades from then")
+    anomaly_m: Optional[float] = Field(
+        default=None, description="The gap between the sea and the model at that time (m), a mean over 12.4 hours (positive: the sea is higher)"
+    )
+    decay_hours: float = Field(..., description="The gap is multiplied by exp(-t / decay_hours) t hours after the measure")
+    window_minutes: int = Field(..., description="The measures are averaged over this many minutes before the last one")
+    attribution: Optional[str] = Field(default=None, description="The credit of the gauge's measures, present when it was applied")
+    note: str = Field(..., description="What the correction is and is not")
+
+
 class TidesQuery(BaseModel):
     lat: float
     lon: float
@@ -118,6 +146,7 @@ class TidesResponse(BaseModel):
     calibration: TideCalibration = Field(
         default_factory=lambda: TideCalibration(applied=False), description="The calibration against a tide gauge, if one was applied"
     )
+    correction: TideCorrection
     coefficient_note: str = COEFFICIENT_NOTE
     coefficient_method: TideCoefficientMethod = Field(
         default_factory=lambda: TideCoefficientMethod(
@@ -126,7 +155,7 @@ class TidesResponse(BaseModel):
         description="How `coefficients_estimated` is calculated, and from which tide (ours, unofficial)",
     )
     derived: list[str] = Field(
-        default_factory=lambda: ["heights", "extremes", "now", "coefficients_estimated"],
+        default_factory=lambda: ["heights", "extremes", "now", "coefficients_estimated", "correction"],
         description="The fields computed by Vigie: here, all of them",
     )
     limits: str = LIMITS

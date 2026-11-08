@@ -31,7 +31,8 @@ Endpoints:
                                      messages) and, for a position, Vigie's estimate of the coming night (ADR 0013, not SWPC's).
 - ``GET    /v1/sky/aurora.geojson``: SWPC's OVATION grid as map bands (RFC 7946).
 - ``GET    /v1/tides``             : The tide at a coastal point, computed by Vigie from the EOT20 ocean tide model (ADR 0015):
-                                     heights, high and low waters, ranges, the tide now and an estimated coefficient. Not for
+                                     heights, high and low waters, ranges, the tide now and an estimated coefficient, corrected with
+                                     the nearest REFMAR tide gauge when it measured lately (ADR 0017; ``correction`` says). Not for
                                      navigation.
 - ``GET    /v1/tides/coast``       : The tide now along the coasts of a box (GeoJSON points), for a map.
 - ``GET    /v1/sky/eclipses``      : NASA's solar eclipses of a span of years and, for a position, what it sees of each (computed by
@@ -140,7 +141,7 @@ from app.models.vigilance import (
 from app.models.watch import WatchedPointsStatus
 from app.routers.dashboard import router as dashboard_router
 from app.security import AdminTokenMiddleware, admin_token, document_admin_token
-from app.services import activities, buoys, surf, tides
+from app.services import activities, buoys, surf, tide_correction, tides
 from app.services import activities_overview as activities_summary
 from app.services import earthquakes as quakes
 from app.services.aggregator import AggregatorService
@@ -648,7 +649,9 @@ TIDE_INTERVALS = (10, 15, 30, 60)
         "The tide at a coastal point, **computed by Vigie** from the EOT20 ocean tide model at the nearest model cell (ADR 0015): the "
         "heights every `interval_minutes`, the high and low waters with the range of each tide, the tide now (height, rising or falling, "
         "next high and low water) and an **estimated** French coefficient (ours, unofficial: the official one is SHOM's). Heights are "
-        "relative to the model's mean sea level, not to a chart datum. No provider is asked. **Not for navigation**: the measure of "
+        "relative to the model's mean sea level, not to a chart datum. **Corrected** with the gap that the nearest REFMAR tide gauge "
+        "(SHOM, Licence Ouverte 2.0) within 50 km measured in the last hour, fading over 12 hours, when there is one: `correction` says "
+        "whether it was applied, from which gauge and measure, and why not otherwise (ADR 0017). **Not for navigation**: the measure of "
         "2026-10 found the model within a quarter of an hour on the open coasts of France, and up to two hours early inside harbours and "
         "bays of the United States (`limits`, docs/measurements/tides-2026-10.md)."
     ),
@@ -664,6 +667,11 @@ async def get_tides(
         "rounded down to the hour",
     ),
     interval_minutes: int = Query(default=30, description="Step of `heights` (minutes): 10, 15, 30 or 60"),
+    correct: bool = Query(
+        default=True,
+        description="Correct the model with the nearest REFMAR tide gauge when it measured in the last hour (ADR 0017); `false` gives the "
+        "model alone. `correction` says what was done.",
+    ),
 ) -> TidesResponse:
     """The tide at a coastal point."""
     if interval_minutes not in TIDE_INTERVALS:
@@ -671,7 +679,12 @@ async def get_tides(
     now = clock.wall()
     try:
         start_unix = _tide_start(start, now)
-        answer = await clock.run_blocking(tides.tides_at, round(lat, 4), round(lon, 4), start_unix, days, interval_minutes, now)
+        correction = (
+            await tide_correction.resolve(aggregator.refmar, round(lat, 4), round(lon, 4), now) if correct else tide_correction.NOT_ASKED
+        )
+        answer = await clock.run_blocking(
+            tides.tides_at, round(lat, 4), round(lon, 4), start_unix, days, interval_minutes, now, correction
+        )
     except tides.NoTideHere as error:
         raise HTTPException(status_code=404, detail=str(error)) from None
     except ValueError as error:

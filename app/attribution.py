@@ -182,6 +182,13 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "shom_refmar",
+            "REFMAR tide gauges (SHOM)",
+            "Source: SHOM, REFMAR network of tide gauges (Licence Ouverte 2.0), https://refmar.shom.fr; the correction of the tide worked "
+            "out from it is Vigie's",
+            "ours",
+        ),
+        Credit(
             "copernicus_mfwam",
             "Copernicus Marine (Météo-France MFWAM, through Open-Meteo Marine)",
             "Generated using E.U. Copernicus Marine Service Information; https://doi.org/10.48670/moi-00017",
@@ -305,6 +312,7 @@ FIRES = ("nasa_firms",)
 PREALERT = ("ecmwf_opendata",)
 TIDES = ("eot20",)
 TIDES_CALIBRATED = ("eot20", "refmar_tides")
+TIDE_CORRECTION = ("shom_refmar",)
 SURF = ("open_meteo", "copernicus_mfwam", "osm_spots", "eot20")
 SURF_BUOYS = ("candhis_stations", "osm_spots")
 

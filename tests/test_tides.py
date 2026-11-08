@@ -130,7 +130,7 @@ def test_the_tide_at_biarritz(client: TestClient) -> None:
     assert all(20 <= item["value"] <= 120 for item in body["coefficients_estimated"]) and body["coefficients_estimated"]
     assert body["attribution"] == CREDITS["eot20"].text
     assert "not for navigation" in body["disclaimer"].lower() and "bay" in body["limits"]
-    assert set(body["derived"]) == {"heights", "extremes", "now", "coefficients_estimated"}
+    assert set(body["derived"]) == {"heights", "extremes", "now", "coefficients_estimated", "correction"}
     assert body["coefficient_method"] == {"formula": body["coefficient_method"]["formula"], "unit_m": 6.10, "place": "Brest", "tide": "model"}
     assert "SHOM" in body["coefficient_note"] and "ADR 0018" in body["coefficient_note"]
 

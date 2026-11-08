@@ -712,11 +712,19 @@ answered for the spot or the call failed, `vigilance.status` is `unknown`: nothi
 **The tide** is `tide.extremes` (high and low waters) and `tide.coefficients_estimated`, as `GET /v1/tides`; where the model has no cell
 near the spot or does not reach the dates, `tide` is `null` and `shore_fishing` is `available: false`.
 
-## Tides (computed, no provider)
+## Tides (computed; one provider, REFMAR, to correct them)
 
-`GET /v1/tides` and `GET /v1/tides/coast` ask **no provider**: the tide is the sum of 34 cosines, from the constants of the EOT20 cells near
+`GET /v1/tides` and `GET /v1/tides/coast` compute the tide: the sum of 34 cosines, from the constants of the EOT20 cells near
 a coast and a table of the astronomical arguments, both in `app/data` ([ADR 0015](decisions/0015-tides-from-a-global-model.md),
-`app/services/tides.py`). They cost no call and no quota, whatever the number of clients.
+`app/services/tides.py`). The model costs no call and no quota, whatever the number of clients. **One exception**: `GET /v1/tides` (not `/coast`) corrects the model
+with the gap that the nearest REFMAR tide gauge (SHOM, Licence Ouverte 2.0) measured, when there is one within 50 km
+([ADR 0017](decisions/0017-tide-corrected-by-the-nearest-gauge.md), `app/services/tide_correction.py`, `app/collectors/refmar.py`):
+
+| What | Cache | Requests |
+| --- | --- | --- |
+| The raw measures of the last 14 hours of a gauge, `services.data.shom.fr/maregraphie/observation/json/{id}?sources=1` (one value a minute; its newest value was 3 to 20 minutes old when read on 2026-11-08) | 15 minutes per gauge (the correction fades over 12 hours, so a quarter of an hour changes it by millimetres); the last answer is served when REFMAR fails | One per gauge per quarter of an hour, whatever the number of clients, and only for a gauge a client asked about: at most 11 gauges, 1,056 a day. No published quota; counted in `/v1/health` like the others (`shom_refmar`) |
+
+`app/data/refmar-stations.json`: the 11 gauges with their datum offset against the model, built by `tools/measure_tide_correction.py`.
 
 | What | Where it comes from | Cost |
 | --- | --- | --- |
@@ -726,6 +734,7 @@ a coast and a table of the astronomical arguments, both in `app/data` ([ADR 0015
 
 - **Checked against pyTMD** by the build tool (7 places, 2026, 2035 and 2044: 3.9 mm at most) and by `tests/test_tides.py` (a fixture of
   pyTMD's own prediction).
+- **The correction measured** by `tools/measure_tide_correction.py` from the same downloads ([report](measurements/tide-correction-2026-11.md)).
 - **Measured against the sea** by `tools/measure_tides.py`, which asks REFMAR (one request per 16 days per tide gauge) and NOAA CO-OPS
   (two per station) once and keeps the answers in a cache folder ([report](measurements/tides-2026-10.md)). The API never asks them.
 - **Answers**: `Cache-Control: public, max-age=300`. `/v1/tides` computes the curve every minute over the window and a day around it
