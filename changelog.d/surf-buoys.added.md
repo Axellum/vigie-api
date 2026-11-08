@@ -1,0 +1,1 @@
+- `GET /v1/surf/buoys`: the nearest CANDHIS wave buoy of each surf spot and its distance (calculated by Vigie; the list only, no measure is read yet).
