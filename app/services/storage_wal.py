@@ -207,6 +207,17 @@ class SQLiteWALStorage:
                     wkb BLOB NOT NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS surf_forecast_archive (
+                    spot_id TEXT NOT NULL,
+                    issued_bucket INTEGER NOT NULL,
+                    valid_utc INTEGER NOT NULL,
+                    issued_utc INTEGER NOT NULL,
+                    wave_height REAL, wave_period REAL, wave_direction REAL,
+                    swell_height REAL, swell_period REAL, swell_direction REAL,
+                    wind_speed REAL, wind_direction REAL, wind_gusts REAL,
+                    PRIMARY KEY (spot_id, issued_bucket, valid_utc)
+                ) WITHOUT ROWID;
+
                 CREATE TABLE IF NOT EXISTS vigilance_reads (
                     source_key TEXT NOT NULL,
                     country TEXT NOT NULL,
@@ -777,6 +788,31 @@ class SQLiteWALStorage:
             int(payload_bytes),
             int(shape_bytes),
         )
+
+    def archive_surf_forecast(self, rows: list[tuple[Any, ...]], columns: tuple[str, ...]) -> int:
+        """Write forecast rows ``(spot_id, issued_bucket, valid_utc, issued_utc, *values)``; the first forecast of a bucket is kept:
+        a column already filled is never replaced (``columns`` names the value columns of the rows, a fixed list of the module)."""
+        sets = ", ".join(f"{c} = COALESCE({c}, excluded.{c})" for c in columns)
+        names = ", ".join(columns)
+        marks = ", ".join("?" for _ in range(4 + len(columns)))
+        with self._connect() as conn:
+            conn.executemany(
+                f"INSERT INTO surf_forecast_archive (spot_id, issued_bucket, valid_utc, issued_utc, {names}) VALUES ({marks}) "
+                f"ON CONFLICT (spot_id, issued_bucket, valid_utc) DO UPDATE SET {sets}",
+                rows,
+            )
+        return len(rows)
+
+    def prune_surf_forecast(self, before_utc: int) -> int:
+        """Forget the forecasts issued before ``before_utc``."""
+        with self._connect() as conn:
+            return conn.execute("DELETE FROM surf_forecast_archive WHERE issued_utc < ?", (before_utc,)).rowcount
+
+    def surf_forecast_summary(self) -> tuple[int, Optional[int], Optional[int]]:
+        """Rows, oldest and newest issue time of the forecast archive."""
+        with self._connect() as conn:
+            row = conn.execute("SELECT COUNT(*), MIN(issued_utc), MAX(issued_utc) FROM surf_forecast_archive").fetchone()
+        return int(row[0]), row[1], row[2]
 
     def database_bytes(self) -> int:
         """The size of the database on disk: the file and its write-ahead log."""
