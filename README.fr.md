@@ -67,7 +67,7 @@ des services émetteurs laissés tels quels, services nationaux du registre de l
 
 | Point d'accès | Rôle |
 | --- | --- |
-| `GET /v1/embedded/frame` | Trame texte compacte pour les écrans ([contrat](docs/embedded-frame.md)). |
+| `GET /v1/embedded/frame` | Trame texte compacte pour les écrans ([contrat](docs/embedded-frame.md)) ; avec `spot=<identifiant d'un spot de surf>` elle porte aussi les activités de ce spot (lignes `SEA`, `ACT`, `CRIT`). |
 | `GET /v1/snapshot` | Zones surveillées (météo) et dangers mondiaux, JSON compact. |
 | `GET /v1/point?lat=&lon=` | Météo en un point GPS, mer (`marine=true`), débit des rivières, qualité de l'air, météo spatiale, dangers proches. |
 | `GET /v1/geojson/hazards` | Dangers actifs en GeoJSON (RFC 7946) : un point chacun. `has_forecast` dit si une tempête ou un tsunami a une prévision ; `near_places` et `derived` disent de quoi un séisme ou un événement volcanique est proche (calculé par Vigie). Voir « Lieux proches d'un danger » plus bas. |

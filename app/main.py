@@ -552,7 +552,15 @@ async def get_snapshot(
     )
 
 
-@app.get("/v1/embedded/frame", response_class=PlainTextResponse, tags=["Embedded & GPS"])
+@app.get(
+    "/v1/embedded/frame",
+    response_class=PlainTextResponse,
+    tags=["Embedded & GPS"],
+    responses={
+        404: {"description": "`spot` is not a surf spot of `GET /v1/surf/spots`."},
+        422: {"description": "`wind_min_kn` and `wind_max_kn` do not make a range (0 < min < max)."},
+    },
+)
 async def get_embedded_frame(
     device_type: DeviceType = Query(
         default=DeviceType.WAVESHARE_7B,
@@ -562,15 +570,29 @@ async def get_embedded_frame(
     lon: Optional[float] = Query(default=None, ge=-180.0, le=180.0, description="Optional GPS longitude"),
     marine: bool = Query(default=False, description="Include waves and sea state in the GPS zone"),
     max_hazards: int = Query(default=12, ge=1, le=30, description="Maximum number of HAZ lines"),
+    spot: Optional[str] = Query(
+        default=None,
+        description="A surf spot id (GET /v1/surf/spots): adds the SEA, ACT and CRIT lines, the activities of that spot (surf, kite, boat, shore fishing)",
+    ),
+    wind_min_kn: float = Query(default=activities.DEFAULT_WIND_MIN_KN, gt=0, le=activities.MAX_WIND_KN, description="Kite: the lightest wind wanted (knots); with `spot`"),
+    wind_max_kn: float = Query(default=activities.DEFAULT_WIND_MAX_KN, gt=0, le=activities.MAX_WIND_KN, description="Kite: the strongest wind wanted (knots); with `spot`"),
 ) -> PlainTextResponse:
-    """Return the compact text frame (HEAD, ZONE, RAIN5M, DAY, HAZ, END with CRC32); see docs/embedded-frame.md."""
-    frame_str = await aggregator.build_embedded_frame(
-        device_type=device_type,
-        lat=lat,
-        lon=lon,
-        marine=marine,
-        max_hazards=max_hazards,
-    )
+    """Return the compact text frame (HEAD, ZONE, RAIN5M, DAY, HAZ, then SEA, ACT, CRIT with `spot`, END with CRC32); see docs/embedded-frame.md."""
+    if wind_min_kn >= wind_max_kn:
+        raise HTTPException(status_code=422, detail="wind_min_kn has to be lower than wind_max_kn")
+    try:
+        frame_str = await aggregator.build_embedded_frame(
+            device_type=device_type,
+            lat=lat,
+            lon=lon,
+            marine=marine,
+            max_hazards=max_hazards,
+            spot_id=spot,
+            wind_min_kn=wind_min_kn,
+            wind_max_kn=wind_max_kn,
+        )
+    except surf.UnknownSpot:
+        raise HTTPException(status_code=404, detail=f"no surf spot {spot!r}") from None
     return PlainTextResponse(content=frame_str, media_type="text/plain; charset=utf-8")
 
 

@@ -300,9 +300,24 @@ def _fishing_criteria(hour: SurfHour, context: TideContext) -> list[ActivityCrit
 # ------------------------------------------------------------------------------------------------------------ warnings and tide
 
 
+def alert_end(alert: ActivityAlert) -> Optional[int]:
+    """When a warning ends: the end the issuer gives, else its expiry; null when it gives neither."""
+    return alert.ends_utc if alert.ends_utc is not None else alert.expires_utc
+
+
 def _alert_active(alert: ActivityAlert, hour_start: int) -> bool:
-    end = alert.ends_utc if alert.ends_utc is not None else alert.expires_utc
-    return (alert.onset_utc is None or alert.onset_utc < hour_start + HOUR) and (end is None or end > hour_start)
+    return bool(alerts_in_window([alert], hour_start, 1))
+
+
+def alerts_in_window(alerts: list[ActivityAlert], start_utc: int, hours: int = HEADLINE_HOURS) -> list[ActivityAlert]:
+    """The warnings that stand at some moment of the ``hours`` hours from ``start_utc``: begun before the window's end, not over before its start."""
+    end_of_window = start_utc + hours * HOUR
+    kept = []
+    for alert in alerts:
+        end = alert_end(alert)
+        if (alert.onset_utc is None or alert.onset_utc < end_of_window) and (end is None or end > start_utc):
+            kept.append(alert)
+    return kept
 
 
 def _cap_at(alerts: list[ActivityAlert], hour_start: int) -> Optional[str]:
