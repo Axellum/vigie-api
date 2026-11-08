@@ -19,20 +19,23 @@ extreme of the same kind nearest in time (within 3 hours).
 
 ## Reading
 
-- **Heights of the series: better at every gauge and every lead.** Mean of the 11 gauges 22.1 → 18.9 cm at + 1 h (-14 %), 22.2 → 19.9 at + 3 h (-10 %),
-  22.3 → 20.8 at + 6 h (-7 %). Brest 18.3 → 16.0 / 17.0 / 18.1 cm; Lorient 14.8 → 11.9 / 13.1 / 14.3 cm. The correction is closer to the sea than the model
-  in about 6 forecasts out of 10 (61 to 63 %).
-- **Heights of the high and low waters: better on average.** Mean absolute error of the 11 gauges 16.8 → 13.3 / 14.2 / 15.0 cm at + 1 / 3 / 6 h. Brest
-  (median) 11.0 → 7.9 / 8.4 / 9.4 cm. Lorient (median) 5.9 → 5.7 / 7.4 / 7.7 cm: **worse at + 3 h and + 6 h by the median** (better by the mean: 10.4 → 8.0 / 9.0 / 10.0
-  cm). The median is worse too at Roscoff and Saint-Jean-de-Luz; the figures are in the table.
-- **Times of the high and low waters: no gain.** Median of the 11 gauges 10.6 min without the correction, 10.9 to 11.0 with it. Brest 7.9 → 9.5 / 9.3 / 8.9 min (median; 8.7
-  → 8.7 by the mean), Lorient 6.6 → 6.6 / 6.5 / 6.4. The correction lifts or lowers the curve; it does not move it in time, and a small shift of
-  the height moves a flat top by a minute or two. Only 4 or 5 gauges of 11 come out slightly better.
-- **The gain shrinks with the lead, and the decay of 12 hours is the best of those tried** (table of the tuning): a gap measured now is worth most in
-  the next hours.
-- **The weakest places are where the model is weakest** (Le Havre 47 cm, Saint-Malo 37 cm, Calais 33 cm of error before the correction): it removes 3 to 6 cm of them, not the rest.
-  The error that is left is the tide's own (phase and amplitude of the constituents the model does not carry in these shallow seas), which a gap measured over
-  one tidal cycle averages out by construction.
+- **Heights of the series: better at every gauge and every lead.** Mean of the 11 gauges 22.1 → 18.8 cm at + 1 h (-15 %), 22.1 → 19.8 at + 3 h (-10 %),
+  22.2 → 20.7 at + 6 h (-7 %). Brest 17.4 → 14.9 / 16.1 / 17.1 cm; Lorient 14.8 → 11.9 / 13.1 / 14.3 cm. The correction is closer to the sea than the model
+  in 60 to 62 % of the forecasts.
+- **Heights of the high and low waters: better on average, not at the two ports checked by the median.** Mean absolute error of the 11 gauges 16.8 → 13.3 / 14.2 / 15.0 cm
+  at + 1 / 3 / 6 h (median 13.8 → 11.4 / 12.1 / 13.1). But **Brest (median) 9.0 → 10.0 / 9.3 / 9.6 cm** and **Lorient (median) 5.9 → 5.7 / 7.4 / 7.7 cm are worse** (by the mean they are better:
+  Brest 13.5 → 11.4 / 12.4 / 13.2, Lorient 10.4 → 8.0 / 9.0 / 10.0).
+- **Times of the high and low waters: no gain.** Median of the 11 gauges 10.6 min without the correction, 10.8 to 10.9 with it. Brest 7.7 → 7.2 / 7.2 / 7.4 min, Lorient 6.6 → 6.6 / 6.5 / 6.4. The correction lifts or lowers
+  the curve; it does not move it in time.
+- **Brest is measured against the model as the API serves it**, calibrated by [ADR 0019](../decisions/0019-tide-calibration-per-port.md) (amplitude 1.021, +5 minutes): the model alone is then 17.4 cm
+  instead of 18.3, and the correction adds less to the heights of the extremes. Lorient is not calibrated.
+- **The gain shrinks with the lead, and the decay of 12 hours is the best of those tried** (table of the tuning): a gap measured now is worth most in the next hours.
+- **The weakest places are where the model is weakest** (Le Havre 47 cm, Saint-Malo 37 cm, Calais 33 cm of error before the correction): it removes 3 to 6 cm of them, not the rest. The error that is left is the tide's own
+  (phase and amplitude of the constituents the model does not carry in these shallow seas), which a gap measured over one tidal cycle averages out by construction.
+
+**Verdict: not served by default.** The heights of the curve are better everywhere; the high and low waters, which the screen prints, are not better at the two ports named for the check
+(the median of their height error rises by 0.3 to 1.8 cm at Brest and Lorient for a lead of 3 hours or more, and at Brest at 1 hour too) and their times do not improve. ADR 0017 makes it opt-in
+(`correct=true`, or `VIGIE_TIDE_CORRECTION=on` for an instance).
 
 ## Limits of this measure
 
@@ -49,30 +52,30 @@ RMS error of the series, mean of the 11 gauges, for each window of the mean and 
 
 | Window (min) | Decay (h) | RMS +1 h (cm) | RMS +3 h (cm) | RMS +6 h (cm) | Mean of the three |
 | --- | --- | --- | --- | --- | --- |
-| 60 | 1 | 18.5 | 19.4 | 19.4 | 19.1 |
-| 60 | 3 | 19.4 | 20.3 | 19.1 | 19.6 |
-| 60 | 6 | 20.6 | 22.1 | 19.3 | 20.7 |
-| 60 | 12 | 21.5 | 24.0 | 20.6 | 22.0 |
-| 60 | 24 | 22.0 | 25.4 | 22.1 | 23.2 |
-| 60 | 48 | 22.3 | 26.2 | 23.2 | 23.9 |
-| 180 | 1 | 19.3 | 19.3 | 19.4 | 19.3 |
-| 180 | 3 | 20.7 | 19.3 | 19.4 | 19.8 |
-| 180 | 6 | 21.7 | 20.1 | 19.9 | 20.6 |
-| 180 | 12 | 22.5 | 21.2 | 21.0 | 21.6 |
-| 180 | 24 | 22.9 | 22.0 | 22.3 | 22.4 |
-| 180 | 48 | 23.2 | 22.5 | 23.2 | 23.0 |
-| 745 | 1 | 18.4 | 19.3 | 19.4 | 19.0 |
-| 745 | 3 | 17.5 | 18.3 | 18.9 | 18.2 |
-| 745 | 6 | 17.3 | 17.8 | 18.3 | 17.8 |
-| 745 | 12 | 17.3 | 17.6 | 17.9 | 17.6 |
-| 745 | 24 | 17.3 | 17.6 | 17.8 | 17.6 |
-| 745 | 48 | 17.4 | 17.7 | 17.9 | 17.6 |
-| 1490 | 1 | 18.5 | 19.2 | 19.3 | 19.0 |
-| 1490 | 3 | 17.8 | 18.5 | 19.0 | 18.4 |
-| 1490 | 6 | 17.8 | 18.1 | 18.5 | 18.1 |
-| 1490 | 12 | 17.8 | 18.1 | 18.3 | 18.0 |
-| 1490 | 24 | 17.8 | 18.1 | 18.3 | 18.1 |
-| 1490 | 48 | 17.9 | 18.1 | 18.4 | 18.1 |
+| 60 | 1 | 18.3 | 19.2 | 19.1 | 18.9 |
+| 60 | 3 | 19.3 | 20.0 | 18.8 | 19.3 |
+| 60 | 6 | 20.4 | 21.7 | 18.9 | 20.3 |
+| 60 | 12 | 21.3 | 23.5 | 20.0 | 21.6 |
+| 60 | 24 | 21.8 | 24.9 | 21.4 | 22.7 |
+| 60 | 48 | 22.1 | 25.6 | 22.4 | 23.4 |
+| 180 | 1 | 19.1 | 19.1 | 19.1 | 19.1 |
+| 180 | 3 | 20.4 | 18.9 | 19.1 | 19.5 |
+| 180 | 6 | 21.4 | 19.6 | 19.4 | 20.1 |
+| 180 | 12 | 22.1 | 20.6 | 20.5 | 21.1 |
+| 180 | 24 | 22.6 | 21.3 | 21.7 | 21.9 |
+| 180 | 48 | 22.8 | 21.8 | 22.5 | 22.4 |
+| 745 | 1 | 18.1 | 19.0 | 19.1 | 18.8 |
+| 745 | 3 | 17.2 | 18.0 | 18.7 | 18.0 |
+| 745 | 6 | 17.0 | 17.5 | 18.1 | 17.5 |
+| 745 | 12 | 17.0 | 17.4 | 17.7 | 17.3 |
+| 745 | 24 | 17.0 | 17.4 | 17.6 | 17.3 |
+| 745 | 48 | 17.1 | 17.4 | 17.6 | 17.4 |
+| 1490 | 1 | 18.3 | 19.0 | 19.1 | 18.8 |
+| 1490 | 3 | 17.6 | 18.2 | 18.8 | 18.2 |
+| 1490 | 6 | 17.5 | 17.9 | 18.3 | 17.9 |
+| 1490 | 12 | 17.6 | 17.8 | 18.0 | 17.8 |
+| 1490 | 24 | 17.6 | 17.9 | 18.1 | 17.8 |
+| 1490 | 48 | 17.6 | 17.9 | 18.1 | 17.9 |
 
 ### Transfer from one gauge to another (the evidence of the 50 km radius)
 
@@ -82,16 +85,16 @@ The gap measured at the first gauge is applied at the second, forecast at +3 h, 
 | --- | --- | --- | --- | --- |
 | Concarneau | Lorient | 44 | 14.8 | 12.5 |
 | Lorient | Concarneau | 44 | 13.9 | 13.4 |
-| Roscoff | Brest | 54 | 18.3 | 17.3 |
+| Roscoff | Brest | 54 | 17.4 | 16.4 |
 | Brest | Roscoff | 54 | 19.3 | 18.2 |
 | Les Sables-d'Olonne | La Rochelle-La Pallice | 58 | 18.0 | 15.6 |
 | La Rochelle-La Pallice | Les Sables-d'Olonne | 58 | 14.0 | 12.8 |
 | Brest | Concarneau | 71 | 13.9 | 13.8 |
-| Concarneau | Brest | 71 | 18.3 | 16.6 |
+| Concarneau | Brest | 71 | 17.4 | 15.6 |
 | Roscoff | Concarneau | 94 | 13.9 | 14.2 |
 | Concarneau | Roscoff | 94 | 19.3 | 18.0 |
 | Brest | Lorient | 111 | 14.8 | 13.3 |
-| Lorient | Brest | 111 | 18.3 | 17.0 |
+| Lorient | Brest | 111 | 17.4 | 16.0 |
 | Cherbourg | Saint-Malo | 116 | 36.8 | 34.6 |
 | Saint-Malo | Cherbourg | 116 | 20.5 | 17.8 |
 | Roscoff | Lorient | 118 | 14.8 | 13.7 |
@@ -114,13 +117,13 @@ The gap measured at the first gauge is applied at the second, forecast at +3 h, 
 | Cherbourg | 20.5 | 15.3 | 20.5 | 16.4 | 20.6 | 17.4 |
 | Saint-Malo | 36.8 | 33.9 | 36.8 | 34.8 | 36.9 | 35.4 |
 | Roscoff | 19.3 | 17.4 | 19.3 | 18.2 | 19.3 | 18.8 |
-| Brest | 18.3 | 16.0 | 18.3 | 17.0 | 18.4 | 18.1 |
+| Brest | 17.4 | 14.9 | 17.4 | 16.1 | 17.4 | 17.1 |
 | Concarneau | 13.9 | 11.4 | 13.9 | 12.6 | 13.9 | 13.6 |
 | Les Sables-d'Olonne | 14.0 | 11.0 | 14.0 | 11.9 | 14.0 | 12.9 |
 | La Rochelle-La Pallice | 18.0 | 15.4 | 18.0 | 16.1 | 18.0 | 16.8 |
 | Saint-Jean-de-Luz Socoa | 7.3 | 5.1 | 7.3 | 5.5 | 7.3 | 5.8 |
 | Lorient | 14.8 | 11.9 | 14.8 | 13.1 | 14.8 | 14.3 |
-| **mean of the stations** | 22.1 | 18.9 | 22.2 | 19.9 | 22.3 | 20.8 |
+| **mean of the stations** | 22.1 | 18.8 | 22.1 | 19.8 | 22.2 | 20.7 |
 
 ### High and low waters: median absolute error of the time (min) and of the height (cm), forecast at extreme - lead
 
@@ -141,9 +144,9 @@ The gap measured at the first gauge is applied at the second, forecast at +3 h, 
 | Roscoff | 53 of 53 | +1 h | 7.9 | 8.0 | 12.0 | 13.1 | 0 / 0 |
 | Roscoff | 53 of 53 | +3 h | 7.9 | 8.3 | 12.0 | 14.8 | 0 / 0 |
 | Roscoff | 53 of 53 | +6 h | 7.9 | 8.5 | 12.0 | 16.7 | 0 / 0 |
-| Brest | 52 of 52 | +1 h | 7.9 | 9.5 | 11.0 | 7.9 | 0 / 0 |
-| Brest | 52 of 52 | +3 h | 7.9 | 9.3 | 11.0 | 8.4 | 0 / 0 |
-| Brest | 52 of 52 | +6 h | 7.9 | 8.9 | 11.0 | 9.4 | 0 / 0 |
+| Brest | 52 of 52 | +1 h | 7.7 | 7.2 | 9.0 | 10.0 | 0 / 0 |
+| Brest | 52 of 52 | +3 h | 7.7 | 7.2 | 9.0 | 9.3 | 0 / 0 |
+| Brest | 52 of 52 | +6 h | 7.7 | 7.4 | 9.0 | 9.6 | 0 / 0 |
 | Concarneau | 52 of 52 | +1 h | 7.3 | 6.8 | 9.1 | 5.0 | 0 / 0 |
 | Concarneau | 52 of 52 | +3 h | 7.3 | 6.7 | 9.1 | 5.6 | 0 / 0 |
 | Concarneau | 52 of 52 | +6 h | 7.3 | 7.0 | 9.1 | 6.7 | 0 / 0 |

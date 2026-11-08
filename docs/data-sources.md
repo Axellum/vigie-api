@@ -716,13 +716,13 @@ near the spot or does not reach the dates, `tide` is `null` and `shore_fishing` 
 
 `GET /v1/tides` and `GET /v1/tides/coast` compute the tide: the sum of 34 cosines, from the constants of the EOT20 cells near
 a coast and a table of the astronomical arguments, both in `app/data` ([ADR 0015](decisions/0015-tides-from-a-global-model.md),
-`app/services/tides.py`). The model costs no call and no quota, whatever the number of clients. **One exception**: `GET /v1/tides` (not `/coast`) corrects the model
+`app/services/tides.py`). The model costs no call and no quota, whatever the number of clients. **One exception**: `GET /v1/tides?correct=true` (not `/coast`, and not by default) corrects the model
 with the gap that the nearest REFMAR tide gauge (SHOM, Licence Ouverte 2.0) measured, when there is one within 50 km
 ([ADR 0017](decisions/0017-tide-corrected-by-the-nearest-gauge.md), `app/services/tide_correction.py`, `app/collectors/refmar.py`):
 
 | What | Cache | Requests |
 | --- | --- | --- |
-| The raw measures of the last 14 hours of a gauge, `services.data.shom.fr/maregraphie/observation/json/{id}?sources=1` (one value a minute; its newest value was 3 to 20 minutes old when read on 2026-11-08) | 15 minutes per gauge (the correction fades over 12 hours, so a quarter of an hour changes it by millimetres); the last answer is served when REFMAR fails | One per gauge per quarter of an hour, whatever the number of clients, and only for a gauge a client asked about: at most 11 gauges, 1,056 a day. No published quota; counted in `/v1/health` like the others (`shom_refmar`) |
+| The raw measures of the last 14 hours of a gauge, `services.data.shom.fr/maregraphie/observation/json/{id}?sources=1` (one value a minute; its newest value was 3 to 20 minutes old when read on 2026-11-08) | 15 minutes per gauge (the correction fades over 12 hours, so a quarter of an hour changes it by millimetres); the last answer is served when REFMAR fails | One per gauge per quarter of an hour, whatever the number of clients, and only for a gauge a client asked a corrected tide of: at most 11 gauges, 1,056 a day. No published quota; counted in `/v1/health` like the others (`shom_refmar`) |
 
 `app/data/refmar-stations.json`: the 11 gauges with their datum offset against the model, built by `tools/measure_tide_correction.py`.
 

@@ -13,7 +13,7 @@ The test is a forecast made at a time ``t`` and compared with what the gauge mea
 - the datum offset of a station and the choice of the window and of the decay come from the **first half** of the window (up to
   ``SPLIT``); the figures of the report are those of the **second half**, which the choice never saw;
 - the reference is the 61-minute mean of the measures, as ADR 0015's criterion (the surge is kept, the waves are not);
-- the model is what the API serves (EOT20, the cell nearest to the gauge), the correction is ``app/services/tide_correction.py`` itself.
+- the model is what the API serves (EOT20, the cell nearest to the gauge, calibrated where ADR 0019 applies a calibration: Brest), the correction is ``app/services/tide_correction.py`` itself.
 
 Heights: the error of the series at the three leads. High and low waters: every significant extreme of the reference (ADR 0015's rule) is
 forecast from ``t = extreme - lead`` with and without the correction, and matched with the extreme of the same kind nearest in time
@@ -40,7 +40,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import measure_tides as mt  # noqa: E402
 
 from app.services import tide_correction as tc  # noqa: E402
-from app.services.tides import MINUTE, Extreme, TideModel, find_extremes, mjd_from_unix  # noqa: E402
+from app.services.tides import (  # noqa: E402
+    MINUTE,
+    Extreme,
+    TideModel,
+    calibrated_heights,
+    calibration_for,
+    find_extremes,
+    mjd_from_unix,
+)
 
 # The gauges the correction can use: the ten French ports of ADR 0015's criterion, and Lorient (REFMAR 6349, read in the list of the gauges
 # `services.data.shom.fr/maregraphie/service/tidegauges` on 2026-11-08: the nearest gauge to Lorient).
@@ -68,6 +76,7 @@ class Series:
     smooth: np.ndarray
     model: np.ndarray
     cell_constants: np.ndarray
+    calibration: Any
     offset_train: float
     offset_full: float
 
@@ -80,14 +89,15 @@ def build_series(model: TideModel, station: mt.Station, cache_dir: Path) -> Seri
     raw[minutes - first] = [v for _, v in values]
     mjd, smooth = mt.smooth_minutes(values)
     cell = model.nearest_cell(station.lat, station.lon)
-    modelled = model.heights(cell.constants, mjd)
+    calibration = calibration_for(station.lat, station.lon)  # ADR 0019: the model as the API serves it (Brest only)
+    modelled = calibrated_heights(model, cell.constants, mjd, calibration)
     start = mjd_from_unix(mt.WINDOW_START.timestamp())
     split = mjd_from_unix(SPLIT.timestamp())
     end = mjd_from_unix(mt.WINDOW_END.timestamp())
     gap = smooth - modelled
     train = (mjd >= start) & (mjd < split)
     full = (mjd >= start) & (mjd < end)
-    return Series(station, mjd, raw, smooth, modelled, cell.constants, float(np.nanmean(gap[train])), float(np.nanmean(gap[full])))
+    return Series(station, mjd, raw, smooth, modelled, cell.constants, calibration, float(np.nanmean(gap[train])), float(np.nanmean(gap[full])))
 
 
 def residual(series: Series, offset: float) -> np.ndarray:
@@ -195,7 +205,7 @@ def score_extremes(series: Series, model: TideModel) -> dict[str, Any]:
             if found is None:
                 continue
             moments = np.arange(wanted.mjd - 9 / 24.0, wanted.mjd + 5 / 24.0, MINUTE)
-            curve = model.heights(series.cell_constants, moments)
+            curve = calibrated_heights(model, series.cell_constants, moments, series.calibration)
             corrected = curve + np.where(moments >= origin, correction_at(moments, *found), 0.0)
             truth_height = wanted.height_m - series.offset_train
             for label, values in (("before", curve), ("after", corrected)):

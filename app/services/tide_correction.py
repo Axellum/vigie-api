@@ -36,7 +36,15 @@ from app.services.geodesy import haversine_km
 if TYPE_CHECKING:
     from app.collectors.refmar import RefmarCollector
 
-from app.services.tides import MINUTE, TideModel, mjd_from_unix, model, unix_from_mjd
+from app.services.tides import (
+    MINUTE,
+    TideModel,
+    calibrated_heights,
+    calibration_for,
+    mjd_from_unix,
+    model,
+    unix_from_mjd,
+)
 
 STATIONS_FILE = Path(__file__).resolve().parents[1] / "data" / "refmar-stations.json"
 
@@ -53,7 +61,7 @@ MIN_COVERAGE = 0.5
 # A gap this large is a gauge fault or a wrong datum, not weather (a guard of ours, not measured).
 MAX_ANOMALY_M = 1.5
 
-DISABLED_BY = "VIGIE_TIDE_CORRECTION"  # "off" turns the correction off
+DEFAULT_ON_BY = "VIGIE_TIDE_CORRECTION"  # "on": an instance applies the correction unless a request says `correct=false`
 
 
 @dataclass(frozen=True)
@@ -96,8 +104,8 @@ class Correction:
         return np.where(hours >= 0.0, self.anomaly.anomaly_m * np.exp(-np.maximum(hours, 0.0) / TAU_HOURS), 0.0)
 
 
-NO_CORRECTION = Correction(None, "disabled")
 NOT_ASKED = Correction(None, "not_asked")
+NO_CORRECTION = NOT_ASKED
 
 
 @lru_cache(maxsize=1)
@@ -144,7 +152,9 @@ def residuals(tide_model: TideModel, station: RefmarStation, observations: list[
     if not len(mjd):
         return mjd, values
     cell = tide_model.nearest_cell(station.lat, station.lon)
-    return mjd, values - tide_model.heights(cell.constants, mjd) - station.offset_m
+    # The model as the API serves it at the gauge: calibrated (ADR 0019) where a calibration is applied there.
+    served = calibrated_heights(tide_model, cell.constants, mjd, calibration_for(station.lat, station.lon))
+    return mjd, values - served - station.offset_m
 
 
 def decide(
@@ -167,8 +177,9 @@ def decide(
     return Correction(Anomaly(station, distance_km, measured_mjd, anomaly, minutes), None, station, distance_km)
 
 
-def enabled() -> bool:
-    return os.environ.get(DISABLED_BY, "").strip().lower() not in ("off", "0", "false", "no")
+def on_by_default() -> bool:
+    """Whether an instance applies the correction when a request does not say (it does not, unless ``VIGIE_TIDE_CORRECTION=on``)."""
+    return os.environ.get(DEFAULT_ON_BY, "").strip().lower() in ("on", "1", "true", "yes")
 
 
 def measured_unix(correction: Correction) -> Optional[int]:
@@ -206,8 +217,6 @@ def correction_report(correction: Correction) -> TideCorrection:
 
 async def resolve(collector: "RefmarCollector", lat: float, lon: float, now_unix: float) -> Correction:
     """The correction of a point now. Never raises: a gauge that cannot be read is a reason, not an error."""
-    if not enabled():
-        return NO_CORRECTION
     found = nearest_station(lat, lon)
     if found is None:
         return Correction(None, "no_station_near")

@@ -90,10 +90,10 @@ class TideCorrection(BaseModel):
     """Whether the modelled tide was corrected with the nearest REFMAR tide gauge (ADR 0017), and how. Always present."""
 
     applied: bool = Field(..., description="True when `heights`, `extremes` and `now` include the correction below")
-    reason: Optional[Literal["no_station_near", "measure_unavailable", "no_recent_measure", "implausible_gap", "disabled", "not_asked"]] = Field(
+    reason: Optional[Literal["no_station_near", "measure_unavailable", "no_recent_measure", "implausible_gap", "not_asked"]] = Field(
         default=None,
         description="Why it was not applied: no gauge within 50 km, REFMAR could not be read, no measure from the last hour (or too few "
-        "in the last 12.4 hours), a gap over 1.5 m, the instance switched it off, or `correct=false` was asked",
+        "in the last 12.4 hours), a gap over 1.5 m, or the correction was not asked for (`correct=true`)",
     )
     station: Optional[TideCorrectionStation] = Field(default=None, description="The gauge, when there is one near the point")
     measured_utc: Optional[int] = Field(default=None, description="Time of the last measure used (UTC epoch seconds); the gap fades from then")

@@ -1,6 +1,6 @@
 # 0017. The modelled tide corrected with the nearest tide gauge
 
-- Status: accepted, with the limits the measure found (it lowers the error of the heights, it does not move the times of the high and low waters). Measure: [`docs/measurements/tide-correction-2026-11.md`](../measurements/tide-correction-2026-11.md).
+- Status: accepted **as an option, off by default**: the measure found it lowers the error of the heights of the curve, but not that of the high and low waters at the two ports checked, nor their times. Measure: [`docs/measurements/tide-correction-2026-11.md`](../measurements/tide-correction-2026-11.md).
 - Date: 2026-11-08
 - Number: reserved with `scripts/prochain_adr.py` (0016 was taken by an open pull request) and in the state file of the sessions.
 
@@ -19,10 +19,11 @@ REFMAR (SHOM, **Licence Ouverte 2.0**) are open, one a minute, and `tools/measur
    a short window (an hour) followed the error of the tide itself and made the forecast worse from + 3 h.
 2. **A gauge is used within 50 km of the point**, among 11 (the ten ports of ADR 0015's criterion and Lorient, REFMAR 6349). The gap of one Atlantic gauge helped
    another one 44 to 111 km away, and hurt between Le Havre and Cherbourg (127 km): 50 km is inside what was seen to help.
-3. **Never silent.** `GET /v1/tides` always carries a `correction` object: `applied`, or `reason` (`no_station_near`, `measure_unavailable`, `no_recent_measure`,
-   `implausible_gap`, `disabled`, `not_asked`), the gauge and its distance, the time of the last measure, the gap, the decay, the window, the credit. Without a gauge
+3. **Never silent, and not the default.** `GET /v1/tides` always carries a `correction` object: `applied`, or `reason` (`no_station_near`, `measure_unavailable`, `no_recent_measure`,
+   `implausible_gap`, `not_asked`), the gauge and its distance, the time of the last measure, the gap, the decay, the window, the credit. Without a gauge
    near, without a measure from the last 60 minutes (or fewer than half the minutes of the window), or when REFMAR cannot be read, the answer is the model's, as before.
-   `correct=false` asks for the model alone; `VIGIE_TIDE_CORRECTION=off` switches it off for an instance. A gap over 1.5 m is a gauge fault, not weather: not applied (a guard of ours, not measured).
+   It is applied only for `correct=true`, or on an instance that sets `VIGIE_TIDE_CORRECTION=on` (then `correct=false` asks for the model alone); REFMAR is not asked otherwise.
+   A gap over 1.5 m is a gauge fault, not weather: not applied (a guard of ours, not measured).
 4. **REFMAR is asked sparingly and credited.** One request per gauge every 15 minutes whatever the number of clients (`app/collectors/refmar.py`, through the cache,
    the circuit breaker and the counted `_get`), the last 14 hours only, an identifying User-Agent. The credit "SHOM, REFMAR (Licence Ouverte 2.0)" is in `correction.attribution`
    and in `SOURCES.md`; the correction is Vigie's and says so. Not verified: the exact mention REFMAR asks for.
@@ -32,12 +33,14 @@ REFMAR (SHOM, **Licence Ouverte 2.0**) are open, one a minute, and `tools/measur
 
 ## Result (measured on 2026-11-08, second half of the window, forecast made at *t* and compared with *t* + 1 h, + 3 h, + 6 h)
 
-- **Heights of the series**: better at the 11 gauges and the 3 leads. Mean 22.1 → 18.9, 22.2 → 19.9, 22.3 → 20.8 cm. Brest 18.3 → 16.0 / 17.0 / 18.1 cm,
-  Lorient 14.8 → 11.9 / 13.1 / 14.3 cm.
-- **Heights of the high and low waters**: 16.8 → 13.3 / 14.2 / 15.0 cm (mean absolute error, 11 gauges); Brest (median) 11.0 → 7.9 / 8.4 / 9.4 cm; **Lorient (median) 5.9 → 5.7 / 7.4 / 7.7 cm, worse at + 3 h and + 6 h** (better by the mean).
-- **Times of the high and low waters: no gain** (median of the gauges 10.6 → 10.9 / 11.0 min; Brest 7.9 → 9.5 / 9.3 / 8.9 min; Lorient 6.6 → 6.6 / 6.5 / 6.4 min).
+Against the model as the API serves it (at Brest, calibrated by [ADR 0019](0019-tide-calibration-per-port.md)):
 
-It is served by default because the heights are better on average and the times are not worse by more than a minute or two; this is a choice, and `correct=false` and `VIGIE_TIDE_CORRECTION=off` undo it.
+- **Heights of the series**: better at the 11 gauges and the 3 leads. Mean 22.1 → 18.8 / 19.8 / 20.7 cm. Brest 17.4 → 14.9 / 16.1 / 17.1 cm, Lorient 14.8 → 11.9 / 13.1 / 14.3 cm.
+- **Heights of the high and low waters**: mean absolute error of the 11 gauges 16.8 → 13.3 / 14.2 / 15.0 cm, but by the median **Brest 9.0 → 10.0 / 9.3 / 9.6 cm and Lorient 5.9 → 5.7 / 7.4 / 7.7 cm are worse**.
+- **Times of the high and low waters: no gain** (median of the gauges 10.6 → 10.8 / 10.8 / 10.9 min; Brest 7.7 → 7.2 / 7.2 / 7.4; Lorient 6.6 → 6.6 / 6.5 / 6.4).
+
+The sibling criterion of ADR 0019 (the median errors of the extremes must not rise) is not met at Brest and Lorient, so the correction is **not the default**; it is there for whoever wants the curve closer to the sea
+(a surge, a day of weather), and the choice of the default is the owner's.
 
 ## Consequences
 

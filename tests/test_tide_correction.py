@@ -137,7 +137,7 @@ def test_the_collector_asks_one_request_a_quarter_of_an_hour(monkeypatch: pytest
 
 
 def tide(client: TestClient, **params: Any) -> dict[str, Any]:
-    response = client.get("/v1/tides", params={"lat": BREST[0], "lon": BREST[1], "days": 1, "interval_minutes": 60, **params})
+    response = client.get("/v1/tides", params={"lat": BREST[0], "lon": BREST[1], "days": 1, "interval_minutes": 60, "correct": "true", **params})
     assert response.status_code == 200
     return response.json()  # type: ignore[no-any-return]
 
@@ -191,17 +191,21 @@ def test_without_a_fresh_measure_the_answer_is_the_models_and_says_why(
 
 def test_no_gauge_within_fifty_kilometres_asks_nobody(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     gauge = with_gauge(monkeypatch, RuntimeError("must not be asked"))
-    answer = client.get("/v1/tides", params={"lat": 43.2, "lon": 5.3, "days": 1}).json()  # Marseille: no gauge of the list is near
+    answer = client.get("/v1/tides", params={"lat": 43.2, "lon": 5.3, "days": 1, "correct": "true"}).json()  # Marseille: no gauge of the list is near
     assert answer["correction"]["applied"] is False and answer["correction"]["reason"] == "no_station_near"
     assert answer["correction"]["station"] is None and gauge.asked == []
 
 
-def test_it_can_be_asked_off_or_switched_off(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_it_is_off_unless_asked_or_the_instance_turns_it_on(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     gauge = with_gauge(monkeypatch, measures(0.30, NOW - 300))
+    params = {"lat": BREST[0], "lon": BREST[1], "days": 1}
+    assert client.get("/v1/tides", params=params).json()["correction"]["reason"] == "not_asked"  # the default of an instance
     assert tide(client, correct="false")["correction"]["reason"] == "not_asked"
-    monkeypatch.setenv(tc.DISABLED_BY, "off")
-    assert tide(client)["correction"]["reason"] == "disabled"
     assert gauge.asked == []
+    monkeypatch.setenv(tc.DEFAULT_ON_BY, "on")
+    assert client.get("/v1/tides", params=params).json()["correction"]["applied"] is True
+    assert client.get("/v1/tides", params={**params, "correct": "false"}).json()["correction"]["reason"] == "not_asked"
+    assert gauge.asked == ["3"]
 
 
 def test_the_real_collector_cannot_reach_the_network_in_a_test(client: TestClient) -> None:

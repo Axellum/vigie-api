@@ -649,8 +649,8 @@ TIDE_INTERVALS = (10, 15, 30, 60)
         "The tide at a coastal point, **computed by Vigie** from the EOT20 ocean tide model at the nearest model cell (ADR 0015): the "
         "heights every `interval_minutes`, the high and low waters with the range of each tide, the tide now (height, rising or falling, "
         "next high and low water) and an **estimated** French coefficient (ours, unofficial: the official one is SHOM's). Heights are "
-        "relative to the model's mean sea level, not to a chart datum. **Corrected** with the gap that the nearest REFMAR tide gauge "
-        "(SHOM, Licence Ouverte 2.0) within 50 km measured in the last hour, fading over 12 hours, when there is one: `correction` says "
+        "relative to the model's mean sea level, not to a chart datum. With `correct=true` it is **corrected** with the gap that the nearest "
+        "REFMAR tide gauge (SHOM, Licence Ouverte 2.0) within 50 km measured in the last hour, fading over 12 hours: `correction` says "
         "whether it was applied, from which gauge and measure, and why not otherwise (ADR 0017). **Not for navigation**: the measure of "
         "2026-10 found the model within a quarter of an hour on the open coasts of France, and up to two hours early inside harbours and "
         "bays of the United States (`limits`, docs/measurements/tides-2026-10.md)."
@@ -667,10 +667,10 @@ async def get_tides(
         "rounded down to the hour",
     ),
     interval_minutes: int = Query(default=30, description="Step of `heights` (minutes): 10, 15, 30 or 60"),
-    correct: bool = Query(
-        default=True,
-        description="Correct the model with the nearest REFMAR tide gauge when it measured in the last hour (ADR 0017); `false` gives the "
-        "model alone. `correction` says what was done.",
+    correct: Optional[bool] = Query(
+        default=None,
+        description="`true`: correct the model with the nearest REFMAR tide gauge when it measured in the last hour (ADR 0017); `false`: the "
+        "model alone. Without it the instance decides (the model alone, unless it sets `VIGIE_TIDE_CORRECTION=on`). `correction` says what was done.",
     ),
 ) -> TidesResponse:
     """The tide at a coastal point."""
@@ -680,7 +680,7 @@ async def get_tides(
     try:
         start_unix = _tide_start(start, now)
         correction = (
-            await tide_correction.resolve(aggregator.refmar, round(lat, 4), round(lon, 4), now) if correct else tide_correction.NOT_ASKED
+            await tide_correction.resolve(aggregator.refmar, round(lat, 4), round(lon, 4), now) if (tide_correction.on_by_default() if correct is None else correct) else tide_correction.NOT_ASKED
         )
         answer = await clock.run_blocking(
             tides.tides_at, round(lat, 4), round(lon, 4), start_unix, days, interval_minutes, now, correction
