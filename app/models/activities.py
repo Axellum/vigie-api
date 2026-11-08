@@ -141,3 +141,47 @@ class ActivitiesForecast(BaseModel):
     disclaimer: str = ACTIVITIES_DISCLAIMER
     stale: bool = Field(description="True when a provider did not answer and its last answer is served")
     attribution: str
+
+
+# --------------------------------------------------------------------------------------------- every spot at once (the overview)
+
+
+class ActivityOverview(BaseModel):
+    """One activity of one spot in short: what ``GET /v1/activities/{spot_id}`` says in its headline, without the hours or the criteria."""
+
+    id: ActivityId
+    available: bool = Field(description="False where the activity cannot be judged here (no tide model near for shore fishing): then nothing else is set")
+    verdict: Optional[Verdict] = Field(default=None, description="The best verdict of the daylight hours of the next 24 hours, as in `GET /v1/activities/{spot_id}`")
+    reason: Optional[str] = Field(default=None, description="Why it is not `good`: `<criterion>.<state>`, or `vigilance.red`, `vigilance.orange`")
+    best_slot: Optional[ActivitySlot] = Field(default=None, description="The longest run of consecutive daylight hours at the best verdict; null when it is `poor`")
+    now: Optional[Verdict] = Field(
+        default=None, description="The verdict of the current hour (null when unknown, or when the hour is not in the forecast): daylight or not"
+    )
+
+
+class SpotActivities(BaseModel):
+    id: str
+    name: str
+    place: str
+    lat: float
+    lon: float
+    activities: list[ActivityOverview] = Field(description="Always surf, kite, boat, shore_fishing, in that order")
+    warnings: Literal["ok", "unknown"] = Field(
+        description="`unknown` when the official coastal warnings could not be read for this spot: nothing is capped, and no warning is not read as 'nothing to fear'"
+    )
+    coastal_level: Optional[str] = Field(
+        default=None, description="The highest level of the official coastal warnings in force at the spot in the next 24 hours: ORANGE or RED (yellow changes no verdict); null otherwise"
+    )
+
+
+class ActivitiesOverview(BaseModel):
+    generated_utc: int
+    count: int
+    wind_range: WindRange = Field(description="The wind range of the kite, wing or windsurf: the one asked for, else the default")
+    spots: list[SpotActivities] = Field(description="Every surf spot, north to south, as `GET /v1/surf/spots`; a spot the wave model gave nothing for is left out")
+    rules: dict[str, str]
+    derived: list[str]
+    limits: str = ACTIVITIES_LIMITS
+    disclaimer: str = ACTIVITIES_DISCLAIMER
+    stale: bool = Field(description="True when a provider did not answer and its last answer is served")
+    attribution: str

@@ -79,6 +79,7 @@ words of the issuing services left as they are, the national services listed in 
 | `GET /v1/tides?lat=&lon=`, `GET /v1/tides/coast?bbox=w,s,e,n` | The tide at a coastal point (heights, high and low waters, ranges, the tide now, an estimated French coefficient), or the tide now along the coasts of a box: **computed by Vigie** from the EOT20 ocean tide model, no provider asked. **Not for navigation.** See "Tides" below. |
 | `GET /v1/surf/spots`, `GET /v1/surf/spots/{id}?days=`, `GET /v1/surf/overview` | The surf spots of the French Atlantic and Channel coasts (OpenStreetMap), and the hourly forecast of one: swell (Météo-France MFWAM), wind, tide, and **a rating of ours**, explained criterion by criterion, with the best slot of the next three days; the overview gives every spot's current hour and best slot at once. **Not for safety.** See "Surf" below. |
 | `GET /v1/activities/{id}?days=&wind_min_kn=&wind_max_kn=` | For a surf spot, a verdict hour by hour (`good`, `possible`, `poor`) for **surf, kite or wing or windsurf, boat and shore fishing**, with the criteria behind it, the best daylight slot of the next 24 hours, the tide (high and low waters, **estimated** coefficient) and the coastal warnings that cap it. **Every verdict is a rule of ours**, its thresholds in `rules`. **Not for safety.** See "Activities" below. |
+| `GET /v1/activities/overview?wind_min_kn=&wind_max_kn=` | The same verdicts for **every surf spot in one request**, cut to the headline of each activity, the verdict of the current hour and the highest official coastal warning level: for a list or a ranking. No request added to a provider. **Not for safety.** See "Activities" below. |
 | `GET /v1/cap/alerts` | Active hazards as OASIS CAP 1.2. |
 | `GET /v1/vigilances?lat=&lon=` or `?country=FR` or `?source=tsunami` | Official weather warnings that cover a point, or all those of a country (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues, and the national services of the WMO registry), or the tsunami messages in force, the issuer's words untouched. See below. |
 | `GET /v1/vigilances/countries` | The countries this instance serves with its settings, the sources that answer for each, and whether their licence is verified. With `?uncovered=true`, every other country of the world too, each with the reason nothing is read for it. |
@@ -603,6 +604,10 @@ GET /v1/activities/soorts-hossegor-plage-sud-point-d-or?days=1&wind_min_kn=15&wi
   boat and the shore fishing at `possible` at best. When the warnings could not be read, `vigilance.status` is `unknown` and nothing is
   capped.
 - **Calls**: none more than the surf page's (the same swell and wind answers); the tide is computed and the warnings are the cached ones.
+- **Every spot in one request**: `GET /v1/activities/overview?wind_min_kn=&wind_max_kn=` gives the headline of the four activities of all the
+  spots (verdict, why it is not `good`, best slot, the verdict of the current hour), the highest official coastal warning level
+  (`coastal_level`) and whether the warnings could be read (`warnings`), for a list or a ranking. The same rules and the same code as the
+  route of one spot; a spot the wave model gave nothing for is left out.
   [ADR 0016](docs/decisions/0016-activity-verdicts-from-rules-of-ours.md).
 
 **Not for safety and not for navigation**: look at the sea on the spot, the flags and the lifeguards, read the tide tables and the official

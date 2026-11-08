@@ -82,6 +82,7 @@ des services émetteurs laissés tels quels, services nationaux du registre de l
 | `GET /v1/tides?lat=&lon=`, `GET /v1/tides/coast?bbox=w,s,e,n` | La marée en un point de côte (hauteurs, pleines et basses mers, marnages, la marée maintenant, un coefficient français estimé), ou la marée maintenant le long des côtes d'une zone : **calculée par Vigie** à partir du modèle de marée océanique EOT20, sans appel à une source. **Pas pour la navigation.** Voir « Marées » plus bas. |
 | `GET /v1/surf/spots`, `GET /v1/surf/spots/{id}?days=`, `GET /v1/surf/overview` | Les spots de surf des côtes françaises de l'Atlantique et de la Manche (OpenStreetMap), et la prévision heure par heure de l'un d'eux : houle (MFWAM de Météo-France), vent, marée, et **une note à nous**, expliquée critère par critère, avec le meilleur créneau des trois prochains jours ; le résumé donne l'heure en cours et le meilleur créneau de tous les spots d'un coup. **Pas pour la sécurité.** Voir « Surf » plus bas. |
 | `GET /v1/activities/{id}?days=&wind_min_kn=&wind_max_kn=` | Pour un spot de surf, un verdict heure par heure (`good`, `possible`, `poor`) pour le **surf, le kite, l'aile ou la planche à voile, le bateau et la pêche à pied**, avec les critères qui le fondent, le meilleur créneau de jour des 24 prochaines heures, la marée (pleines et basses mers, coefficient **estimé**) et les vigilances côtières qui le plafonnent. **Chaque verdict est une règle à nous**, ses seuils dans `rules`. **Pas pour la sécurité.** Voir « Activités » plus bas. |
+| `GET /v1/activities/overview?wind_min_kn=&wind_max_kn=` | Les mêmes verdicts pour **tous les spots de surf en une requête**, réduits au titre de chaque activité, au verdict de l'heure en cours et au niveau le plus haut de vigilance côtière officielle : pour une liste ou un classement. Aucune requête de plus chez un fournisseur. **Pas pour la sécurité.** Voir « Activités » plus bas. |
 | `GET /v1/cap/alerts` | Dangers actifs en OASIS CAP 1.2. |
 | `GET /v1/vigilances?lat=&lon=` ou `?country=FR` ou `?source=tsunami` | Vigilances météo officielles qui couvrent un point, ou toutes celles d'un pays (MeteoAlarm, DWD, ECCC, MetService, NWS, Vigicrues et les services nationaux du registre de l'OMM), ou les messages de tsunami en cours, avec les mots de l'émetteur intacts. Voir plus bas. |
 | `GET /v1/vigilances/countries` | Les pays que cette instance sert avec ses réglages, les sources qui répondent pour chacun, et si leur licence est vérifiée. Avec `?uncovered=true`, tous les autres pays du monde aussi, chacun avec la raison pour laquelle rien n'y est lu. |
@@ -620,6 +621,10 @@ GET /v1/activities/soorts-hossegor-plage-sud-point-d-or?days=1&wind_min_kn=15&wi
   plafonné.
 - **Appels** : aucun de plus que la page de surf (les mêmes réponses de houle et de vent) ; la marée est calculée et les vigilances sont
   celles du cache. [ADR 0016](docs/decisions/0016-activity-verdicts-from-rules-of-ours.md).
+- **Tous les spots en une requête** : `GET /v1/activities/overview?wind_min_kn=&wind_max_kn=` donne le titre des quatre activités de tous
+  les spots (verdict, pourquoi il n'est pas `good`, meilleur créneau, verdict de l'heure en cours), le niveau le plus haut de vigilance
+  côtière officielle (`coastal_level`) et si les vigilances ont pu être lues (`warnings`), pour une liste ou un classement. Mêmes règles et
+  même code que la route d'un spot ; un spot pour lequel le modèle de vagues n'a rien donné est laissé de côté.
 
 **Pas pour la sécurité ni pour la navigation** : regarder la mer sur place, les drapeaux et les sauveteurs, lire les annuaires de marées et
 les vigilances officielles.

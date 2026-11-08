@@ -77,6 +77,9 @@ official number. A federation or a school has its own, and they differ with the 
 
 - `GET /v1/activities/{spot_id}?days=&wind_min_kn=&wind_max_kn=` (1 to 3 days, default 2), `Cache-Control: public, max-age=300`;
   `app/services/activities.py`, `app/models/activities.py`, `tests/test_activities.py`.
+- `GET /v1/activities/overview?wind_min_kn=&wind_max_kn=` gives the same verdicts for every surf spot, cut to the headline of each activity
+  and the verdict of the current hour (`app/services/activities_overview.py`, `tests/test_activities_overview.py`). It runs the same
+  `activities.build`: no rule is written twice, and it asks no provider beyond the surf overview's two every-spot answers.
 - `RULES` in `app/services/activities.py` is the text a client shows; the thresholds are constants beside it, and a test checks that the
   text and the main constants say the same.
 - The embedded frame and the screen use these verdicts next (`vigie-display`); the frame gets new line tags, and a decoder that does not know
