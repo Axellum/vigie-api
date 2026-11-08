@@ -74,7 +74,8 @@ RULES: dict[str, str] = {
     "headline": "the best verdict among the daylight hours of the next 24 hours; best_slot: the longest run of consecutive daylight hours at "
     "that verdict, the first on a tie, and none when that verdict is poor",
     "surf": "the rating of GET /v1/surf/spots/{id} (its rules are there), by its share of points: 75 % and over good, 50 % and over "
-    "possible, less poor; with fewer than three criteria known, null",
+    "possible, less poor; with fewer than three criteria known, null. A primary swell worth 0 points (under 0.5 m, or 4 m and over) "
+    "makes it poor whatever the other criteria give",
     "kite": "wind within the range asked for (default 12 to 25 knots): good; within 3 knots of it: possible; else poor. Gusts above the mean "
     "wind by 5 knots or less: good; 6 to 8: possible; more: poor. Wind from the land side (offshore): possible at best",
     "boat": "mean wind in Beaufort force (knots rounded): 4 or less good, 5 possible, 6 and over poor. Gusts: force 5 or less good, 6 to 7 "
@@ -204,6 +205,10 @@ def _judge_surf(hour: SurfHour) -> tuple[Optional[Verdict], Optional[str], list[
         criteria.append(
             _criterion(s.name, s.value, s.unit, _surf_state(s.name, s.value, s.points, hour), verdict, points=s.points, max_points=s.max_points)
         )
+    height = next((c for c in criteria if c.name == "swell_height"), None)
+    if height is not None and height.points == 0:
+        # A swell too small to ride or too big to paddle into: the other criteria cannot make up for it (the owner's call, 2026-11-08).
+        return "poor", f"swell_height.{height.state}", criteria, rating.points, rating.out_of
     if rating.out_of < surf.MIN_OUT_OF_FOR_BEST:
         return None, None, criteria, rating.points, rating.out_of
     share = rating.points / rating.out_of
