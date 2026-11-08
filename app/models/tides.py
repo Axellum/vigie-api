@@ -86,6 +86,21 @@ class TidesQuery(BaseModel):
     interval_minutes: int
 
 
+class TideCalibration(BaseModel):
+    """Whether the tide was calibrated against a tide gauge (ADR 0019) and, if so, which calibration. ``applied`` false: the plain model."""
+
+    applied: bool = Field(..., description="True when the heights and times were corrected with the calibration of a nearby tide gauge")
+    station_id: Optional[str] = Field(None, description="REFMAR station the correction was measured at")
+    station_name: Optional[str] = None
+    station_distance_km: Optional[float] = Field(None, description="Distance from the point asked to that station (km)")
+    amplitude: Optional[float] = Field(None, description="The heights are multiplied by this (relative to the model's mean sea level)")
+    delay_minutes: Optional[float] = Field(None, description="The tide of the model is moved this many minutes later (negative: earlier)")
+    fit_period: Optional[list[str]] = Field(None, description="First and last day of the observations the two numbers were fitted on")
+    test_period: Optional[list[str]] = Field(None, description="First and last day held out, on which the correction was checked to reduce the error")
+    source: Optional[str] = Field(None, description="Where the observations come from")
+    method: Optional[str] = None
+
+
 class TidesResponse(BaseModel):
     """The tide at a point: heights, high and low waters, ranges, the tide now, and the estimated French coefficient."""
 
@@ -99,6 +114,9 @@ class TidesResponse(BaseModel):
     now: TideNow
     coefficients_estimated: list[TideCoefficient] = Field(
         default_factory=list, description="The estimated French coefficient of each high water at Brest in the window (ours, unofficial)"
+    )
+    calibration: TideCalibration = Field(
+        default_factory=lambda: TideCalibration(applied=False), description="The calibration against a tide gauge, if one was applied"
     )
     coefficient_note: str = COEFFICIENT_NOTE
     coefficient_method: TideCoefficientMethod = Field(
