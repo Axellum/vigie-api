@@ -353,9 +353,14 @@ def test_when_the_source_is_turned_off_the_point_has_no_fire_block_and_nothing_e
     assert response.status_code == 200 and response.json()["fires_nearby"] is None
 
 
+def firms_disabled(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The FIRMS entries of a list of disabled sources: another source (CANDHIS, which has no key in a test) may be off too, and is not what these tests are about."""
+    return [entry for entry in entries if entry["provider_id"] == "nasa_firms"]
+
+
 def test_when_the_source_is_turned_off_the_health_lists_it_as_disabled_and_not_as_a_provider(turned_off: TestClient) -> None:
     health = turned_off.get("/v1/health").json()
-    assert health["disabled_sources"] == [{"provider_id": "nasa_firms", "name": "NASA FIRMS (active fires)", "domain": "fires", "reason": TURNED_OFF}]
+    assert firms_disabled(health["disabled_sources"]) == [{"provider_id": "nasa_firms", "name": "NASA FIRMS (active fires)", "domain": "fires", "reason": TURNED_OFF}]
     assert "nasa_firms" not in {p["provider_id"] for p in health["providers"]}
     assert "nasa_firms" not in {p["provider_id"] for p in turned_off.get("/v1/providers").json()}
     assert health["providers_summary"]["total"] == len(health["providers"])
@@ -363,7 +368,7 @@ def test_when_the_source_is_turned_off_the_health_lists_it_as_disabled_and_not_a
 
 def test_the_provider_is_listed_with_its_calls_and_nothing_is_disabled(fires: Fires) -> None:
     health = fires.client.get("/v1/health").json()
-    assert health["disabled_sources"] == []
+    assert firms_disabled(health["disabled_sources"]) == []
     provider = next(p for p in fires.client.get("/v1/providers").json() if p["provider_id"] == "nasa_firms")
     assert provider["healthy"] is True and provider["calls_24h"] == 2 and provider["weight_24h"] == 0 and provider["last_error"] is None  # two files, no transaction
     assert provider["quota"]["group"] == "nasa-firms" and provider["quota"]["limits"] == [{"window_s": 600, "limit": 5000.0, "budget": 4500.0, "used": 0.0}]
@@ -372,13 +377,13 @@ def test_the_provider_is_listed_with_its_calls_and_nothing_is_disabled(fires: Fi
 def test_a_service_built_from_the_environment_reads_the_files_with_no_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("VIGIE_ENABLE_FIRMS", "0")
     off = make_service(tmp_path / "off.db")
-    assert off.firms is None and off.fires.enabled is False and "VIGIE_ENABLE_FIRMS=0" in off.disabled_sources()[0]["reason"]
+    assert off.firms is None and off.fires.enabled is False and "VIGIE_ENABLE_FIRMS=0" in firms_disabled(off.disabled_sources())[0]["reason"]
     assert "nasa_firms" not in {c.provider_id for c in off.get_all_collectors()}
 
     monkeypatch.delenv("VIGIE_ENABLE_FIRMS")  # on by default, and no key needed
     monkeypatch.delenv("VIGIE_FIRMS_MAP_KEY", raising=False)
     on = make_service(tmp_path / "on.db")
-    assert isinstance(on.firms, FIRMSCollector) and on.fires.enabled and on.disabled_sources() == [] and on.firms in on.get_all_collectors()
+    assert isinstance(on.firms, FIRMSCollector) and on.fires.enabled and firms_disabled(on.disabled_sources()) == [] and on.firms in on.get_all_collectors()
     assert on.firms.sources == (N20, N21) and on.firms.ttl_seconds == 3600 and on.firms.window_hours == 48 and on.firms.secrets == ()
 
     monkeypatch.setenv("VIGIE_FIRMS_MAP_KEY", KEY)
@@ -389,7 +394,7 @@ def test_a_service_built_from_the_environment_reads_the_files_with_no_key(tmp_pa
 
     monkeypatch.setenv("VIGIE_FIRMS_MAP_KEY", "not a key")
     bad = make_service(tmp_path / "bad.db")  # a key that is not one is not used, and the source is not turned off for it
-    assert bad.firms is not None and bad.firms.secrets == () and bad.disabled_sources() == []
+    assert bad.firms is not None and bad.firms.secrets == () and firms_disabled(bad.disabled_sources()) == []
 
 
 def test_more_hours_than_the_files_of_this_instance_are_refused_with_the_reason(fires: Fires) -> None:
