@@ -65,6 +65,8 @@ MIN_SEA_M = 1.0  # period and direction are described only when the buoy read at
 CLASSES = ((0.0, 1.0), (1.0, 2.0), (2.0, 3.0), (3.0, math.inf))
 WITHIN_M = 0.5
 LAGS = range(-3, 4)
+# The change to summer time in France (2026-03-29): a clock read in local time would shift the buoys by one more hour after it (added after the first run, to read it).
+SUMMER_TIME_HOUR = int((dt.datetime(2026, 3, 29, 1, tzinfo=dt.timezone.utc).timestamp() - START_UNIX) // 3600)
 
 MONTHS = np.array([dt.datetime.fromtimestamp(START_UNIX + 3600 * hour, dt.timezone.utc).strftime("%Y-%m") for hour in range(N_HOURS)])  # the month of each hour of the window
 
@@ -115,6 +117,9 @@ class Measure:
     theta_m: np.ndarray
     quality: np.ndarray
     records: int  # the records of the answer, whatever their time
+    codes: dict[str, int]  # how many records carry each QUALITE code (added after the first run, to read it)
+    first: Optional[str]  # the date of the first and of the last record of the answer
+    last: Optional[str]
 
     def hs_good(self) -> np.ndarray:
         """The heights of the records whose ``QUALITE`` is 1 (the others are left out, ADR 0022)."""
@@ -142,6 +147,13 @@ def parse_td(payload: Any) -> Measure:
         return np.full(N_HOURS, math.nan)
 
     out = {name: grid() for name in ("hs", "tp", "t02", "theta_p", "theta_m", "quality")}
+    quality_at = index.get("QUALITE")
+    codes: dict[str, int] = {}
+    for row in rows:
+        if isinstance(row, list) and quality_at is not None and quality_at < len(row):
+            code = str(row[quality_at]).strip() or "(blank)"
+            codes[code] = codes.get(code, 0) + 1
+    dates = [str(row[index["DATEHEURE"]]).strip() for row in rows if isinstance(row, list) and index["DATEHEURE"] < len(row)]
     columns = {"hs": kind, "tp": "TP", "t02": "T02", "theta_p": "THETAP", "theta_m": "THETAM", "quality": "QUALITE"}
     for row in rows:
         unix = _unix_of(row[index["DATEHEURE"]]) if isinstance(row, list) and index["DATEHEURE"] < len(row) else None
@@ -152,7 +164,9 @@ def parse_td(payload: Any) -> Measure:
             position = index.get(column)
             if position is not None and position < len(row):
                 out[field][place] = _number(row[position])
-    return Measure(kind, out["hs"], out["tp"], out["t02"], out["theta_p"], out["theta_m"], out["quality"], len(rows))
+    return Measure(
+        kind, out["hs"], out["tp"], out["t02"], out["theta_p"], out["theta_m"], out["quality"], len(rows), codes, min(dates, default=None), max(dates, default=None)
+    )
 
 
 @dataclass
@@ -371,6 +385,11 @@ def score_pair(measure: Measure, forecast: Forecast, folds: np.ndarray) -> dict[
         "persistence": {str(lead): stats(obs, persistence(obs, lead)) for lead in LEADS},
         "by_class": {str(lead): class_stats(obs, heights[lead]) for lead in ALL_LEADS},
         "lag_hours": best_lag(obs, heights[0]),
+        "lag_hours_winter": best_lag(np.where(np.arange(N_HOURS) < SUMMER_TIME_HOUR, obs, math.nan), heights[0]),
+        "lag_hours_summer": best_lag(np.where(np.arange(N_HOURS) >= SUMMER_TIME_HOUR, obs, math.nan), heights[0]),
+        "first_record": measure.first,
+        "last_record": measure.last,
+        "quality_codes": measure.codes,
         "period_direction": {str(lead): describe_period_direction(measure, forecast, lead) for lead in ALL_LEADS},
         "cross_fit": directions,
         "factor_whole_window": fit_factor(obs, heights, np.ones(N_HOURS, dtype=bool)),
@@ -516,12 +535,13 @@ def report(results: dict[str, Any]) -> str:
     out = lines.append
     out(f"Window {results['window'][0]} to {results['window'][1]}; {results['overall']['pairs']} pairs (spot, buoy); criterion of ADR 0022.\n")
     out("## Pairs\n")
-    out("| Spot | Buoy | km | Height | Cell | Hours scored (1 d) | Hours on the hour | QUALITE 1 | Clock shift (h) |")
-    out("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+    out("| Spot | Buoy | km | Height | Cell | Hours scored (1 d) | Hours on the hour | QUALITE 1 | Shift (h): all / winter / summer | Records of the answer | QUALITE codes |")
+    out("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
     for r in results["pairs"]:
         p = r["pair"]
         cell = f"{_f(r['cell'][0], 3)}, {_f(r['cell'][1], 3)}"
-        out(f"| {p['spot_name']} | {p['buoy_id']} {p['buoy_name']} | {p['distance_km']:.1f} | {r['height_kind']} | {cell} | {r['by_lead']['1']['n']} | {r['on_the_hour']} | {r['quality_ones']} | {r['lag_hours']} |")
+        codes = ", ".join(f"{code}: {count}" for code, count in sorted(r["quality_codes"].items()))
+        out(f"| {p['spot_name']} | {p['buoy_id']} {p['buoy_name']} | {p['distance_km']:.1f} | {r['height_kind']} | {cell} | {r['by_lead']['1']['n']} | {r['on_the_hour']} | {r['quality_ones']} | {r['lag_hours']} / {r['lag_hours_winter']} / {r['lag_hours_summer']} | {r['records']} ({r['first_record']} to {r['last_record']}) | {codes} |")
     for buoy_id, why in results["unavailable_buoys"].items():
         out(f"\nBuoy {buoy_id} has no usable record: {why}")
 
@@ -556,7 +576,7 @@ def report(results: dict[str, Any]) -> str:
         table(f"{buoy_id} {name} ({block['pairs']} spots)", block, block["persistence"])
 
     out("\n## Quality filter\n")
-    out("| Spot | RMSE 1 d, QUALITE 1 only | RMSE 1 d, every record | Hours | Hours |")
+    out("| Spot | RMSE 1 d, QUALITE 1 only | RMSE 1 d, every record | Hours, QUALITE 1 only | Hours, every record |")
     out("| --- | --- | --- | --- | --- |")
     for r in results["pairs"]:
         a, b = r["by_lead"]["1"], r["without_quality_filter"]["1"]

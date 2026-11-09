@@ -60,6 +60,7 @@ def test_a_candhis_answer_is_read_by_the_names_of_its_header() -> None:
     assert measure.tp[0] == 10.25 and measure.t02[0] == 6.44 and measure.theta_p[0] == 301.83 and measure.theta_m[0] == 300.10
     assert measure.quality[0] == 1.0  # the first QUALITE column, not the empty second one
     assert int((~np.isnan(measure.hs)).sum()) == 2
+    assert measure.codes == {"1": 3} and (measure.first, measure.last) == ("2025-12-01 00:00:00", "2025-12-01 01:00:00")
 
 
 def test_a_buoy_without_hm0_gives_h13d_and_says_so() -> None:
