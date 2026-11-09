@@ -42,6 +42,7 @@ Endpoints:
 - ``GET    /v1/surf/spots``        : The surf spots of the French Atlantic and Channel coasts (OpenStreetMap, ODbL).
 - ``GET    /v1/surf/spots/{id}``   : The hourly surf forecast of a spot (MFWAM swell, wind, tide) with a rating of ours, explained.
 - ``GET    /v1/surf/buoys``        : The nearest CANDHIS wave buoy of each surf spot and its distance (the list only).
+- ``GET    /v1/surf/spots/{id}/buoy`` : The latest record (height, period, direction, sea temperature) of the nearest buoy of a spot that has a current one.
 - ``GET    /v1/sea/places``        : The ports, slipways, anchorages, dive sites and bathing sites of the French coast (OpenStreetMap, Sandre, QSB).
 - ``GET    /v1/sea/places/{id}``   : One of them.
 - ``GET    /v1/activities/{id}``   : A verdict hour by hour for surf, kite, boat and shore fishing at a spot, with the tide and the
@@ -104,7 +105,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app import __version__, clock
 from app.models.activities import ActivitiesForecast, ActivitiesOverview
-from app.models.buoys import SpotBuoys
+from app.models.buoys import SpotBuoyReading, SpotBuoys
 from app.models.earthquakes import EarthquakesQuery, EarthquakesResponse
 from app.models.events import EventsResponse, FamiliesResponse
 from app.models.fires import FiresCollection, FiresGrid
@@ -819,13 +820,37 @@ async def get_surf_overview(response: Response) -> SurfOverview:
     description=(
         "For each surf spot, the nearest wave buoy of the CANDHIS list (Cerema, Licence Ouverte 2.0) and how far it is, and the nearest one "
         "known to be real time. The distances and `comparable` (real time and within `max_comparable_km`) are calculated by Vigie; how "
-        "sheltered a spot is is not judged. The list only: no measure is read from the buoys yet."
+        "sheltered a spot is is not judged. The list only: the measure of a buoy is `GET /v1/surf/spots/{id}/buoy`."
     ),
 )
 async def get_surf_buoys(response: Response) -> SpotBuoys:
     """The nearest buoy of every surf spot."""
     response.headers["Cache-Control"] = SURF_CACHE
     return await clock.run_blocking(buoys.spot_buoys)
+
+
+@app.get(
+    "/v1/surf/spots/{spot_id}/buoy",
+    response_model=SpotBuoyReading,
+    tags=["Sea"],
+    responses={404: {"description": "No spot has this id (`GET /v1/surf/spots` lists them)."}},
+    description=(
+        "The latest record of the nearest wave buoy of the CANDHIS network (Cerema, Licence Ouverte 2.0) that has a current one, beside a "
+        "surf spot: the significant height, the period, the direction at the peak (directional buoys) and the sea temperature, with the "
+        "date of the record (UTC) and its age. The buoy is the nearest one whose record is at most `max_age_hours` old; `comparable` is "
+        "true within `max_comparable_km` (a setting of ours); `complete` is false when a kind of buoy could not be read. A buoy measures the "
+        "sea where it floats, not at the beach. CANDHIS is read "
+        "once an hour for every client (a key is needed: without one on this instance `status` is `not_configured`). **Not for safety.**"
+    ),
+)
+async def get_spot_buoy(response: Response, spot_id: str) -> SpotBuoyReading:
+    """The latest record of the nearest current buoy of a spot."""
+    try:
+        answer = await buoys.spot_reading(aggregator.candhis, spot_id, clock.wall())
+    except surf.UnknownSpot:
+        raise HTTPException(status_code=404, detail=f"no surf spot {spot_id!r}") from None
+    response.headers["Cache-Control"] = SURF_CACHE
+    return answer
 
 
 PLACES_CACHE = "public, max-age=86400"  # the file changes with a release, not by the hour

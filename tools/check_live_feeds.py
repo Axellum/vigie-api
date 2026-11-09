@@ -56,6 +56,7 @@ from app.collectors.aurora import (  # noqa: E402
     SWPCSolarWindCollector,
 )
 from app.collectors.base import build_user_agent  # noqa: E402
+from app.collectors.candhis import CandhisCollector, candhis_key_from_env  # noqa: E402
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector  # noqa: E402
 from app.collectors.dwd import DWDCollector  # noqa: E402
 from app.collectors.eccc import ITEMS_URL, ECCCCollector, parse_items  # noqa: E402
@@ -297,6 +298,24 @@ async def check_refmar(client: httpx.AsyncClient) -> Result:
         raise ValueError("REFMAR answered no measure for Brest in the last 14 hours")
     age = int(datetime.now(timezone.utc).timestamp() - observations[-1][0]) // 60
     return Result("shom_refmar", "ok", f"{len(observations)} measures, the newest {age} minutes old")
+
+
+async def check_candhis(client: httpx.AsyncClient) -> Result:
+    """CANDHIS (Cerema): the latest records of the directional H1/3 buoys (one request; the parser raises on a shape it does not know).
+    The API needs a key: without ``VIGIE_CANDHIS_API_KEY`` nothing is asked (the weekly workflow has none unless one is set as a secret)."""
+    key, problem = candhis_key_from_env()
+    if key is None:
+        return Result("candhis_tr", "skipped", problem or "no VIGIE_CANDHIS_API_KEY on this machine: nothing was asked")
+    try:
+        readings = await CandhisCollector(key)._collect(client, buoy_kind=2)
+    except httpx.HTTPStatusError as err_http:
+        if err_http.response.status_code == 401:  # "Clé d'API non valide": a key that stopped working is the owner's to know
+            return Result("candhis_tr", "FAIL", "HTTP 401: CANDHIS does not accept the key any more")
+        raise
+    if not readings:
+        raise ValueError("CANDHIS answered no record for the directional H1/3 buoys")
+    age = int(datetime.now(timezone.utc).timestamp() - max(r.measured_utc for r in readings.values())) // 60
+    return Result("candhis_tr", "ok", f"{len(readings)} buoys, the newest record {age} minutes old")
 
 
 async def check_surf(client: httpx.AsyncClient) -> Result:
@@ -856,6 +875,7 @@ CHECKS: dict[str, Check] = {
     "open_meteo_marine": check_marine,
     "open_meteo_surf": check_surf,
     "shom_refmar": check_refmar,
+    "candhis_tr": check_candhis,
     "open_meteo_flood": check_flood,
     "open_meteo_aqi": check_air_quality,
     "met_norway_fallback": check_met_norway,

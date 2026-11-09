@@ -236,6 +236,13 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "candhis_tr",
+            "CANDHIS (Cerema), latest record of the wave buoys",
+            "Source: Candhis, Cerema (Licence Ouverte 2.0), latest real-time record of the buoy, dated as in the answer (measured_at, UTC); "
+            "the choice of the buoy, its distance and its age are calculated by Vigie",
+            "ours",
+        ),
+        Credit(
             "refmar_tides",
             "REFMAR (SHOM), tide gauge observations",
             "Calibration of the tide: observations of REFMAR, SHOM (Licence Ouverte 2.0, https://refmar.shom.fr); the correction is "

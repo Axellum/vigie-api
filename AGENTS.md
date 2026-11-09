@@ -46,7 +46,9 @@ owner (no `&&`).
    the collectors; use real provider payloads as samples.
 5. **Everything is in English**: code, comments, messages, documents, commits. The product name
    is "Vigie". No version number in a name (versions are git tags).
-6. **No secret in the repository.** No provider needs a key; NASA FIRMS accepts an optional one (`VIGIE_FIRMS_MAP_KEY`, read from the environment; it is in the URL of
+6. **No secret in the repository.** CANDHIS (the measure of the wave buoys) needs a key (`VIGIE_CANDHIS_API_KEY`, read from the environment, sent in
+   the `Authorization` header, redacted in every error: `tests/test_candhis.py`; without it the source is off and says so); no other provider needs one.
+   NASA FIRMS accepts an optional one (`VIGIE_FIRMS_MAP_KEY`, read from the environment; it is in the URL of
    every area API request, so it is redacted in every error, `last_error` and log line: `tests/test_firms_secret.py`, never print it). Contact data (`VIGIE_CONTACT`) and
    the CAP sender are environment variables. Do not write a private repository URL or an invented
    address into code or into data sent to third parties.

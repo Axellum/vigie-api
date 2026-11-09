@@ -147,6 +147,8 @@ def swpc_answer(request: httpx.Request) -> httpx.Response:
 
 SURF_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "surf"
 REFMAR_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "refmar"
+CANDHIS_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "candhis"
+CANDHIS_KEY = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"  # made up, in the shape of a key (low entropy on purpose: the secret scan reads a key-like literal as a leak)
 
 
 def surf_or(other: Callable[[httpx.Request], httpx.Response], fixture: str) -> Callable[[httpx.Request], httpx.Response]:
@@ -175,6 +177,9 @@ def good_answers() -> dict[str, Callable[[httpx.Request], httpx.Response]]:
         "api.open-meteo.com": surf_or(lambda r: httpx.Response(200, json=samples.open_meteo_payload()), "wind-hossegor.json"),
         "marine-api.open-meteo.com": surf_or(lambda r: httpx.Response(200, json=marine), "mfwam-hossegor.json"),
         "services.data.shom.fr": lambda r: httpx.Response(200, content=(REFMAR_FIXTURES / "brest-2026-11-08.json").read_bytes()),
+        "candhis.cerema.fr": lambda r: httpx.Response(
+            200, content=(CANDHIS_FIXTURES / f"list-type{r.url.params['type']}-2026-11-09.json").read_bytes()
+        ),
         "flood-api.open-meteo.com": lambda r: httpx.Response(200, json=GOOD_FLOOD),
         "air-quality-api.open-meteo.com": lambda r: httpx.Response(200, json=GOOD_AIR),
         "api.met.no": lambda r: httpx.Response(200, json=samples.metno_payload(), headers=METNO_HEADERS),
@@ -224,6 +229,7 @@ def firms_as_an_instance_with_no_key(monkeypatch: pytest.MonkeyPatch) -> None:
     """The machine that runs the tests may hold a real key: these tests never use it. FIRMS is on (the application of the tests turns it off), and its
     floor of rows is the recording's, not the real file's (the tests that want the real one say so)."""
     monkeypatch.delenv("VIGIE_FIRMS_MAP_KEY", raising=False)
+    monkeypatch.delenv("VIGIE_CANDHIS_API_KEY", raising=False)  # CANDHIS needs one: the check says "skipped" without it
     monkeypatch.setenv("VIGIE_ENABLE_FIRMS", "1")
     monkeypatch.setattr(tool, "FIRMS_MIN_ROWS", 200)
 
@@ -233,7 +239,8 @@ def test_there_is_a_check_for_each_collector() -> None:
 
     # NASA FIRMS has a check although the application of the tests has no collector for it (it is turned off there): the check says "skipped" then.
     # ECMWF open data is the pre-alert pilot (ADR 0011), not a collector of the aggregator: it has its check too.
-    assert set(tool.CHECKS) == {c.provider_id for c in aggregator.get_all_collectors()} | {"nasa_firms", "ecmwf_opendata"}
+    # CANDHIS needs a key: the application of the tests has none, so no collector (the check says "skipped" without a key).
+    assert set(tool.CHECKS) == {c.provider_id for c in aggregator.get_all_collectors()} | {"nasa_firms", "ecmwf_opendata", "candhis_tr"}
 
 
 @pytest.mark.asyncio
@@ -241,11 +248,34 @@ async def test_every_source_passes_when_nothing_changed() -> None:
     results = await run()
     # MetService's feed was empty the day it was recorded: a valid answer, not yet a proof that its items are read.
     # FIRMS needs no key: its static file is read like any other source (the weekly workflow has none).
-    assert {k for k, v in results.items() if v.outcome != "ok"} == {"metservice_cap"}
+    # CANDHIS needs a key that the weekly workflow has not: nothing is asked, and that never fails the run.
+    assert {k for k, v in results.items() if v.outcome != "ok"} == {"metservice_cap", "candhis_tr"}
     assert results["metservice_cap"].outcome == "empty"
+    assert results["candhis_tr"].outcome == "skipped" and "VIGIE_CANDHIS_API_KEY" in results["candhis_tr"].detail
     assert results["nasa_firms"].outcome == "ok"
     assert results["ecmwf_opendata"].outcome == "ok" and "the five fields" in results["ecmwf_opendata"].detail
     assert tool.exit_code(list(results.values())) == 0
+
+
+@pytest.mark.asyncio
+async def test_candhis_is_read_with_its_key_and_a_changed_format_is_a_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("VIGIE_CANDHIS_API_KEY", CANDHIS_KEY)
+    seen: list[httpx.Request] = []
+
+    def recorded(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, content=(CANDHIS_FIXTURES / "list-type2-2026-11-09.json").read_bytes())
+
+    ok = (await run({"candhis.cerema.fr": recorded}, only=["candhis_tr"]))["candhis_tr"]
+    assert ok.outcome == "ok" and ok.detail.startswith("28 buoys") and CANDHIS_KEY not in ok.detail
+    assert len(seen) == 1 and seen[0].headers["Authorization"] == CANDHIS_KEY and seen[0].url.params["type"] == "2"
+    renamed = {"success": True, "message": "x", "entete": ["Station", "When", "Hs"], "results": []}
+    broken = (await run({"candhis.cerema.fr": lambda r: httpx.Response(200, json=renamed)}, only=["candhis_tr"]))["candhis_tr"]
+    assert broken.outcome == "FAIL"
+    refused = (await run({"candhis.cerema.fr": lambda r: httpx.Response(401, json={"success": False})}, only=["candhis_tr"]))["candhis_tr"]
+    assert refused.outcome == "FAIL" and "401" in refused.detail and CANDHIS_KEY not in refused.detail
+    busy = (await run({"candhis.cerema.fr": lambda r: httpx.Response(429, json={"success": False})}, only=["candhis_tr"]))["candhis_tr"]
+    assert busy.outcome == "unreachable"  # the quota of the day is reached: nothing to say about the format
 
 
 @pytest.mark.asyncio
