@@ -669,6 +669,22 @@ is on its own page). At most 9 + 9 requests a day, each weighing the number of s
 of clients. While these entries are fresh, a spot's page reads its swell from them, and its wind while it is under an hour old, instead of
 asking again. The overview is worked out once per hour and per answer (half a second of tide and rating for the 51 spots, in a worker thread).
 
+**The wave buoys (CANDHIS, Cerema).** `GET /v1/surf/spots/{id}/buoy` gives the latest record of the nearest located buoy that has a current
+one (`app/collectors/candhis.py`, `app/services/buoys.py`). The API (`https://candhis.cerema.fr/API/v1/`) needs a key, in the `Authorization`
+header as it is (no `Bearer`); the guide does not say how long an answer stays valid (the answers carry `Cache-Control: no-store`). Three
+requests read every buoy, one per kind (`type` 0 non-directional H1/3, 1 directional Hm0, 2 directional H1/3, `getCampListeTR.php`, which
+answers "only the latest hourly record available"), each kept one hour: **at most 72 requests a day** whatever the number of clients, for the
+150 a day that the Candhis team announced with the key (the guide states no number; a 429 answers once the quota is reached). A kind that
+fails keeps its last answer, and the route says `stale`; with nothing cached it says `unavailable`, never a 5xx. Read on 2026-11-09 (the
+answers are in `tests/fixtures/candhis/`): 28 buoys answered for kind 2, 2 for kind 0 and 1 for kind 1; **the date of a record is "YYYY-MM-DD
+HH:MM", read as UTC** (the Candhis site heads that column "Heure (TU)"; the guide does not say), and one buoy was dated 23 minutes ahead
+of the server's clock, so the date is kept as given and the age is never below 0; a value a buoy has not got is written `999.9999` and
+is `null` here; a buoy that has stopped keeps answering with its last record (Royan's was 1.8 days old), so a record older than 3 hours
+(`MAX_AGE_S`, a setting of ours) is passed over for the next nearest buoy, and one dated more than 30 minutes ahead of our clock is not
+believed. Two answered buoys (`01102`, `08303`) are not in the list of the stations (2024-12-03), so they have no position here and are
+not used. The height is H1/3 or Hm0 according to the buoy (`height_kind`), and so is the period (TH1/3 or T02, not the peak period): they
+are said, not mixed. Not verified: the convention of the direction (the values read are those of a south-westerly swell, so "from").
+
 ## Places of the coast (ports, slipways, anchorages, dive sites, bathing sites)
 
 `GET /v1/sea/places` and `GET /v1/sea/places/{id}` read `app/data/sea-places.json.gz`, built by `tools/build_places.py` ([ADR 0021](decisions/0021-sea-places-catalogue-from-open-data.md)).

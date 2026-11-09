@@ -43,6 +43,7 @@ from app.collectors.aurora import (
     SWPCSolarWindCollector,
 )
 from app.collectors.budget import share_budgets
+from app.collectors.candhis import CandhisCollector, candhis_key_from_env
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector
 from app.collectors.dwd import DWDCollector
 from app.collectors.eccc import ECCCCollector
@@ -197,6 +198,7 @@ class AggregatorService:
         marine: Optional[OpenMeteoMarineCollector] = None,
         surf: Optional[SurfForecastCollector] = None,
         refmar: Optional[RefmarCollector] = None,
+        candhis: Optional[CandhisCollector] = None,
         flood: Optional[OpenMeteoFloodCollector] = None,
         air_quality: Optional[OpenMeteoAirQualityCollector] = None,
         swpc: Optional[NOAASWPCCollector] = None,
@@ -252,6 +254,15 @@ class AggregatorService:
         self.marine = marine or OpenMeteoMarineCollector()
         self.surf = surf or SurfForecastCollector()
         self.refmar = refmar or RefmarCollector()
+        # The wave buoys of CANDHIS need a key: with no (valid) ``VIGIE_CANDHIS_API_KEY`` there is no collector, ``GET /v1/health``
+        # lists the source as disabled and the buoy route says ``not_configured``.
+        candhis_key, candhis_problem = candhis_key_from_env()
+        if candhis_problem is not None:
+            log.warning(candhis_problem)
+        self.candhis_off_reason = "no CANDHIS key: set VIGIE_CANDHIS_API_KEY (the Candhis team gives one on request)"
+        if candhis is None and candhis_key is not None:
+            candhis = CandhisCollector(candhis_key)
+        self.candhis = candhis
         self.flood = flood or OpenMeteoFloodCollector()
         self.air_quality = air_quality or OpenMeteoAirQualityCollector()
         self.swpc = swpc or NOAASWPCCollector()
@@ -487,20 +498,32 @@ class AggregatorService:
         ]
         if self.firms is not None:
             collectors.append(self.firms)
+        if self.candhis is not None:
+            collectors.append(self.candhis)
         return [c for c in collectors if c not in off]
 
     def disabled_sources(self) -> list[dict[str, str]]:
         """The optional sources that are off on this instance and why (``GET /v1/health``); a source that is off is not in the providers."""
-        if self.firms is not None:
-            return []
-        return [
-            {
-                "provider_id": "nasa_firms",
-                "name": "NASA FIRMS (active fires)",
-                "domain": "fires",
-                "reason": self.fires.off_reason,
-            }
-        ]
+        off: list[dict[str, str]] = []
+        if self.firms is None:
+            off.append(
+                {
+                    "provider_id": "nasa_firms",
+                    "name": "NASA FIRMS (active fires)",
+                    "domain": "fires",
+                    "reason": self.fires.off_reason,
+                }
+            )
+        if self.candhis is None:
+            off.append(
+                {
+                    "provider_id": "candhis_tr",
+                    "name": "CANDHIS wave buoys (Cerema)",
+                    "domain": "marine",
+                    "reason": self.candhis_off_reason,
+                }
+            )
+        return off
 
     def get_providers_health(self) -> list[ProviderHealth]:
         """Return the detailed health of each collector."""

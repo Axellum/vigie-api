@@ -261,9 +261,18 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "candhis_stations",
             "allowed",
             "Licence Ouverte 2.0 (the dataset page of data.gouv.fr and the Candhis terms, `01_Utilisation.fr.pdf` read on 2026-10-28): any use, "
-            "with the source and the date. This is the list of the stations only; the measures need a key and are not used yet.",
+            "with the source and the date. This is the list of the stations only; the measures are `candhis_tr`.",
             ("https://www.data.gouv.fr/datasets/674ee38cbede289cf234d829", "https://candhis.cerema.fr/doc/01_Utilisation.fr.pdf"),
-            "2026-11-08",
+            "2026-11-09",
+        ),
+        CommercialUse(
+            "candhis_tr",
+            "allowed",
+            "The Candhis site says its data are \"diffusées gratuitement sous licence Etalab\" (the home page, read on 2026-11-09), and its terms "
+            "(`01_Utilisation.fr.pdf`, read on 2026-10-28) give Licence Ouverte 2.0: any use, with the source and the date of the data. Not verified: "
+            "that the key of the API adds no condition (the e-mail that gave it states only the quota, 150 requests a day).",
+            ("https://candhis.cerema.fr/", "https://candhis.cerema.fr/doc/01_Utilisation.fr.pdf", "https://candhis.cerema.fr/doc/04_Candhis_API_v1_Utilisateur.pdf"),
+            "2026-11-09",
         ),
         CommercialUse(
             "refmar_tides",

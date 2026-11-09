@@ -94,6 +94,10 @@ QUOTAS: dict[str, Quota] = {
     # GOV.UK Content API (the FCDO's travel advice): "There is a maximum limit of 10 requests per second per client"
     # (https://content-api.publishing.service.gov.uk/, read 2026-10-28). The pages are read one after the other, 0.2 s apart.
     "travel_gb": Quota("gov-uk-content-api", (Limit(1, 10),), "https://content-api.publishing.service.gov.uk/"),
+    # CANDHIS (Cerema): "150 requêtes par jour et 12 mois de données par requête maxi", in the e-mail of the Candhis team that came with
+    # the key (2026-11-09). The guide (https://candhis.cerema.fr/doc/04_Candhis_API_v1_Utilisateur.pdf, read 2026-11-09) states no number: it
+    # only says that a 429 answers once the daily quota is reached. This API sends at most 72 a day (three kinds, once an hour).
+    "candhis_tr": Quota("candhis", (Limit(DAY_S, 150),), "https://candhis.cerema.fr/doc/04_Candhis_API_v1_Utilisateur.pdf"),
     # Not listed, no published quota: usgs_eq, emsc_seismic, gdacs_global, noaa_nws (a limit exists but "is
     # not public information"), usgs_volcano_gvp, noaa_swpc, and the other warning services: dwd_cap, metservice_cap and
     # vigicrues_flow publish none (nothing about a request rate on their terms or documentation pages, 2026-10-20: not
