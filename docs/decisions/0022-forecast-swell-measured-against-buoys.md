@@ -1,6 +1,6 @@
 # 0022. The forecast swell measured against the CANDHIS buoys, and a correction only if it holds on data it never saw
 
-- Status: proposed. The protocol and the criterion below were written before any figure of error was computed (first commit of its pull request). The result is added at the end, in a later commit, and the status then says whether the criterion was met.
+- Status: accepted. The protocol and the criterion were written before any figure of error was computed (first commit of its pull request). **The criterion is met for 8 of the 19 pairs that had data (5 of 13 distinct cell-and-buoy combinations): a factor of 1.16 to 1.27 lowers the held-out error of the height by 17.5 to 35 % on average at those pairs.** Nothing is built by this decision: whether to build the opt-in correction, and for which pairs, is the owner's. Measure: [`docs/measurements/surf-error-2026-11.md`](../measurements/surf-error-2026-11.md).
 - Date: 2026-11-09
 - Number: reserved with `scripts/prochain_adr.py` and in the state file of the sessions.
 
@@ -64,3 +64,34 @@ never saw, and the first thing that measure gives, whatever its outcome, is a st
 
 - One tool, `tools/measure_surf_error.py`, its tests (no network), and a report, `docs/measurements/surf-error-2026-11.md`, with its results file.
 - No change to the API, its contract, its sources list or its quotas (the tool runs from a workstation, not from the instance).
+
+## Result (measured on 2026-11-09; the tool and its tests were committed before it was run)
+
+19 of the 20 pairs had data; **Royan has none**: its delayed-time records hold only December 2025, all with `QUALITE` 5, so no hour is scored there. Over the 135,199 pair-hours of the 19 others:
+
+- **The forecast is close to the buoy, and low.** At 1 day the root mean square error is 0.38 m, the correlation 0.96, the forecast is within 0.5 m of the buoy 85.7 % of the hours; at 3 days 0.41 m (83.9 %), at 5 days 0.49 m (79.9 %).
+  Persistence (the height the buoy read N days before) is 0.92, 1.18 and 1.28 m: the forecast is worth far more than that at every lead.
+  **It reads about 10 % under the buoy** (forecast over buoy 0.90 at 1 day, 0.89 at 5 days) **and more as the sea grows**: 0.97 when the buoy reads under 1 m, 0.92, 0.90, **0.88 over 3 m (bias -0.50 m, RMSE 0.73 m)**. It is under the buoy in every month (0.85 in June to 0.94 in March).
+  By buoy at 1 day: Les Pierres Noires 0.80 (RMSE 0.58 m), Plateau du Four 0.85, Anglet 0.90, Île de Batz and Saint-Jean-de-Luz 0.93, Cap Ferret 0.96.
+- **The factor, held out.** 8 pairs meet the criterion in both directions at the three leads (the 11 others with data fail it, mostly by a gain under 5 %: their factors on the whole window are 0.97 to 1.11, so their forecast is already close to the buoy):
+  Plage du Moulin de la Rive (Île de Batz), Plage du Minou and Plage de Pen Hat (Les Pierres Noires), Plage de la Govelle (Plateau du Four), Plage Ondres-Océan and Plage du Métro,
+  Plage du Port Vieux and Plage de la Marbella (Anglet). Factors on the whole window 1.16 to 1.27. Over the 8 pairs the held-out error falls from 0.47 to 0.29 m at 1 day (-38.5 %), 0.49 to 0.35 m at 3 days (-29.8 %),
+  0.57 to 0.43 m at 5 days (-25.2 %), and on the hours of 2 m or more from 0.73 to 0.42, 0.75 to 0.51 and 0.90 to 0.65 m. The smallest gain of any pair, direction and lead is 7.4 %, the largest 47.1 %.
+- The period and the direction were only described: against the buoy's mean zero-crossing period the model's period is 2.2 to 3.3 s longer and against its peak period 0.9 to 1.6 s shorter (two different quantities, so nothing is decided);
+  the mean direction is within 3.8 to 13.8 degrees on average.
+
+## What the criterion does not say
+
+- **It says the factor brings the forecast closer to the buoy, not to the spot.** Four of the eight pairs have the buoy 25 to 29 km away (Moulin de la Rive, Minou, Pen Hat, Govelle), where the sea can differ for reasons the model has and the buoy does not
+  (shelter, depth, an island between them); the four others are at Anglet, 7 to 11 km from its buoy. The same model cell (43.458, -1.625, which serves Biarritz, Guéthary and Saint-Jean-de-Luz) gets a factor of 1.23 from the Anglet buoy (retained) and 1.11 from the Saint-Jean-de-Luz one (not):
+  the factor depends on which buoy is the reference, and the measure cannot say which of them is right for a beach.
+- The pairs that share a cell and a buoy are counted once each in the figures above; the distinct cell-and-buoy combinations are 13, and 5 are retained.
+- The pairs retained are chosen on the hours that report their gain: the gain is a little optimistic (asking for both directions of the cross-fit is the guard; the gains are large against that).
+- Some buoys have no reading for a share of the hours (Cap Ferret 34 %, Plateau du Four 18 %, Île de Batz 13 %), and those hours were calmer by the forecast (at Cap Ferret 1.1 m on average against 2.1 m where it read): the sample leans towards the rougher sea.
+  On every buoy but Royan every on-the-hour record that has a height has `QUALITE` 1, so the quality filter changes nothing but Royan.
+
+## What follows
+
+The criterion of point 5 is met, so point 6 applies: a later lot may build the opt-in correction, off by default. **That lot needs the owner's decision first** on whether it is all 8 pairs, or only those whose buoy is near
+(the four of Anglet, within 12 km), a choice this measure cannot make: no distance was part of the criterion, and choosing one now would be choosing on the results. Until then the API serves the forecast as it is, and the measure
+is the statement of its error: low by about a tenth, close in shape (correlation 0.93 to 0.96), and by far better than persistence.
