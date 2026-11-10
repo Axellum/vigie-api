@@ -52,6 +52,15 @@ He knew these limits (ADR 0022, "What the criterion does not say"), which stay t
 8. **Credit.** The constants are Vigie's, calculated from the measures of CANDHIS (Cerema, Licence Ouverte 2.0) and the forecast of MFWAM through Open-Meteo; the credit says so in `correction.attribution` and `SOURCES.md`.
    Nothing is asked of CANDHIS at run time: the key is not needed to serve the correction.
 
+## Checked (2026-11-10)
+
+- `app/data/surf-calibration.json` is `calibration_of` of the published result of ADR 0022 (a test pins it), and the offline replay of the measure from its downloads gives the same result as the published one.
+- The 20 pairs of the file are the 20 spots with a located real-time buoy within 30 km, with the buoy and the distance `GET /v1/surf/buoys` gives; the eight applied are the eight of the table above.
+- With nothing asked, the answer is the model's (`not_asked`); asked, only `waves.height_m` and its companions change (the swell, the periods, the rating, the best slot and the tide are equal to the uncorrected answer, hour by hour).
+- Against the real Open-Meteo, from an instance started on the branch: at `ondres-plage-ondres-ocean` the cell that answers is the cell of the measure (43.541664, -1.4583282), and the six hours looked at read the model's height times 1.159 (0.48 → 0.56, 0.50 → 0.58, 0.52 → 0.60) with the model's value kept beside it;
+  at `soorts-hossegor-plage-sud-point-d-or` (not kept by the measure) the answer is the model's and says `not_calibrated`; the overview still lists the 51 spots without a correction.
+  One spot of eight was looked at; the other seven rest on the same code and on the tests.
+
 ## Not measured, so not claimed
 
 - That a spot sheltered from the buoy's sea, or exposed to what the buoy does not see, is better served: the measure compares the forecast with the buoy.

@@ -243,6 +243,13 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "surf_height_factors",
+            "Factors of the sea height of some surf spots, found against CANDHIS buoys",
+            "Height of the sea at some surf spots, when the correction is asked: factors calculated by Vigie from the measures of the wave buoys of "
+            "Candhis, Cerema (Licence Ouverte 2.0), 2025-12-01 to 2026-10-31, against the MFWAM forecast of Météo-France (Copernicus Marine, through Open-Meteo)",
+            "ours",
+        ),
+        Credit(
             "refmar_tides",
             "REFMAR (SHOM), tide gauge observations",
             "Calibration of the tide: observations of REFMAR, SHOM (Licence Ouverte 2.0, https://refmar.shom.fr); the correction is "
