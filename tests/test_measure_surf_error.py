@@ -325,3 +325,62 @@ def test_a_whole_run_from_the_cache_gives_a_report_and_results_that_can_be_writt
         assert heading in text
     assert "Kept: 1 of 1 pairs." in text
     assert json.loads(json.dumps(results))["window"] == ["2025-12-01", "2026-10-31"]  # plain JSON: no NaN, no numpy
+
+
+# ------------------------------------------------------------------------------------------------------------ the constants of ADR 0023
+
+
+def result_entry(spot_id: str, factor: float | None, kept: bool, gains: tuple[float | None, float | None] = (0.30, 0.20), reasons: tuple[str, ...] = ()) -> dict[str, Any]:
+    def leads(gain: float | None) -> dict[str, Any]:
+        return {"leads": {str(lead): {"gain": gain} for lead in tool.LEADS}}
+
+    return {
+        "pair": {"spot_id": spot_id, "buoy_id": "06402", "buoy_name": "Anglet", "distance_km": 6.71},
+        "cell": [43.458336, -1.6249847],
+        "factor_whole_window": factor,
+        "kept": kept,
+        "reasons": list(reasons),
+        "cross_fit": {"A_to_B": leads(gains[0]), "B_to_A": leads(gains[1])},
+    }
+
+
+def test_the_calibration_keeps_every_pair_and_applies_the_ones_the_criterion_kept() -> None:
+    results = {
+        "window": ["2025-12-01", "2026-10-31"],
+        "pairs": [
+            result_entry("kept", 1.23412, True),
+            result_entry("refused", 1.0807, False, reasons=("A_to_B, 1 d: gain 3.3 %, under 5 %",)),
+            result_entry("no-measure", None, False, gains=(None, None), reasons=("A_to_B: no factor (the training hours have no forecast height)",)),
+            result_entry("kept-without-a-factor", None, True),
+        ],
+    }
+    calibration = tool.calibration_of(results)
+    by_spot = {entry["spot_id"]: entry for entry in calibration["pairs"]}
+    assert [entry["spot_id"] for entry in calibration["pairs"]] == ["kept", "refused", "no-measure", "kept-without-a-factor"]
+    assert calibration["window"] == ["2025-12-01", "2026-10-31"] and calibration["measured"] == tool.MEASURED_ON
+    kept = by_spot["kept"]
+    assert kept["applied"] is True and kept["factor"] == 1.234 and kept["reasons"] == []  # three decimals
+    assert kept["held_out_gain"] == {"1": 0.25, "3": 0.25, "5": 0.25}  # the mean of the two directions
+    assert (kept["buoy_id"], kept["buoy_name"], kept["distance_km"], kept["cell"]) == ("06402", "Anglet", 6.71, [43.458336, -1.6249847])
+    refused = by_spot["refused"]
+    assert refused["applied"] is False and refused["factor"] == 1.081 and refused["reasons"] == ["A_to_B, 1 d: gain 3.3 %, under 5 %"]
+    assert by_spot["no-measure"]["applied"] is False and by_spot["no-measure"]["factor"] is None and by_spot["no-measure"]["held_out_gain"] is None
+    assert by_spot["kept-without-a-factor"]["applied"] is False  # a pair is applied only with a factor to apply
+
+
+def test_a_missing_gain_in_one_direction_leaves_no_gain_to_quote() -> None:
+    entry = tool.calibration_of({"window": ["a", "b"], "pairs": [result_entry("x", 1.2, True, gains=(0.3, None))]})["pairs"][0]
+    assert entry["held_out_gain"] is None
+
+
+def test_the_calibration_is_plain_json_that_holds_no_clock() -> None:
+    results = {"window": ["2025-12-01", "2026-10-31"], "pairs": [result_entry("x", 1.2, True)]}
+    first, second = tool.calibration_of(results), tool.calibration_of(results)
+    assert first == second and json.loads(json.dumps(first)) == first  # a pure function of the result: the file can be rebuilt byte for byte
+
+
+def test_the_calibration_is_written_from_a_whole_run_and_not_from_one_buoy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setattr("sys.argv", ["measure_surf_error.py", "--cache-dir", str(tmp_path), "--offline", "--only", "06402", "--write-calibration"])
+    with pytest.raises(SystemExit) as stop:
+        tool.main()
+    assert "not with --only" in str(stop.value)

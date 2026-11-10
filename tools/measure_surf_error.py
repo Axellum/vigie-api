@@ -4,6 +4,7 @@
     python tools/measure_surf_error.py --cache-dir DIR --offline      # the cache only, nothing is asked
     python tools/measure_surf_error.py --cache-dir DIR --write        # and write docs/measurements/surf-error-2026-11-results.json.gz
     python tools/measure_surf_error.py --cache-dir DIR --only 06402   # one buoy only (a trial run; the cache is shared)
+    python tools/measure_surf_error.py --cache-dir DIR --offline --write-calibration   # and write app/data/surf-calibration.json (ADR 0023)
 
 CANDHIS needs the key in ``VIGIE_CANDHIS_API_KEY`` (only for what the cache lacks: 1 request per buoy, 7 in all). Open-Meteo asks nothing but one request per
 spot (about 29 calls of its free quota under the rule of ``app/collectors/weights.py``). A second run asks nothing. Nothing here runs inside the API.
@@ -19,6 +20,10 @@ The protocol and the criterion are those of ``docs/decisions/0022-forecast-swell
   the buoy read 2 m or more, with 1,000 held-out hours (100 of them at 2 m or more) at each lead.
 
 Period and direction are described only (a model's mean period and mean direction are not a buoy's), over the hours the buoy read 1 m or more.
+
+``--write-calibration`` turns the result into the constants the API bundles (``app/data/surf-calibration.json``, ADR 0023): for every pair measured, the factor of the
+whole window (rounded to 3 decimals), the model cell it was found on, whether the criterion kept it, the held-out gain that decided, and the reasons it was not kept.
+It is a pure function of the result (``calibration_of``), so it replays offline and a test pins the file to the published result.
 """
 
 from __future__ import annotations
@@ -625,15 +630,69 @@ def _clean(value: Any) -> Any:
     return value
 
 
+CALIBRATION_FILE = REPO_ROOT / "app" / "data" / "surf-calibration.json"
+FACTOR_DECIMALS = 3
+MEASURED_ON = "2026-11-09"  # the day of the run behind ADR 0022 (the file is a pure function of its result, so it holds no clock)
+
+
+def calibration_of(results: dict[str, Any]) -> dict[str, Any]:
+    """The constants the API bundles (ADR 0023) from a result of ``measure`` (after ``_clean``): one entry per pair measured.
+
+    ``applied`` is the criterion of ADR 0022 as ``judge`` decided it (``kept``) and a factor that exists. ``held_out_gain`` is the mean of the two
+    directions of the cross-fit, per lead in days (the fall of the held-out RMSE as a share of the error before), or ``None`` when a direction has none.
+    """
+    entries: list[dict[str, Any]] = []
+    for r in results["pairs"]:
+        pair, factor = r["pair"], r["factor_whole_window"]
+        gains: Optional[dict[str, float]] = {}
+        for lead in LEADS:
+            by_direction = [r["cross_fit"][name]["leads"][str(lead)]["gain"] for name in ("A_to_B", "B_to_A")]
+            if gains is not None and all(g is not None for g in by_direction):
+                gains[str(lead)] = round(sum(by_direction) / len(by_direction), 3)
+            else:
+                gains = None
+        applied = bool(r["kept"]) and factor is not None
+        entries.append(
+            {
+                "spot_id": pair["spot_id"],
+                "buoy_id": pair["buoy_id"],
+                "buoy_name": pair["buoy_name"],
+                "distance_km": pair["distance_km"],
+                "cell": r["cell"],
+                "factor": None if factor is None else round(factor, FACTOR_DECIMALS),
+                "applied": applied,
+                "held_out_gain": gains,
+                "reasons": [] if applied else list(r["reasons"]),
+            }
+        )
+    return {
+        "note": (
+            "One factor per surf spot for the height of the sea (hours.waves.height_m): the sum of a CANDHIS buoy's HM0 over the sum of the MFWAM forecast's wave_height, "
+            "the leads of 1, 3 and 5 days together, over the whole window; applied only where the criterion of ADR 0022 was met (applied: true), on the model cell it was found on. "
+            "Built by tools/measure_surf_error.py --write-calibration; the buoy measures are CANDHIS, Cerema (Licence Ouverte 2.0); the factors are Vigie's (ADR 0023)."
+        ),
+        "measured": MEASURED_ON,
+        "window": results["window"],
+        "height": "wave_height of meteofrance_wave against HM0",
+        "pairs": entries,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("--cache-dir", type=Path, required=True, help="Folder of the downloads (kept between runs; not part of the repository)")
     parser.add_argument("--offline", action="store_true", help="Ask nothing: the cache only")
     parser.add_argument("--only", help="One buoy only (its CANDHIS code, for example 06402)")
     parser.add_argument("--write", action="store_true", help="Write docs/measurements/surf-error-2026-11-results.json.gz")
+    parser.add_argument("--write-calibration", action="store_true", help="Write app/data/surf-calibration.json (ADR 0023); not with --only")
     args = parser.parse_args()
+    if args.write_calibration and args.only:
+        raise SystemExit("--write-calibration needs every buoy: not with --only")
     results = _clean(measure(args.cache_dir, args.offline, args.only))
     print(report(results))
+    if args.write_calibration:
+        CALIBRATION_FILE.write_text(json.dumps(calibration_of(results), indent=1, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
+        print(f"\nwritten: {CALIBRATION_FILE.relative_to(REPO_ROOT)}", file=sys.stderr)
     if args.write:
         target = REPO_ROOT / "docs" / "measurements" / "surf-error-2026-11-results.json.gz"
         target.write_bytes(gzip.compress(json.dumps(results, separators=(",", ":")).encode("utf-8")))
