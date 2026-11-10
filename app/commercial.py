@@ -275,6 +275,16 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-11-09",
         ),
         CommercialUse(
+            "surf_height_factors",
+            "not_verified",
+            "The factors are numbers calculated by Vigie from two series. The CANDHIS measures (Licence Ouverte 2.0, `01_Utilisation.fr.pdf` read on 2026-10-28) allow any use "
+            "with the source and the date. The forecast they were compared with was read, 11 months of it, through the free API of Open-Meteo, whose terms are non-commercial "
+            "(see `open_meteo`); whether a constant calculated from that series may be shown in a paid app was not asked, so it is not claimed. The answer that carries the "
+            "corrected height also carries the credits and the lines of `open_meteo` and `copernicus_mfwam`.",
+            ("https://candhis.cerema.fr/doc/01_Utilisation.fr.pdf", "https://open-meteo.com/en/terms"),
+            "2026-11-10",
+        ),
+        CommercialUse(
             "refmar_tides",
             "allowed",
             "Licence Ouverte 2.0 (data.gouv.fr, the RONIM network): any use, with the source. Used offline, by the tool that fits the "

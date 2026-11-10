@@ -42,7 +42,7 @@ from app.models.surf import (
     SurfWind,
     Swell,
 )
-from app.services import tides
+from app.services import surf_correction, tides
 
 SPOTS_FILE = Path(__file__).resolve().parents[1] / "data" / "surf-spots.json"
 HOUR = 3600
@@ -287,8 +287,16 @@ def build_forecast(
     days: int,
     now_unix: float,
     stale: bool = False,
+    correct: bool = False,
 ) -> SurfForecast:
-    """The forecast of ``spot`` from the parsed answers (``app/collectors/surf.py``): the hours from the current one, for ``days``."""
+    """The forecast of ``spot`` from the parsed answers (``app/collectors/surf.py``): the hours from the current one, for ``days``.
+
+    ``correct`` asks for the height of the whole sea to be multiplied by the spot's factor where there is one (ADR 0023, ``app/services/surf_correction.py``);
+    the overview and the activities never ask."""
+    swell_cell = None
+    if swell.get("model_lat") is not None and swell.get("model_lon") is not None:
+        swell_cell = (float(swell["model_lat"]), float(swell["model_lon"]))
+    correction = surf_correction.plan(spot.id, swell_cell, correct)
     first = int(now_unix // HOUR) * HOUR
     wanted = [t for t in swell["times"] if first <= t < first + days * 24 * HOUR]
     swell_index = {t: i for i, t in enumerate(swell["times"])}
@@ -311,15 +319,21 @@ def build_forecast(
         )
         angle = None if primary.from_deg is None else angle_between(primary.from_deg, spot.facing_deg)
         tide = tide_at.get(t)
+        raw_height = _at(swell, "wave_height", s)
+        sea_height = _round(raw_height, 2)
+        corrected_height = sea_height
+        if correction.factor is not None and raw_height is not None:
+            corrected_height = round(raw_height * correction.factor, 2)  # from the unrounded model value: one rounding, not two
         hours.append(
             SurfHour(
                 time_utc=t,
                 daylight=_daylight(t, wind),
                 waves=Swell(
-                    height_m=_round(_at(swell, "wave_height", s), 2),
+                    height_m=corrected_height,
                     period_s=_round(_at(swell, "wave_period", s), 1),
                     from_deg=_direction(_at(swell, "wave_direction", s)),
                 ),
+                waves_model_height_m=sea_height if correction.factor is not None else None,
                 swell=primary,
                 secondary_swell=Swell(
                     height_m=_round(_at(swell, "secondary_swell_wave_height", s), 2),
@@ -343,10 +357,11 @@ def build_forecast(
         days=days,
         swell_model=SWELL_MODEL,
         swell_cell=cell,
+        correction=correction.report,
         hours=hours,
         best_slot=best_slot(hours, now_unix),
         rules=RULES,
-        derived=DERIVED,
+        derived=[*DERIVED, surf_correction.CORRECTED_FIELD] if correction.factor is not None else DERIVED,
         stale=stale,
         attribution=credit_text(*SURF),
     )
@@ -370,13 +385,13 @@ async def fetch(collector: SurfForecastCollector, spot: SurfSpot) -> tuple[dict[
     return swell_data, wind_data, swell_stale or wind_stale
 
 
-async def forecast(collector: SurfForecastCollector, spot_id: str, days: int, now_unix: float) -> SurfForecast:
+async def forecast(collector: SurfForecastCollector, spot_id: str, days: int, now_unix: float, correct: bool = False) -> SurfForecast:
     """The forecast of a spot. ``UnknownSpot`` for an id that is not in the list; ``NoSurfForecast`` when the swell cannot be had
-    (the wind alone is not a surf forecast: without it, the wind is unknown and the rating says so)."""
+    (the wind alone is not a surf forecast: without it, the wind is unknown and the rating says so). ``correct``: see ``build_forecast``."""
     spot = find_spot(spot_id)
     swell_data, wind_data, stale = await fetch(collector, spot)
     # The tide and the rating are computed in a worker thread: a few milliseconds of numpy, kept off the event loop.
-    return await clock.run_blocking(build_forecast, spot, swell_data, wind_data, days, now_unix, stale)
+    return await clock.run_blocking(build_forecast, spot, swell_data, wind_data, days, now_unix, stale, correct)
 
 
 def _now(hour: SurfHour) -> SurfNow:

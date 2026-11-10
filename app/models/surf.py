@@ -4,6 +4,9 @@ The swell and the wind are the providers' (Météo-France's MFWAM and Open-Meteo
 Vigie (EOT20, as ``GET /v1/tides``). Everything else is worked out by Vigie and named in ``derived``: the facing of a spot (from the
 OpenStreetMap coastline), the wind relative to the coast, the swell's angle to the beach, its power, the tide stage, the rating
 and the best slot. The rating is a rule of ours with its thresholds in ``rules``; it does not know the spot.
+
+At eight spots the height of the whole sea can be multiplied by a factor found against a wave buoy, only when asked
+(``correction``, ADR 0023); nothing else is changed.
 """
 
 from __future__ import annotations
@@ -104,10 +107,49 @@ class SurfRating(BaseModel):
     unknown: list[Criterion] = Field(description="The criteria left out because a value is unknown")
 
 
+class SurfCorrectionBuoy(BaseModel):
+    id: str = Field(description="The CANDHIS code of the buoy the factor was found against")
+    name: str
+    distance_km: float = Field(description="From the spot to the buoy (calculated by Vigie)")
+
+
+class SurfCorrection(BaseModel):
+    """What was done to the height of the sea of this forecast (ADR 0023): never silent, whether the correction was applied or not."""
+
+    applied: bool
+    reason: Optional[Literal["not_asked", "not_calibrated", "other_cell", "cell_unknown"]] = Field(
+        default=None,
+        description=(
+            "Why it was not applied: `not_asked` (the request did not ask and the instance does not apply it by default), `not_calibrated` (this spot "
+            "did not meet the criterion of the measure, or has no buoy near, or no usable measure), `other_cell` (the model cell that answers is not the one "
+            "the factor was found on), `cell_unknown` (the provider did not say which cell answered)"
+        ),
+    )
+    field: str = Field(default="hours.waves.height_m", description="The one field the factor multiplies")
+    factor: Optional[float] = Field(default=None, description="Multiplies the model's height of the sea; the same for every hour")
+    buoy: Optional[SurfCorrectionBuoy] = None
+    window: Optional[list[str]] = Field(default=None, description="First and last day (UTC) of the measure the factor was found on")
+    held_out_gain: Optional[dict[str, float]] = Field(
+        default=None,
+        description=(
+            "By forecast lead in days (1, 3, 5): the fall of the root mean square error of the height against the buoy, as a share, on data the factor "
+            "was not fitted on (mean of the two directions of the cross-fit)"
+        ),
+    )
+    left_as_modelled: list[str] = Field(default_factory=list, description="Fields the factor does not touch, because they were not measured against the buoy")
+    note: Optional[str] = None
+    measure: Optional[str] = Field(default=None, description="Where the measure is written down")
+    attribution: Optional[str] = None
+
+
 class SurfHour(BaseModel):
     time_utc: int
     daylight: Optional[bool] = None
     waves: Swell = Field(description="The whole sea state: significant height, mean period and direction")
+    waves_model_height_m: Optional[float] = Field(
+        default=None,
+        description="The significant height of the whole sea state as the model gave it, when `correction.applied` (`waves.height_m` is then this times the factor); null otherwise",
+    )
     swell: Swell = Field(description="The primary swell")
     secondary_swell: Swell
     wind_wave_height_m: Optional[float] = None
@@ -182,6 +224,10 @@ class SurfForecast(BaseModel):
     days: int
     swell_model: str
     swell_cell: Optional[dict[str, float]] = Field(default=None, description="The grid point of the wave model that answered")
+    correction: SurfCorrection = Field(
+        default_factory=lambda: SurfCorrection(applied=False, reason="not_asked"),
+        description="Whether the height of the sea was corrected with a factor found against a wave buoy (`correct=true`, eight spots, ADR 0023), and why not",
+    )
     hours: list[SurfHour]
     best_slot: Optional[SurfSlot] = Field(
         default=None, description="Ours: the daylight hour of the next 72 with the best rating (the first one on a tie)"

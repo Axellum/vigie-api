@@ -145,7 +145,7 @@ from app.models.vigilance import (
 from app.models.watch import WatchedPointsStatus
 from app.routers.dashboard import router as dashboard_router
 from app.security import AdminTokenMiddleware, admin_token, document_admin_token
-from app.services import activities, buoys, sea_places, surf, tide_correction, tides
+from app.services import activities, buoys, sea_places, surf, surf_correction, tide_correction, tides
 from app.services import activities_overview as activities_summary
 from app.services import earthquakes as quakes
 from app.services.aggregator import AggregatorService
@@ -772,17 +772,26 @@ async def get_surf_spots(response: Response) -> SurfSpots:
         "swell and the wind waves of Météo-France's MFWAM model (through Open-Meteo Marine), the wind (Open-Meteo), the tide computed "
         "by Vigie (EOT20), and what Vigie works out from them (`derived`): whether it is daylight, the swell's power and angle to the "
         "beach, the wind relative to the coast, the tide stage, a **rating of ours** with each criterion, its value and its points "
-        "(`rules` gives the thresholds), and the best daylight slot of the next 72 hours. **Not for safety.**"
+        "(`rules` gives the thresholds), and the best daylight slot of the next 72 hours. With `correct=true`, at eight spots, the height of "
+        "the whole sea is multiplied by a factor found against a wave buoy (the model reads about 10 % low there; `correction` and "
+        "`waves_model_height_m` say what was done). **Not for safety.**"
     ),
 )
 async def get_surf_forecast(
     response: Response,
     spot_id: str,
     days: int = Query(default=3, ge=1, le=7, description="Number of days from the current hour (1 to 7)"),
+    correct: Optional[bool] = Query(
+        default=None,
+        description="`true`: multiply the height of the whole sea (`hours[].waves.height_m`) by the factor found against a wave buoy, at the eight spots that have one "
+        "(ADR 0023; the model's value stays in `waves_model_height_m`); `false`: the model alone. Without it the instance decides (the model alone, "
+        "unless it sets `VIGIE_SURF_CORRECTION=on`). `correction` says what was done. Nothing else in the answer changes.",
+    ),
 ) -> SurfForecast:
     """The surf forecast of a spot."""
     try:
-        answer = await surf.forecast(aggregator.surf, spot_id, days, clock.wall())
+        asked = surf_correction.on_by_default() if correct is None else correct
+        answer = await surf.forecast(aggregator.surf, spot_id, days, clock.wall(), asked)
     except surf.UnknownSpot:
         raise HTTPException(status_code=404, detail=f"no surf spot {spot_id!r}") from None
     except surf.NoSurfForecast as error:
