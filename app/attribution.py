@@ -269,6 +269,20 @@ CREDITS: dict[str, Credit] = {
             "Source: Météo-France, Vigilance météorologique (https://vigilance.meteofrance.fr). Licence Ouverte 2.0",
             "ours",
         ),
+        Credit(
+            "meteofrance_stations",
+            "Météo-France (POSTES_MF.csv), list of the coastal ground stations",
+            "Source: Météo-France, file 'POSTES_MF.csv' (Licence Ouverte 2.0), open real-time stations within 35 km of the surf spots; "
+            "the distances to the surf spots are calculated by Vigie",
+            "ours",
+        ),
+        Credit(
+            "meteofrance_obs",
+            "Météo-France (DPPaquetObs), latest 6-minute observations",
+            "Source: Météo-France, observations infrahoraires 6 min (https://portail-api.meteofrance.fr/web/fr/api/PaquetObs, Licence Ouverte 2.0), "
+            "dated as in the answer (measured_at, UTC); the choice of the station, its distance, its age and the relative wind are calculated by Vigie",
+            "ours",
+        ),
         # The travel advice of the foreign ministries (SOURCES.md, "Travel advice").
         Credit(
             "travel_gb",

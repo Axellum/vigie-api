@@ -106,6 +106,14 @@ QUOTAS: dict[str, Quota] = {
         (Limit(60, 50),),
         "https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesVigilance",
     ),
+    # Météo-France Portail API (DPPaquetObs v1): the free plan allows 50 requests per minute
+    # (https://portail-api.meteofrance.fr/web/fr/api/PaquetObs, read 2026-11-15). This API sends at most one request
+    # every 6 minutes (10 an hour).
+    "meteofrance_obs": Quota(
+        "meteofrance-obs",
+        (Limit(60, 50),),
+        "https://portail-api.meteofrance.fr/web/fr/api/PaquetObs",
+    ),
     # Not listed, no published quota: usgs_eq, emsc_seismic, gdacs_global, noaa_nws (a limit exists but "is
     # not public information"), usgs_volcano_gvp, noaa_swpc, and the other warning services: dwd_cap, metservice_cap and
     # vigicrues_flow publish none (nothing about a request rate on their terms or documentation pages, 2026-10-20: not

@@ -1,0 +1,700 @@
+{
+ "source": "Météo-France, file 'POSTES_MF.csv' (dataset 66ebf2cb9dd6916802ae90a1 on data.gouv.fr)",
+ "licence": "Licence Ouverte 2.0",
+ "count": 77,
+ "stations": [
+  {
+   "id": "17093002",
+   "name": "CHATEAU D'OLERON",
+   "commune": "LE CHATEAU-D'OLERON",
+   "lat": 45.86217,
+   "lon": -1.20433,
+   "alt_m": 3,
+   "kind": 2
+  },
+  {
+   "id": "17218001",
+   "name": "MARANS",
+   "commune": "MARANS",
+   "lat": 46.31633,
+   "lon": -1.01217,
+   "alt_m": 2,
+   "kind": 2
+  },
+  {
+   "id": "17248001",
+   "name": "MORTAGNE-SUR-GIRONDE_SAPC",
+   "commune": "MORTAGNE-SUR-GIRONDE",
+   "lat": 45.47767,
+   "lon": -0.78983,
+   "alt_m": 37,
+   "kind": 2
+  },
+  {
+   "id": "17300009",
+   "name": "LA ROCHELLE-ILE DE RE",
+   "commune": "LA ROCHELLE",
+   "lat": 46.178,
+   "lon": -1.19317,
+   "alt_m": 20,
+   "kind": 0
+  },
+  {
+   "id": "17306004",
+   "name": "ROYAN-MEDIS",
+   "commune": "MEDIS",
+   "lat": 45.633,
+   "lon": -0.97467,
+   "alt_m": 12,
+   "kind": 1
+  },
+  {
+   "id": "17308001",
+   "name": "ST AGNANT",
+   "commune": "SAINT-AGNANT",
+   "lat": 45.888,
+   "lon": -0.98467,
+   "alt_m": 18,
+   "kind": 2
+  },
+  {
+   "id": "17318001",
+   "name": "SAINT-CLEMENT DES BALEINES",
+   "commune": "SAINT-CLEMENT-DES-BALEINES",
+   "lat": 46.243,
+   "lon": -1.56167,
+   "alt_m": 10,
+   "kind": 2
+  },
+  {
+   "id": "17323001",
+   "name": "CHASSIRON",
+   "commune": "SAINT-DENIS-D'OLERON",
+   "lat": 46.04683,
+   "lon": -1.41167,
+   "alt_m": 11,
+   "kind": 0
+  },
+  {
+   "id": "17415003",
+   "name": "SAINTES",
+   "commune": "SAINTES",
+   "lat": 45.76117,
+   "lon": -0.652,
+   "alt_m": 38,
+   "kind": 1
+  },
+  {
+   "id": "22005003",
+   "name": "BELLE-ISLE-EN-TERRE",
+   "commune": "BELLE-ISLE-EN-TERRE",
+   "lat": 48.55,
+   "lon": -3.3875,
+   "alt_m": 158,
+   "kind": 1
+  },
+  {
+   "id": "22016001",
+   "name": "ILE-DE-BREHAT",
+   "commune": "ILE-DE-BREHAT",
+   "lat": 48.85517,
+   "lon": -3.0045,
+   "alt_m": 25,
+   "kind": 2
+  },
+  {
+   "id": "22108001",
+   "name": "LANLEFF",
+   "commune": "LANLEFF",
+   "lat": 48.69117,
+   "lon": -3.0405,
+   "alt_m": 78,
+   "kind": 2
+  },
+  {
+   "id": "22113006",
+   "name": "LANNION_AERO",
+   "commune": "LANNION",
+   "lat": 48.75533,
+   "lon": -3.46867,
+   "alt_m": 85,
+   "kind": 0
+  },
+  {
+   "id": "22168001",
+   "name": "PLOUMANAC'H",
+   "commune": "PERROS-GUIREC",
+   "lat": 48.82583,
+   "lon": -3.47317,
+   "alt_m": 55,
+   "kind": 0
+  },
+  {
+   "id": "22243001",
+   "name": "PLUSQUELLEC",
+   "commune": "PLUSQUELLEC",
+   "lat": 48.40417,
+   "lon": -3.52233,
+   "alt_m": 214,
+   "kind": 2
+  },
+  {
+   "id": "22247002",
+   "name": "POMMERIT-JAUDY",
+   "commune": "LA ROCHE-JAUDY",
+   "lat": 48.742,
+   "lon": -3.251,
+   "alt_m": 55,
+   "kind": 1
+  },
+  {
+   "id": "22261002",
+   "name": "QUINTENIC",
+   "commune": "QUINTENIC",
+   "lat": 48.51917,
+   "lon": -2.42,
+   "alt_m": 71,
+   "kind": 1
+  },
+  {
+   "id": "22282001",
+   "name": "SAINT-CAST-LE-G",
+   "commune": "SAINT-CAST-LE-GUILDO",
+   "lat": 48.6445,
+   "lon": -2.247,
+   "alt_m": 35,
+   "kind": 1
+  },
+  {
+   "id": "22372001",
+   "name": "ST BRIEUC",
+   "commune": "PORDIC",
+   "lat": 48.5365,
+   "lon": -2.85317,
+   "alt_m": 135,
+   "kind": 0
+  },
+  {
+   "id": "29022001",
+   "name": "CAMARET",
+   "commune": "CAMARET-SUR-MER",
+   "lat": 48.27433,
+   "lon": -4.606,
+   "alt_m": 40,
+   "kind": 2
+  },
+  {
+   "id": "29041002",
+   "name": "CORAY CHAT EAU",
+   "commune": "CORAY",
+   "lat": 48.066,
+   "lon": -3.8255,
+   "alt_m": 242,
+   "kind": 2
+  },
+  {
+   "id": "29075001",
+   "name": "BREST-GUIPAVAS",
+   "commune": "GUIPAVAS",
+   "lat": 48.45383,
+   "lon": -4.39117,
+   "alt_m": 92,
+   "kind": 0
+  },
+  {
+   "id": "29082001",
+   "name": "BATZ",
+   "commune": "ILE-DE-BATZ",
+   "lat": 48.74633,
+   "lon": -4.01183,
+   "alt_m": 32,
+   "kind": 2
+  },
+  {
+   "id": "29113001",
+   "name": "LANMEUR",
+   "commune": "LANMEUR",
+   "lat": 48.6625,
+   "lon": -3.69267,
+   "alt_m": 57,
+   "kind": 2
+  },
+  {
+   "id": "29120001",
+   "name": "LANVEOC",
+   "commune": "LANVEOC",
+   "lat": 48.27933,
+   "lon": -4.43933,
+   "alt_m": 81,
+   "kind": 0
+  },
+  {
+   "id": "29155005",
+   "name": "OUESSANT-STIFF",
+   "commune": "OUESSANT",
+   "lat": 48.47333,
+   "lon": -5.057,
+   "alt_m": 64,
+   "kind": 0
+  },
+  {
+   "id": "29163003",
+   "name": "PLEYBER-CHRIST SA",
+   "commune": "PLEYBER-CHRIST",
+   "lat": 48.5,
+   "lon": -3.8535,
+   "alt_m": 147,
+   "kind": 1
+  },
+  {
+   "id": "29168001",
+   "name": "PTE DU RAZ",
+   "commune": "PLOGOFF",
+   "lat": 48.03883,
+   "lon": -4.732,
+   "alt_m": 67,
+   "kind": 2
+  },
+  {
+   "id": "29178001",
+   "name": "PLOUDALMEZEAU",
+   "commune": "PLOUDALMEZEAU",
+   "lat": 48.548,
+   "lon": -4.66417,
+   "alt_m": 40,
+   "kind": 0
+  },
+  {
+   "id": "29214001",
+   "name": "PLOVAN",
+   "commune": "PLOVAN",
+   "lat": 47.91583,
+   "lon": -4.3775,
+   "alt_m": 10,
+   "kind": 1
+  },
+  {
+   "id": "29216001",
+   "name": "QUIMPER",
+   "commune": "PLUGUFFAN",
+   "lat": 47.973,
+   "lon": -4.16067,
+   "alt_m": 82,
+   "kind": 0
+  },
+  {
+   "id": "29264001",
+   "name": "LANDIVISIAU",
+   "commune": "SAINT-SERVAIS",
+   "lat": 48.532,
+   "lon": -4.15183,
+   "alt_m": 109,
+   "kind": 0
+  },
+  {
+   "id": "29276001",
+   "name": "SIBIRIL S A",
+   "commune": "SIBIRIL",
+   "lat": 48.66083,
+   "lon": -4.07917,
+   "alt_m": 52,
+   "kind": 1
+  },
+  {
+   "id": "29277001",
+   "name": "SIZUN",
+   "commune": "SIZUN",
+   "lat": 48.39133,
+   "lon": -4.0205,
+   "alt_m": 157,
+   "kind": 2
+  },
+  {
+   "id": "29293001",
+   "name": "TREGUNC",
+   "commune": "TREGUNC",
+   "lat": 47.84133,
+   "lon": -3.86883,
+   "alt_m": 25,
+   "kind": 1
+  },
+  {
+   "id": "33042005",
+   "name": "BELIN BELIET",
+   "commune": "BELIN-BELIET",
+   "lat": 44.448,
+   "lon": -0.882,
+   "alt_m": 45,
+   "kind": 1
+  },
+  {
+   "id": "33214002",
+   "name": "LACANAU",
+   "commune": "LACANAU",
+   "lat": 45.00117,
+   "lon": -1.13817,
+   "alt_m": 16,
+   "kind": 2
+  },
+  {
+   "id": "33236002",
+   "name": "CAP-FERRET",
+   "commune": "LEGE-CAP-FERRET",
+   "lat": 44.6305,
+   "lon": -1.25167,
+   "alt_m": 8,
+   "kind": 2
+  },
+  {
+   "id": "33494001",
+   "name": "SALAUNES",
+   "commune": "SALAUNES",
+   "lat": 44.93583,
+   "lon": -0.82867,
+   "alt_m": 50,
+   "kind": 2
+  },
+  {
+   "id": "33529001",
+   "name": "CAZAUX",
+   "commune": "LA TESTE-DE-BUCH",
+   "lat": 44.53467,
+   "lon": -1.132,
+   "alt_m": 23,
+   "kind": 0
+  },
+  {
+   "id": "33540001",
+   "name": "VENDAYS-MONTALIVE",
+   "commune": "VENDAYS-MONTALIVET",
+   "lat": 45.37867,
+   "lon": -1.11917,
+   "alt_m": 6,
+   "kind": 1
+  },
+  {
+   "id": "35044001",
+   "name": "BROUALAN",
+   "commune": "BROUALAN",
+   "lat": 48.48567,
+   "lon": -1.64083,
+   "alt_m": 99,
+   "kind": 2
+  },
+  {
+   "id": "35224001",
+   "name": "PLERGUER",
+   "commune": "PLERGUER",
+   "lat": 48.52483,
+   "lon": -1.84367,
+   "alt_m": 30,
+   "kind": 2
+  },
+  {
+   "id": "35225001",
+   "name": "PLESDER",
+   "commune": "PLESDER",
+   "lat": 48.40683,
+   "lon": -1.92483,
+   "alt_m": 56,
+   "kind": 2
+  },
+  {
+   "id": "35228001",
+   "name": "DINARD",
+   "commune": "PLEURTUIT",
+   "lat": 48.58483,
+   "lon": -2.07633,
+   "alt_m": 65,
+   "kind": 0
+  },
+  {
+   "id": "40046001",
+   "name": "BISCARROSSE",
+   "commune": "BISCARROSSE",
+   "lat": 44.43167,
+   "lon": -1.2475,
+   "alt_m": 35,
+   "kind": 0
+  },
+  {
+   "id": "40065002",
+   "name": "CAPBRETON",
+   "commune": "CAPBRETON",
+   "lat": 43.62733,
+   "lon": -1.45333,
+   "alt_m": 11,
+   "kind": 1
+  },
+  {
+   "id": "40088001",
+   "name": "DAX",
+   "commune": "DAX",
+   "lat": 43.68983,
+   "lon": -1.07,
+   "alt_m": 31,
+   "kind": 0
+  },
+  {
+   "id": "40243001",
+   "name": "RION-DES-LANDES",
+   "commune": "RION-DES-LANDES",
+   "lat": 43.91633,
+   "lon": -0.95083,
+   "alt_m": 77,
+   "kind": 1
+  },
+  {
+   "id": "40304001",
+   "name": "SOORTS-HOSSEGOR",
+   "commune": "SOORTS-HOSSEGOR",
+   "lat": 43.66983,
+   "lon": -1.42633,
+   "alt_m": 10,
+   "kind": 2
+  },
+  {
+   "id": "44072002",
+   "name": "HERBIGNAC",
+   "commune": "HERBIGNAC",
+   "lat": 47.4265,
+   "lon": -2.3365,
+   "alt_m": 22,
+   "kind": 2
+  },
+  {
+   "id": "44103001",
+   "name": "ST NAZAIRE-MONTOIR",
+   "commune": "MONTOIR-DE-BRETAGNE",
+   "lat": 47.31383,
+   "lon": -2.1545,
+   "alt_m": 3,
+   "kind": 0
+  },
+  {
+   "id": "44129001",
+   "name": "PONTCHATEAU",
+   "commune": "PONTCHATEAU",
+   "lat": 47.43967,
+   "lon": -2.10517,
+   "alt_m": 34,
+   "kind": 2
+  },
+  {
+   "id": "44131002",
+   "name": "PORNIC",
+   "commune": "PORNIC",
+   "lat": 47.122,
+   "lon": -2.0925,
+   "alt_m": 25,
+   "kind": 2
+  },
+  {
+   "id": "56004001",
+   "name": "ARZAL",
+   "commune": "ARZAL",
+   "lat": 47.51267,
+   "lon": -2.38267,
+   "alt_m": 26,
+   "kind": 2
+  },
+  {
+   "id": "56007001",
+   "name": "AURAY",
+   "commune": "AURAY",
+   "lat": 47.65917,
+   "lon": -2.971,
+   "alt_m": 26,
+   "kind": 2
+  },
+  {
+   "id": "56009001",
+   "name": "BELLE ILE-LE TALUT",
+   "commune": "BANGOR",
+   "lat": 47.29433,
+   "lon": -3.21833,
+   "alt_m": 37,
+   "kind": 2
+  },
+  {
+   "id": "56009003",
+   "name": "BELLE-ILE_AERO",
+   "commune": "BANGOR",
+   "lat": 47.32567,
+   "lon": -3.19683,
+   "alt_m": 52,
+   "kind": 0
+  },
+  {
+   "id": "56031001",
+   "name": "CAMORS",
+   "commune": "CAMORS",
+   "lat": 47.82383,
+   "lon": -2.99167,
+   "alt_m": 112,
+   "kind": 2
+  },
+  {
+   "id": "56069001",
+   "name": "ILE DE GROIX",
+   "commune": "GROIX",
+   "lat": 47.65233,
+   "lon": -3.50233,
+   "alt_m": 41,
+   "kind": 0
+  },
+  {
+   "id": "56166005",
+   "name": "PLOUAY-SA",
+   "commune": "PLOUAY",
+   "lat": 47.91617,
+   "lon": -3.3445,
+   "alt_m": 75,
+   "kind": 2
+  },
+  {
+   "id": "56185001",
+   "name": "LORIENT-LANN BIHOUE",
+   "commune": "QUEVEN",
+   "lat": 47.76283,
+   "lon": -3.43567,
+   "alt_m": 45,
+   "kind": 0
+  },
+  {
+   "id": "56186003",
+   "name": "QUIBERON-AERODROME",
+   "commune": "QUIBERON",
+   "lat": 47.47983,
+   "lon": -3.099,
+   "alt_m": 9,
+   "kind": 1
+  },
+  {
+   "id": "56240003",
+   "name": "SARZEAU SA",
+   "commune": "SARZEAU",
+   "lat": 47.51067,
+   "lon": -2.796,
+   "alt_m": 35,
+   "kind": 2
+  },
+  {
+   "id": "56243001",
+   "name": "VANNES-SENE",
+   "commune": "SENE",
+   "lat": 47.6045,
+   "lon": -2.71417,
+   "alt_m": 3,
+   "kind": 1
+  },
+  {
+   "id": "64024001",
+   "name": "BIARRITZ-PAYS-BASQUE",
+   "commune": "ANGLET",
+   "lat": 43.46933,
+   "lon": -1.53433,
+   "alt_m": 71,
+   "kind": 0
+  },
+  {
+   "id": "64123001",
+   "name": "BIDACHE",
+   "commune": "BIDACHE",
+   "lat": 43.48117,
+   "lon": -1.14217,
+   "alt_m": 45,
+   "kind": 2
+  },
+  {
+   "id": "64160001",
+   "name": "CAMBO-LES-BAINS",
+   "commune": "CAMBO-LES-BAINS",
+   "lat": 43.36183,
+   "lon": -1.38233,
+   "alt_m": 71,
+   "kind": 2
+  },
+  {
+   "id": "64189001",
+   "name": "SOCOA",
+   "commune": "CIBOURE",
+   "lat": 43.3945,
+   "lon": -1.6865,
+   "alt_m": 21,
+   "kind": 0
+  },
+  {
+   "id": "85060002",
+   "name": "CHATEAU-D'OLONNE",
+   "commune": "LES SABLES-D'OLONNE",
+   "lat": 46.47717,
+   "lon": -1.72583,
+   "alt_m": 27,
+   "kind": 1
+  },
+  {
+   "id": "85104001",
+   "name": "GRUES",
+   "commune": "GRUES",
+   "lat": 46.35017,
+   "lon": -1.33483,
+   "alt_m": 2,
+   "kind": 1
+  },
+  {
+   "id": "85113001",
+   "name": "L ILE D YEU",
+   "commune": "L'ILE-D'YEU",
+   "lat": 46.69367,
+   "lon": -2.33017,
+   "alt_m": 32,
+   "kind": 2
+  },
+  {
+   "id": "85113004",
+   "name": "L'ILE D'YEU AERO",
+   "commune": "L'ILE-D'YEU",
+   "lat": 46.71817,
+   "lon": -2.38867,
+   "alt_m": 19,
+   "kind": 0
+  },
+  {
+   "id": "85152001",
+   "name": "LA MOTHE ACHARD",
+   "commune": "LES ACHARDS",
+   "lat": 46.62083,
+   "lon": -1.63317,
+   "alt_m": 58,
+   "kind": 2
+  },
+  {
+   "id": "85163001",
+   "name": "NOIRMOUTIER EN",
+   "commune": "NOIRMOUTIER-EN-L'ILE",
+   "lat": 47.00467,
+   "lon": -2.25717,
+   "alt_m": 3,
+   "kind": 1
+  },
+  {
+   "id": "85169002",
+   "name": "PALLUAU",
+   "commune": "PALLUAU",
+   "lat": 46.808,
+   "lon": -1.59767,
+   "alt_m": 51,
+   "kind": 2
+  },
+  {
+   "id": "85172001",
+   "name": "LE PERRIER",
+   "commune": "LE PERRIER",
+   "lat": 46.8265,
+   "lon": -1.99983,
+   "alt_m": 2,
+   "kind": 1
+  }
+ ]
+}

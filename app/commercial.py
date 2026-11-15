@@ -219,6 +219,26 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-11-15",
         ),
         CommercialUse(
+            "meteofrance_stations",
+            "allowed",
+            "Licence Ouverte 2.0 (Etalab): any use, commercial included, with the source and the date of the data named.",
+            (
+                "https://www.data.gouv.fr/datasets/66ebf2cb9dd6916802ae90a1",
+                "https://www.etalab.gouv.fr/licence-ouverte-open-licence/",
+            ),
+            "2026-11-15",
+        ),
+        CommercialUse(
+            "meteofrance_obs",
+            "allowed",
+            "Licence Ouverte 2.0 (Etalab): any use, commercial included, with the source and the date of the data named.",
+            (
+                "https://portail-api.meteofrance.fr/web/fr/api/PaquetObs",
+                "https://www.etalab.gouv.fr/licence-ouverte-open-licence/",
+            ),
+            "2026-11-15",
+        ),
+        CommercialUse(
             "copernicus_mfwam",
             "allowed",
             "Copernicus Marine licence: value-added products and derivative works may be distributed \"for any purpose\", "
