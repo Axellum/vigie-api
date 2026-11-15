@@ -77,10 +77,11 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
         CommercialUse(
             "cams",
             "allowed",
-            "Copernicus licence: any lawful use, with the credit. Here it comes through Open-Meteo's free API, which is "
-            "not.",
+            "Copernicus CAMS licence: any lawful use (including commercial) with the clause 1.3 credit "
+            "('Generated using Copernicus Atmosphere Monitoring Service Information [Year]') and non-responsibility "
+            "notice. Here it comes through Open-Meteo's free API, which is non-commercial only.",
             ("https://apps.ecmwf.int/datasets/licences/cams",),
-            "2026-10-28",
+            "2026-11-15",
         ),
         CommercialUse(
             "glofas",

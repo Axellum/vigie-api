@@ -30,6 +30,14 @@ from app.collectors.grid import (
     snap_to_grid,
 )
 from app.collectors.weights import open_meteo_weight
+from app.models.pollens import (
+    POLLEN_API_VARIABLES,
+    POLLEN_SPECIES,
+    PollenDailyForecast,
+    PollenSpecies,
+    PollenSpeciesCounts,
+    PollenStatus,
+)
 from app.models.schemas import (
     AirQualityStatus,
     FloodRiskStatus,
@@ -124,8 +132,22 @@ class OpenMeteoFloodCollector(BaseCollector[FloodRiskStatus]):
         )
 
 
+# CAMS European Air Quality domain (Open-Meteo ``cams_europe``: 30 N..72 N, 25 W..45 E).
+# Outside this box Open-Meteo returns ``null`` for all six pollen variables.
+CAMS_EUROPE_LAT_MIN = 30.0
+CAMS_EUROPE_LAT_MAX = 72.0
+CAMS_EUROPE_LON_MIN = -25.0
+CAMS_EUROPE_LON_MAX = 45.0
+POLLEN_FORECAST_DAYS = 4
+
+
+def is_in_cams_europe(lat: float, lon: float) -> bool:
+    """Return ``True`` when ``(lat, lon)`` lies inside the CAMS European Air Quality domain."""
+    return CAMS_EUROPE_LAT_MIN <= lat < CAMS_EUROPE_LAT_MAX and CAMS_EUROPE_LON_MIN <= lon <= CAMS_EUROPE_LON_MAX
+
+
 class OpenMeteoAirQualityCollector(BaseCollector[AirQualityStatus]):
-    """Air quality, UV and dust / ash collector (Open-Meteo Air Quality API)."""
+    """Air quality, UV, dust / ash and CAMS European pollen collector (Open-Meteo Air Quality API)."""
 
     BASE_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
 
@@ -148,33 +170,136 @@ class OpenMeteoAirQualityCollector(BaseCollector[AirQualityStatus]):
         )
 
     def call_weight(self, params: Mapping[str, str]) -> float:
-        """Weight of one request under the Open-Meteo rule (6 current variables: 1.0)."""
+        """Weight of one request under the Open-Meteo rule (1.0 outside Europe, 1.2 in Europe with 6 pollens)."""
         return open_meteo_weight(params, default_forecast_days=5)
 
-    async def fetch_air_quality(self, lat: float, lon: float) -> AirQualityStatus:
-        """Fetch the AQI, fine particles, UV and dust / ash near ``lat, lon`` (snapped to the air quality grid)."""
-        lat_r, lon_r = snap_to_grid(lat, lon, self.grid_deg)
-        cache_key = f"aqi:{coord_str(lat_r)},{coord_str(lon_r)}"
-        fetched = await self.fetch_ex(cache_key=cache_key, lat=lat_r, lon=lon_r)
-        return fetched.value.model_copy(update={"stale": True}) if fetched.stale else fetched.value
-
-    async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> AirQualityStatus:
-        lat = float(kwargs["lat"])
-        lon = float(kwargs["lon"])
+    @staticmethod
+    def request_params(lat: float, lon: float) -> dict[str, str]:
+        """Build Open-Meteo Air Quality query parameters (pollen hourly series requested only inside CAMS Europe)."""
         params = {
             "latitude": coord_str(lat),
             "longitude": coord_str(lon),
             "current": "european_aqi,us_aqi,pm10,pm2_5,uv_index,dust",
         }
+        if is_in_cams_europe(lat, lon):
+            params["hourly"] = ",".join(POLLEN_API_VARIABLES.values())
+            params["forecast_days"] = str(POLLEN_FORECAST_DAYS)
+        return params
+
+    async def fetch_air_quality(self, lat: float, lon: float) -> AirQualityStatus:
+        """Fetch the AQI, fine particles, UV, dust / ash and (in Europe) pollens near ``lat, lon``."""
+        lat_r, lon_r = snap_to_grid(lat, lon, self.grid_deg)
+        cache_key = f"aqi:{coord_str(lat_r)},{coord_str(lon_r)}"
+        fetched = await self.fetch_ex(cache_key=cache_key, lat=lat_r, lon=lon_r)
+        if not fetched.stale:
+            return fetched.value
+        updates: dict[str, Any] = {"stale": True}
+        if fetched.value.pollens is not None:
+            updates["pollens"] = fetched.value.pollens.model_copy(update={"stale": True})
+        return fetched.value.model_copy(update=updates)
+
+    async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> AirQualityStatus:
+        lat = float(kwargs["lat"])
+        lon = float(kwargs["lon"])
+        params = self.request_params(lat, lon)
         resp = await self._get(client, self.BASE_URL, params=params)
         resp.raise_for_status()
         return self.parse_response(resp.json())
 
     @staticmethod
+    def parse_pollens(payload: dict[str, Any]) -> Optional[PollenStatus]:
+        """Extract CAMS European pollen observations and up-to-4-day daily peaks.
+
+        Returns ``None`` when the provider supplied no non-null pollen values (e.g. outside Europe
+        or when no pollen variables were requested). Never fabricates missing values.
+        """
+        curr = payload.get("current") or {}
+        hourly = payload.get("hourly") or {}
+        raw_times = hourly.get("time")
+        times: list[str] = [t for t in raw_times if isinstance(t, str)] if isinstance(raw_times, list) else []
+
+        observed_raw = curr.get("time")
+        observed_time = observed_raw.strip() if isinstance(observed_raw, str) and observed_raw.strip() else None
+        obs_idx: Optional[int] = None
+        if observed_time is not None and times:
+            try:
+                obs_idx = times.index(observed_time)
+            except ValueError:
+                obs_idx = None
+
+        current_fields: dict[str, Optional[float]] = {}
+        current_by_species: dict[PollenSpecies, Optional[float]] = {}
+        day_buckets: dict[str, dict[PollenSpecies, list[float]]] = {}
+
+        for species in POLLEN_SPECIES:
+            api_var = POLLEN_API_VARIABLES[species]
+            arr = hourly.get(api_var)
+            series = arr if isinstance(arr, list) else []
+
+            cur_val = optional_float(curr.get(api_var))
+            if cur_val is None and obs_idx is not None and obs_idx < len(series):
+                cur_val = optional_float(series[obs_idx])
+            if cur_val is not None and cur_val < 0.0:
+                cur_val = None
+            rounded_cur = None if cur_val is None else round(cur_val, 1)
+            current_fields[f"{species}_grains_m3"] = rounded_cur
+            current_by_species[species] = rounded_cur
+
+            for idx, ts in enumerate(times):
+                if idx >= len(series) or len(ts) < 10:
+                    continue
+                val = optional_float(series[idx])
+                if val is None or val < 0.0:
+                    continue
+                day = ts[:10]
+                day_buckets.setdefault(day, {}).setdefault(species, []).append(val)
+
+        has_current = any(v is not None for v in current_fields.values())
+        current_obj = PollenSpeciesCounts(**current_fields) if has_current else None
+
+        daily_list: list[PollenDailyForecast] = []
+        for day, per_species in list(day_buckets.items())[:POLLEN_FORECAST_DAYS]:
+            day_fields = {
+                f"{species}_max_grains_m3": (
+                    round(max(per_species[species]), 1) if per_species.get(species) else None
+                )
+                for species in POLLEN_SPECIES
+            }
+            if any(v is not None for v in day_fields.values()):
+                daily_list.append(PollenDailyForecast(date=day, **day_fields))
+
+        if current_obj is None and not daily_list:
+            return None
+
+        dominant_species: Optional[PollenSpecies] = None
+        if current_obj is not None:
+            best_val = 0.0
+            for species in POLLEN_SPECIES:
+                val = current_by_species[species]
+                if val is not None and val > best_val:
+                    best_val = val
+                    dominant_species = species
+
+        derived: list[str] = []
+        if daily_list:
+            derived.append("daily")
+        if dominant_species is not None:
+            derived.append("dominant_species")
+
+        return PollenStatus(
+            observed_time=observed_time if current_obj is not None else None,
+            current=current_obj,
+            daily=daily_list,
+            dominant_species=dominant_species,
+            derived=derived,
+            attribution=credit_text(*AIR_QUALITY),
+        )
+
+    @staticmethod
     def parse_response(payload: dict[str, Any]) -> AirQualityStatus:
         """Normalize an Open-Meteo Air Quality response. Missing variables become ``None``.
 
-        Raises ``ValueError`` when the response carries none of the air quality values.
+        Raises ``ValueError`` when the response carries neither air quality nor pollen values.
         """
         curr = payload.get("current") or {}
         eu_raw = optional_float(curr.get("european_aqi"))
@@ -183,7 +308,8 @@ class OpenMeteoAirQualityCollector(BaseCollector[AirQualityStatus]):
         pm10 = optional_float(curr.get("pm10"))
         uv = optional_float(curr.get("uv_index"))
         dust = optional_float(curr.get("dust"))
-        if all(v is None for v in (eu_raw, us_raw, pm2_5, pm10, dust)):
+        pollens = OpenMeteoAirQualityCollector.parse_pollens(payload)
+        if all(v is None for v in (eu_raw, us_raw, pm2_5, pm10, dust)) and pollens is None:
             raise ValueError("Open-Meteo Air Quality response has no air quality value")
 
         eu_aqi = None if eu_raw is None else max(0, int(round(eu_raw)))
@@ -200,6 +326,7 @@ class OpenMeteoAirQualityCollector(BaseCollector[AirQualityStatus]):
             uv_index=None if uv is None else round(max(0.0, uv), 1),
             dust_ugm3=None if dust is None else round(max(0.0, dust), 1),
             ash_or_dust_warning=warning,
+            pollens=pollens,
             attribution=credit_text(*AIR_QUALITY),
         )
 

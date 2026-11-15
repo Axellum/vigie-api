@@ -30,6 +30,7 @@ from pydantic import BaseModel, Field, PrivateAttr, computed_field
 from app.attribution import hazard_credit, merge_credits, place_credit
 from app.models.drought import DroughtStatus
 from app.models.places import NearPlace
+from app.models.pollens import PollenStatus
 
 
 def cap_sender() -> str:
@@ -460,6 +461,10 @@ class AirQualityStatus(BaseModel):
     )
     ash_or_dust_warning: bool = Field(
         default=False, description="True when a known value is high (dust >= 100, PM10 >= 120 or EAQI >= 100)"
+    )
+    pollens: Optional[PollenStatus] = Field(
+        default=None,
+        description="European pollen observations and 4-day daily peak forecast (CAMS Europe via Open-Meteo); null outside Europe or when unavailable",
     )
     stale: bool = Field(
         default=False,

@@ -56,7 +56,9 @@ from app.collectors.flood_air import (
     OpenMeteoAirQualityCollector,
     OpenMeteoFloodCollector,
     USGSVolcanoCollector,
+    is_in_cams_europe,
 )
+from app.collectors.grid import snap_to_grid
 from app.collectors.health import ECDCHealthCollector
 from app.collectors.marine import OpenMeteoMarineCollector
 from app.collectors.meteoalarm import MeteoAlarmCapCollector, MeteoAlarmCollector
@@ -116,6 +118,7 @@ from app.models.earthquakes import EarthquakesQuery, EarthquakesResponse
 from app.models.events import EventsQuery, EventsResponse
 from app.models.forecast import HazardForecast
 from app.models.places import WatchedPoint, WatchedPointUpsertRequest
+from app.models.pollens import PollensResponse
 from app.models.schemas import (
     SEVERITY_RANK,
     AirQualityStatus,
@@ -887,9 +890,55 @@ class AggregatorService:
                 uv_index=status.uv_index if status else None,
                 dust_ugm3=max(status.dust_ugm3 or 0.0, 240.0) if status else 240.0,
                 ash_or_dust_warning=True,
+                pollens=status.pollens if status else None,
                 attribution=SIMULATION_CREDIT,
             )
         return status
+
+    async def get_pollens(self, lat: float, lon: float) -> PollensResponse:
+        """Return CAMS European pollen observations and 4-day daily peaks for ``lat, lon``."""
+        grid_lat, grid_lon = snap_to_grid(lat, lon, self.air_quality.grid_deg)
+        now_utc = int(time.time())
+        if not is_in_cams_europe(grid_lat, grid_lon):
+            return PollensResponse(
+                server_utc=now_utc,
+                lat=round(lat, 4),
+                lon=round(lon, 4),
+                grid_lat=grid_lat,
+                grid_lon=grid_lon,
+                coverage="outside_europe",
+                status="outside_coverage",
+                pollens=None,
+                stale=False,
+                attribution=None,
+            )
+        aqi_status = await self.get_air_quality_safe(lat, lon)
+        pollens = aqi_status.pollens if aqi_status is not None else None
+        if pollens is None:
+            return PollensResponse(
+                server_utc=now_utc,
+                lat=round(lat, 4),
+                lon=round(lon, 4),
+                grid_lat=grid_lat,
+                grid_lon=grid_lon,
+                coverage="cams_europe",
+                status="unavailable",
+                pollens=None,
+                stale=bool(aqi_status.stale) if aqi_status is not None else False,
+                attribution=None,
+            )
+        return PollensResponse(
+            server_utc=now_utc,
+            lat=round(lat, 4),
+            lon=round(lon, 4),
+            grid_lat=grid_lat,
+            grid_lon=grid_lon,
+            coverage="cams_europe",
+            status="available",
+            pollens=pollens,
+            stale=pollens.stale,
+            attribution=pollens.attribution,
+        )
 
     @staticmethod
     def _with_air_quality(
