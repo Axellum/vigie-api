@@ -118,14 +118,57 @@ def test_parse_latest_converts_units_and_skips_stations_without_wind() -> None:
     assert rochelle.wind_from_deg is None
 
 
-def test_the_key_is_sent_in_the_apikey_header_and_never_in_the_url() -> None:
+def test_the_key_is_sent_in_the_apikey_header_and_never_in_the_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(clock, "_wall", lambda: NOW)
     collector, sent = collector_with()
     latest = asyncio.run(collector.fetch_latest())
     assert len(sent) == 1 and "64024001" in latest.readings
     req = sent[0]
     assert req.headers["apikey"] == KEY
     assert KEY not in str(req.url)
-    assert str(req.url) == f"{PAQUET_URL}?format=json"
+    assert str(req.url) == f"{PAQUET_URL}?date=2026-11-15T11%3A36%3A00Z&format=json"
+
+
+def test_parse_latest_supports_v2_raf10_and_geojson_and_falls_back_on_404(monkeypatch: pytest.MonkeyPatch) -> None:
+    v2_geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": [-1.53, 43.47]},
+                "properties": {
+                    "geo_id_insee": "64024001",
+                    "validity_time": "2026-11-15T11:30:00Z",
+                    "ff": 4.0,
+                    "raf10": 7.5,
+                    "dd": 240.0,
+                    "t": 290.15,
+                    "u": 67.0,
+                    "pmer": 101360.0,
+                    "rr_per": 0.0,
+                },
+            }
+        ],
+    }
+    readings = parse_latest(v2_geojson)
+    assert readings["64024001"].wind_speed_kmh == 14.4
+    assert readings["64024001"].wind_gust_kmh == 27.0
+
+    monkeypatch.setattr(clock, "_wall", lambda: NOW)
+    sent: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        if len(sent) == 1:
+            return httpx.Response(404, text="not yet published")
+        return httpx.Response(200, json=v2_geojson["features"])
+
+    collector = MeteoFranceObsCollector(KEY, http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    latest = asyncio.run(collector.fetch_latest())
+    assert len(sent) == 2
+    assert "date=2026-11-15T11%3A36%3A00Z" in str(sent[0].url)
+    assert "date=2026-11-15T11%3A30%3A00Z" in str(sent[1].url)
+    assert latest.readings["64024001"].wind_gust_kmh == 27.0
 
 
 def test_spot_station_route_and_wind_forecast_comparison(monkeypatch: pytest.MonkeyPatch) -> None:
