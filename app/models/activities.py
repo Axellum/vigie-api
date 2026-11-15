@@ -167,7 +167,9 @@ class ActivityOverview(BaseModel):
 class SpotActivities(BaseModel):
     id: str
     name: str
-    place: str
+    place: Optional[str] = Field(
+        default=None, description="The nearest city, town or village OpenStreetMap names (`SurfSpot.place`), or `None` when none matched"
+    )
     lat: float
     lon: float
     activities: list[ActivityOverview] = Field(description="Always surf, kite, boat, shore_fishing, in that order")
