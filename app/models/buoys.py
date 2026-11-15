@@ -43,6 +43,29 @@ class BuoyMeasure(BaseModel):
     sea_temp_c: Optional[float] = Field(None, description="sea temperature measured by the buoy")
 
 
+class BuoyForecastComparison(BaseModel):
+    """How the buoy's current record compares with the MFWAM wave forecast of the spot at the nearest hour (`compare=true`)."""
+
+    status: Literal["ok", "unavailable", "no_matching_hour"] = Field(
+        description="`ok`: the model hour within 30 minutes of `measured_utc` was compared; `unavailable`: the wave model gave no answer; "
+        "`no_matching_hour`: the forecast does not cover `measured_utc`"
+    )
+    swell_model: str
+    swell_cell: Optional[dict[str, float]] = Field(None, description="The grid point of the wave model that answered")
+    forecast_time_utc: Optional[int] = Field(None, description="The forecast hour (UTC) nearest to `measure.measured_utc` (within 30 minutes)")
+    model_wave_height_m: Optional[float] = Field(None, description="Significant wave height (`wave_height`) of the model at `forecast_time_utc`")
+    height_diff_m: Optional[float] = Field(None, description="Ours: `measure.height_m - model_wave_height_m` (positive when the sea is higher than modelled)")
+    height_ratio: Optional[float] = Field(None, description="Ours: `measure.height_m / model_wave_height_m` when `model_wave_height_m > 0`")
+    model_wave_period_s: Optional[float] = None
+    model_swell_height_m: Optional[float] = None
+    model_swell_period_s: Optional[float] = None
+    model_swell_from_deg: Optional[int] = None
+    direction_diff_deg: Optional[int] = Field(
+        None, description="Ours: angular difference (0 to 180 degrees) between `measure.direction_deg` and `model_swell_from_deg`"
+    )
+    stale: bool = False
+
+
 class SpotBuoyReading(BaseModel):
     """What the nearest buoy with a current record measures, beside a surf spot."""
 
@@ -56,6 +79,9 @@ class SpotBuoyReading(BaseModel):
     distance_km: Optional[float] = None
     comparable: bool = Field(False, description="the buoy is within `max_comparable_km` of the spot: a setting of ours, not a fact")
     measure: Optional[BuoyMeasure] = None
+    comparison: Optional[BuoyForecastComparison] = Field(
+        None, description="Comparison of `measure` with the MFWAM forecast of the spot at the nearest hour, when `compare=true` and `status` is `ok`"
+    )
     stale: bool = Field(False, description="the record comes from a cache that could not be refreshed")
     complete: bool = Field(
         True,

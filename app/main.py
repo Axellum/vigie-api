@@ -861,15 +861,23 @@ async def get_surf_buoys(response: Response) -> SpotBuoys:
         "The latest record of the nearest wave buoy of the CANDHIS network (Cerema, Licence Ouverte 2.0) that has a current one, beside a "
         "surf spot: the significant height, the period, the direction at the peak (directional buoys) and the sea temperature, with the "
         "date of the record (UTC) and its age. The buoy is the nearest one whose record is at most `max_age_hours` old; `comparable` is "
-        "true within `max_comparable_km` (a setting of ours); `complete` is false when a kind of buoy could not be read. A buoy measures the "
-        "sea where it floats, not at the beach. CANDHIS is read "
+        "true within `max_comparable_km` (a setting of ours); `complete` is false when a kind of buoy could not be read. With `compare=true`, "
+        "`comparison` compares the buoy's record with the MFWAM wave forecast of the spot at the nearest hour (height difference, ratio and "
+        "direction difference). A buoy measures the sea where it floats, not at the beach. CANDHIS is read "
         "once an hour for every client (a key is needed: without one on this instance `status` is `not_configured`). **Not for safety.**"
     ),
 )
-async def get_spot_buoy(response: Response, spot_id: str) -> SpotBuoyReading:
+async def get_spot_buoy(
+    response: Response,
+    spot_id: str,
+    compare: bool = Query(
+        default=False,
+        description="Compare the current buoy reading with the spot's MFWAM wave forecast at the nearest hour (within 30 minutes of `measured_utc`).",
+    ),
+) -> SpotBuoyReading:
     """The latest record of the nearest current buoy of a spot."""
     try:
-        answer = await buoys.spot_reading(aggregator.candhis, spot_id, clock.wall())
+        answer = await buoys.spot_reading(aggregator.candhis, spot_id, clock.wall(), aggregator.surf, compare)
     except surf.UnknownSpot:
         raise HTTPException(status_code=404, detail=f"no surf spot {spot_id!r}") from None
     response.headers["Cache-Control"] = SURF_CACHE

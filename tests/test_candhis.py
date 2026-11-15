@@ -8,6 +8,7 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -267,8 +268,42 @@ def test_the_route_serves_the_record_and_says_when_the_instance_has_no_key(monke
     body = on.json()
     assert on.status_code == 200 and body["status"] == "ok" and body["buoy"]["id"] == "06402"
     assert body["measure"]["height_m"] == 0.4 and body["measure"]["age_minutes"] == 8 and "Candhis" in body["attribution"]
+    assert body["comparison"] is None and "comparison" not in body["derived"]
     assert on.headers["Cache-Control"] == "public, max-age=600"
     assert client.get("/v1/surf/spots/nowhere/buoy").status_code == 404
+
+
+def test_the_route_compares_the_buoy_record_with_the_forecast_when_asked(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(clock, "_wall", lambda: NOW)
+    monkeypatch.setattr(aggregator, "candhis", collector_with(candhis_host([])))
+    measured_hour = int(datetime(2026, 11, 9, 19, 0, tzinfo=timezone.utc).timestamp())
+    swell_data = {
+        "times": [measured_hour - 3600, measured_hour, measured_hour + 3600],
+        "wave_height": [0.6, 0.5, 0.7],
+        "wave_period": [5.0, 4.0, 6.0],
+        "swell_wave_height": [0.5, 0.45, 0.6],
+        "swell_wave_period": [8.0, 7.5, 8.5],
+        "swell_wave_direction": [260, 256, 270],
+        "model_lat": 43.625,
+        "model_lon": -1.4583,
+    }
+    monkeypatch.setattr(aggregator.surf, "fetch_swell", AsyncMock(return_value=(swell_data, False)))
+    client = TestClient(app)
+    compared = client.get(f"/v1/surf/spots/{HOSSEGOR}/buoy", params={"compare": "true"}).json()
+    comp = compared["comparison"]
+    assert comp is not None and comp["status"] == "ok" and comp["forecast_time_utc"] == measured_hour
+    assert comp["model_wave_height_m"] == 0.5 and comp["height_diff_m"] == -0.1 and comp["height_ratio"] == 0.8
+    assert comp["model_swell_height_m"] == 0.45 and comp["model_swell_from_deg"] == 256 and comp["direction_diff_deg"] == 10
+    assert "comparison" in compared["derived"] and "Copernicus" in compared["attribution"]
+    # When the forecast does not cover the hour of the buoy record, it says `no_matching_hour`.
+    far_swell = {**swell_data, "times": [measured_hour - 7200]}
+    monkeypatch.setattr(aggregator.surf, "fetch_swell", AsyncMock(return_value=(far_swell, True)))
+    no_match = client.get(f"/v1/surf/spots/{HOSSEGOR}/buoy", params={"compare": "true"}).json()
+    assert no_match["comparison"]["status"] == "no_matching_hour" and no_match["comparison"]["stale"] is True
+    # When the wave model fails, the buoy reading still succeeds and `comparison.status` says `unavailable`.
+    monkeypatch.setattr(aggregator.surf, "fetch_swell", AsyncMock(side_effect=RuntimeError("down")))
+    down = client.get(f"/v1/surf/spots/{HOSSEGOR}/buoy", params={"compare": "true"}).json()
+    assert down["status"] == "ok" and down["comparison"]["status"] == "unavailable"
 
 
 def test_without_a_key_the_source_is_listed_as_disabled_and_with_one_it_is_a_provider(monkeypatch: pytest.MonkeyPatch) -> None:
