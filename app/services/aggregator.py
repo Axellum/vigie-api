@@ -24,9 +24,9 @@ import logging
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Awaitable, Optional, TypeVar
+from typing import Any, Awaitable, Literal, Optional, TypeVar
 
-from app import clock
+from app import __version__, clock
 from app.attribution import (
     DROUGHT,
     MET_NORWAY_WEATHER,
@@ -45,6 +45,17 @@ from app.collectors.aurora import (
     SWPCOvationCollector,
     SWPCSolarWindCollector,
 )
+from app.collectors.avalanches import (
+    EUREGIO_ATTRIBUTION,
+    SLF_ATTRIBUTION,
+    EuregioAvalancheCollector,
+    SLFAvalancheCollector,
+    is_bulletin_active,
+    refresh_expiry_flags,
+    resolve_avalanche_coverage,
+    summarize_point_avalanche,
+)
+from app.collectors.base import CollectorUnavailableError
 from app.collectors.budget import share_budgets
 from app.collectors.candhis import CandhisCollector, candhis_key_from_env
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector
@@ -103,6 +114,11 @@ from app.collectors.weather import (
     rainviewer_enabled_from_env,
 )
 from app.models.activities import ActivitiesForecast
+from app.models.avalanches import (
+    AvalancheQuery,
+    AvalancheResponse,
+    AvalancheStatus,
+)
 from app.models.drought import (
     DROUGHT_LEVEL_RANK,
     DroughtDepartmentsResponse,
@@ -249,6 +265,8 @@ class AggregatorService:
         meteofrance_obs: Optional[MeteoFranceObsCollector] = None,
         vigicrues: Optional[VigicruesCollector] = None,
         vigieau: Optional[VigiEauCollector] = None,
+        slf_avalanche: Optional[SLFAvalancheCollector] = None,
+        euregio_avalanche: Optional[EuregioAvalancheCollector] = None,
         nhc: Optional[NHCCollector] = None,
         tsunami: Optional[TsunamiCollector] = None,
         swic: Optional[SwicCollector] = None,
@@ -340,6 +358,8 @@ class AggregatorService:
         self.meteofrance_obs = meteofrance_obs
         self.vigicrues = vigicrues or VigicruesCollector()
         self.vigieau = vigieau or VigiEauCollector()
+        self.slf_avalanche = slf_avalanche or SLFAvalancheCollector()
+        self.euregio_avalanche = euregio_avalanche or EuregioAvalancheCollector()
         self.nhc = nhc or NHCCollector()
         self.tsunami = tsunami or TsunamiCollector()
         self.swic = swic or SwicCollector()
@@ -536,6 +556,8 @@ class AggregatorService:
             self.metservice,
             self.vigicrues,
             self.vigieau,
+            self.slf_avalanche,
+            self.euregio_avalanche,
             self.nhc,
             self.tsunami,
             self.swic,
@@ -773,6 +795,192 @@ class AggregatorService:
             return None
         return await _or_none(self.vigieau.fetch_point_status(lat, lon))
 
+    def is_in_avalanche_coverage(self, lat: float, lon: float) -> bool:
+        """Return ``True`` offline when ``(lat, lon)`` lies inside SLF (CH/LI) or Euregio (AT-07/IT-32-BZ/IT-32-TN) coverage."""
+        source, _ = resolve_avalanche_coverage(
+            lat,
+            lon,
+            euregio_index=self.euregio_avalanche.region_index,
+            countries=self.vigilances.countries,
+        )
+        return source is not None
+
+    async def get_avalanche_safe(self, lat: float, lon: float) -> Optional[AvalancheStatus]:
+        """Read the compact CAAML avalanche summary at ``lat, lon`` when in verified coverage; ``None`` otherwise."""
+        source, eur_regions = resolve_avalanche_coverage(
+            lat,
+            lon,
+            euregio_index=self.euregio_avalanche.region_index,
+            countries=self.vigilances.countries,
+        )
+        if source is None:
+            return None
+        now_utc = datetime.fromtimestamp(clock.wall(), tz=timezone.utc)
+        if source == "slf_avalanche":
+            fetched = await _or_none(self.slf_avalanche.fetch_feed())
+            if fetched is None:
+                return None
+            matched = fetched.value.match_point(lat, lon)
+            active = [b for b in matched if is_bulletin_active(b, now_utc)]
+            reg_id: Optional[str] = None
+            reg_name: Optional[str] = None
+            if "LI" in self.vigilances.countries.countries_for_point(lat, lon):
+                li_region = next((r for b in active for r in b.regions if r.region_id == "CH-3311"), None)
+                if li_region is not None:
+                    reg_id = li_region.region_id
+                    reg_name = li_region.name
+            return summarize_point_avalanche(
+                source="slf_avalanche",
+                active_bulletins=active,
+                stale=fetched.stale,
+                region_id=reg_id,
+                region_name=reg_name,
+            )
+        fetched = await _or_none(self.euregio_avalanche.fetch_feed())
+        if fetched is None:
+            return None
+        matched = fetched.value.match_regions([r.region_id for r in eur_regions])
+        active = [b for b in matched if is_bulletin_active(b, now_utc)]
+        primary = eur_regions[0] if eur_regions else None
+        return summarize_point_avalanche(
+            source="euregio_avalanche",
+            active_bulletins=active,
+            stale=fetched.stale,
+            region_id=primary.region_id if primary else None,
+            region_name=primary.name if primary else None,
+        )
+
+    async def get_avalanches(
+        self,
+        *,
+        lat: float,
+        lon: float,
+        source: Optional[Literal["slf", "euregio"]] = None,
+        include_expired: bool = False,
+    ) -> AvalancheResponse:
+        """Return detailed CAAML v6 avalanche bulletins at ``lat, lon`` for verified open-data coverage."""
+        now_utc = datetime.fromtimestamp(clock.wall(), tz=timezone.utc)
+        chosen, eur_regions = resolve_avalanche_coverage(
+            lat,
+            lon,
+            euregio_index=self.euregio_avalanche.region_index,
+            countries=self.vigilances.countries,
+            preferred_source=source,
+        )
+        query = AvalancheQuery(lat=lat, lon=lon)
+        if chosen is None:
+            return AvalancheResponse(
+                version=__version__,
+                server_utc=now_utc,
+                query=query,
+                status="outside_coverage",
+                covered_by=None,
+                note=(
+                    "Point lies outside verified CAAML open-data avalanche coverage "
+                    "(SLF Switzerland/Liechtenstein and Avalanche.report Euregio Tirol/Südtirol/Trentino)."
+                ),
+                bulletins=[],
+                stale=False,
+                attribution=None,
+            )
+
+        if chosen == "slf_avalanche":
+            try:
+                fetched = await self.slf_avalanche.fetch_feed(allow_stale_on_error=True)
+            except Exception as exc:
+                raise CollectorUnavailableError(f"SLF avalanche feed is unavailable: {exc}") from exc
+            matched = refresh_expiry_flags(fetched.value.match_point(lat, lon), now_utc)
+            active = [b for b in matched if is_bulletin_active(b, now_utc)]
+            returned = matched if include_expired else active
+            reg_id: Optional[str] = None
+            reg_name: Optional[str] = None
+            if "LI" in self.vigilances.countries.countries_for_point(lat, lon):
+                li_region = next((r for b in matched for r in b.regions if r.region_id == "CH-3311"), None)
+                if li_region is not None:
+                    reg_id = li_region.region_id
+                    reg_name = li_region.name
+            elif len(returned) == 1 and len(returned[0].regions) == 1:
+                reg_id = returned[0].regions[0].region_id
+                reg_name = returned[0].regions[0].name
+            summary = summarize_point_avalanche(
+                source="slf_avalanche",
+                active_bulletins=active,
+                stale=fetched.stale,
+                region_id=reg_id,
+                region_name=reg_name,
+            )
+            if active:
+                note = f"{len(active)} active SLF CAAML v6 bulletin(s) matched at this coordinate."
+            elif matched:
+                latest_end = max((b.valid_until for b in matched if b.valid_until is not None), default=None)
+                note = (
+                    f"Point lies in SLF coverage; matched bulletin is not currently valid "
+                    f"(latest valid_until: {latest_end.isoformat() if latest_end else 'unknown'})."
+                )
+            else:
+                note = (
+                    "Point lies in Switzerland/Liechtenstein (SLF coverage); no SLF avalanche bulletin "
+                    "currently applies to this coordinate (outside active alpine snow regions or off-season)."
+                )
+            return AvalancheResponse(
+                version=__version__,
+                server_utc=now_utc,
+                query=query,
+                status=summary.status,
+                covered_by="slf_avalanche",
+                note=note,
+                region_id=reg_id,
+                region_name=reg_name,
+                max_danger_level=summary.max_danger_level,
+                max_danger_label=summary.max_danger_label,
+                bulletins=returned,
+                stale=fetched.stale,
+                attribution=SLF_ATTRIBUTION,
+            )
+
+        try:
+            fetched = await self.euregio_avalanche.fetch_feed(allow_stale_on_error=True)
+        except Exception as exc:
+            raise CollectorUnavailableError(f"Euregio avalanche feed is unavailable: {exc}") from exc
+        matched = refresh_expiry_flags(fetched.value.match_regions([r.region_id for r in eur_regions]), now_utc)
+        active = [b for b in matched if is_bulletin_active(b, now_utc)]
+        returned = matched if include_expired else active
+        primary = eur_regions[0] if eur_regions else None
+        reg_id = primary.region_id if primary else None
+        reg_name = primary.name if primary else None
+        summary = summarize_point_avalanche(
+            source="euregio_avalanche",
+            active_bulletins=active,
+            stale=fetched.stale,
+            region_id=reg_id,
+            region_name=reg_name,
+        )
+        if active:
+            note = f"{len(active)} active Euregio CAAML v6 bulletin(s) matched for {reg_id or 'micro-region'}."
+        elif matched:
+            latest_end = max((b.valid_until for b in matched if b.valid_until is not None), default=None)
+            note = (
+                f"Point lies in Euregio micro-region {reg_id or ''}; latest published bulletin expired at "
+                f"{latest_end.isoformat() if latest_end else 'unknown'} (off-season or expired)."
+            )
+        else:
+            note = f"Point lies in Euregio micro-region {reg_id or ''}; no bulletin currently covers this micro-region."
+        return AvalancheResponse(
+            version=__version__,
+            server_utc=now_utc,
+            query=query,
+            status=summary.status,
+            covered_by="euregio_avalanche",
+            note=note,
+            region_id=reg_id,
+            region_name=reg_name,
+            max_danger_level=summary.max_danger_level,
+            max_danger_label=summary.max_danger_label,
+            bulletins=returned,
+            stale=fetched.stale,
+            attribution=EUREGIO_ATTRIBUTION,
+        )
+
     async def get_drought_zones(
         self,
         *,
@@ -978,6 +1186,7 @@ class AggregatorService:
             marine_conditions,
             fires_nearby,
             drought_status,
+            avalanche_status,
         ) = await asyncio.gather(
             self.fetch_weather_with_fallback(lat, lon),
             self.collect_and_fuse_hazards(),
@@ -988,6 +1197,7 @@ class AggregatorService:
             _or_none(self.marine.fetch_marine(lat, lon)) if include_marine else _none_coro(),
             _or_none(self.fires.nearby(lat, lon, fire_radius_km)),
             self.get_drought_safe(lat, lon),
+            self.get_avalanche_safe(lat, lon),
         )
         radar_meta = radar_meta or {}
 
@@ -1094,6 +1304,8 @@ class AggregatorService:
             disclaimer=fires_disclaimer_for(enriched_nearby),
             # Informative only: VigiEau drought restrictions never enter ``local_alert_level``.
             drought=drought_status,
+            # Informative only: CAAML avalanche danger ratings never enter ``local_alert_level``.
+            avalanche=avalanche_status,
         )
 
     async def build_snapshot(

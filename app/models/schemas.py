@@ -28,6 +28,7 @@ from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field, PrivateAttr, computed_field
 
 from app.attribution import hazard_credit, merge_credits, place_credit
+from app.models.avalanches import AvalancheStatus
 from app.models.drought import DroughtStatus
 from app.models.places import NearPlace
 from app.models.pollens import PollenStatus
@@ -590,6 +591,12 @@ class PointResponse(BaseModel):
         default=None,
         description="French drought restriction summary (VigiEau, Licence Ouverte 2.0) when the position lies within covered French "
         "territories (`FR, GP, MQ, GF, RE, YT`); null outside French coverage or when VigiEau is unavailable. Informative only: never "
+        "part of `local_alert_level`",
+    )
+    avalanche: Optional[AvalancheStatus] = Field(
+        default=None,
+        description="CAAML v6 avalanche bulletin summary (SLF CC BY 4.0 for `CH`/`LI`, Avalanche.report CC BY 4.0 DEED for Euregio "
+        "`AT-07`/`IT-32-BZ`/`IT-32-TN`); null outside verified coverage or when upstream is unavailable. Informative only: never "
         "part of `local_alert_level`",
     )
 

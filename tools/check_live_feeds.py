@@ -55,6 +55,11 @@ from app.collectors.aurora import (  # noqa: E402
     SWPCOvationCollector,
     SWPCSolarWindCollector,
 )
+from app.collectors.avalanches import (  # noqa: E402
+    EuregioAvalancheCollector,
+    SLFAvalancheCollector,
+    is_bulletin_active,
+)
 from app.collectors.base import build_user_agent  # noqa: E402
 from app.collectors.candhis import CandhisCollector, candhis_key_from_env  # noqa: E402
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector  # noqa: E402
@@ -572,6 +577,28 @@ async def check_vigieau(client: httpx.AsyncClient) -> Result:
     return Result("vigieau", "ok", f"status={point.status}, zones={len(point.zones)} at Paris, {len(deps)} departments")
 
 
+async def check_slf_avalanche(client: httpx.AsyncClient) -> Result:
+    """SLF: the CAAML v6 GeoJSON must parse cleanly; zero features is valid off-season."""
+    collector = SLFAvalancheCollector()
+    feed = (await collector._collect(client)).value
+    if not feed.features:
+        return Result("slf_avalanche", "empty", "0 features in SLF CAAML GeoJSON (off-season or quiet day)")
+    now_utc = datetime.fromtimestamp(clock.wall(), tz=timezone.utc)
+    active = sum(1 for feat in feed.features if is_bulletin_active(feat.bulletin, now_utc))
+    return Result("slf_avalanche", "ok", f"{len(feed.features)} features parsed ({active} active now)")
+
+
+async def check_euregio_avalanche(client: httpx.AsyncClient) -> Result:
+    """Avalanche.report Euregio: the CAAML v6 JSON must parse cleanly against bundled micro-regions."""
+    collector = EuregioAvalancheCollector()
+    feed = (await collector._collect(client)).value
+    if not feed.bulletins:
+        return Result("euregio_avalanche", "empty", "0 bulletins in Euregio CAAML v6 JSON (off-season)")
+    now_utc = datetime.fromtimestamp(clock.wall(), tz=timezone.utc)
+    active = sum(1 for b in feed.bulletins if is_bulletin_active(b, now_utc))
+    return Result("euregio_avalanche", "ok", f"{len(feed.bulletins)} bulletins parsed ({active} active now)")
+
+
 async def check_tsunami(client: httpx.AsyncClient) -> Result:
     """Tsunami warning centres: the list of the latest bulletins and the CAP of the newest one must be read, and so must the events in force."""
     collector = TsunamiCollector()
@@ -910,6 +937,8 @@ CHECKS: dict[str, Check] = {
     "metservice_cap": check_metservice,
     "vigicrues_flow": check_vigicrues,
     "vigieau": check_vigieau,
+    "slf_avalanche": check_slf_avalanche,
+    "euregio_avalanche": check_euregio_avalanche,
     "tsunami_warning_centers": check_tsunami,
     "nhc_storms": check_nhc,
     "wmo_swic_registry": check_wmo_swic_registry,

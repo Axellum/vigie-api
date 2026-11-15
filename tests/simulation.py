@@ -29,6 +29,7 @@ from typing import Any, Awaitable, Callable, Optional
 
 import httpx
 
+from app.collectors.avalanches import EuregioAvalancheCollector, SLFAvalancheCollector
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector
 from app.collectors.dwd import DWDCollector
 from app.collectors.eccc import ECCCCollector
@@ -84,6 +85,8 @@ HOST_TO_SOURCE: dict[str, str] = {
     "alerts.metservice.com": "metservice_cap",
     "www.vigicrues.gouv.fr": "vigicrues_flow",
     "api.vigieau.gouv.fr": "vigieau",
+    "aws.slf.ch": "slf_avalanche",
+    "static.avalanche.report": "euregio_avalanche",
     "www.tsunami.gov": "tsunami_warning_centers",
     "www.nhc.noaa.gov": "nhc_storms",
     "www.ndbc.noaa.gov": "noaa_ndbc",
@@ -425,6 +428,10 @@ class Upstream:
         if source == "vigieau":
             fn = "departements.json" if request.url.path.endswith("/departements") else "zones_v2_paris.json"
             return httpx.Response(200, content=(FIXTURES / "vigieau" / fn).read_bytes())
+        if source == "slf_avalanche":
+            return httpx.Response(200, content=(FIXTURES / "avalanches" / "slf_caaml_en.geojson").read_bytes())
+        if source == "euregio_avalanche":
+            return httpx.Response(200, content=(FIXTURES / "avalanches" / "euregio_caaml_en.json").read_bytes())
         if source == "tsunami_warning_centers":
             return self._tsunami(request)
         if source == "nhc_storms":
@@ -637,6 +644,8 @@ class Simulation:
             metservice=MetServiceCollector(http_client=http),
             vigicrues=VigicruesCollector(http_client=http),
             vigieau=VigiEauCollector(http_client=http),
+            slf_avalanche=SLFAvalancheCollector(http_client=http),
+            euregio_avalanche=EuregioAvalancheCollector(http_client=http),
             nhc=NHCCollector(http_client=http),
             tsunami=TsunamiCollector(http_client=http),
             swic=SwicCollector(http_client=http),

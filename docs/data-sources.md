@@ -940,6 +940,15 @@ slides, and a refused request is not a failure of the provider: the circuit brea
 The monthly limit of Open-Meteo (300,000 calls) is the daily one over 30 days and is not tracked
 separately. A redirect followed by the HTTP client is not counted.
 
+## Avalanche bulletins (CAAML v6)
+
+Official snow-avalanche bulletins (`GET /v1/avalanches` and `PointResponse.avalanche`) cover only regions whose open-data reuse terms are directly verified:
+
+* **Switzerland and Liechtenstein (`slf_avalanche`, SLF):** `https://aws.slf.ch/api/bulletin/caaml/en/geojson` (CC BY 4.0, [SLF Data Service](https://www.slf.ch/en/services-and-products/slf-data-service/)). Daily at 17:00 CET/CEST (with 08:00 updates in winter when danger ≥ 3 and unscheduled updates on significant snowfalls). Each GeoJSON feature embeds its warning-zone polygon directly and covers Swiss `CH-*` micro-regions plus Liechtenstein (`CH-3311`).
+* **Euregio Tirol, Südtirol, Trentino (`euregio_avalanche`, Avalanche.report):** `https://static.avalanche.report/bulletins/latest/EUREGIO_en_CAAMLv6.json` (CC BY 4.0 DEED, [Avalanche.report Open Data](https://avalanche.report/content/more/open-data/en.html)). Matched offline against 108 EAWS micro-region polygons bundled in `app/data/eaws-euregio-regions.geojson.gz` (CC0 1.0 Universal, `gitlab.com/eaws/eaws-regions`).
+
+**Gating and freshness:** Coordinates outside `CH`, `LI`, `AT-07`, `IT-32-BZ`, and `IT-32-TN` return `status: outside_coverage` (`PointResponse.avalanche = null`) with zero upstream requests. Both feeds are cached with a 30-minute TTL and conditional `If-None-Match` / `If-Modified-Since` (`304 Not Modified`). Bulletins whose `validTime.endTime` is in the past are treated as expired (`status: confirmed_none`, `max_danger_level: null`) unless `include_expired=true` is passed to `GET /v1/avalanches`. Avalanche danger ratings are informative only and never alter `local_alert_level`.
+
 ## Credits
 
 Every block of data carries the credit its source asks for (`attribution` in the JSON responses); the

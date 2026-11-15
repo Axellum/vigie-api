@@ -190,8 +190,33 @@ def world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:
         ),
     )
     import json as _json
+    from datetime import datetime as _datetime
+    from datetime import timezone as _timezone
 
+    from app.collectors.avalanches import (
+        parse_euregio_json as _parse_euregio_json,
+    )
+    from app.collectors.avalanches import (
+        parse_slf_geojson as _parse_slf_geojson,
+    )
     from app.collectors.vigieau import to_point_status as _to_point_status
+
+    _now_utc = _datetime.fromtimestamp(app_clock.wall(), tz=_timezone.utc)
+    _slf_feed = Fetched(
+        _parse_slf_geojson(
+            _json.loads((Path(__file__).resolve().parent / "fixtures" / "avalanches" / "slf_caaml_en.geojson").read_text(encoding="utf-8")),
+            _now_utc,
+        )
+    )
+    _eur_feed = Fetched(
+        _parse_euregio_json(
+            _json.loads((Path(__file__).resolve().parent / "fixtures" / "avalanches" / "euregio_caaml_en.json").read_text(encoding="utf-8")),
+            _now_utc,
+            aggregator.euregio_avalanche.region_index,
+        )
+    )
+    monkeypatch.setattr(aggregator.slf_avalanche, "fetch_feed", AsyncMock(return_value=_slf_feed))
+    monkeypatch.setattr(aggregator.euregio_avalanche, "fetch_feed", AsyncMock(return_value=_eur_feed))
 
     _vigieau_paris = Fetched(
         parse_zones_v2_payload(

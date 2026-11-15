@@ -233,6 +233,27 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-11-15",
         ),
         CommercialUse(
+            "slf_avalanche",
+            "allowed",
+            "CC BY 4.0 on SLF Data Service (visible source attribution to WSL Institute for Snow and Avalanche Research SLF with link to www.slf.ch required; infrastructure must not be overloaded).",
+            (
+                "https://www.slf.ch/en/services-and-products/slf-data-service/",
+                "https://aws.slf.ch/api/bulletin/caaml/en/geojson",
+            ),
+            "2026-11-15",
+        ),
+        CommercialUse(
+            "euregio_avalanche",
+            "allowed",
+            "CC BY 4.0 DEED on Avalanche.report Open Data (Tirol, Südtirol, Trentino CAAML v6 bulletins; EAWS micro-region boundaries are CC0 1.0 Universal).",
+            (
+                "https://avalanche.report/content/more/open-data/en.html",
+                "https://static.avalanche.report/bulletins/latest/EUREGIO_en_CAAMLv6.json",
+                "https://gitlab.com/eaws/eaws-regions/-/raw/master/LICENSE",
+            ),
+            "2026-11-15",
+        ),
+        CommercialUse(
             "meteofrance_vigilance",
             "allowed",
             "Licence Ouverte 2.0 (Etalab): any use, commercial included, with the source and the date of the data named.",

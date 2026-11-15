@@ -316,6 +316,18 @@ CREDITS: dict[str, Credit] = {
             "commune centroids from API Découpage Administratif (DINUM/Etalab, Licence Ouverte 2.0)",
             "ours",
         ),
+        Credit(
+            "slf_avalanche",
+            "WSL Institute for Snow and Avalanche Research SLF",
+            "Source: WSL Institute for Snow and Avalanche Research SLF (https://www.slf.ch). CC BY 4.0",
+            "ours",
+        ),
+        Credit(
+            "euregio_avalanche",
+            "Avalanche.report (Tirol, Südtirol, Trentino)",
+            "Source: Avalanche.report — Avalanche Warning Service Tirol, Südtirol, Trentino (https://avalanche.report). CC BY 4.0 DEED",
+            "ours",
+        ),
         # The travel advice of the foreign ministries (SOURCES.md, "Travel advice").
         Credit(
             "travel_gb",
@@ -412,6 +424,8 @@ FIRES = ("nasa_firms",)
 DROUGHT = ("vigieau",)
 GASPAR_CATNAT = ("gaspar_catnat",)
 PREALERT = ("ecmwf_opendata",)
+AVALANCHE_SLF = ("slf_avalanche",)
+AVALANCHE_EUREGIO = ("euregio_avalanche",)
 TIDES = ("eot20",)
 TIDES_CALIBRATED = ("eot20", "refmar_tides")
 TIDE_CORRECTION = ("shom_refmar",)
