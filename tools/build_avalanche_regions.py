@@ -80,12 +80,13 @@ def build_euregio_regions(output_path: Path = OUTPUT_PATH) -> dict[str, Any]:
         "type": "FeatureCollection",
         "license": "CC0-1.0",
         "source": "https://gitlab.com/eaws/eaws-regions",
+        "note": "EAWS Euregio avalanche micro-regions (AT-07, IT-32-BZ, IT-32-TN), built by tools/build_avalanche_regions.py",
         "features": features,
     }
     encoded = json.dumps(collection, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with gzip.open(output_path, "wb", compresslevel=9) as fh:
-        fh.write(encoded)
+    # Use mtime=0 so the bundled gzip header stays deterministic (checked by test_build_geometries.py).
+    output_path.write_bytes(gzip.compress(encoded, compresslevel=9, mtime=0))
     return {"features": len(features), "bytes": output_path.stat().st_size, "path": str(output_path)}
 
 
