@@ -60,6 +60,7 @@ from app.collectors.meteoalarm import MeteoAlarmCapCollector, MeteoAlarmCollecto
 from app.collectors.meteofrance import MeteoFranceVigilanceCollector, meteofrance_key_from_env
 from app.collectors.meteofrance_obs import MeteoFranceObsCollector, meteofrance_obs_key_from_env
 from app.collectors.metservice import MetServiceCollector, metservice_enabled_from_env
+from app.collectors.ndbc import NdbcCollector
 from app.collectors.nhc import NHCCollector
 from app.collectors.refmar import RefmarCollector
 from app.collectors.seismic import EMSCCollector, USGSCollector
@@ -201,6 +202,7 @@ class AggregatorService:
         surf: Optional[SurfForecastCollector] = None,
         refmar: Optional[RefmarCollector] = None,
         candhis: Optional[CandhisCollector] = None,
+        ndbc: Optional[NdbcCollector] = None,
         flood: Optional[OpenMeteoFloodCollector] = None,
         air_quality: Optional[OpenMeteoAirQualityCollector] = None,
         swpc: Optional[NOAASWPCCollector] = None,
@@ -267,6 +269,7 @@ class AggregatorService:
         if candhis is None and candhis_key is not None:
             candhis = CandhisCollector(candhis_key)
         self.candhis = candhis
+        self.ndbc = ndbc or NdbcCollector()
         self.flood = flood or OpenMeteoFloodCollector()
         self.air_quality = air_quality or OpenMeteoAirQualityCollector()
         self.swpc = swpc or NOAASWPCCollector()
@@ -525,6 +528,7 @@ class AggregatorService:
             collectors.append(self.firms)
         if self.candhis is not None:
             collectors.append(self.candhis)
+        collectors.append(self.ndbc)
         if self.meteofrance is not None:
             collectors.append(self.meteofrance)
         if self.meteofrance_obs is not None:

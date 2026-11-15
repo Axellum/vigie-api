@@ -685,6 +685,17 @@ believed. Two answered buoys (`01102`, `08303`) are not in the list of the stati
 not used. The height is H1/3 or Hm0 according to the buoy (`height_kind`), and so is the period (TH1/3 or T02, not the peak period): they
 are said, not mixed. Not verified: the convention of the direction (the values read are those of a south-westerly swell, so "from").
 
+**NOAA National Data Buoy Center (`noaa_ndbc`).** Alongside CANDHIS, `GET /v1/surf/spots/{id}/buoy` also checks NOAA NDBC wave
+buoys (`app/collectors/ndbc.py`, public domain under the NWS disclaimer `https://www.weather.gov/disclaimer`), requiring no API key.
+Two endpoints are asked conditionally (`ETag` and `Last-Modified`, `304 Not Modified` when unchanged):
+`https://www.ndbc.noaa.gov/data/latest_obs/latest_obs.txt` (every 10 minutes at most, matching `Cache-Control: max-age=600`, at most
+144 requests a day) for coordinates, UTC timestamps and measurements, and `https://www.ndbc.noaa.gov/activestations.xml` (at most once
+a day; falling back cleanly to station IDs as names if unreachable) for station names, types and owners. Per NDBC's Measurements FAQ
+(`https://www.ndbc.noaa.gov/faq/measdes.shtml`), `WVHT` is H1/3 (`height_kind="H1/3"`), `DPD` is `peak_period_s` (`<= 0`, seen as `0`
+on Korean KMA partner buoys, stays `null`), `APD` is `period_s` (`period_kind="APD"`), `MWD` is wave direction from (`degT`), and
+`WTMP` is `sea_temp_c` (`[-3, 45]`); `hmax_m` and `spread_deg` are absent from `latest_obs.txt` and stay `null`. When both CANDHIS
+and NDBC are enabled, the nearest current buoy (at most `MAX_AGE_S` old) wins; `attribution` and `licence` follow the chosen source.
+
 ## Places of the coast (ports, slipways, anchorages, dive sites, bathing sites)
 
 `GET /v1/sea/places` and `GET /v1/sea/places/{id}` read `app/data/sea-places.json.gz`, built by `tools/build_places.py` ([ADR 0021](decisions/0021-sea-places-catalogue-from-open-data.md)).

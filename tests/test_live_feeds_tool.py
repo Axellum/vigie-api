@@ -148,6 +148,7 @@ def swpc_answer(request: httpx.Request) -> httpx.Response:
 SURF_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "surf"
 REFMAR_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "refmar"
 CANDHIS_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "candhis"
+NDBC_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "ndbc"
 CANDHIS_KEY = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"  # made up, in the shape of a key (low entropy on purpose: the secret scan reads a key-like literal as a leak)
 
 
@@ -179,6 +180,12 @@ def good_answers() -> dict[str, Callable[[httpx.Request], httpx.Response]]:
         "services.data.shom.fr": lambda r: httpx.Response(200, content=(REFMAR_FIXTURES / "brest-2026-11-08.json").read_bytes()),
         "candhis.cerema.fr": lambda r: httpx.Response(
             200, content=(CANDHIS_FIXTURES / f"list-type{r.url.params['type']}-2026-11-09.json").read_bytes()
+        ),
+        "www.ndbc.noaa.gov": lambda r: httpx.Response(
+            200,
+            content=(
+                NDBC_FIXTURES / ("activestations-2026-11-15.xml" if r.url.path.endswith(".xml") else "latest_obs-2026-11-15.txt")
+            ).read_bytes(),
         ),
         "flood-api.open-meteo.com": lambda r: httpx.Response(200, json=GOOD_FLOOD),
         "air-quality-api.open-meteo.com": lambda r: httpx.Response(200, json=GOOD_AIR),

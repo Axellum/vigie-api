@@ -85,6 +85,7 @@ from app.collectors.meteoalarm import (  # noqa: E402
 from app.collectors.metservice import COLOUR_PARAMETER as METSERVICE_COLOUR  # noqa: E402
 from app.collectors.metservice import EVENTS as METSERVICE_EVENTS  # noqa: E402
 from app.collectors.metservice import MetServiceCollector  # noqa: E402
+from app.collectors.ndbc import NdbcCollector  # noqa: E402
 from app.collectors.nhc import NHCCollector  # noqa: E402
 from app.collectors.refmar import RefmarCollector  # noqa: E402
 from app.collectors.seismic import EMSCCollector, USGSCollector  # noqa: E402
@@ -316,6 +317,15 @@ async def check_candhis(client: httpx.AsyncClient) -> Result:
         raise ValueError("CANDHIS answered no record for the directional H1/3 buoys")
     age = int(datetime.now(timezone.utc).timestamp() - max(r.measured_utc for r in readings.values())) // 60
     return Result("candhis_tr", "ok", f"{len(readings)} buoys, the newest record {age} minutes old")
+
+
+async def check_ndbc(client: httpx.AsyncClient) -> Result:
+    """NOAA NDBC: latest wave buoy observations and active station metadata (the parser raises on a shape it does not know)."""
+    latest = (await NdbcCollector()._collect(client)).value
+    if not latest.readings:
+        raise ValueError("NDBC latest_obs.txt answered no station with a wave height")
+    age = int(datetime.now(timezone.utc).timestamp() - max(r.measured_utc for r in latest.readings.values())) // 60
+    return Result("noaa_ndbc", "ok", f"{len(latest.readings)} wave stations, the newest record {age} minutes old")
 
 
 async def check_surf(client: httpx.AsyncClient) -> Result:
@@ -876,6 +886,7 @@ CHECKS: dict[str, Check] = {
     "open_meteo_surf": check_surf,
     "shom_refmar": check_refmar,
     "candhis_tr": check_candhis,
+    "noaa_ndbc": check_ndbc,
     "open_meteo_flood": check_flood,
     "open_meteo_aqi": check_air_quality,
     "met_norway_fallback": check_met_norway,

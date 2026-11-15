@@ -1,0 +1,2 @@
+<!-- section: Commercial use (for the paid app to come) -->
+| `noaa_ndbc` | NOAA National Data Buoy Center (NDBC), latest marine buoy observations | **allowed** | Public domain unless noted otherwise (NWS disclaimer linked from ndbc.noaa.gov footer; no implied endorsement, no altered content presented as official). Not verified: whether international partner buoys in the feed add conditions of their own. | [1](https://www.ndbc.noaa.gov/), [2](https://www.weather.gov/disclaimer) | 2026-11-15 |
