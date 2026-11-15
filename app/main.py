@@ -913,7 +913,7 @@ async def get_surf_stations(response: Response) -> SpotStations:
     tags=["Sea"],
     responses={404: {"description": "No spot has this id (`GET /v1/surf/spots` lists them)."}},
     description=(
-        "The latest 6-minute observation (`DPPaquetObs/v1/paquet/infrahoraire-6m`, Météo-France, Licence Ouverte 2.0) of the nearest "
+        "The latest 6-minute observation (`DPPaquetObs/v2/paquet/stations/infrahoraire-6m`, Météo-France, Licence Ouverte 2.0) of the nearest "
         "coastal station that has a current wind reading, beside a surf spot: 10 m wind speed, 10 m gust, wind direction, relative wind "
         "regime (`offshore`, `cross-shore`, `onshore` against the spot's `facing_deg`), air temperature, relative humidity, sea-level "
         "pressure and 6-minute precipitation. With `compare=true`, `comparison` compares the station's wind with the spot's hourly wind "

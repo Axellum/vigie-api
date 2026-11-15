@@ -1,7 +1,7 @@
-"""Météo-France 6-minute ground observations: ``DPPaquetObs/v1`` on ``portail-api.meteofrance.fr``.
+"""Météo-France 6-minute ground observations: ``DPPaquetObs/v2`` on ``portail-api.meteofrance.fr``.
 
-``https://public-api.meteofrance.fr/public/DPPaquetObs/v1/paquet/infrahoraire-6m?format=json`` answers, in one call, the latest
-6-minute observation of every open real-time ground station of Météo-France's Radome network, published under
+``https://public-api.meteofrance.fr/public/DPPaquetObs/v2/paquet/stations/infrahoraire-6m?date=...&format=json`` answers, in one
+call, the latest 6-minute observation of every open real-time ground station of Météo-France's Radome network, published under
 **Licence Ouverte 2.0 (Etalab)** (https://portail-api.meteofrance.fr/web/fr/api/PaquetObs).
 
 Why we read the whole national package at once:
@@ -14,7 +14,8 @@ Why we read the whole national package at once:
 Units in the upstream JSON package and how Vigie converts them:
 
 - ``ff`` (m/s, 10-minute mean wind speed at 10 m) -> ``wind_speed_kmh`` (``round(ff * 3.6, 1)``).
-- ``fxi10`` (m/s, 10-minute max wind gust at 10 m; ``fxy`` when ``fxi10`` is absent) -> ``wind_gust_kmh`` (``round(v * 3.6, 1)``).
+- ``raf10`` (m/s, 10-minute max wind gust at 10 m in ``DPPaquetObs/v2``; ``fxi10`` or ``fxy`` in ``v1``) -> ``wind_gust_kmh``
+  (``round(v * 3.6, 1)``).
 - ``dd`` (degrees, 10-minute wind direction at 10 m; ``0`` when ``ff == 0`` means calm wind) -> ``wind_from_deg`` (``0..359``,
   ``None`` when calm or absent).
 - ``t`` (Kelvin, air temperature at 2 m) -> ``air_temp_c`` (``round(t - 273.15, 1)``).
@@ -32,18 +33,26 @@ import os
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 import httpx
 
+from app import clock
 from app.collectors.base import BaseCollector, optional_float
 
-PAQUET_URL = "https://public-api.meteofrance.fr/public/DPPaquetObs/v1/paquet/infrahoraire-6m"
+PAQUET_URL = "https://public-api.meteofrance.fr/public/DPPaquetObs/v2/paquet/stations/infrahoraire-6m"
 KEY_ENV = "VIGIE_METEOFRANCE_OBS_API_KEY"
 FALLBACK_KEY_ENV = "VIGIE_METEOFRANCE_API_KEY"
 TTL_SECONDS = 360
 _KEY_SHAPE = re.compile(r"^[A-Za-z0-9._\-+/=]{16,}$")
+
+
+def latest_6min_utc(now_unix: Optional[float] = None) -> datetime:
+    """Latest publishable 6-minute observation timestamp (UTC, 6-minute safety margin)."""
+    now_s = clock.wall() if now_unix is None else now_unix
+    ref = datetime.fromtimestamp(now_s, tz=timezone.utc) - timedelta(minutes=6)
+    return ref.replace(minute=(ref.minute // 6) * 6, second=0, microsecond=0)
 
 
 @dataclass(frozen=True)
@@ -100,14 +109,24 @@ def _parse_iso_utc(raw: Any) -> Optional[int]:
     return int(dt.timestamp())
 
 
-def parse_latest(payload: Any) -> Readings:
-    """Parse the JSON list returned by ``/paquet/infrahoraire-6m?format=json`` keyed by 8-digit ``station_id``."""
-    if not isinstance(payload, list):
-        raise ValueError("Météo-France DPPaquetObs answer is not a JSON list")
-    readings: Readings = {}
-    for row in payload:
-        if not isinstance(row, dict):
+def _extract_rows(payload: Any) -> list[dict[str, Any]]:
+    """Accept a JSON list (``v1`` or ``v2`` ``format=json``) or a GeoJSON ``FeatureCollection``."""
+    raw_items: Any = payload.get("features") if isinstance(payload, dict) and isinstance(payload.get("features"), list) else payload
+    if not isinstance(raw_items, list):
+        raise ValueError("Météo-France DPPaquetObs answer is not a JSON list or GeoJSON FeatureCollection")
+    rows: list[dict[str, Any]] = []
+    for item in raw_items:
+        if not isinstance(item, dict):
             continue
+        props = item.get("properties")
+        rows.append(props if isinstance(props, dict) else item)
+    return rows
+
+
+def parse_latest(payload: Any) -> Readings:
+    """Parse the JSON list or GeoJSON features returned by ``DPPaquetObs`` keyed by 8-digit ``station_id``."""
+    readings: Readings = {}
+    for row in _extract_rows(payload):
         raw_id = str(row.get("geo_id_insee") or "").strip()
         if not raw_id:
             continue
@@ -117,7 +136,9 @@ def parse_latest(payload: Any) -> Readings:
         if measured_utc is None or ff_ms is None or ff_ms < 0:
             continue
         wind_speed_kmh = round(ff_ms * 3.6, 1)
-        gust_ms = optional_float(row.get("fxi10"))
+        gust_ms = optional_float(row.get("raf10"))
+        if gust_ms is None:
+            gust_ms = optional_float(row.get("fxi10"))
         if gust_ms is None:
             gust_ms = optional_float(row.get("fxy"))
         wind_gust_kmh = round(gust_ms * 3.6, 1) if gust_ms is not None and gust_ms >= 0 else None
@@ -158,7 +179,7 @@ def parse_latest(payload: Any) -> Readings:
 
 
 class MeteoFranceObsCollector(BaseCollector[Readings]):
-    """Latest 6-minute observations of Météo-France ground stations (``DPPaquetObs/v1``)."""
+    """Latest 6-minute observations of Météo-France ground stations (``DPPaquetObs/v2``)."""
 
     def __init__(self, api_key: str, http_client: Optional[httpx.AsyncClient] = None) -> None:
         super().__init__(
@@ -178,6 +199,13 @@ class MeteoFranceObsCollector(BaseCollector[Readings]):
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> Readings:
         headers = {"apikey": self._key, "Accept": "application/json"}
-        resp = await self._get(client, PAQUET_URL, params={"format": "json"}, headers=headers)
-        resp.raise_for_status()
-        return parse_latest(resp.json())
+        slot = latest_6min_utc()
+        for attempt in range(2):
+            target = slot - timedelta(minutes=6 * attempt)
+            params = {"date": target.strftime("%Y-%m-%dT%H:%M:%SZ"), "format": "json"}
+            resp = await self._get(client, PAQUET_URL, params=params, headers=headers)
+            if resp.status_code == 404 and attempt == 0:
+                continue
+            resp.raise_for_status()
+            return parse_latest(resp.json())
+        raise RuntimeError("unreachable")

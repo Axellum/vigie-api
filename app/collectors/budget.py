@@ -106,7 +106,7 @@ QUOTAS: dict[str, Quota] = {
         (Limit(60, 50),),
         "https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesVigilance",
     ),
-    # Météo-France Portail API (DPPaquetObs v1): the free plan allows 50 requests per minute
+    # Météo-France Portail API (DPPaquetObs v2): the free plan allows at least 50 requests per minute
     # (https://portail-api.meteofrance.fr/web/fr/api/PaquetObs, read 2026-11-15). This API sends at most one request
     # every 6 minutes (10 an hour).
     "meteofrance_obs": Quota(
