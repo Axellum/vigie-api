@@ -15,6 +15,7 @@ temperature alone is enough for an answer (a lagoon or a bay can have it and no 
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping
 from typing import Any, Literal, Optional
 
@@ -25,6 +26,15 @@ from app.collectors.base import BaseCollector, optional_float
 from app.collectors.grid import DEFAULT_MARINE_GRID_DEG, coord_str, grid_step_from_env, snap_to_grid
 from app.collectors.weights import open_meteo_weight
 from app.models.schemas import MarineConditions
+
+DEFAULT_OPEN_METEO_MARINE_URL = "https://marine-api.open-meteo.com/v1/marine"
+
+
+def open_meteo_marine_url(env: Optional[Mapping[str, str]] = None) -> str:
+    """The Open-Meteo Marine endpoint: ``VIGIE_OPEN_METEO_MARINE_URL`` when set (e.g. a self-hosted Open-Meteo),
+    else the public ``https://marine-api.open-meteo.com/v1/marine``."""
+    raw = ((env if env is not None else os.environ).get("VIGIE_OPEN_METEO_MARINE_URL") or "").strip()
+    return raw or DEFAULT_OPEN_METEO_MARINE_URL
 
 # Sea water goes from -2 °C (ice at the pole) to the Red Sea; any other number is a gap of the provider, not a temperature.
 SEA_MIN_C, SEA_MAX_C = -3.0, 45.0
@@ -84,6 +94,7 @@ class OpenMeteoMarineCollector(BaseCollector[MarineConditions]):
             ttl_seconds=3600,
             http_client=http_client,
         )
+        self.BASE_URL = open_meteo_marine_url()
         self.grid_deg = (
             grid_deg if grid_deg is not None else grid_step_from_env("VIGIE_GRID_MARINE_DEG", DEFAULT_MARINE_GRID_DEG)
         )

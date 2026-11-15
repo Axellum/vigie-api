@@ -52,6 +52,15 @@ from app.models.schemas import CurrentWeather, DailyForecast
 # Every forecast is asked for this length and cached once per position; the shorter profiles (the
 # compact ones, 5 days) slice the answer, so the number of days is not part of the cache key.
 MAX_FORECAST_DAYS = 10
+DEFAULT_OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+
+
+def open_meteo_forecast_url(env: Optional[Mapping[str, str]] = None) -> str:
+    """The Open-Meteo forecast endpoint: ``VIGIE_OPEN_METEO_FORECAST_URL`` when set (e.g. a self-hosted Open-Meteo),
+    else the public ``https://api.open-meteo.com/v1/forecast``."""
+    raw = ((env if env is not None else os.environ).get("VIGIE_OPEN_METEO_FORECAST_URL") or "").strip()
+    return raw or DEFAULT_OPEN_METEO_FORECAST_URL
+
 
 # MET Norway symbol_code (without the _day / _night / _polartwilight suffix) -> WMO code.
 # A symbol that is not listed gives ``None`` (unknown), never a default code.
@@ -187,6 +196,7 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
             is_fallback=False,
             http_client=http_client,
         )
+        self.BASE_URL = open_meteo_forecast_url()
         self.grid_deg = (
             grid_deg
             if grid_deg is not None

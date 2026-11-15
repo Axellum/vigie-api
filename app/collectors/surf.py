@@ -29,6 +29,8 @@ import httpx
 from app import clock
 from app.collectors.base import BaseCollector, optional_float
 from app.collectors.grid import coord_str
+from app.collectors.marine import open_meteo_marine_url
+from app.collectors.weather import open_meteo_forecast_url
 from app.collectors.weights import open_meteo_weight
 
 SWELL_VARIABLES = (
@@ -124,6 +126,8 @@ class SurfForecastCollector(BaseCollector[dict[str, Any]]):
     def __init__(self, http_client: Optional[httpx.AsyncClient] = None) -> None:
         # Told of every answer read from the provider (never of a cache hit): ``(kind, {spot id: parsed answer})``, set by the archive.
         self.on_fetched: Optional[Callable[[str, dict[str, dict[str, Any]]], None]] = None
+        self.MARINE_URL = open_meteo_marine_url()
+        self.FORECAST_URL = open_meteo_forecast_url()
         super().__init__(
             provider_id="open_meteo_surf",
             name="Open-Meteo surf (MFWAM swell, wind)",

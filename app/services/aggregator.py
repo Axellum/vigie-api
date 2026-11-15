@@ -57,6 +57,7 @@ from app.collectors.flood_air import (
 from app.collectors.health import ECDCHealthCollector
 from app.collectors.marine import OpenMeteoMarineCollector
 from app.collectors.meteoalarm import MeteoAlarmCapCollector, MeteoAlarmCollector
+from app.collectors.meteofrance import MeteoFranceVigilanceCollector, meteofrance_key_from_env
 from app.collectors.metservice import MetServiceCollector, metservice_enabled_from_env
 from app.collectors.nhc import NHCCollector
 from app.collectors.refmar import RefmarCollector
@@ -211,6 +212,7 @@ class AggregatorService:
         dwd: Optional[DWDCollector] = None,
         eccc: Optional[ECCCCollector] = None,
         metservice: Optional[MetServiceCollector] = None,
+        meteofrance: Optional[MeteoFranceVigilanceCollector] = None,
         vigicrues: Optional[VigicruesCollector] = None,
         nhc: Optional[NHCCollector] = None,
         tsunami: Optional[TsunamiCollector] = None,
@@ -280,6 +282,17 @@ class AggregatorService:
         self.dwd = dwd or DWDCollector()
         self.eccc = eccc or ECCCCollector()
         self.metservice = metservice or MetServiceCollector()
+        # Météo-France's own vigilance API (DPVigilance v1) needs an API key: without ``VIGIE_METEOFRANCE_API_KEY`` there is no
+        # collector and ``MeteoAlarm`` continues to answer for France.
+        mf_key, mf_problem = meteofrance_key_from_env()
+        if mf_problem is not None:
+            log.warning(mf_problem)
+        self.meteofrance_off_reason = (
+            "no Météo-France API key: set VIGIE_METEOFRANCE_API_KEY (portail-api.meteofrance.fr, DPVigilance v1)"
+        )
+        if meteofrance is None and mf_key is not None:
+            meteofrance = MeteoFranceVigilanceCollector(mf_key)
+        self.meteofrance = meteofrance
         self.vigicrues = vigicrues or VigicruesCollector()
         self.nhc = nhc or NHCCollector()
         self.tsunami = tsunami or TsunamiCollector()
@@ -340,6 +353,7 @@ class AggregatorService:
             dwd=self.dwd,
             eccc=self.eccc,
             metservice=self.metservice if self.metservice_enabled else None,
+            meteofrance=self.meteofrance,
             vigicrues=self.vigicrues,
             tsunami=self.tsunami,
             swic=self.swic if self.wmo_sources != "off" else None,
@@ -500,6 +514,8 @@ class AggregatorService:
             collectors.append(self.firms)
         if self.candhis is not None:
             collectors.append(self.candhis)
+        if self.meteofrance is not None:
+            collectors.append(self.meteofrance)
         return [c for c in collectors if c not in off]
 
     def disabled_sources(self) -> list[dict[str, str]]:
@@ -521,6 +537,15 @@ class AggregatorService:
                     "name": "CANDHIS wave buoys (Cerema)",
                     "domain": "marine",
                     "reason": self.candhis_off_reason,
+                }
+            )
+        if self.meteofrance is None:
+            off.append(
+                {
+                    "provider_id": "meteofrance_vigilance",
+                    "name": "Météo-France Vigilance (DPVigilance v1)",
+                    "domain": "vigilance",
+                    "reason": self.meteofrance_off_reason,
                 }
             )
         return off
