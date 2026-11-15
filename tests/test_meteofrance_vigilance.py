@@ -24,7 +24,7 @@ from tests.helpers import SimClock
 from tests.test_national_sources import VALENCE_RIVER, flow, river
 from tests.vigilance_upstream import Upstream, make_service
 
-SAMPLE_KEY = "mf_secret_token_1234567890abcdef"
+SAMPLE_KEY = "mf_secret_token_1234567890abcdef=="
 
 
 @pytest.fixture()

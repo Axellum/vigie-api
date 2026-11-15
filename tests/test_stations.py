@@ -23,7 +23,7 @@ from app.collectors.meteofrance_obs import (
 from app.main import aggregator, app
 from app.services import stations
 
-KEY = "mf-obs-test-token-1234567890"
+KEY = "mf-obs-test-token-1234567890=="
 NOW = datetime(2026, 11, 15, 11, 42, tzinfo=timezone.utc).timestamp()
 HOSSEGOR = "soorts-hossegor-plage-sud-point-d-or"
 
