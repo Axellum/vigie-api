@@ -347,7 +347,8 @@ async def check_flood(client: httpx.AsyncClient) -> Result:
 async def check_air_quality(client: httpx.AsyncClient) -> Result:
     """Open-Meteo Air Quality: at least one air quality value (the parser raises otherwise)."""
     air = await OpenMeteoAirQualityCollector()._collect(client, lat=LAND[0], lon=LAND[1])
-    return Result("open_meteo_aqi", "ok", f"EAQI {air.european_aqi}, PM10 {air.pm10_ugm3}")
+    pollen_note = f", pollens {len(air.pollens.daily)}d" if air.pollens else ""
+    return Result("open_meteo_aqi", "ok", f"EAQI {air.european_aqi}, PM10 {air.pm10_ugm3}{pollen_note}")
 
 
 async def check_met_norway(client: httpx.AsyncClient) -> Result:

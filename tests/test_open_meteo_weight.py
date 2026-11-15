@@ -108,17 +108,21 @@ def test_the_hourly_cloud_cover_rides_in_the_daily_request_for_free() -> None:
 @pytest.mark.asyncio
 async def test_weight_of_the_other_open_meteo_requests() -> None:
     air = Provider({"current": {"european_aqi": 31, "pm10": 14.0}})
+    air_outside = Provider({"current": {"european_aqi": 22, "pm10": 8.0}})
     flood = Provider({"daily": {"river_discharge": [42.0], "river_discharge_mean": [40.0], "river_discharge_max": [46.0]}})
     marine = Provider(samples.marine_payload())
     air_collector = OpenMeteoAirQualityCollector(http_client=air.client())
+    air_outside_collector = OpenMeteoAirQualityCollector(http_client=air_outside.client())
     flood_collector = OpenMeteoFloodCollector(http_client=flood.client())
     marine_collector = OpenMeteoMarineCollector(http_client=marine.client())
 
     await air_collector.fetch_air_quality(48.85, 2.35)
+    await air_outside_collector.fetch_air_quality(40.71, -74.01)
     await flood_collector.fetch_flood_risk(48.85, 2.35)
     await marine_collector.fetch_marine(48.85, 2.35)
 
-    assert air_collector.call_weight(air.query()) == 1.0  # 6 variables
+    assert air_collector.call_weight(air.query()) == 1.2  # 6 current + 6 hourly pollen variables over 4 days in CAMS Europe
+    assert air_outside_collector.call_weight(air_outside.query()) == 1.0  # 6 current variables outside CAMS Europe
     assert flood_collector.call_weight(flood.query()) == 1.0  # 3 variables, 7 days
     assert marine_collector.call_weight(marine.query()) == 1.0  # 9 variables, the sea temperature among them
     assert "sea_surface_temperature" in marine.query()["current"].split(",")

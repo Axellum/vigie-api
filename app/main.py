@@ -62,6 +62,7 @@ Endpoints:
 - ``GET    /v1/fires/grid``        : the same detections counted per cell, for small zooms. Both are off with ``VIGIE_ENABLE_FIRMS=0``.
 - ``GET    /v1/drought``           : French drought restriction zones, decrees and water-usage rules (VigiEau, Licence Ouverte 2.0) for a position (``lat, lon``) or commune INSEE code.
 - ``GET    /v1/drought/departments``: French departmental maximum drought levels (101 departments) from VigiEau.
+- ``GET    /v1/pollens``           : European pollen concentrations and 4-day daily peaks (CAMS Europe via Open-Meteo Air Quality); ``outside_coverage`` outside Europe with zero upstream calls.
 - ``GET    /v1/cap/alerts``        : OASIS CAP 1.2 (Common Alerting Protocol).
 - ``GET    /v1/vigilances``        : Official national weather warnings (MeteoAlarm, DWD, ECCC, MetService, NWS, the Vigicrues
                                      river floods of France, and the national services of the WMO registry) for a point
@@ -123,6 +124,7 @@ from app.models.events import EventsResponse, FamiliesResponse
 from app.models.fires import FiresCollection, FiresGrid
 from app.models.forecast import HazardForecast
 from app.models.places import WatchedPoint, WatchedPointUpsertRequest
+from app.models.pollens import PollensResponse
 from app.models.prealert import PrealertResponse
 from app.models.schemas import (
     CAPFeedResponse,
@@ -1463,6 +1465,25 @@ async def get_drought_departments(
         )
     except CollectorUnavailableError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from None
+
+
+@app.get(
+    "/v1/pollens",
+    response_model=PollensResponse,
+    tags=["Embedded & GPS"],
+    description=(
+        "European pollen observations and up-to-4-day daily peak forecast (alder, birch, grass, mugwort, olive, ragweed, "
+        "in grains/m3) from Copernicus CAMS Europe through the Open-Meteo Air Quality API. Shares the 0.1 degree air quality "
+        "cache with `GET /v1/point`. Positions outside CAMS Europe (~30 N..72 N, 25 W..45 E) return `outside_coverage` "
+        "with zero upstream calls and `pollens: null`. Informative only: never alters `local_alert_level`."
+    ),
+)
+async def get_pollens(
+    lat: float = Query(..., ge=-90.0, le=90.0, description="WGS84 latitude"),
+    lon: float = Query(..., ge=-180.0, le=180.0, description="WGS84 longitude"),
+) -> PollensResponse:
+    """European pollen concentrations and 4-day daily peak forecast for a GPS position."""
+    return await aggregator.get_pollens(lat=lat, lon=lon)
 
 
 @app.get("/v1/cap/alerts", response_model=CAPFeedResponse, tags=["Standards"])
