@@ -309,6 +309,13 @@ CREDITS: dict[str, Credit] = {
             "Source: VigiEau, Ministère de la Transition écologique (https://vigieau.gouv.fr). Licence Ouverte 2.0",
             "ours",
         ),
+        Credit(
+            "gaspar_catnat",
+            "GASPAR CatNat (TACCT extraction on data.gouv.fr) and API Découpage Administratif (DINUM/Etalab)",
+            "Source: Arrêtés de catastrophe naturelle par commune (TACCT / GASPAR extraction, 2026-07-20, Licence Ouverte 2.0); "
+            "commune centroids from API Découpage Administratif (DINUM/Etalab, Licence Ouverte 2.0)",
+            "ours",
+        ),
         # The travel advice of the foreign ministries (SOURCES.md, "Travel advice").
         Credit(
             "travel_gb",
@@ -403,6 +410,7 @@ ECLIPSES = ("nasa_eclipses",)
 RADAR = ("rainviewer",)
 FIRES = ("nasa_firms",)
 DROUGHT = ("vigieau",)
+GASPAR_CATNAT = ("gaspar_catnat",)
 PREALERT = ("ecmwf_opendata",)
 TIDES = ("eot20",)
 TIDES_CALIBRATED = ("eot20", "refmar_tides")

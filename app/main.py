@@ -18,6 +18,7 @@ Endpoints:
 - ``GET    /v1/watched-points/status`` : For each point, the events of the last days within its radius, and "quiet" only when
                                      every hazard source answered and has been read without a gap.
 - ``GET    /v1/history``           : Hazard history from SQLite, with filters.
+- ``GET    /v1/history/catnat``    : Historical French natural disaster decrees (GASPAR CatNat, 1982-2025) by position or INSEE commune code.
 - ``GET    /v1/point``             : Weather at a GPS position (``lat, lon``): 15-minute rain, radar,
                                      marine (``marine=true``), river discharge, air quality / ash,
                                      space weather and nearby hazards.
@@ -111,6 +112,7 @@ from app import __version__, clock
 from app.collectors.base import CollectorUnavailableError
 from app.models.activities import ActivitiesForecast, ActivitiesOverview, BoatCategory
 from app.models.buoys import SpotBuoyReading, SpotBuoys
+from app.models.catnat import CatNatHazardType, CatNatHistoryResponse
 from app.models.drought import (
     DroughtDepartmentsResponse,
     DroughtLevel,
@@ -162,6 +164,7 @@ from app.services import activities, buoys, sea_places, stations, surf, surf_cor
 from app.services import activities_overview as activities_summary
 from app.services import earthquakes as quakes
 from app.services.aggregator import AggregatorService
+from app.services.catnat import UnknownCommuneError, query_catnat_history
 from app.services.events import FAMILIES, FAMILIES_NOTE, FAMILY_IDS, WORLD_MIN_IMPACT
 from app.services.fires import (
     CELL_SIZES,
@@ -516,6 +519,77 @@ async def get_hazards_history(
 ) -> HistoryResponse:
     """Query the SQLite history of de-duplicated world hazards."""
     return aggregator.get_history(category=category, min_severity=min_severity, limit=limit)
+
+
+CATNAT_DESCRIPTION = (
+    "Historical French natural disaster recognition decrees (arrêtés de catastrophe naturelle / GASPAR CatNat, 1982–2025) "
+    "from the bundled offline TACCT extraction on data.gouv.fr (Licence Ouverte 2.0) paired with commune centroids from "
+    "DINUM/Etalab API Découpage Administratif. Ask either for a WGS84 position (`lat` and `lon`, matched to the nearest "
+    "commune centroid within French coverage) or for a 5-character French INSEE `commune` code (e.g. `75056`, `64122`, `2A004`). "
+    "Covers the 101 French metropolitan and overseas departments (`FR`, `GP`, `MQ`, `GF`, `RE`, `YT`); queries outside those "
+    "territories return `status: outside_coverage` with `null` counts rather than fabricated zeros. Filter locally by "
+    "`hazard_type`, `since_year`, `until_year`, and paginate with `limit` (`0` returns summary counts only) and `offset`. "
+    "Official decrees published in the Journal officiel and Géorisques remain authoritative."
+)
+
+
+@app.get(
+    "/v1/history/catnat",
+    response_model=CatNatHistoryResponse,
+    tags=["History"],
+    description=CATNAT_DESCRIPTION,
+    responses={
+        404: {"description": "Unknown 5-character French INSEE commune code in covered departments."},
+        422: {"description": "Provide either (`lat`, `lon`) or `commune`, not both, or invalid filter range."},
+    },
+)
+async def get_catnat_history(
+    response: Response,
+    lat: Optional[float] = Query(default=None, ge=-90.0, le=90.0, description="WGS84 latitude (paired with `lon`)"),
+    lon: Optional[float] = Query(default=None, ge=-180.0, le=180.0, description="WGS84 longitude (paired with `lat`)"),
+    commune: Optional[str] = Query(
+        default=None,
+        min_length=5,
+        max_length=5,
+        pattern=r"^([0-9]{5}|2[ABab][0-9]{3})$",
+        description="French 5-character INSEE commune code (e.g. `75056`, `2A004`), asked instead of `lat`/`lon`",
+    ),
+    hazard_type: Optional[CatNatHazardType] = Query(
+        default=None,
+        description="Filter decrees locally by hazard category (`floods`, `drought`, `landslides`, `storms_cyclones`, `hail_snow`, `clay_shrink_swell`, `avalanche`, `other`)",
+    ),
+    since_year: Optional[int] = Query(default=None, ge=1982, le=2100, description="Keep decrees whose start year is >= `since_year`"),
+    until_year: Optional[int] = Query(default=None, ge=1982, le=2100, description="Keep decrees whose start year is <= `until_year`"),
+    limit: int = Query(default=50, ge=0, le=500, description="Maximum decrees returned (`0` returns summary only)"),
+    offset: int = Query(default=0, ge=0, description="Offset into the filtered decrees list (newest first)"),
+) -> CatNatHistoryResponse:
+    """Historical French GASPAR CatNat decrees and summary counts for a commune or position."""
+    has_coords = lat is not None or lon is not None
+    if has_coords and (lat is None or lon is None):
+        raise HTTPException(status_code=422, detail="lat and lon must be provided together")
+    if has_coords and commune is not None:
+        raise HTTPException(status_code=422, detail="Pass either (lat, lon) or commune, not both")
+    if not has_coords and commune is None:
+        raise HTTPException(status_code=422, detail="Provide either (lat, lon) or commune")
+
+    try:
+        result = query_catnat_history(
+            lat=lat,
+            lon=lon,
+            commune=commune,
+            hazard_type=hazard_type,
+            since_year=since_year,
+            until_year=until_year,
+            limit=limit,
+            offset=offset,
+        )
+    except UnknownCommuneError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from None
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+
+    response.headers["Cache-Control"] = "public, max-age=86400"
+    return result
 
 
 @app.get("/v1/point", response_model=PointResponse, tags=["Embedded & GPS"])
