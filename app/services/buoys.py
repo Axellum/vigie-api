@@ -17,7 +17,8 @@ from typing import Any, Optional
 from app.attribution import credit_text
 from app.collectors.base import CollectorUnavailableError
 from app.collectors.candhis import BuoyReading, CandhisCollector
-from app.models.buoys import Buoy, BuoyMeasure, SpotBuoy, SpotBuoyReading, SpotBuoys
+from app.collectors.surf import SurfForecastCollector
+from app.models.buoys import Buoy, BuoyForecastComparison, BuoyMeasure, SpotBuoy, SpotBuoyReading, SpotBuoys
 from app.services import surf
 from app.services.geodesy import haversine_km
 
@@ -27,6 +28,7 @@ MAX_COMPARABLE_KM = 30.0
 # Both are settings of ours. CANDHIS gives one record an hour (30 minutes for some buoys): three hours is a missed transmission or two.
 MAX_AGE_S = 3 * 3600
 MAX_AHEAD_S = 30 * 60
+COMPARE_MAX_DIFF_S = 30 * 60  # a buoy record is compared with the hourly forecast step within 30 minutes of `measured_utc`
 READING_NOTE = (
     "The buoy is the nearest located buoy whose latest record is at most `max_age_hours` old: a nearer buoy that has stopped is passed "
     "over. Only the buoys of the CANDHIS list of 2024-12-03 have a position here; another one is not used. The distance, `comparable` and "
@@ -67,22 +69,76 @@ def _measure(reading: BuoyReading, now_unix: float) -> BuoyMeasure:
     )
 
 
-async def spot_reading(collector: Optional[CandhisCollector], spot_id: str, now_unix: float) -> SpotBuoyReading:
+async def _compare_with_forecast(
+    surf_collector: SurfForecastCollector, spot: surf.SurfSpot, reading: BuoyReading
+) -> BuoyForecastComparison:
+    """Compare ``reading`` with the spot's MFWAM wave forecast at the nearest hour within ``COMPARE_MAX_DIFF_S``."""
+    try:
+        swell, swell_stale = await surf_collector.fetch_swell(spot.id, spot.lat, spot.lon)
+    except Exception:  # noqa: BLE001 - a failing forecast never fails the buoy reading
+        return BuoyForecastComparison(status="unavailable", swell_model=surf.SWELL_MODEL)
+    cell = None
+    if swell.get("model_lat") is not None and swell.get("model_lon") is not None:
+        cell = {"lat": float(swell["model_lat"]), "lon": float(swell["model_lon"])}
+    times: list[int] = swell.get("times") or []
+    matching = [(abs(t - reading.measured_utc), i, t) for i, t in enumerate(times) if abs(t - reading.measured_utc) <= COMPARE_MAX_DIFF_S]
+    if not matching:
+        return BuoyForecastComparison(status="no_matching_hour", swell_model=surf.SWELL_MODEL, swell_cell=cell, stale=swell_stale)
+    _, index, forecast_time = min(matching, key=lambda item: item[0])
+    wave_h = surf._round(surf._at(swell, "wave_height", index), 2)
+    wave_p = surf._round(surf._at(swell, "wave_period", index), 1)
+    swell_h = surf._round(surf._at(swell, "swell_wave_height", index), 2)
+    swell_p = surf._round(surf._at(swell, "swell_wave_period", index), 1)
+    swell_dir = surf._direction(surf._at(swell, "swell_wave_direction", index))
+    height_diff = None if wave_h is None else round(reading.height_m - wave_h, 2)
+    height_ratio = None if wave_h is None or wave_h <= 0 else round(reading.height_m / wave_h, 2)
+    dir_diff = (
+        None
+        if reading.direction_deg is None or swell_dir is None
+        else int(round(surf.angle_between(reading.direction_deg, swell_dir)))
+    )
+    return BuoyForecastComparison(
+        status="ok",
+        swell_model=surf.SWELL_MODEL,
+        swell_cell=cell,
+        forecast_time_utc=forecast_time,
+        model_wave_height_m=wave_h,
+        height_diff_m=height_diff,
+        height_ratio=height_ratio,
+        model_wave_period_s=wave_p,
+        model_swell_height_m=swell_h,
+        model_swell_period_s=swell_p,
+        model_swell_from_deg=swell_dir,
+        direction_diff_deg=dir_diff,
+        stale=swell_stale,
+    )
+
+
+async def spot_reading(
+    collector: Optional[CandhisCollector],
+    spot_id: str,
+    now_unix: float,
+    surf_collector: Optional[SurfForecastCollector] = None,
+    compare: bool = False,
+) -> SpotBuoyReading:
     """The latest record of the nearest buoy that has a current one, for a surf spot (``surf.UnknownSpot`` for an unknown id).
     Never raises for a provider that fails: ``status`` says why there is no record."""
     spot = surf.find_spot(spot_id)
+    base_derived = ["buoy", "distance_km", "comparable", "age_minutes", "measured_at", "max_age_hours", "max_comparable_km"]
 
-    def answer(status: str, **more: Any) -> SpotBuoyReading:
+    def answer(status: str, comparison: Optional[BuoyForecastComparison] = None, **more: Any) -> SpotBuoyReading:
+        credits = ("candhis_tr", "copernicus_mfwam", "open_meteo") if comparison and comparison.status == "ok" else ("candhis_tr",)
         return SpotBuoyReading(
             spot_id=spot.id,
             spot_name=spot.name,
             status=status,  # type: ignore[arg-type]
+            comparison=comparison,
             max_age_hours=MAX_AGE_S / 3600,
             max_comparable_km=MAX_COMPARABLE_KM,
             note=READING_NOTE,
-            derived=["buoy", "distance_km", "comparable", "age_minutes", "measured_at", "max_age_hours", "max_comparable_km"],
+            derived=[*base_derived, "comparison"] if comparison is not None else base_derived,
             licence="Licence Ouverte 2.0",
-            attribution=credit_text("candhis_tr"),
+            attribution=credit_text(*credits),
             **more,
         )
 
@@ -102,8 +158,10 @@ async def spot_reading(collector: Optional[CandhisCollector], spot_id: str, now_
     if not candidates:
         return answer("no_current_reading", stale=latest.stale, complete=complete)
     distance, buoy, reading = min(candidates, key=lambda c: c[0])
+    comparison = await _compare_with_forecast(surf_collector, spot, reading) if compare and surf_collector is not None else None
     return answer(
         "ok",
+        comparison=comparison,
         buoy=buoy,
         distance_km=round(distance, 1),
         comparable=distance <= MAX_COMPARABLE_KM,
