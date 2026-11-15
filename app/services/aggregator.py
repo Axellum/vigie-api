@@ -58,6 +58,7 @@ from app.collectors.health import ECDCHealthCollector
 from app.collectors.marine import OpenMeteoMarineCollector
 from app.collectors.meteoalarm import MeteoAlarmCapCollector, MeteoAlarmCollector
 from app.collectors.meteofrance import MeteoFranceVigilanceCollector, meteofrance_key_from_env
+from app.collectors.meteofrance_obs import MeteoFranceObsCollector, meteofrance_obs_key_from_env
 from app.collectors.metservice import MetServiceCollector, metservice_enabled_from_env
 from app.collectors.nhc import NHCCollector
 from app.collectors.refmar import RefmarCollector
@@ -213,6 +214,7 @@ class AggregatorService:
         eccc: Optional[ECCCCollector] = None,
         metservice: Optional[MetServiceCollector] = None,
         meteofrance: Optional[MeteoFranceVigilanceCollector] = None,
+        meteofrance_obs: Optional[MeteoFranceObsCollector] = None,
         vigicrues: Optional[VigicruesCollector] = None,
         nhc: Optional[NHCCollector] = None,
         tsunami: Optional[TsunamiCollector] = None,
@@ -293,6 +295,15 @@ class AggregatorService:
         if meteofrance is None and mf_key is not None:
             meteofrance = MeteoFranceVigilanceCollector(mf_key)
         self.meteofrance = meteofrance
+        mf_obs_key, mf_obs_problem = meteofrance_obs_key_from_env()
+        if mf_obs_problem is not None:
+            log.warning(mf_obs_problem)
+        self.meteofrance_obs_off_reason = (
+            "no Météo-France observation key: set VIGIE_METEOFRANCE_OBS_API_KEY (or VIGIE_METEOFRANCE_API_KEY, DPPaquetObs v1)"
+        )
+        if meteofrance_obs is None and mf_obs_key is not None:
+            meteofrance_obs = MeteoFranceObsCollector(mf_obs_key)
+        self.meteofrance_obs = meteofrance_obs
         self.vigicrues = vigicrues or VigicruesCollector()
         self.nhc = nhc or NHCCollector()
         self.tsunami = tsunami or TsunamiCollector()
@@ -516,6 +527,8 @@ class AggregatorService:
             collectors.append(self.candhis)
         if self.meteofrance is not None:
             collectors.append(self.meteofrance)
+        if self.meteofrance_obs is not None:
+            collectors.append(self.meteofrance_obs)
         return [c for c in collectors if c not in off]
 
     def disabled_sources(self) -> list[dict[str, str]]:
@@ -546,6 +559,15 @@ class AggregatorService:
                     "name": "Météo-France Vigilance (DPVigilance v1)",
                     "domain": "vigilance",
                     "reason": self.meteofrance_off_reason,
+                }
+            )
+        if self.meteofrance_obs is None:
+            off.append(
+                {
+                    "provider_id": "meteofrance_obs",
+                    "name": "Météo-France 6-minute observations (DPPaquetObs)",
+                    "domain": "weather",
+                    "reason": self.meteofrance_obs_off_reason,
                 }
             )
         return off

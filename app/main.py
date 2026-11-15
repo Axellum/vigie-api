@@ -43,6 +43,8 @@ Endpoints:
 - ``GET    /v1/surf/spots/{id}``   : The hourly surf forecast of a spot (MFWAM swell, wind, tide) with a rating of ours, explained.
 - ``GET    /v1/surf/buoys``        : The nearest CANDHIS wave buoy of each surf spot and its distance (the list only).
 - ``GET    /v1/surf/spots/{id}/buoy`` : The latest record (height, period, direction, sea temperature) of the nearest buoy of a spot that has a current one.
+- ``GET    /v1/surf/stations``     : The nearest Météo-France coastal weather station of each surf spot and its distance (the list only).
+- ``GET    /v1/surf/spots/{id}/station`` : The latest 6-minute observation (wind speed, gusts, direction, relative regime, air temperature, pressure) of the nearest coastal station of a spot, with optional live comparison against the wind forecast (`compare=true`).
 - ``GET    /v1/sea/places``        : The ports, slipways, anchorages, dive sites and bathing sites of the French coast (OpenStreetMap, Sandre, QSB).
 - ``GET    /v1/sea/places/{id}``   : One of them.
 - ``GET    /v1/activities/{id}``   : A verdict hour by hour for surf, kite, boat and shore fishing at a spot, with the tide and the
@@ -129,6 +131,7 @@ from app.models.schemas import (
 )
 from app.models.sea_places import PlaceAnswer, PlaceList, PlaceType
 from app.models.sky import AuroraOvalCollection, AuroraResponse, EclipseDetail, EclipseList, EclipseMapCollection
+from app.models.stations import SpotStationReading, SpotStations
 from app.models.surf import SurfForecast, SurfOverview, SurfSpots, TidePreference
 from app.models.tides import CoastalTides, TidesResponse
 from app.models.travel import TravelCountryDetail, TravelHealth, TravelOverview
@@ -145,7 +148,7 @@ from app.models.vigilance import (
 from app.models.watch import WatchedPointsStatus
 from app.routers.dashboard import router as dashboard_router
 from app.security import AdminTokenMiddleware, admin_token, document_admin_token
-from app.services import activities, buoys, sea_places, surf, surf_correction, tide_correction, tides
+from app.services import activities, buoys, sea_places, stations, surf, surf_correction, tide_correction, tides
 from app.services import activities_overview as activities_summary
 from app.services import earthquakes as quakes
 from app.services.aggregator import AggregatorService
@@ -878,6 +881,54 @@ async def get_spot_buoy(
     """The latest record of the nearest current buoy of a spot."""
     try:
         answer = await buoys.spot_reading(aggregator.candhis, spot_id, clock.wall(), aggregator.surf, compare)
+    except surf.UnknownSpot:
+        raise HTTPException(status_code=404, detail=f"no surf spot {spot_id!r}") from None
+    response.headers["Cache-Control"] = SURF_CACHE
+    return answer
+
+
+@app.get(
+    "/v1/surf/stations",
+    response_model=SpotStations,
+    tags=["Sea"],
+    description=(
+        "For each surf spot, the nearest open real-time coastal weather station of Météo-France (`POSTES_MF.csv`, Licence Ouverte 2.0) "
+        "and how far it is. The distances and `comparable` (`<= max_comparable_km`) are calculated by Vigie; local terrain between the "
+        "station and the beach is not judged. The list only: the 6-minute observation of a station is `GET /v1/surf/spots/{id}/station`."
+    ),
+)
+async def get_surf_stations(response: Response) -> SpotStations:
+    """The nearest coastal weather station of every surf spot."""
+    response.headers["Cache-Control"] = SURF_CACHE
+    return await clock.run_blocking(stations.spot_stations)
+
+
+@app.get(
+    "/v1/surf/spots/{spot_id}/station",
+    response_model=SpotStationReading,
+    tags=["Sea"],
+    responses={404: {"description": "No spot has this id (`GET /v1/surf/spots` lists them)."}},
+    description=(
+        "The latest 6-minute observation (`DPPaquetObs/v1/paquet/infrahoraire-6m`, Météo-France, Licence Ouverte 2.0) of the nearest "
+        "coastal station that has a current wind reading, beside a surf spot: 10 m wind speed, 10 m gust, wind direction, relative wind "
+        "regime (`offshore`, `cross-shore`, `onshore` against the spot's `facing_deg`), air temperature, relative humidity, sea-level "
+        "pressure and 6-minute precipitation. With `compare=true`, `comparison` compares the station's wind with the spot's hourly wind "
+        "forecast at the nearest hour (speed difference, gust difference, direction difference and whether the wind regime matches). "
+        "`DPPaquetObs` is read at most once every 6 minutes for every client (a key is needed: without `VIGIE_METEOFRANCE_OBS_API_KEY` or "
+        "`VIGIE_METEOFRANCE_API_KEY` on this instance `status` is `not_configured`). **Not for safety.**"
+    ),
+)
+async def get_spot_station(
+    response: Response,
+    spot_id: str,
+    compare: bool = Query(
+        default=False,
+        description="Compare the current station wind reading with the spot's hourly wind forecast at the nearest hour (within 30 minutes of `measured_utc`).",
+    ),
+) -> SpotStationReading:
+    """The latest 6-minute observation of the nearest coastal station of a spot."""
+    try:
+        answer = await stations.spot_reading(aggregator.meteofrance_obs, spot_id, clock.wall(), aggregator.surf, compare)
     except surf.UnknownSpot:
         raise HTTPException(status_code=404, detail=f"no surf spot {spot_id!r}") from None
     response.headers["Cache-Control"] = SURF_CACHE
