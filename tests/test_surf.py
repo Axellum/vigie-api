@@ -269,17 +269,62 @@ def test_the_forecast_route(client: TestClient, monkeypatch: pytest.MonkeyPatch)
 
 def test_the_bundled_spot_file_is_sound() -> None:
     data = json.loads(surf.SPOTS_FILE.read_text(encoding="utf-8"))
-    assert data["licence"] == "ODbL-1.0" and data["attribution"] == "© OpenStreetMap contributors"
+    assert data["licence"] == "ODbL-1.0 / Licence Ouverte 2.0"
+    assert "© OpenStreetMap contributors" in data["attribution"]
+    assert "GIP Littoral" in data["attribution"] and "HOM_GEOL_NATURES_FOND_50" in data["attribution"]
     ids = [s["id"] for s in data["spots"]]
-    assert len(ids) == len(set(ids)) >= 40
+    assert len(ids) == len(set(ids)) >= 150
+    bottoms = 0
     for spot in data["spots"]:
         assert 43.3 <= spot["lat"] <= 51.2 and -5.3 <= spot["lon"] <= 2.7, spot["id"]
         assert 0 <= spot["facing_deg"] < 360
-        assert spot["evidence"] and all(e["kind"] in ("spot", "school") for e in spot["evidence"])
+        assert spot["open_water_sectors"] and 0 < spot["open_water_width_deg"] <= 360, spot["id"]
+        for a, b in spot["open_water_sectors"]:
+            assert 0 <= a < 360 and 0 <= b < 360
+        assert spot["evidence"] and all(e["kind"] in ("spot", "school", "beach") for e in spot["evidence"])
+        assert spot["bottom"] in (None, "sand", "rock", "gravel", "mixed", "mud")
+        if spot["bottom"] is not None:
+            bottoms += 1
         # Nothing no open source gives: unknown until someone gives it with a source.
-        assert spot["bottom"] is None and spot["best_tide"] is None and spot["best_swell_from_deg"] is None
+        assert spot["best_tide"] is None and spot["best_swell_from_deg"] is None
         # A corrected name keeps OpenStreetMap's beside it.
         assert spot["osm_name"] is None or spot["osm_name"] != spot["name"]
+    assert bottoms >= len(data["spots"]) // 2
+
+
+def test_the_bundled_spots_route_credits_all_sources_and_keeps_calibration_ids() -> None:
+    surf.spot_file.cache_clear()
+    try:
+        listed = surf.spots()
+    finally:
+        surf.spot_file.cache_clear()
+    assert listed.count >= 150
+    assert listed.attribution == surf.credit_text(*surf.SURF_SPOTS)
+    by_id = {spot.id: spot for spot in listed.spots}
+    cal = json.loads((Path(__file__).resolve().parents[1] / "app" / "data" / "surf-calibration.json").read_text(encoding="utf-8"))
+    assert set(entry["spot_id"] for entry in cal["pairs"]) <= set(by_id)
+    rochebonne = by_id["saint-malo-plage-de-rochebonne"]
+    assert rochebonne.open_water_sectors and rochebonne.open_water_width_deg and rochebonne.open_water_width_deg < 120
+
+
+def test_is_swell_sheltered_and_forecast_flag(spot_file: dict[str, Any]) -> None:
+    assert surf.is_swell_sheltered(None, [[265, 275], [285, 0]]) is None
+    assert surf.is_swell_sheltered(290, None) is None
+    assert surf.is_swell_sheltered(290, []) is True
+    sectors = [[265, 275], [285, 0]]
+    assert surf.is_swell_sheltered(290, sectors) is False
+    assert surf.is_swell_sheltered(0, sectors) is False
+    assert surf.is_swell_sheltered(270, sectors) is False
+    assert surf.is_swell_sheltered(280, sectors) is True  # island shadow between two sectors
+    assert surf.is_swell_sheltered(90, sectors) is True
+
+    base = surf.find_spot("hossegor-plage-centrale")
+    # SWELL hour 0 has primary swell from 294 deg: inside [[280, 340]] (exposed), outside [[200, 280]] (sheltered).
+    exposed = surf.build_forecast(base.model_copy(update={"open_water_sectors": [[280, 340]]}), parse_swell(SWELL), parse_wind(WIND), 1, NOW)
+    sheltered = surf.build_forecast(base.model_copy(update={"open_water_sectors": [[200, 280]]}), parse_swell(SWELL), parse_wind(WIND), 1, NOW)
+    assert "hours.swell_sheltered" in exposed.derived
+    assert exposed.hours[0].swell_sheltered is False
+    assert sheltered.hours[0].swell_sheltered is True
 
 
 # ------------------------------------------------------------------------------------------------------------- corrected names

@@ -1,7 +1,7 @@
 {
  "source": "Météo-France, file 'POSTES_MF.csv' (dataset 66ebf2cb9dd6916802ae90a1 on data.gouv.fr)",
  "licence": "Licence Ouverte 2.0",
- "count": 77,
+ "count": 80,
  "stations": [
   {
    "id": "17093002",
@@ -346,6 +346,15 @@
    "kind": 2
   },
   {
+   "id": "33314005",
+   "name": "PAUILLAC",
+   "commune": "PAUILLAC",
+   "lat": 45.21433,
+   "lon": -0.78283,
+   "alt_m": 26,
+   "kind": 1
+  },
+  {
    "id": "33494001",
    "name": "SALAUNES",
    "commune": "SALAUNES",
@@ -434,6 +443,15 @@
    "lon": -1.07,
    "alt_m": 31,
    "kind": 0
+  },
+  {
+   "id": "40134001",
+   "name": "LABOUHEYRE DFCI",
+   "commune": "LABOUHEYRE",
+   "lat": 44.21333,
+   "lon": -0.91533,
+   "alt_m": 72,
+   "kind": 2
   },
   {
    "id": "40243001",
@@ -695,6 +713,15 @@
    "lon": -1.99983,
    "alt_m": 2,
    "kind": 1
+  },
+  {
+   "id": "85216001",
+   "name": "SAINTE GEMME LA PLAINE_SAPC",
+   "commune": "SAINTE-GEMME-LA-PLAINE",
+   "lat": 46.44017,
+   "lon": -1.12133,
+   "alt_m": 3,
+   "kind": 2
   }
  ]
 }

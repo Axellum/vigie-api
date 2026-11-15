@@ -77,9 +77,9 @@ def collector_with(payload: Any = SAMPLE_PAQUET, status_code: int = 200) -> tupl
 
 def test_every_spot_has_its_nearest_coastal_station() -> None:
     answer = stations.spot_stations()
-    assert answer.count == len(answer.spots) == 51
+    assert answer.count == len(answer.spots) == 171
     for row in answer.spots:
-        assert 0 <= row.distance_km <= 35.0
+        assert 0 <= row.distance_km <= 36.0
         assert row.comparable == (row.distance_km <= stations.MAX_COMPARABLE_KM)
     assert answer.within_15_km == sum(r.distance_km <= 15 for r in answer.spots)
     assert answer.within_25_km == sum(r.distance_km <= 25 for r in answer.spots)
@@ -88,7 +88,7 @@ def test_every_spot_has_its_nearest_coastal_station() -> None:
 
 def test_stations_list_route() -> None:
     body = TestClient(app).get("/v1/surf/stations").json()
-    assert body["count"] == 51 and "POSTES_MF.csv" in body["attribution"] and "distance_km" in body["derived"]
+    assert body["count"] == 171 and "POSTES_MF.csv" in body["attribution"] and "distance_km" in body["derived"]
 
 
 def test_key_from_env_prefers_obs_key_and_falls_back_to_meteofrance_key() -> None:

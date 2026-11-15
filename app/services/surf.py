@@ -1,11 +1,12 @@
 """The surf forecast of a spot: the providers' swell and wind, the tide computed by Vigie, and a rating of ours, explained.
 
-The spots are ``app/data/surf-spots.json`` (``tools/build_spots.py``: OpenStreetMap, ODbL). For each hour of the days asked:
-the sea state, the primary and secondary swell and the wind waves (MFWAM), the wind (Open-Meteo), the tide (EOT20), and what
-Vigie works out from them, named in ``derived``. The rating gives each criterion its points by the thresholds of ``RULES``
-(ours, not a surf school's), leaves out a criterion whose value is unknown and says so, and never guesses a value.
+The spots are ``app/data/surf-spots.json`` (``tools/build_spots.py``: OpenStreetMap, GIP Littoral and SHOM Natures de fond 1/50 000).
+For each hour of the days asked: the sea state, the primary and secondary swell and the wind waves (MFWAM), the wind (Open-Meteo),
+the tide (EOT20), and what Vigie works out from them, named in ``derived``. The rating gives each criterion its points by the
+thresholds of ``RULES`` (ours, not a surf school's), leaves out a criterion whose value is unknown and says so, and never guesses
+a value.
 
-The overview (``overview``) gives every spot at once, from one request per kind for all of them (``SurfForecastCollector.fetch_all``):
+The overview (``overview``) gives every spot at once, from one request per grid cell for all of them (``SurfForecastCollector.fetch_all``):
 the current hour in short and the best slot of the next three days. It is worked out once per hour and per answer of the providers.
 """
 
@@ -21,7 +22,7 @@ from typing import Any, Literal, Optional
 import numpy as np
 
 from app import clock
-from app.attribution import SURF, credit_text
+from app.attribution import SURF, SURF_SPOTS, credit_text
 from app.collectors.surf import MARINE_MODEL, SurfForecastCollector
 from app.models.surf import (
     Criterion,
@@ -78,10 +79,14 @@ RULES: dict[str, str] = {
 }
 DERIVED = [
     "spot.facing_deg",
+    "spot.open_water_sectors",
+    "spot.open_water_width_deg",
+    "spot.bottom",
     "spot.place",
     "hours.daylight",
     "hours.swell_power_kw_m",
     "hours.swell_angle_deg",
+    "hours.swell_sheltered",
     "hours.secondary_swell_power_kw_m",
     "hours.secondary_swell_angle_deg",
     "hours.wind.relative",
@@ -114,8 +119,12 @@ def _spot(raw: dict[str, Any]) -> SurfSpot:
         lat=raw["lat"],
         lon=raw["lon"],
         facing_deg=raw["facing_deg"],
+        open_water_sectors=raw.get("open_water_sectors"),
+        open_water_width_deg=raw.get("open_water_width_deg"),
         beach_surface=raw.get("beach_surface"),
         bottom=raw.get("bottom"),
+        seafloor_shom=raw.get("seafloor_shom"),
+        lifeguarded=raw.get("lifeguarded"),
         best_tide=raw.get("best_tide"),
         best_swell_from_deg=raw.get("best_swell_from_deg"),
         osm=raw["osm"],
@@ -126,13 +135,24 @@ def _spot(raw: dict[str, Any]) -> SurfSpot:
 def spots() -> SurfSpots:
     data = spot_file()
     listed = [_spot(raw) for raw in data["spots"]]
+    has_gip = any(any(e.source == "gip_littoral" for e in s.evidence) for s in listed) or "GIP Littoral" in str(data.get("source", ""))
+    has_shom = any(s.seafloor_shom is not None or s.bottom is not None for s in listed) or "SHOM" in str(data.get("source", ""))
+    if has_gip and has_shom:
+        attribution = credit_text(*SURF_SPOTS)
+    else:
+        keys = ["osm_spots"]
+        if has_gip:
+            keys.append("gip_littoral_plages")
+        if has_shom:
+            keys.append("shom_ndf")
+        attribution = credit_text(*keys)
     return SurfSpots(
         count=len(listed),
         built_utc=data["built_utc"],
         spots=listed,
-        derived=["facing_deg", "place", "id"],
+        derived=list(data.get("derived") or ["facing_deg", "place", "id"]),
         licence=data["licence"],
-        attribution=credit_text("osm_spots"),
+        attribution=attribution,
     )
 
 
@@ -159,6 +179,18 @@ def wind_relative(from_deg: Optional[float], facing_deg: float) -> Optional[Lite
     if angle_between(from_deg, facing_deg) <= SIDE_DEG:
         return "onshore"
     return "cross-shore"
+
+
+def is_swell_sheltered(from_deg: Optional[int], open_sectors: Optional[list[list[int]]]) -> Optional[bool]:
+    """True when primary swell arrives from outside unobstructed sectors ``open_sectors`` (wrapping across 360->0)."""
+    if from_deg is None or open_sectors is None:
+        return None
+    deg = int(from_deg) % 360
+    for start, end in open_sectors:
+        a, b = int(start) % 360, int(end) % 360
+        if (a <= deg <= b) if a <= b else (deg >= a or deg <= b):
+            return False
+    return True
 
 
 def swell_power_kw_m(height_m: Optional[float], period_s: Optional[float]) -> Optional[float]:
@@ -403,6 +435,7 @@ def build_forecast(
                 wind_wave_height_m=_round(_at(swell, "wind_wave_height", s), 2),
                 swell_power_kw_m=swell_power_kw_m(primary.height_m, primary.period_s),
                 swell_angle_deg=None if angle is None else int(round(angle)),
+                swell_sheltered=is_swell_sheltered(primary.from_deg, spot.open_water_sectors),
                 secondary_swell_power_kw_m=swell_power_kw_m(secondary.height_m, secondary.period_s),
                 secondary_swell_angle_deg=None if secondary_angle is None else int(round(secondary_angle)),
                 wind=surf_wind,
@@ -543,7 +576,7 @@ async def overview(collector: SurfForecastCollector, now_unix: float) -> SurfOve
     memo = _overview_memo
     if memo is not None and memo[0] is swell_data and memo[1] is wind_data and memo[2] == hour:
         return memo[3]
-    # 51 spots of tide and rating: a fraction of a second of numpy, in a worker thread.
+    # Tide and rating across all bundled spots: a fraction of a second of numpy, in a worker thread.
     built = await clock.run_blocking(build_overview, swell_data, wind_data, now_unix, swell_stale or wind_stale)
     _overview_memo = (swell_data, wind_data, hour, built)
     return built

@@ -754,9 +754,12 @@ SURF_CACHE = "public, max-age=600"
     response_model=SurfSpots,
     tags=["Sea"],
     description=(
-        "The surf spots of the French Atlantic and Channel coasts: OpenStreetMap places to surf, and named beaches with a surf school "
-        "or club within 1 km (`evidence`), each with the direction it faces, worked out by Vigie from the OpenStreetMap coastline. "
-        "The bottom and the tide and swell a spot works best with are unknown (`null`): no open source gives them. ODbL 1.0."
+        "The surf spots and oceanic supervised beaches of the French Atlantic, Channel and North Sea coasts: OpenStreetMap surf places, "
+        "named beaches with a surf school or club within 1 km, and oceanic beaches from GIP Littoral Nouvelle-Aquitaine (`evidence`), "
+        "each with its coastline facing (`facing_deg`), 360-degree unobstructed open-water sectors over 20 km (`open_water_sectors`, "
+        "`open_water_width_deg`) worked out by Vigie, and nearshore seafloor category (`bottom`, `seafloor_shom`) from SHOM Natures de fond "
+        "at 1/50 000 where mapped (`null` otherwise, not for navigation). The tide and swell a spot works best with stay unknown (`null`): "
+        "no open source gives them. ODbL 1.0 / Licence Ouverte 2.0."
     ),
 )
 async def get_surf_spots(response: Response) -> SurfSpots:
@@ -774,12 +777,13 @@ async def get_surf_spots(response: Response) -> SurfSpots:
         "The surf forecast of a spot, hour by hour from the current hour for `days` (1 to 7): the sea state, the primary and secondary "
         "swell and the wind waves of Météo-France's MFWAM model (through Open-Meteo Marine), the wind (Open-Meteo), the tide computed "
         "by Vigie (EOT20), and what Vigie works out from them (`derived`): whether it is daylight, the primary and secondary swell's power "
-        "and angle to the beach, the wind relative to the coast, the tide stage, a **rating of ours** with each criterion, its value and its points "
-        "(`rules` gives the thresholds), the best daylight slot of the next 72 hours, and the runs of consecutive daylight hours (`windows`) where "
-        "the rating reaches at least half of what could be scored. When `best_tide` (`low`, `mid`, `high` or `any`) or `best_swell_from_deg` (0 to 359) "
-        "is given, the rating scores the tide stage and the swell direction against them. With `correct=true`, at eight spots, the height of "
-        "the whole sea is multiplied by a factor found against a wave buoy (the model reads about 10 % low there; `correction` and "
-        "`waves_model_height_m` say what was done). **Not for safety.**"
+        "and angle to the beach, whether the primary swell arrives from a sheltered azimuth (`swell_sheltered`), the wind relative to the "
+        "coast, the tide stage, a **rating of ours** with each criterion, its value and its points (`rules` gives the thresholds), the best "
+        "daylight slot of the next 72 hours, and the runs of consecutive daylight hours (`windows`) where the rating reaches at least half "
+        "of what could be scored. When `best_tide` (`low`, `mid`, `high` or `any`) or `best_swell_from_deg` (0 to 359) is given, the rating "
+        "scores the tide stage and the swell direction against them. With `correct=true`, at eight spots, the height of the whole sea is "
+        "multiplied by a factor found against a wave buoy (the model reads about 10 % low there; `correction` and `waves_model_height_m` "
+        "say what was done). **Not for safety.**"
     ),
 )
 async def get_surf_forecast(

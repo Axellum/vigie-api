@@ -208,6 +208,19 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "gip_littoral_plages",
+            "GIP Littoral (beaches of Nouvelle-Aquitaine)",
+            "Beaches of Nouvelle-Aquitaine: GIP Littoral, \"Plages de Nouvelle-Aquitaine\" (PIGMA / data.gouv.fr, read on 2026-11-15), "
+            "Licence Ouverte 2.0",
+            "ours",
+        ),
+        Credit(
+            "shom_ndf",
+            "Shom (Natures de fond au 1/50 000)",
+            "Shom, 2025. Natures de fond au 1/50 000, https://dx.doi.org/10.17183/HOM_GEOL_NATURES_FOND_50 (not for navigation)",
+            "provider",
+        ),
+        Credit(
             "osm_places",
             "OpenStreetMap (places of the coast)",
             "Places and localities: © OpenStreetMap contributors, ODbL 1.0 (https://www.openstreetmap.org/copyright); chosen, merged "
@@ -374,7 +387,8 @@ PREALERT = ("ecmwf_opendata",)
 TIDES = ("eot20",)
 TIDES_CALIBRATED = ("eot20", "refmar_tides")
 TIDE_CORRECTION = ("shom_refmar",)
-SURF = ("open_meteo", "copernicus_mfwam", "osm_spots", "eot20")
+SURF_SPOTS = ("osm_spots", "gip_littoral_plages", "shom_ndf")
+SURF = ("open_meteo", "copernicus_mfwam", "osm_spots", "gip_littoral_plages", "shom_ndf", "eot20")
 SURF_BUOYS = ("candhis_stations", "osm_spots")
 # Added to the credit of marine conditions that carry the temperature of the sea.
 MARINE_SEA_TEMPERATURE = ("copernicus_ocean",)
