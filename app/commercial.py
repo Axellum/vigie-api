@@ -221,6 +221,17 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-11-15",
         ),
         CommercialUse(
+            "gaspar_catnat",
+            "allowed",
+            "Licence Ouverte 2.0 (Etalab, lov2) on data.gouv.fr for both the TACCT GASPAR CatNat dataset and DINUM/Etalab API Découpage Administratif (source and date named; TACCT extraction is not live GASPAR/Géorisques and Journal officiel decrees remain authoritative).",
+            (
+                "https://www.data.gouv.fr/datasets/arretes-de-catastrophe-naturelle-par-commune",
+                "https://www.data.gouv.fr/dataservices/api-decoupage-administratif-api-geo",
+                "https://www.etalab.gouv.fr/licence-ouverte-open-licence/",
+            ),
+            "2026-11-15",
+        ),
+        CommercialUse(
             "meteofrance_vigilance",
             "allowed",
             "Licence Ouverte 2.0 (Etalab): any use, commercial included, with the source and the date of the data named.",
