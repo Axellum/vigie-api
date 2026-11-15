@@ -114,6 +114,14 @@ QUOTAS: dict[str, Quota] = {
         (Limit(60, 50),),
         "https://portail-api.meteofrance.fr/web/fr/api/PaquetObs",
     ),
+    # VigiEau (https://api.vigieau.gouv.fr): MTES-MCT/vigieau-api configures ThrottlerModule at 300 requests per 15 minutes
+    # per IP (``x-ratelimit-limit: 300`` observed on 2026-11-15, alongside a 1s reset header from throttler v6 ms units).
+    # Enforcing 300 / 900s (held to 90% = 270 / 15 min) protects the upstream and is backed by 1-hour grid/commune caching.
+    "vigieau": Quota(
+        "vigieau",
+        (Limit(900, 300),),
+        "https://api.vigieau.gouv.fr/swagger-json",
+    ),
     # Not listed, no published quota: usgs_eq, emsc_seismic, gdacs_global, noaa_nws (a limit exists but "is
     # not public information"), usgs_volcano_gvp, noaa_swpc, and the other warning services: dwd_cap, metservice_cap and
     # vigicrues_flow publish none (nothing about a request rate on their terms or documentation pages, 2026-10-20: not

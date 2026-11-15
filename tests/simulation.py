@@ -48,6 +48,7 @@ from app.collectors.swic import SwicCollector
 from app.collectors.swic_registry import SwicRegistryCollector
 from app.collectors.tsunami import TsunamiCollector
 from app.collectors.vigicrues import VigicruesCollector
+from app.collectors.vigieau import VigiEauCollector
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector, RainViewerCollector
 from app.models.schemas import DeviceType, MonitoredZoneConfig
 from app.services.aggregator import AggregatorService
@@ -82,6 +83,7 @@ HOST_TO_SOURCE: dict[str, str] = {
     "api.weather.gc.ca": "eccc_alerts",
     "alerts.metservice.com": "metservice_cap",
     "www.vigicrues.gouv.fr": "vigicrues_flow",
+    "api.vigieau.gouv.fr": "vigieau",
     "www.tsunami.gov": "tsunami_warning_centers",
     "www.nhc.noaa.gov": "nhc_storms",
     "www.ndbc.noaa.gov": "noaa_ndbc",
@@ -420,6 +422,9 @@ class Upstream:
             )
         if source == "vigicrues_flow":
             return self._vigicrues(request)
+        if source == "vigieau":
+            fn = "departements.json" if request.url.path.endswith("/departements") else "zones_v2_paris.json"
+            return httpx.Response(200, content=(FIXTURES / "vigieau" / fn).read_bytes())
         if source == "tsunami_warning_centers":
             return self._tsunami(request)
         if source == "nhc_storms":
@@ -631,6 +636,7 @@ class Simulation:
             eccc=ECCCCollector(http_client=http),
             metservice=MetServiceCollector(http_client=http),
             vigicrues=VigicruesCollector(http_client=http),
+            vigieau=VigiEauCollector(http_client=http),
             nhc=NHCCollector(http_client=http),
             tsunami=TsunamiCollector(http_client=http),
             swic=SwicCollector(http_client=http),

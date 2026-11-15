@@ -28,6 +28,7 @@ from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field, PrivateAttr, computed_field
 
 from app.attribution import hazard_credit, merge_credits, place_credit
+from app.models.drought import DroughtStatus
 from app.models.places import NearPlace
 
 
@@ -579,6 +580,12 @@ class PointResponse(BaseModel):
     disclaimer: Optional[str] = Field(
         default=None,
         description="Notice the sources ask to publish with their data (for instance NASA FIRMS when `near_places` on `nearby_hazards` includes active fires)",
+    )
+    drought: Optional[DroughtStatus] = Field(
+        default=None,
+        description="French drought restriction summary (VigiEau, Licence Ouverte 2.0) when the position lies within covered French "
+        "territories (`FR, GP, MQ, GF, RE, YT`); null outside French coverage or when VigiEau is unavailable. Informative only: never "
+        "part of `local_alert_level`",
     )
 
 

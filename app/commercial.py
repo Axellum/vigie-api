@@ -209,6 +209,18 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             ("https://www.etalab.gouv.fr/licence-ouverte-open-licence/",),
         ),
         CommercialUse(
+            "vigieau",
+            "allowed",
+            "Licence Ouverte 2.0 (Etalab) on VigiEau open datasets (source and date named; prefectural decrees in RAA are authoritative; the API dataservice page leaves licence unset).",
+            (
+                "https://www.data.gouv.fr/datasets/donnee-secheresse-vigieau",
+                "https://www.data.gouv.fr/datasets/vigieau-arretes-secheresse-en-vigueur",
+                "https://www.data.gouv.fr/dataservices/api-vigieau",
+                "https://www.etalab.gouv.fr/licence-ouverte-open-licence/",
+            ),
+            "2026-11-15",
+        ),
+        CommercialUse(
             "meteofrance_vigilance",
             "allowed",
             "Licence Ouverte 2.0 (Etalab): any use, commercial included, with the source and the date of the data named.",

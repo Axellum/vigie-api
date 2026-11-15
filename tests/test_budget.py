@@ -134,6 +134,7 @@ def test_quotas_are_declared_in_one_place_with_their_source() -> None:
         "candhis_tr",  # 150 requests a day, as the e-mail that gives the key says (see budget.py)
         "meteofrance_vigilance",  # Météo-France API portal (DPVigilance v1): 50 requests a minute on the free plan
         "meteofrance_obs",  # Météo-France API portal (DPPaquetObs v1): 50 requests a minute on the free plan
+        "vigieau",  # VigiEau public API: 300 requests per 15 minutes per IP (ThrottlerModule)
     }
     assert all(quota.source_url.startswith("https://") for quota in QUOTAS.values())
     assert len({id(QUOTAS[name]) for name in QUOTAS if name.startswith("open_meteo")}) == 1  # one shared quota

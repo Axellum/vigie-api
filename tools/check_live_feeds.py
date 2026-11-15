@@ -98,6 +98,7 @@ from app.collectors.swic_terms import is_eligible, terms_of  # noqa: E402
 from app.collectors.tsunami import TsunamiCollector, parse_message  # noqa: E402
 from app.collectors.vigicrues import SIGNAL_URL as VIGICRUES_SIGNAL_URL  # noqa: E402
 from app.collectors.vigicrues import VigicruesCollector  # noqa: E402
+from app.collectors.vigieau import VigiEauCollector  # noqa: E402
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector, RainViewerCollector  # noqa: E402
 from app.services.geoindex import default_countries, default_geometries, localization_of  # noqa: E402
 
@@ -560,6 +561,16 @@ async def check_vigicrues(client: httpx.AsyncClient) -> Result:
     return Result("vigicrues_flow", "ok", f"{len(flow.vigilances)} of {flow.sections} sections above green ({detail})")
 
 
+async def check_vigieau(client: httpx.AsyncClient) -> Result:
+    """VigiEau: the zones lookup at Paris and the 101-department summary must both parse cleanly."""
+    collector = VigiEauCollector()
+    point = (await collector._collect(client, mode="point", lat=LAND[0], lon=LAND[1])).value
+    deps = (await collector._collect(client, mode="departments")).value
+    if len(deps) < 95:
+        return Result("vigieau", "FAIL", f"only {len(deps)} departments returned (expected ~101)")
+    return Result("vigieau", "ok", f"status={point.status}, zones={len(point.zones)} at Paris, {len(deps)} departments")
+
+
 async def check_tsunami(client: httpx.AsyncClient) -> Result:
     """Tsunami warning centres: the list of the latest bulletins and the CAP of the newest one must be read, and so must the events in force."""
     collector = TsunamiCollector()
@@ -897,6 +908,7 @@ CHECKS: dict[str, Check] = {
     "eccc_alerts": check_eccc,
     "metservice_cap": check_metservice,
     "vigicrues_flow": check_vigicrues,
+    "vigieau": check_vigieau,
     "tsunami_warning_centers": check_tsunami,
     "nhc_storms": check_nhc,
     "wmo_swic_registry": check_wmo_swic_registry,
