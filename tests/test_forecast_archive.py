@@ -10,7 +10,7 @@ import pytest
 
 from app import clock
 from app.collectors.surf import SurfForecastCollector, parse_swell, parse_wind
-from app.services.forecast_archive import BUCKET_S, MAX_LEAD_S, STEP_S, SurfForecastArchive, rows_of
+from app.services.forecast_archive import BUCKET_S, COLUMNS, MAX_LEAD_S, STEP_S, SurfForecastArchive, rows_of
 from app.services.storage_wal import SQLiteWALStorage
 from tests.helpers import Provider
 
@@ -28,17 +28,19 @@ def test_only_the_three_hourly_steps_within_the_lead_are_kept_and_gaps_stay_null
     for spot, bucket, valid, issued, *values in rows:
         assert spot == "s" and issued == NOW and bucket == NOW // BUCKET_S * BUCKET_S
         assert valid % STEP_S == 0 and 0 <= valid - issued <= MAX_LEAD_S
-        assert len(values) == 6
+        assert len(values) == len(COLUMNS["swell"]) == 10
     # The values are the provider's, untouched.
     first = next(r for r in rows if r[2] == FIRST_HOUR + 12 * 3600)
     assert first[4] == parsed["wave_height"][12]
+    assert first[10] == parsed["secondary_swell_wave_height"][12]
+    assert first[13] == parsed["wind_wave_height"][12]
 
 
 def test_a_forecast_of_the_same_bucket_keeps_the_first_and_fills_the_other_kind(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     storage = SQLiteWALStorage(tmp_path / "t.db")
     archive = SurfForecastArchive(lambda: storage, keep_days=90)
     swell, wind = parse_swell(SWELL), parse_wind(WIND)
-    cols = ("wave_height", "wave_period", "wave_direction", "swell_height", "swell_period", "swell_direction")
+    cols = tuple(COLUMNS["swell"])
     storage.archive_surf_forecast(rows_of("swell", {"s": swell}, NOW), cols)
     count = storage.surf_forecast_summary()[0]
     changed = dict(swell, wave_height=[99.0] * len(swell["times"]))
@@ -47,10 +49,56 @@ def test_a_forecast_of_the_same_bucket_keeps_the_first_and_fills_the_other_kind(
     storage.archive_surf_forecast(rows_of("wind", {"s": wind}, NOW), ("wind_speed", "wind_direction", "wind_gusts"))
     assert storage.surf_forecast_summary()[0] == count  # the wind joins the same rows
     with storage._connect() as conn:
-        row = conn.execute("SELECT wave_height, wind_speed FROM surf_forecast_archive WHERE valid_utc = ?", (FIRST_HOUR + 12 * 3600,)).fetchone()
-    assert row[0] == swell["wave_height"][12] and row[1] == wind["wind_speed_10m"][12]
+        row = conn.execute(
+            "SELECT wave_height, secondary_swell_height, wind_wave_height, wind_speed FROM surf_forecast_archive WHERE valid_utc = ?",
+            (FIRST_HOUR + 12 * 3600,),
+        ).fetchone()
+    assert row[0] == swell["wave_height"][12]
+    assert row[1] == swell["secondary_swell_wave_height"][12]
+    assert row[2] == swell["wind_wave_height"][12]
+    assert row[3] == wind["wind_speed_10m"][12]
     assert storage.prune_surf_forecast(NOW + 1) == count
     assert archive.health()["rows"] == 0
+
+
+def test_legacy_surf_archive_table_migrates_in_place_without_losing_rows(tmp_path: Path) -> None:
+    import sqlite3
+
+    db_file = tmp_path / "legacy.db"
+    with sqlite3.connect(db_file) as conn:
+        conn.executescript(
+            """
+            CREATE TABLE surf_forecast_archive (
+                spot_id TEXT NOT NULL,
+                issued_bucket INTEGER NOT NULL,
+                valid_utc INTEGER NOT NULL,
+                issued_utc INTEGER NOT NULL,
+                wave_height REAL, wave_period REAL, wave_direction REAL,
+                swell_height REAL, swell_period REAL, swell_direction REAL,
+                wind_speed REAL, wind_direction REAL, wind_gusts REAL,
+                PRIMARY KEY (spot_id, issued_bucket, valid_utc)
+            ) WITHOUT ROWID;
+            INSERT INTO surf_forecast_archive
+                (spot_id, issued_bucket, valid_utc, issued_utc, wave_height)
+            VALUES
+                ('hossegor', 1793145600, 1793188800, 1793146200, 1.75),
+                ('hossegor', 1793167200, 1793188800, 1793182200, 2.25);
+            """
+        )
+    storage = SQLiteWALStorage(db_file)
+    swell = parse_swell(SWELL)
+    storage.archive_surf_forecast(rows_of("swell", {"hossegor": swell}, NOW), tuple(COLUMNS["swell"]))
+    with storage._connect() as conn:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(surf_forecast_archive)").fetchall()}
+        older = conn.execute(
+            "SELECT wave_height, secondary_swell_height, surge_m FROM surf_forecast_archive WHERE issued_bucket = 1793145600"
+        ).fetchone()
+        same_bucket = conn.execute(
+            "SELECT wave_height, secondary_swell_height, surge_m FROM surf_forecast_archive WHERE issued_bucket = 1793167200"
+        ).fetchone()
+    assert {"secondary_swell_height", "secondary_swell_period", "secondary_swell_direction", "wind_wave_height", "surge_m"} <= cols
+    assert older["wave_height"] == 1.75 and older["secondary_swell_height"] is None and older["surge_m"] is None
+    assert same_bucket["wave_height"] == 2.25 and same_bucket["secondary_swell_height"] == swell["secondary_swell_wave_height"][12]
 
 
 @pytest.mark.asyncio

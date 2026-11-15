@@ -42,6 +42,10 @@ COLUMNS: dict[str, dict[str, str]] = {
         "swell_height": "swell_wave_height",
         "swell_period": "swell_wave_period",
         "swell_direction": "swell_wave_direction",
+        "secondary_swell_height": "secondary_swell_wave_height",
+        "secondary_swell_period": "secondary_swell_wave_period",
+        "secondary_swell_direction": "secondary_swell_wave_direction",
+        "wind_wave_height": "wind_wave_height",
     },
     "wind": {"wind_speed": "wind_speed_10m", "wind_direction": "wind_direction_10m", "wind_gusts": "wind_gusts_10m"},
 }
@@ -56,6 +60,10 @@ def keep_days_from_env() -> int:
     return max(0, value)
 
 
+def _value_at(series: Any, index: int) -> Any:
+    return series[index] if isinstance(series, list) and index < len(series) else None
+
+
 def rows_of(kind: str, answers: dict[str, dict[str, Any]], issued_utc: int) -> list[tuple[Any, ...]]:
     """The archive rows of one read: ``(spot, bucket, valid, issued, *values)`` for the hours kept."""
     names = COLUMNS[kind]
@@ -65,7 +73,7 @@ def rows_of(kind: str, answers: dict[str, dict[str, Any]], issued_utc: int) -> l
         for i, valid in enumerate(parsed["times"]):
             if valid % STEP_S or not 0 <= valid - issued_utc <= MAX_LEAD_S:
                 continue
-            values = tuple(parsed[variable][i] for variable in names.values())
+            values = tuple(_value_at(parsed.get(variable), i) for variable in names.values())
             if all(v is None for v in values):
                 continue
             rows.append((spot_id, bucket, valid, issued_utc, *values))
