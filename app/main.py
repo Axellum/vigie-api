@@ -129,7 +129,7 @@ from app.models.schemas import (
 )
 from app.models.sea_places import PlaceAnswer, PlaceList, PlaceType
 from app.models.sky import AuroraOvalCollection, AuroraResponse, EclipseDetail, EclipseList, EclipseMapCollection
-from app.models.surf import SurfForecast, SurfOverview, SurfSpots
+from app.models.surf import SurfForecast, SurfOverview, SurfSpots, TidePreference
 from app.models.tides import CoastalTides, TidesResponse
 from app.models.travel import TravelCountryDetail, TravelHealth, TravelOverview
 from app.models.vigilance import (
@@ -770,9 +770,11 @@ async def get_surf_spots(response: Response) -> SurfSpots:
     description=(
         "The surf forecast of a spot, hour by hour from the current hour for `days` (1 to 7): the sea state, the primary and secondary "
         "swell and the wind waves of Météo-France's MFWAM model (through Open-Meteo Marine), the wind (Open-Meteo), the tide computed "
-        "by Vigie (EOT20), and what Vigie works out from them (`derived`): whether it is daylight, the swell's power and angle to the "
-        "beach, the wind relative to the coast, the tide stage, a **rating of ours** with each criterion, its value and its points "
-        "(`rules` gives the thresholds), and the best daylight slot of the next 72 hours. With `correct=true`, at eight spots, the height of "
+        "by Vigie (EOT20), and what Vigie works out from them (`derived`): whether it is daylight, the primary and secondary swell's power "
+        "and angle to the beach, the wind relative to the coast, the tide stage, a **rating of ours** with each criterion, its value and its points "
+        "(`rules` gives the thresholds), the best daylight slot of the next 72 hours, and the runs of consecutive daylight hours (`windows`) where "
+        "the rating reaches at least half of what could be scored. When `best_tide` (`low`, `mid`, `high` or `any`) or `best_swell_from_deg` (0 to 359) "
+        "is given, the rating scores the tide stage and the swell direction against them. With `correct=true`, at eight spots, the height of "
         "the whole sea is multiplied by a factor found against a wave buoy (the model reads about 10 % low there; `correction` and "
         "`waves_model_height_m` say what was done). **Not for safety.**"
     ),
@@ -787,11 +789,23 @@ async def get_surf_forecast(
         "(ADR 0023; the model's value stays in `waves_model_height_m`); `false`: the model alone. Without it the instance decides (the model alone, "
         "unless it sets `VIGIE_SURF_CORRECTION=on`). `correction` says what was done. Nothing else in the answer changes.",
     ),
+    best_tide: Optional[TidePreference] = Query(
+        default=None,
+        description="Optional tide stage to score (`low`, `mid`, `high` or `any`). Left out of the rating when omitted.",
+    ),
+    best_swell_from_deg: Optional[int] = Query(
+        default=None,
+        ge=0,
+        le=359,
+        description="Optional preferred swell direction (degrees from north, 0 to 359) to score `swell_direction` against instead of the facing of the spot.",
+    ),
 ) -> SurfForecast:
     """The surf forecast of a spot."""
     try:
         asked = surf_correction.on_by_default() if correct is None else correct
-        answer = await surf.forecast(aggregator.surf, spot_id, days, clock.wall(), asked)
+        answer = await surf.forecast(
+            aggregator.surf, spot_id, days, clock.wall(), asked, best_tide=best_tide, best_swell_from_deg=best_swell_from_deg
+        )
     except surf.UnknownSpot:
         raise HTTPException(status_code=404, detail=f"no surf spot {spot_id!r}") from None
     except surf.NoSurfForecast as error:
