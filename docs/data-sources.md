@@ -97,16 +97,16 @@ reads each once.
 
 ## Places near a hazard, and watched points
 
-An earthquake or a volcanic event says what it is close to: `near_places` (a list of `name`, `kind`, `distance_km`, `sources`) on every hazard,
+An earthquake, a volcanic event or a wildfire says what it is close to: `near_places` (a list of `name`, `kind`, `distance_km`, `sources`) on every hazard,
 named in the hazard's `derived` list. **It is computed by Vigie from reference data and from settings**, not reported by a source, it
 never changes a `severity`, and a client should show it as such ("calculated by Vigie"). The decisions, and what is not verified:
 [ADR 0008](decisions/0008-sensitive-points.md). Licence and credit: [`SOURCES.md`](../SOURCES.md).
 
 `near_places` is a list when it was worked out (**empty: nothing is near**, an answer, not a gap) and `null` when it was not: the hazard is
-compared with nothing (a storm, a flood...), the bundled fault file could not be read, the alert is simulated, or the profile is the compact one
-(see "Cost" below).
+compared with nothing (a storm, a flood...), the bundled fault file could not be read, NASA FIRMS is off, unread or older than 24 hours for a
+wildfire, the alert is simulated, or the profile is the compact one (see "Cost" below).
 
-**It holds reference places only: the named active faults and the volcanoes that the hazard sources name.** The points a user watches are never
+**It holds reference places only: the named active faults, the volcanoes that the hazard sources name, and active fire detections from NASA FIRMS.** The points a user watches are never
 in it. `near_places` is in the outputs every client shares (`/v1/geojson/hazards`, `/v1/history`, the full `/v1/snapshot` and `/v1/point`; and the
 stream and the compact profiles, with `null`), a public website included, and a watched point is personal (a home, for example): its name and
 position would leak through the hazards, and anyone who could `POST` a point could make any text appear in everyone's hazards. The watched
@@ -114,11 +114,12 @@ points are listed by `/v1/watched-points` and `/v1/watched-points/status` only (
 
 ### What each hazard is compared with
 
-| Hazard | Active faults | Volcanoes in alert |
-| --- | --- | --- |
-| Earthquake | yes, if its depth is at most 70 km or unknown | yes |
-| Volcanic event | yes | no |
-| Tsunami, storm, flood, fire, any other | no (`near_places` is `null`) | no |
+| Hazard | Active faults | Volcanoes in alert | Active fires (NASA FIRMS) |
+| --- | --- | --- | --- |
+| Earthquake | yes, if its depth is at most 70 km or unknown | yes | no |
+| Volcanic event | yes | no | no |
+| Wildfire | no | no | yes, when FIRMS is on and read within 24 hours (`null` otherwise) |
+| Tsunami, storm, flood, any other | no (`near_places` is `null`) | no | no |
 
 - **Active faults**: the traces that have a name in the GEM Global Active Faults Database, bundled in `app/data/gem-active-faults.geojson.gz`
   (below). The distance is from the hazard's position to the nearest point of the trace; a fault with several traces is said once, at its nearest.
@@ -140,6 +141,7 @@ the catalogues are uncertain (by how much, for these feeds: not verified). They 
 | `VIGIE_NEAR_FAULT_KM` | 10 | An earthquake or volcanic event within this distance of a mapped trace is near the fault (0.1 to 100). A round figure, about 18 times the most the simplification of the traces can move them (0.56 km) |
 | `VIGIE_NEAR_FAULT_MAX_DEPTH_KM` | 70 | Deeper earthquakes are not compared with the faults (1 to 1000). 70 km is the usual limit between shallow and intermediate-depth earthquakes (**not verified** against a source in this project) |
 | `VIGIE_NEAR_VOLCANO_KM` | 20 | An earthquake within this distance of a volcano in alert is near it (0.1 to 500) |
+| `VIGIE_NEAR_FIRE_KM` | 50 | A wildfire within this distance of a NASA FIRMS detection in the last 24 hours is near an active fire (0.1 to 500) |
 | `VIGIE_NEAR_MAX_PLACES` | 5 | At most this many places under a hazard, the nearest first (1 to 20) |
 | `VIGIE_WATCHED_POINTS_MAX` | 50 | The most watched points an instance keeps (1 to 500); a new one over the limit is a 409 |
 | `VIGIE_ENABLE_WATCHED_POINTS_WRITE` | 0 (off) | `1` enables `POST` and `DELETE` of `/v1/watched-points` (403 otherwise; the reads always work). Not a radius: a switch, listed here with its siblings |

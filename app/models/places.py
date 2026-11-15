@@ -5,8 +5,8 @@ point says "nothing within 50 km in the last 7 days". They never change the seve
 ``near_places`` is named in the ``derived`` list of the hazard (``docs/decisions/0008-sensitive-points.md``).
 
 **The two never meet.** ``near_places`` is in the outputs every client shares (the hazards, the history, the stream, the snapshot), so
-it holds reference places only: the named active faults and the volcanoes that the hazard sources name. A watched point is personal
-(a home, for example) and anyone who can write one could put any text in front of every client: it is listed by
+it holds reference places only: the named active faults, the volcanoes that the hazard sources name, and the active fires from NASA FIRMS.
+A watched point is personal (a home, for example) and anyone who can write one could put any text in front of every client: it is listed by
 ``/v1/watched-points`` and ``/v1/watched-points/status`` and nowhere else.
 
 This module imports nothing from ``schemas.py`` (``HazardAlert`` uses ``NearPlace``): the models that need the hazard types are
@@ -19,8 +19,9 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-# What a place near a hazard is: an active fault (from the bundled GEM file) or a volcano (named by a hazard source).
-NearPlaceKind = Literal["fault", "volcano"]
+# What a place near a hazard is: an active fault (from the bundled GEM file), a volcano (named by a hazard source),
+# or an active fire detection (NASA FIRMS).
+NearPlaceKind = Literal["fault", "volcano", "fire"]
 
 # What a point the user watches is: a fault, a volcano, a place of their own (``place``: a town, a site) or anything else (``custom``).
 PlaceKind = Literal["fault", "volcano", "place", "custom"]
@@ -33,8 +34,14 @@ DEFAULT_WATCHED_RADIUS_KM = 50.0
 class NearPlace(BaseModel):
     """A named place close to an event, with the distance. Computed by Vigie; the radii are settings, not sourced facts."""
 
-    name: str = Field(..., description="The place's name: the database's own for a fault, the source's for a volcano")
-    kind: NearPlaceKind = Field(..., description="fault (GEM active fault trace) or volcano (named by a hazard source)")
+    name: str = Field(
+        ...,
+        description="The place's name: the database's own for a fault, the source's for a volcano, or 'Active fire' for a satellite hotspot",
+    )
+    kind: NearPlaceKind = Field(
+        ...,
+        description="fault (GEM active fault trace), volcano (named by a hazard source) or fire (NASA FIRMS active fire detection)",
+    )
     distance_km: float = Field(
         ...,
         ge=0.0,
@@ -44,7 +51,7 @@ class NearPlace(BaseModel):
     )
     sources: list[str] = Field(
         default_factory=list,
-        description="Where the place comes from: GEM for a fault, the agencies that report the volcano",
+        description="Where the place comes from: GEM for a fault, the agencies that report the volcano, or NASA FIRMS products (e.g. VIIRS_NOAA20_NRT)",
     )
 
 

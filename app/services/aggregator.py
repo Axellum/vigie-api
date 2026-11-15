@@ -34,7 +34,9 @@ from app.attribution import (
     SIMULATED_ID_PREFIX,
     SIMULATION_CREDIT,
     credit_text,
+    fires_disclaimer_for,
     merge_credits,
+    merge_disclaimers,
 )
 from app.collectors.aurora import (
     SWPCAlertsCollector,
@@ -471,7 +473,7 @@ class AggregatorService:
     ) -> HistoryResponse:
         """Return the filtered hazard history from SQLite."""
         items = self.storage.query_history(category=category, min_severity=min_severity, limit=limit)
-        return HistoryResponse(count=len(items), items=items)
+        return HistoryResponse(count=len(items), items=items, disclaimer=fires_disclaimer_for(items))
 
     def get_all_collectors(self) -> list[Any]:
         """Return the ordered list of every managed collector (without RainViewer when it is turned off)."""
@@ -649,7 +651,8 @@ class AggregatorService:
         fused = deduplicate_hazards(raw_hazards)
         enriched = [self._attach_nearest_monitored_zone(h) for h in fused]
         try:  # the places near each hazard; they never change a severity, and a failure of theirs never stops the hazards
-            enriched = self.places.annotate(enriched)
+            recent_fires = self.fires.recent_cached_set()
+            enriched = self.places.annotate(enriched, fires=recent_fires)
         except Exception:
             log.warning("near_places could not be worked out", exc_info=True)
         try:
@@ -812,7 +815,7 @@ class AggregatorService:
             enriched = enrich_hazard_for_point(
                 h, ref_lat=lat, ref_lon=lon, zone_id="gps_point", zone_name="GPS position"
             )
-            dist = enriched.distance_to_zone_km or 99999.0
+            dist = enriched.distance_to_zone_km if enriched.distance_to_zone_km is not None else 99999.0
             if dist <= radius_km or enriched.severity == SeverityLevel.RED:
                 enriched_nearby.append(enriched)
                 if dist <= radius_km and SEVERITY_RANK[enriched.severity] > SEVERITY_RANK[local_level]:
@@ -820,9 +823,9 @@ class AggregatorService:
 
         enriched_nearby.sort(
             key=lambda x: (
-                0 if (x.distance_to_zone_km or 99999.0) <= radius_km else 1,
+                0 if (x.distance_to_zone_km if x.distance_to_zone_km is not None else 99999.0) <= radius_km else 1,
                 -SEVERITY_RANK[x.severity],
-                x.distance_to_zone_km or 99999.0,
+                x.distance_to_zone_km if x.distance_to_zone_km is not None else 99999.0,
             )
         )
         enriched_nearby = enriched_nearby[:limit_hazards]
@@ -890,6 +893,7 @@ class AggregatorService:
             nearby_hazards=enriched_nearby,
             # Informative only: the fires never enter ``local_alert_level`` (a hotspot is a satellite pixel, not a warning).
             fires_nearby=fires_nearby,
+            disclaimer=fires_disclaimer_for(enriched_nearby),
         )
 
     async def build_snapshot(
@@ -1015,6 +1019,7 @@ class AggregatorService:
             global_status=global_status,
             zones=zones_out,
             hazards=selected_hazards,
+            disclaimer=fires_disclaimer_for(selected_hazards),
         )
         try:
             self.storage.save_snapshot(snapshot)
@@ -1117,6 +1122,7 @@ class AggregatorService:
                 "count": len(features),
                 "simulation_active": self.simulation_active,
                 "attribution": merge_credits(*(h.attribution for h in hazards)),
+                "disclaimer": fires_disclaimer_for(hazards),
             },
             features=features,
         )
@@ -1159,6 +1165,7 @@ class AggregatorService:
             found = [event for event in found if event.family in families]
         if compact:
             found = [event.model_copy(update={"alerts": [], "hazards": []}) for event in found]
+        kept_hazards = [h for event in found for h in event.hazards]
         return EventsResponse(
             server_utc=int(clock.wall()),
             query=EventsQuery(country=country, min_impact=min_impact, families=families, compact=compact),
@@ -1168,7 +1175,7 @@ class AggregatorService:
             hazard_sources_answered=answered,
             hazard_sources_total=asked,
             attribution=merge_credits(*(event.attribution for event in found)),
-            disclaimer=warnings.disclaimer,
+            disclaimer=merge_disclaimers(warnings.disclaimer, fires_disclaimer_for(kept_hazards)),
             note=EVENTS_NOTE,
         )
 

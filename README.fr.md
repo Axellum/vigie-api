@@ -70,7 +70,7 @@ des services émetteurs laissés tels quels, services nationaux du registre de l
 | `GET /v1/embedded/frame` | Trame texte compacte pour les écrans ([contrat](docs/embedded-frame.md)) ; avec `spot=<identifiant d'un spot de surf>` elle porte aussi les activités de ce spot (lignes `SEA`, `ACT`, `CRIT`). |
 | `GET /v1/snapshot` | Zones surveillées (météo) et dangers mondiaux, JSON compact. |
 | `GET /v1/point?lat=&lon=` | Météo en un point GPS, mer (`marine=true`), débit des rivières, qualité de l'air, météo spatiale, dangers proches. |
-| `GET /v1/geojson/hazards` | Dangers actifs en GeoJSON (RFC 7946) : un point chacun. `has_forecast` dit si une tempête ou un tsunami a une prévision ; `near_places` et `derived` disent de quoi un séisme ou un événement volcanique est proche (calculé par Vigie). Voir « Lieux proches d'un danger » plus bas. |
+| `GET /v1/geojson/hazards` | Dangers actifs en GeoJSON (RFC 7946) : un point chacun. `has_forecast` dit si une tempête ou un tsunami a une prévision ; `near_places` et `derived` disent de quoi un séisme, un événement volcanique ou un incendie est proche (calculé par Vigie). Voir « Lieux proches d'un danger » plus bas. |
 | `GET /v1/geojson/hazards/{id}/forecast` | La prévision d'un danger en GeoJSON : le cône, la trajectoire et les positions d'un cyclone tropical, l'épicentre et les heures d'arrivée d'un tsunami. Voir « Tempêtes et tsunamis » plus bas. |
 | `GET /v1/earthquakes?lat=&lon=` | Les séismes (USGS et EMSC, fusionnés) dans un rayon `radius_km` autour d'une position sur les dernières `hours` heures, le plus fort d'abord, avec leur distance ; `min_magnitude` les filtre. Aucun fournisseur météo n'est appelé. Ce n'est pas une vigilance officielle. |
 | `GET /v1/sky/aurora?lat=&lon=` | Les aurores : les données de NOAA SWPC telles qu'il les donne (résumé OVATION, Kp observé et prévu à 3 jours, vent solaire, messages géomagnétiques) et, pour un lieu, **l'estimation propre à Vigie** de la chance d'en voir une, heure par heure sur la nuit qui vient, avec le meilleur créneau (latitude magnétique, Kp, nuit, Lune, nuages prévus ; [ADR 0013](docs/decisions/0013-aurora-estimate.md), mesurée sur des nuits passées). Ce n'est pas une prévision officielle. |
@@ -649,7 +649,7 @@ les vigilances officielles.
 
 ## Lieux proches d'un danger, et points surveillés
 
-Un séisme ou un événement volcanique dit de quoi il est proche. Chaque danger de `/v1/geojson/hazards` (et de `/v1/history`, et de
+Un séisme, un événement volcanique ou un incendie dit de quoi il est proche. Chaque danger de `/v1/geojson/hazards` (et de `/v1/history`, et de
 `/v1/snapshot` et `/v1/point` avec `compact=false`) porte `near_places`, du plus proche au plus lointain, et le nomme dans `derived` :
 
 ```json
@@ -666,9 +666,10 @@ Séisme M 7,7 du Panama, 9 octobre 2026, USGS `us6000u18k` : la distance à la t
   `[]` veut dire que rien n'est proche ; `null` que ce n'a pas été calculé (un danger comparé à rien, comme une tempête ou une inondation ; le fichier des
   failles est illisible ; une alerte simulée ; ou le profil compact de `/v1/snapshot` et `/v1/point`, qui reste sous 16 Kio, donc les dangers poussés sur
   `/v1/stream`).
-- **Deux ensembles de lieux de référence.** Les failles actives qui ont un nom, de la base GEM Global Active Faults Database (séismes et événements
-  volcaniques, à 70 km de profondeur au plus, à moins de 10 km) ; et les volcans que les sources de dangers rapportent elles-mêmes (un séisme à moins
-  de 20 km de l'un d'eux). **Aucune liste des volcans du monde n'est embarquée** (celle du Smithsonian a une licence floue) : l'Etna n'est nommé que tant
+- **Trois ensembles de lieux de référence.** Les failles actives qui ont un nom, de la base GEM Global Active Faults Database (séismes et événements
+  volcaniques, à 70 km de profondeur au plus, à moins de 10 km) ; les volcans que les sources de dangers rapportent elles-mêmes (un séisme à moins
+  de 20 km de l'un d'eux) ; et les feux actifs détectés par NASA FIRMS sur les dernières 24 heures (un incendie à moins de 50 km, quand FIRMS est
+  activé et a une lecture récente ; son crédit entre dans `attribution` et la réponse porte l'avertissement `disclaimer` de la NASA). **Aucune liste des volcans du monde n'est embarquée** (celle du Smithsonian a une licence floue) : l'Etna n'est nommé que tant
   que GDACS ou l'USGS le signalent.
 - **Les points que vous surveillez ne sont jamais dans `near_places`.** Les dangers sont partagés avec tous les clients, un site public compris, et un point
   surveillé est personnel (un domicile, par exemple) : son nom fuirait, et quiconque pourrait écrire un point ferait apparaître n'importe quel texte dans les
@@ -761,6 +762,7 @@ Tous les réglages sont des variables d'environnement facultatives.
 | `VIGIE_NEAR_FAULT_KM` | `10` | Un séisme ou un événement volcanique à moins de cette distance (km) de la trace cartographiée d'une faille active nommée en est proche (0,1 à 100). Un réglage, pas un fait publié. |
 | `VIGIE_NEAR_FAULT_MAX_DEPTH_KM` | `70` | Un séisme plus profond (km) n'est pas comparé aux failles (1 à 1000). |
 | `VIGIE_NEAR_VOLCANO_KM` | `20` | Un séisme à moins de cette distance (km) d'un volcan qu'une source de dangers signale en est proche (0,1 à 500). |
+| `VIGIE_NEAR_FIRE_KM` | `50` | Un incendie à moins de cette distance (km) d'une détection NASA FIRMS des dernières 24 heures est proche d'un feu actif (0,1 à 500). |
 | `VIGIE_NEAR_MAX_PLACES` | `5` | Au plus ce nombre de lieux sous un danger, du plus proche au plus lointain (1 à 20). |
 | `VIGIE_WATCHED_POINTS_MAX` | `50` | Le nombre maximal de points surveillés que l'instance garde (1 à 500). Un de plus que la limite reçoit 409. |
 | `VIGIE_QUIET_MAX_GAP_S` | `900` | Une source de dangers non lue depuis plus longtemps (secondes, 60 à 86 400) rompt la série de lectures sur laquelle repose le `quiet` d'un point surveillé. |

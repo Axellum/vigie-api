@@ -20,12 +20,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.attribution import CREDITS, FIRMS_DISCLAIMER
-from app.collectors.firms import FIRMSCollector
+from app.collectors.firms import TOTAL_DEADLINE_S, FireSet, FIRMSCollector
 from app.main import aggregator
 from app.models.fires import FiresCollection, FiresGrid
 from app.models.schemas import PointResponse
 from app.services.aggregator import AggregatorService
-from app.services.fires import FireService
+from app.services.fires import NEARBY_WINDOW_S, FireService
 from tests.conftest import World
 from tests.firms_samples import (
     KEY,
@@ -337,6 +337,34 @@ def test_the_summary_says_when_the_last_read_failed(fires: Fires, sim_clock: Sim
     asyncio.run(refresh_behind_the_reading())
     nearby = fires.client.get("/v1/point", params={"lat": -16.6, "lon": 179.0}).json()["fires_nearby"]
     assert nearby["stale"] is True and nearby["data_read_utc"] == int(NOW) and nearby["count_24h"] > 0
+
+
+def test_the_point_summary_flags_an_overdue_reading_as_stale_and_drops_one_past_24h(
+    fires: Fires, sim_clock: SimClock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """v4-d proof: an overdue reading keeps its honest ``data_read_utc`` with ``stale=true``; past 24 hours ``fires_nearby`` is null."""
+    # Freeze the background kick so we observe the cached reading itself before any async refresh lands.
+    monkeypatch.setattr(fires.world.aggregator.fires, "_kick", lambda: None)
+    sim_clock.advance(fires.collector.ttl_seconds + TOTAL_DEADLINE_S + 1)
+    overdue = fires.client.get("/v1/point", params={"lat": -16.6, "lon": 179.0}).json()["fires_nearby"]
+    assert overdue is not None
+    assert overdue["stale"] is True and overdue["data_read_utc"] == int(NOW) and overdue["count_24h"] > 0
+
+    sim_clock.advance(NEARBY_WINDOW_S)  # now > 24 hours past the reading
+    expired = fires.client.get("/v1/point", params={"lat": -16.6, "lon": 179.0}).json()["fires_nearby"]
+    assert expired is None
+
+
+def test_the_point_summary_is_null_when_a_fireset_has_no_readings(
+    world: World, sim_clock: SimClock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An empty reading set returns null rather than fabricating ``count_24h=0`` with no sources."""
+    sim_clock.EPOCH = NOW
+    collector = FIRMSCollector(http_client=FirmsServer(latency_ticks=0).client(), sources=(N20,), window_hours=24)
+    collector._cache["global"] = (FireSet(readings=(), read_utc=int(NOW)), NOW)
+    monkeypatch.setattr(aggregator, "firms", collector)
+    monkeypatch.setattr(aggregator, "fires", FireService(collector, None))
+    assert world.client.get("/v1/point", params={"lat": -16.6, "lon": 179.0}).json()["fires_nearby"] is None
 
 
 # ------------------------------------------------------------------------------------------------ an instance that turned the source off

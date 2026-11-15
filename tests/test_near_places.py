@@ -8,20 +8,28 @@ traces), not against the code that is tested.
 
 from __future__ import annotations
 
+import asyncio
 import inspect
+from unittest.mock import AsyncMock
 
 import pytest
 from shapely.geometry import LineString
 
-from app.attribution import CREDITS
+from app.attribution import CREDITS, FIRMS_DISCLAIMER, fires_disclaimer_for
 from app.collectors.disasters import GDACSCollector
+from app.collectors.firms import FIRMSCollector
 from app.collectors.flood_air import USGSVolcanoCollector
+from app.main import aggregator
 from app.models.places import NearPlace
 from app.models.schemas import HazardAlert, HazardCategory, SeverityLevel
+from app.services.fires import NEARBY_WINDOW_S, FireService
 from app.services.geodesy import deduplicate_hazards
 from app.services.geoindex import line_distance_km
 from app.services.places import FaultIndex, NearPlacesService, PlaceSettings
 from tests import places_samples as real
+from tests.conftest import World
+from tests.firms_samples import N20, N21, NOW, FirmsServer, oracle_near
+from tests.helpers import SimClock
 from tests.oracle_geodesy import distance_to_line_km
 from tools.build_faults import TOLERANCE_DEG, fault_label
 
@@ -238,7 +246,7 @@ def test_when_the_fault_file_cannot_be_read_the_faults_of_an_earthquake_are_unkn
 def test_a_storm_a_flood_and_a_tsunami_are_compared_with_nothing_so_they_say_nothing(service: NearPlacesService) -> None:
     """No reference place applies to them: ``null`` (not worked out), which is not the same answer as "nothing is near"."""
     on_the_fault = real.usgs_earthquake(real.PANAMA_M77)
-    for category in (HazardCategory.HURRICANE, HazardCategory.FLOOD, HazardCategory.TSUNAMI, HazardCategory.WILDFIRE):
+    for category in (HazardCategory.HURRICANE, HazardCategory.FLOOD, HazardCategory.TSUNAMI):
         hazard = alert("x", category, on_the_fault.lat, on_the_fault.lon)
         assert service.near_places(hazard, []) is None
         [annotated] = service.annotate([hazard])
@@ -337,9 +345,9 @@ def test_a_place_the_user_names_cannot_be_a_near_place() -> None:
 
 
 def test_the_service_cannot_be_given_a_watched_point() -> None:
-    """The decision is in the signatures: only the hazard and the volcanoes the sources named come in."""
-    assert list(inspect.signature(NearPlacesService.near_places).parameters) == ["self", "hazard", "volcanoes"]
-    assert list(inspect.signature(NearPlacesService.annotate).parameters) == ["self", "hazards"]
+    """The decision is in the signatures: only the hazard, the volcanoes the sources named, and the FIRMS detections come in."""
+    assert list(inspect.signature(NearPlacesService.near_places).parameters) == ["self", "hazard", "volcanoes", "fires"]
+    assert list(inspect.signature(NearPlacesService.annotate).parameters) == ["self", "hazards", "fires"]
 
 
 # ============================================================================
@@ -416,7 +424,13 @@ def test_the_gdacs_parser_still_reads_a_volcano_without_a_name() -> None:
 
 def test_the_defaults() -> None:
     settings = PlaceSettings()
-    assert (settings.fault_km, settings.fault_max_depth_km, settings.volcano_km, settings.max_places) == (10.0, 70.0, 20.0, 5)
+    assert (settings.fault_km, settings.fault_max_depth_km, settings.volcano_km, settings.fire_km, settings.max_places) == (
+        10.0,
+        70.0,
+        20.0,
+        50.0,
+        5,
+    )
     assert (settings.watched_points_max, settings.quiet_max_gap_s) == (50, 900)
 
 
@@ -424,16 +438,156 @@ def test_the_settings_come_from_the_environment(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("VIGIE_NEAR_FAULT_KM", "25")
     monkeypatch.setenv("VIGIE_NEAR_FAULT_MAX_DEPTH_KM", "40.5")
     monkeypatch.setenv("VIGIE_NEAR_VOLCANO_KM", "7")
+    monkeypatch.setenv("VIGIE_NEAR_FIRE_KM", "35")
     monkeypatch.setenv("VIGIE_NEAR_MAX_PLACES", "3")
     monkeypatch.setenv("VIGIE_WATCHED_POINTS_MAX", "12")
     monkeypatch.setenv("VIGIE_QUIET_MAX_GAP_S", "1800")
     settings = PlaceSettings.from_env()
-    assert (settings.fault_km, settings.fault_max_depth_km, settings.volcano_km) == (25.0, 40.5, 7.0)
+    assert (settings.fault_km, settings.fault_max_depth_km, settings.volcano_km, settings.fire_km) == (25.0, 40.5, 7.0, 35.0)
     assert (settings.max_places, settings.watched_points_max, settings.quiet_max_gap_s) == (3, 12, 1800)
 
 
 @pytest.mark.parametrize("value", ["", "ten", "nan", "inf", "-5", "0", "100000"])
 def test_a_setting_that_makes_no_sense_means_the_default(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
-    for name in ("VIGIE_NEAR_FAULT_KM", "VIGIE_NEAR_VOLCANO_KM", "VIGIE_NEAR_MAX_PLACES", "VIGIE_WATCHED_POINTS_MAX", "VIGIE_QUIET_MAX_GAP_S"):
+    for name in (
+        "VIGIE_NEAR_FAULT_KM",
+        "VIGIE_NEAR_VOLCANO_KM",
+        "VIGIE_NEAR_FIRE_KM",
+        "VIGIE_NEAR_MAX_PLACES",
+        "VIGIE_WATCHED_POINTS_MAX",
+        "VIGIE_QUIET_MAX_GAP_S",
+    ):
         monkeypatch.setenv(name, value)
     assert PlaceSettings.from_env() == PlaceSettings()
+
+
+# ============================================================================
+# 8. Active fires near a wildfire (NASA FIRMS)
+# ============================================================================
+
+
+def _firms_set(sim_clock: SimClock) -> tuple[FIRMSCollector, object]:
+    sim_clock.EPOCH = NOW
+    collector = FIRMSCollector(http_client=FirmsServer(latency_ticks=0).client(), sources=(N20, N21), window_hours=24)
+    return collector, asyncio.run(collector.fetch())
+
+
+def test_a_wildfire_is_null_without_firms_and_lists_active_fires_when_read(
+    service: NearPlacesService, sim_clock: SimClock
+) -> None:
+    """``null`` when FIRMS is unread/off, ``[]`` when read and nothing near, ``NearPlace`` with NASA credit when near."""
+    fiji_fire = alert("wf_fiji", HazardCategory.WILDFIRE, -16.6, 179.0, depth_km=None, sources=("GDACS",))
+    ocean_fire = alert("wf_ocean", HazardCategory.WILDFIRE, -60.0, -120.0, depth_km=None, sources=("GDACS",))
+
+    assert service.near_places(fiji_fire, [], fires=None) is None
+    assert service.annotate([fiji_fire], fires=None)[0].derived == []
+
+    _, fs = _firms_set(sim_clock)
+    [near_wf, far_wf] = service.annotate([fiji_fire, ocean_fire], fires=fs)  # type: ignore[arg-type]
+
+    assert far_wf.near_places == [] and far_wf.derived == ["near_places"]
+    assert fires_disclaimer_for([far_wf]) is None
+
+    _, expected_nearest, _, _ = oracle_near(-16.6, 179.0, 50.0, int(NOW) - NEARBY_WINDOW_S)
+    assert expected_nearest is not None
+    assert near_wf.near_places is not None and len(near_wf.near_places) == 1
+    [place] = near_wf.near_places
+    assert place.name == "Active fire" and place.kind == "fire"
+    assert place.distance_km == round(expected_nearest, 1)
+    assert set(place.sources) <= {N20, N21} and len(place.sources) >= 1
+    assert near_wf.derived == ["near_places"]
+    assert CREDITS["nasa_firms"].text in (near_wf.attribution or "")
+    assert CREDITS["gdacs"].text in (near_wf.attribution or "")
+    assert fires_disclaimer_for([near_wf]) == FIRMS_DISCLAIMER
+
+
+def test_the_fire_radius_setting_and_category_isolation_apply(sim_clock: SimClock) -> None:
+    """``fire_km`` controls the wildfire search; earthquakes and volcanoes never get FIRMS entries in ``near_places``."""
+    _, fs = _firms_set(sim_clock)
+    _, expected_nearest, _, _ = oracle_near(-16.6, 179.0, 50.0, int(NOW) - NEARBY_WINDOW_S)
+    assert expected_nearest is not None and expected_nearest > 1.0
+
+    tight = NearPlacesService(PlaceSettings(fire_km=0.5), faults=lambda: FaultIndex([], []))
+    fiji_wf = alert("wf1", HazardCategory.WILDFIRE, -16.6, 179.0, depth_km=None)
+    assert tight.near_places(fiji_wf, [], fires=fs) == []  # type: ignore[arg-type]
+
+    wide = NearPlacesService(PlaceSettings(fire_km=50.0), faults=lambda: FaultIndex([], []))
+    eq = alert("eq1", HazardCategory.EARTHQUAKE, -16.6, 179.0, depth_km=10.0)
+    volc = alert("v1", HazardCategory.VOLCANO, -16.6, 179.0, depth_km=None)
+    assert wide.near_places(eq, [], fires=fs) == []  # type: ignore[arg-type]
+    assert wide.near_places(volc, [], fires=fs) == []  # type: ignore[arg-type]
+
+
+def test_near_places_drops_wildfire_detections_past_24_hours(
+    world: World, sim_clock: SimClock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When the oldest FIRMS reading is older than 24h, ``WILDFIRE.near_places`` becomes ``null`` (ADR 0007/0008)."""
+    collector, _ = _firms_set(sim_clock)
+    fire_svc = FireService(collector, None)
+    monkeypatch.setattr(fire_svc, "_kick", lambda: None)
+    monkeypatch.setattr(aggregator, "firms", collector)
+    monkeypatch.setattr(aggregator, "fires", fire_svc)
+
+    fiji_wf = alert("wf_fiji", HazardCategory.WILDFIRE, -16.6, 179.0, depth_km=None, sources=("GDACS",))
+    monkeypatch.setattr(world.aggregator.gdacs, "fetch", AsyncMock(return_value=[fiji_wf]))
+
+    fresh_geojson = world.client.get("/v1/geojson/hazards").json()
+    [feat] = [f for f in fresh_geojson["features"] if f["id"] == "wf_fiji"]
+    assert feat["properties"]["near_places"][0]["kind"] == "fire"
+    assert fresh_geojson["metadata"]["disclaimer"] == FIRMS_DISCLAIMER
+
+    sim_clock.advance(NEARBY_WINDOW_S + 1)
+    stale_geojson = world.client.get("/v1/geojson/hazards").json()
+    [stale_feat] = [f for f in stale_geojson["features"] if f["id"] == "wf_fiji"]
+    assert stale_feat["properties"]["near_places"] is None
+    assert stale_feat["properties"]["derived"] == []
+    assert stale_geojson["metadata"]["disclaimer"] is None
+
+
+def test_every_endpoint_preserves_nasa_attribution_and_disclaimer_for_wildfire_near_places(
+    world: World, sim_clock: SimClock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """GeoJSON, full Snapshot, full Point, History and Events carry NASA credit + disclaimer; compact profile strips them."""
+    collector, _ = _firms_set(sim_clock)
+    monkeypatch.setattr(aggregator, "firms", collector)
+    monkeypatch.setattr(aggregator, "fires", FireService(collector, None))
+
+    fiji_wf = alert("wf_api", HazardCategory.WILDFIRE, -16.6, 179.0, depth_km=None, sources=("GDACS",))
+    monkeypatch.setattr(world.aggregator.gdacs, "fetch", AsyncMock(return_value=[fiji_wf]))
+
+    geojson = world.client.get("/v1/geojson/hazards").json()
+    assert geojson["metadata"]["disclaimer"] == FIRMS_DISCLAIMER
+    assert CREDITS["nasa_firms"].text in geojson["metadata"]["attribution"]
+
+    full_snap = world.client.get("/v1/snapshot?compact=false").json()
+    [snap_wf] = [h for h in full_snap["hazards"] if h["id"] == "wf_api"]
+    assert snap_wf["near_places"][0]["kind"] == "fire"
+    assert CREDITS["nasa_firms"].text in snap_wf["attribution"]
+    assert full_snap["disclaimer"] == FIRMS_DISCLAIMER
+
+    compact_snap = world.client.get("/v1/snapshot?compact=true").json()
+    [c_wf] = [h for h in compact_snap["hazards"] if h["id"] == "wf_api"]
+    assert c_wf["near_places"] is None and compact_snap["disclaimer"] is None
+
+    full_point = world.client.get("/v1/point?lat=-16.6&lon=179.0&radius_km=500&compact=false").json()
+    [pt_wf] = [h for h in full_point["nearby_hazards"] if h["id"] == "wf_api"]
+    assert pt_wf["near_places"][0]["kind"] == "fire"
+    assert full_point["disclaimer"] == FIRMS_DISCLAIMER
+
+    compact_point = world.client.get("/v1/point?lat=-16.6&lon=179.0&radius_km=500&compact=true").json()
+    assert compact_point["disclaimer"] is None
+
+    history = world.client.get("/v1/history?category=WILDFIRE").json()
+    assert history["items"][0]["near_places"][0]["kind"] == "fire"
+    assert history["disclaimer"] == FIRMS_DISCLAIMER
+
+    events = world.client.get("/v1/events?compact=false").json()
+    assert FIRMS_DISCLAIMER in (events["disclaimer"] or "")
+    assert CREDITS["nasa_firms"].text in (events["attribution"] or "")
+
+    # Without FIRMS enabled, GeoJSON leaves WILDFIRE near_places as null and emits no FIRMS disclaimer.
+    monkeypatch.setattr(aggregator, "fires", FireService(None, "off"))
+    off_geojson = world.client.get("/v1/geojson/hazards").json()
+    [off_wf] = [f for f in off_geojson["features"] if f["id"] == "wf_api"]
+    assert off_wf["properties"]["near_places"] is None
+    assert off_geojson["metadata"]["disclaimer"] is None

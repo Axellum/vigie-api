@@ -274,11 +274,11 @@ class HazardAlert(BaseModel):
     )
     near_places: Optional[list[NearPlace]] = Field(
         default=None,
-        description="Reference places close to an earthquake or a volcanic event, nearest first, computed by Vigie: the named active "
-        "faults and the volcanoes that the hazard sources name (the radii are settings). Never the points a user watches: they are "
-        "personal and listed by `/v1/watched-points` only. Empty: nothing is near. Null: not worked out (a hazard that is compared "
-        "with nothing, such as a storm or a flood; the faults are unknown; the alert is simulated; or the compact profile of "
-        "`/v1/snapshot` and `/v1/point`, which keeps to 16 KiB: ask `compact=false`). Named in `derived`; it never changes `severity`",
+        description="Reference places close to an earthquake, a volcanic event, or a wildfire, nearest first, computed by Vigie: the named active "
+        "faults, the volcanoes that the hazard sources name, and active fire detections from NASA FIRMS (the radii are settings). Never the "
+        "points a user watches: they are personal and listed by `/v1/watched-points` only. Empty: nothing is near. Null: not worked out (a "
+        "hazard that is compared with nothing, such as a storm or a flood; the reference data it needs is off or unknown; the alert is simulated; "
+        "or the compact profile of `/v1/snapshot` and `/v1/point`, which keeps to 16 KiB: ask `compact=false`). Named in `derived`; it never changes `severity`",
     )
 
     # What names the same event in two sources when they do not agree on its time and place (a storm: its name and its
@@ -406,6 +406,10 @@ class SnapshotResponse(BaseModel):
     global_status: GlobalStatus
     zones: list[ZoneWeather]
     hazards: list[HazardAlert]
+    disclaimer: Optional[str] = Field(
+        default=None,
+        description="Notice the sources ask to publish with their data (for instance NASA FIRMS when `near_places` includes active fires)",
+    )
 
 
 class FloodRiskStatus(BaseModel):
@@ -527,6 +531,10 @@ class HistoryResponse(BaseModel):
 
     count: int
     items: list[HazardAlert]
+    disclaimer: Optional[str] = Field(
+        default=None,
+        description="Notice the sources ask to publish with their data (for instance NASA FIRMS when `near_places` includes active fires)",
+    )
 
 
 class PointResponse(BaseModel):
@@ -567,6 +575,10 @@ class PointResponse(BaseModel):
         description="Active fires detected around the position in the last 24 hours (NASA FIRMS). Null when the source is off on this "
         "instance (`GET /v1/health`, `disabled_sources`), has not been read yet, or the oldest reading is older than the 24 hours it sums up "
         "(the refresh is started by this request). Informative only: never part of `local_alert_level`",
+    )
+    disclaimer: Optional[str] = Field(
+        default=None,
+        description="Notice the sources ask to publish with their data (for instance NASA FIRMS when `near_places` on `nearby_hazards` includes active fires)",
     )
 
 

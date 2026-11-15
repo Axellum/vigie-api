@@ -266,14 +266,12 @@ def grid_cells(fs: FireSet, box: Box, since: int, cell_deg: float, min_confidenc
     return GridResult(total_cells=len(cells), total_detections=total, features=features)
 
 
-def near(fs: FireSet, lat: float, lon: float, radius_km: float, since: int) -> tuple[int, Optional[float], Optional[float], Optional[int]]:
-    """``(count, nearest_km, max_frp_mw, latest_utc)`` of the detections within ``radius_km`` of a point, acquired since ``since``."""
+def _iter_nearby_detections(
+    fs: FireSet, lat: float, lon: float, radius_km: float, since: int
+) -> Any:
+    """Yield ``(source, distance_km, frp_mw, acq_utc)`` for every detection within ``radius_km`` acquired since ``since``."""
     box = box_around(lat, lon, radius_km)
     a1, b1, a2, b2 = _in_ranges(box.lon_ranges)
-    count = 0
-    nearest: Optional[float] = None
-    strongest: Optional[float] = None
-    latest: Optional[int] = None
     for reading in fs.readings:
         table = reading.table
         order, tlat, tlon, acq, frp = table.order, table.lat, table.lon, table.acq, table.frp
@@ -286,17 +284,37 @@ def near(fs: FireSet, lat: float, lon: float, radius_km: float, since: int) -> t
             if not (a1 <= x <= b1 or a2 <= x <= b2):
                 continue
             distance = haversine_km(lat, lon, tlat[i] / SCALE, x / SCALE)
-            if distance > radius_km:
-                continue
-            count += 1
-            if nearest is None or distance < nearest:
-                nearest = distance
-            power = frp[i]
-            if power == power and (strongest is None or power > strongest):
-                strongest = float(power)
-            if latest is None or when > latest:
-                latest = int(when)
+            if distance <= radius_km:
+                yield reading.source, distance, frp[i], int(when)
+
+
+def near(fs: FireSet, lat: float, lon: float, radius_km: float, since: int) -> tuple[int, Optional[float], Optional[float], Optional[int]]:
+    """``(count, nearest_km, max_frp_mw, latest_utc)`` of the detections within ``radius_km`` of a point, acquired since ``since``."""
+    count = 0
+    nearest: Optional[float] = None
+    strongest: Optional[float] = None
+    latest: Optional[int] = None
+    for _, distance, power, when in _iter_nearby_detections(fs, lat, lon, radius_km, since):
+        count += 1
+        if nearest is None or distance < nearest:
+            nearest = distance
+        if power == power and (strongest is None or power > strongest):
+            strongest = float(power)
+        if latest is None or when > latest:
+            latest = when
     return count, nearest, strongest, latest
+
+
+def nearest_sources(fs: FireSet, lat: float, lon: float, radius_km: float, since: int) -> Optional[tuple[float, list[str]]]:
+    """``(nearest_km, sources)`` when at least one detection lies within ``radius_km`` since ``since``, else ``None``."""
+    nearest: Optional[float] = None
+    sources: list[str] = []
+    for source, distance, _, _ in _iter_nearby_detections(fs, lat, lon, radius_km, since):
+        if nearest is None or distance < nearest:
+            nearest = distance
+        if source not in sources:
+            sources.append(source)
+    return None if nearest is None else (nearest, sources)
 
 
 # ------------------------------------------------------------------------------------------------ the service
@@ -370,7 +388,7 @@ class FireService:
                 value = await collector.fetch(CACHE_KEY)
             except CollectorUnavailableError as exc:
                 raise FiresUnavailable(str(exc)) from None
-            return value, collector.failing()
+            return value, collector.failing() or collector.consecutive_failures > 0 or self.overdue(value)
         if not fresh:
             self._kick()
         return value, collector.failing() or collector.consecutive_failures > 0 or self.overdue(value)
@@ -497,6 +515,20 @@ class FireService:
             "features": list(result.features),
         }
 
+    @staticmethod
+    def _within_window(fs: Optional[FireSet]) -> Optional[FireSet]:
+        """Return ``fs`` when it has readings and none is older than the 24-hour window, else ``None``."""
+        if fs is None or not fs.readings or clock.wall() - min(reading.read_utc for reading in fs.readings) > NEARBY_WINDOW_S:
+            return None
+        return fs
+
+    def recent_cached_set(self) -> Optional[FireSet]:
+        """Cached reading within the 24-hour window; never starts a network download (scheduler sobriety)."""
+        if self.collector is None:
+            return None
+        value, _ = self.collector.cached()
+        return self._within_window(value)
+
     async def nearby(self, lat: float, lon: float, radius_km: float = NEARBY_RADIUS_DEFAULT_KM) -> Optional[FiresNearby]:
         """The summary of ``GET /v1/point``; ``None`` when the source is off, nothing has been read yet (it never waits), or a reading is
         older than the 24 hours it sums up (a count of them would be made up; the refresh is on its way)."""
@@ -504,10 +536,9 @@ class FireService:
         if current is None:
             return None
         fs, stale = current
-        now = clock.wall()
-        if fs.readings and now - min(reading.read_utc for reading in fs.readings) > NEARBY_WINDOW_S:
+        if self._within_window(fs) is None:
             return None
-        since = int(now - NEARBY_WINDOW_S)
+        since = int(clock.wall() - NEARBY_WINDOW_S)
         count, nearest, strongest, latest = near(fs, lat, lon, radius_km, since)
         return FiresNearby(
             radius_km=radius_km,
