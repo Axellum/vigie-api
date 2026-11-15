@@ -256,6 +256,13 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "noaa_ndbc",
+            "NOAA National Data Buoy Center (NDBC), latest marine buoy observations",
+            "Source: NOAA National Weather Service, National Data Buoy Center (https://www.ndbc.noaa.gov), latest buoy observation "
+            "(measured_at, UTC); the choice of the buoy, its distance and its age are calculated by Vigie. Not endorsed by NOAA or the NWS",
+            "ours (follows the NWS disclaimer: no credit required, no implied endorsement)",
+        ),
+        Credit(
             "surf_height_factors",
             "Factors of the sea height of some surf spots, found against CANDHIS buoys",
             "Height of the sea at some surf spots, when the correction is asked: factors calculated by Vigie from the measures of the wave buoys of "

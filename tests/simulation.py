@@ -84,6 +84,7 @@ HOST_TO_SOURCE: dict[str, str] = {
     "www.vigicrues.gouv.fr": "vigicrues_flow",
     "www.tsunami.gov": "tsunami_warning_centers",
     "www.nhc.noaa.gov": "nhc_storms",
+    "www.ndbc.noaa.gov": "noaa_ndbc",
     "firms.modaps.eosdis.nasa.gov": "nasa_firms",
     # feeds.meteoalarm.org serves the Atom feeds and the CAP documents: see ``source_of``.
 }
@@ -423,6 +424,16 @@ class Upstream:
             return self._tsunami(request)
         if source == "nhc_storms":
             return self._nhc(request)
+        if source == "noaa_ndbc":
+            path = request.url.path
+            fixture = "activestations-2026-11-15.xml" if path.endswith(".xml") else "latest_obs-2026-11-15.txt"
+            body = (FIXTURES / "ndbc" / fixture).read_bytes()
+            etag = '"' + hashlib.sha1(body).hexdigest()[:13] + '"'
+            if request.headers.get("If-None-Match") == etag:
+                self.not_modified[source] += 1
+                return httpx.Response(304, headers={"ETag": etag})
+            self.bytes[source] += len(body)
+            return httpx.Response(200, content=body, headers={"ETag": etag})
         if source == "nasa_firms":
             return self._firms_area(request) if request.url.path.startswith("/api/") else self._firms(request)
         return httpx.Response(200, json=self._payload(source, params))

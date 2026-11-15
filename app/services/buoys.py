@@ -8,6 +8,7 @@ sheltered spot behind a headland) is **not** judged: only the distance is.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -17,6 +18,7 @@ from typing import Any, Optional
 from app.attribution import credit_text
 from app.collectors.base import CollectorUnavailableError
 from app.collectors.candhis import BuoyReading, CandhisCollector
+from app.collectors.ndbc import NdbcCollector
 from app.collectors.surf import SurfForecastCollector
 from app.models.buoys import Buoy, BuoyForecastComparison, BuoyMeasure, SpotBuoy, SpotBuoyReading, SpotBuoys
 from app.services import surf
@@ -29,10 +31,13 @@ MAX_COMPARABLE_KM = 30.0
 MAX_AGE_S = 3 * 3600
 MAX_AHEAD_S = 30 * 60
 COMPARE_MAX_DIFF_S = 30 * 60  # a buoy record is compared with the hourly forecast step within 30 minutes of `measured_utc`
+CANDHIS_LICENCE = "Licence Ouverte 2.0"
+NDBC_LICENCE = "Public domain (U.S. NWS disclaimer)"
 READING_NOTE = (
     "The buoy is the nearest located buoy whose latest record is at most `max_age_hours` old: a nearer buoy that has stopped is passed "
-    "over. Only the buoys of the CANDHIS list of 2024-12-03 have a position here; another one is not used. The distance, `comparable` and "
-    "`age_minutes` are calculated by Vigie. A buoy measures the sea where it floats: how sheltered the spot is compared with it is not judged."
+    "over. CANDHIS buoys use the CANDHIS list of 2024-12-03 for coordinates; NOAA NDBC buoys use coordinates from `latest_obs.txt` and "
+    "names from `activestations.xml`. The distance, `comparable` and `age_minutes` are calculated by Vigie. A buoy measures the sea "
+    "where it floats: how sheltered the spot is compared with it is not judged."
 )
 NOTE = (
     "The distance is calculated by Vigie. The nearest station of the CANDHIS file may no longer measure: `real_time` is true only for "
@@ -114,20 +119,62 @@ async def _compare_with_forecast(
     )
 
 
+def _is_current(measured_utc: int, now_unix: float) -> bool:
+    return -MAX_AHEAD_S <= now_unix - measured_utc <= MAX_AGE_S
+
+
+async def _fetch_candhis_candidates(
+    collector: CandhisCollector, lat: float, lon: float, now_unix: float
+) -> tuple[list[tuple[float, Buoy, BuoyReading, str, str, bool]], bool, bool]:
+    """Return ``(candidates, stale, complete)`` from CANDHIS, or raise ``CollectorUnavailableError``."""
+    latest = await collector.fetch_latest()
+    located = {b.id: b for b in stations()}
+    rows = [
+        (haversine_km(lat, lon, located[sid].lat, located[sid].lon), located[sid], reading, "candhis_tr", CANDHIS_LICENCE, latest.stale)
+        for sid, reading in latest.readings.items()
+        if sid in located and _is_current(reading.measured_utc, now_unix)
+    ]
+    return rows, latest.stale, not latest.failed_kinds
+
+
+async def _fetch_ndbc_candidates(
+    collector: NdbcCollector, lat: float, lon: float, now_unix: float
+) -> tuple[list[tuple[float, Buoy, BuoyReading, str, str, bool]], bool, bool]:
+    """Return ``(candidates, stale, complete)`` from NOAA NDBC, or raise ``CollectorUnavailableError``."""
+    latest = await collector.fetch_latest()
+    rows: list[tuple[float, Buoy, BuoyReading, str, str, bool]] = []
+    for sid, reading in latest.readings.items():
+        station = latest.stations.get(sid)
+        if station is None or not _is_current(reading.measured_utc, now_unix):
+            continue
+        buoy = Buoy(id=station.id, name=station.name, lat=station.lat, lon=station.lon, source="ndbc", real_time=True)
+        rows.append((haversine_km(lat, lon, station.lat, station.lon), buoy, reading, "noaa_ndbc", NDBC_LICENCE, latest.stale))
+    return rows, latest.stale, True
+
+
 async def spot_reading(
     collector: Optional[CandhisCollector],
     spot_id: str,
     now_unix: float,
     surf_collector: Optional[SurfForecastCollector] = None,
     compare: bool = False,
+    ndbc: Optional[NdbcCollector] = None,
 ) -> SpotBuoyReading:
-    """The latest record of the nearest buoy that has a current one, for a surf spot (``surf.UnknownSpot`` for an unknown id).
-    Never raises for a provider that fails: ``status`` says why there is no record."""
+    """The latest record of the nearest buoy (CANDHIS or NOAA NDBC) that has a current one, for a surf spot.
+
+    Raises ``surf.UnknownSpot`` for an unknown id. Never raises for a provider that fails: ``status`` says why there is no record.
+    """
     spot = surf.find_spot(spot_id)
     base_derived = ["buoy", "distance_km", "comparable", "age_minutes", "measured_at", "max_age_hours", "max_comparable_km"]
 
-    def answer(status: str, comparison: Optional[BuoyForecastComparison] = None, **more: Any) -> SpotBuoyReading:
-        credits = ("candhis_tr", "copernicus_mfwam", "open_meteo") if comparison and comparison.status == "ok" else ("candhis_tr",)
+    def answer(
+        status: str,
+        credit_key: str = "candhis_tr",
+        licence: str = CANDHIS_LICENCE,
+        comparison: Optional[BuoyForecastComparison] = None,
+        **more: Any,
+    ) -> SpotBuoyReading:
+        credits = (credit_key, "copernicus_mfwam", "open_meteo") if comparison and comparison.status == "ok" else (credit_key,)
         return SpotBuoyReading(
             spot_id=spot.id,
             spot_name=spot.name,
@@ -137,36 +184,55 @@ async def spot_reading(
             max_comparable_km=MAX_COMPARABLE_KM,
             note=READING_NOTE,
             derived=[*base_derived, "comparison"] if comparison is not None else base_derived,
-            licence="Licence Ouverte 2.0",
+            licence=licence,
             attribution=credit_text(*credits),
             **more,
         )
 
-    if collector is None:
+    tasks: list[tuple[str, str, Any]] = []
+    if collector is not None:
+        tasks.append(("candhis_tr", CANDHIS_LICENCE, _fetch_candhis_candidates(collector, spot.lat, spot.lon, now_unix)))
+    if ndbc is not None:
+        tasks.append(("noaa_ndbc", NDBC_LICENCE, _fetch_ndbc_candidates(ndbc, spot.lat, spot.lon, now_unix)))
+    if not tasks:
         return answer("not_configured")
-    try:
-        latest = await collector.fetch_latest()
-    except CollectorUnavailableError:
-        return answer("unavailable")
-    located = {b.id: b for b in stations()}
-    candidates = [
-        (haversine_km(spot.lat, spot.lon, located[sid].lat, located[sid].lon), located[sid], reading)
-        for sid, reading in latest.readings.items()
-        if sid in located and -MAX_AHEAD_S <= now_unix - reading.measured_utc <= MAX_AGE_S
-    ]
-    complete = not latest.failed_kinds  # a kind that could not be read hides buoys: the nearest one read may not be the nearest
+
+    results = await asyncio.gather(*(coro for _, _, coro in tasks), return_exceptions=True)
+    candidates: list[tuple[float, Buoy, BuoyReading, str, str, bool]] = []
+    succeeded = 0
+    any_stale = False
+    complete = True
+    last_credit, last_licence = tasks[0][0], tasks[0][1]
+    for (credit_key, licence, _), outcome in zip(tasks, results, strict=True):
+        last_credit, last_licence = credit_key, licence
+        if isinstance(outcome, CollectorUnavailableError):
+            complete = False
+            continue
+        if isinstance(outcome, BaseException):
+            raise outcome
+        rows, src_stale, src_complete = outcome
+        succeeded += 1
+        candidates.extend(rows)
+        any_stale = any_stale or src_stale
+        complete = complete and src_complete
+
+    if succeeded == 0:
+        return answer("unavailable", credit_key=last_credit, licence=last_licence)
     if not candidates:
-        return answer("no_current_reading", stale=latest.stale, complete=complete)
-    distance, buoy, reading = min(candidates, key=lambda c: c[0])
+        return answer("no_current_reading", credit_key=last_credit, licence=last_licence, stale=any_stale, complete=complete)
+
+    distance, buoy, reading, credit_key, licence, source_stale = min(candidates, key=lambda c: c[0])
     comparison = await _compare_with_forecast(surf_collector, spot, reading) if compare and surf_collector is not None else None
     return answer(
         "ok",
+        credit_key=credit_key,
+        licence=licence,
         comparison=comparison,
         buoy=buoy,
         distance_km=round(distance, 1),
         comparable=distance <= MAX_COMPARABLE_KM,
         measure=_measure(reading, now_unix),
-        stale=latest.stale,
+        stale=source_stale,
         complete=complete,
     )
 

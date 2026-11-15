@@ -328,6 +328,14 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-11-09",
         ),
         CommercialUse(
+            "noaa_ndbc",
+            "allowed",
+            "Public domain unless noted otherwise (NWS disclaimer linked from ndbc.noaa.gov footer; no implied endorsement, no altered "
+            "content presented as official). Not verified: whether international partner buoys in the feed add conditions of their own.",
+            ("https://www.ndbc.noaa.gov/", _NWS_DISCLAIMER),
+            "2026-11-15",
+        ),
+        CommercialUse(
             "surf_height_factors",
             "not_verified",
             "The factors are numbers calculated by Vigie from two series. The CANDHIS measures (Licence Ouverte 2.0, `01_Utilisation.fr.pdf` read on 2026-10-28) allow any use "

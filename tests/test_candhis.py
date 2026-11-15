@@ -261,6 +261,7 @@ def test_the_route_serves_the_record_and_says_when_the_instance_has_no_key(monke
     monkeypatch.setattr(clock, "_wall", lambda: NOW)
     client = TestClient(app)
     monkeypatch.setattr(aggregator, "candhis", None)
+    monkeypatch.setattr(aggregator, "ndbc", None)
     off = client.get(f"/v1/surf/spots/{HOSSEGOR}/buoy")
     assert off.status_code == 200 and off.json()["status"] == "not_configured" and off.json()["measure"] is None
     monkeypatch.setattr(aggregator, "candhis", collector_with(candhis_host([])))

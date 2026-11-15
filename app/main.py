@@ -884,7 +884,7 @@ async def get_spot_buoy(
 ) -> SpotBuoyReading:
     """The latest record of the nearest current buoy of a spot."""
     try:
-        answer = await buoys.spot_reading(aggregator.candhis, spot_id, clock.wall(), aggregator.surf, compare)
+        answer = await buoys.spot_reading(aggregator.candhis, spot_id, clock.wall(), aggregator.surf, compare, ndbc=aggregator.ndbc)
     except surf.UnknownSpot:
         raise HTTPException(status_code=404, detail=f"no surf spot {spot_id!r}") from None
     response.headers["Cache-Control"] = SURF_CACHE
