@@ -114,6 +114,21 @@ class SQLiteWALStorage:
             """
         )
 
+    @staticmethod
+    def _ensure_surf_archive_columns(conn: sqlite3.Connection) -> None:
+        """Add the secondary swell, wind-wave and surge columns to existing ``surf_forecast_archive`` tables."""
+        existing = {row["name"] for row in conn.execute("PRAGMA table_info(surf_forecast_archive)").fetchall()}
+        extra = (
+            "secondary_swell_height",
+            "secondary_swell_period",
+            "secondary_swell_direction",
+            "wind_wave_height",
+            "surge_m",
+        )
+        for column in extra:
+            if column not in existing:
+                conn.execute(f"ALTER TABLE surf_forecast_archive ADD COLUMN {column} REAL;")
+
     def _init_schema_and_seed(self) -> None:
         """Create the tables when missing and seed the initial watchlist."""
         with self._connect() as conn:
@@ -214,7 +229,10 @@ class SQLiteWALStorage:
                     issued_utc INTEGER NOT NULL,
                     wave_height REAL, wave_period REAL, wave_direction REAL,
                     swell_height REAL, swell_period REAL, swell_direction REAL,
+                    secondary_swell_height REAL, secondary_swell_period REAL, secondary_swell_direction REAL,
+                    wind_wave_height REAL,
                     wind_speed REAL, wind_direction REAL, wind_gusts REAL,
+                    surge_m REAL,
                     PRIMARY KEY (spot_id, issued_bucket, valid_utc)
                 ) WITHOUT ROWID;
 
@@ -230,6 +248,7 @@ class SQLiteWALStorage:
                 """
             )
             self._make_hazard_value_nullable(conn)
+            self._ensure_surf_archive_columns(conn)
             conn.executescript(
                 """
                 CREATE INDEX IF NOT EXISTS idx_hazards_ts
