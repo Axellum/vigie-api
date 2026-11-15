@@ -236,6 +236,8 @@ def test_the_route_gives_every_spot_in_short(client: TestClient) -> None:
 
 def test_the_route_takes_the_wind_range_of_the_kite(client: TestClient) -> None:
     assert client.get("/v1/activities/overview", params={"wind_min_kn": 15, "wind_max_kn": 30}).json()["wind_range"] == {"min_kn": 15.0, "max_kn": 30.0}
+    assert client.get("/v1/activities/overview", params={"boat_category": "D"}).json()["boat_category"] == "D"
+    assert client.get("/v1/activities/overview", params={"boat_category": "Z"}).status_code == 422
 
 
 @pytest.mark.parametrize("params", [{"wind_min_kn": 20, "wind_max_kn": 10}, {"wind_min_kn": 10, "wind_max_kn": 10}, {"wind_min_kn": 0}, {"wind_max_kn": 61}])

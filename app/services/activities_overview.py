@@ -23,6 +23,7 @@ from app.models.activities import (
     ActivitiesOverview,
     ActivityAlert,
     ActivityOverview,
+    BoatCategory,
     SpotActivities,
     WindRange,
 )
@@ -41,7 +42,7 @@ _LEVELS = (SeverityLevel.RED.value, SeverityLevel.ORANGE.value)  # the levels th
 # Warnings read per spot: (read at, alerts). Only an answer that could be read is kept: a failure is asked again on the next call.
 _warnings_memo: dict[str, tuple[float, list[ActivityAlert]]] = {}
 # The last overview worked out: what it was made from, and the overview.
-_memo: Optional[tuple[object, object, int, int, float, float, ActivitiesOverview]] = None
+_memo: Optional[tuple[object, object, int, int, float, float, Optional[BoatCategory], ActivitiesOverview]] = None
 
 
 def _coastal_level(alerts: list[ActivityAlert], first_hour: int) -> Optional[str]:
@@ -64,13 +65,14 @@ def summarize(
     wind_range: WindRange,
     now_unix: float,
     stale: bool = False,
+    boat_category: Optional[BoatCategory] = None,
 ) -> SpotActivities:
     """One spot in short, from its parsed swell and wind: the forecast of ``GET /v1/activities/{spot_id}`` cut to its headlines."""
     base = surf.build_forecast(spot, swell, wind, 1, now_unix, stale)
     now_hour = int(now_unix // HOUR) * HOUR
     first = base.hours[0].time_utc if base.hours else now_hour
     context = activities.tide_context(spot, first, 1, now_unix)
-    full = activities.build(base, context, alerts, warnings_known, [], wind_range, now_unix)
+    full = activities.build(base, context, alerts, warnings_known, [], wind_range, now_unix, boat_category)
     listed = []
     for a in full.activities:
         current = next((h.verdict for h in a.hours if h.time_utc == now_hour), None)
@@ -96,6 +98,7 @@ def build(
     wind_range: WindRange,
     now_unix: float,
     stale: bool = False,
+    boat_category: Optional[BoatCategory] = None,
 ) -> ActivitiesOverview:
     """Every spot in short from the parsed every-spot answers (pure: no request, no clock). ``warnings``: by spot id, the alerts and
     whether they could be read; a spot with no entry has its warnings unknown."""
@@ -106,13 +109,16 @@ def build(
         spot = surf.find_spot(raw["id"])
         alerts, known = warnings.get(spot.id, ([], False))
         try:
-            listed.append(summarize(spot, swell[spot.id], (wind or {}).get(spot.id), alerts, known, wind_range, now_unix, stale))
+            listed.append(
+                summarize(spot, swell[spot.id], (wind or {}).get(spot.id), alerts, known, wind_range, now_unix, stale, boat_category)
+            )
         except ValueError:
             _log.warning("activities overview: spot %s left out, its forecast could not be built", spot.id, exc_info=True)
     return ActivitiesOverview(
         generated_utc=int(now_unix),
         count=len(listed),
         wind_range=wind_range,
+        boat_category=boat_category,
         spots=listed,
         rules=activities.RULES,
         derived=[
@@ -149,6 +155,7 @@ async def overview(
     now_unix: float,
     wind_min_kn: float = activities.DEFAULT_WIND_MIN_KN,
     wind_max_kn: float = activities.DEFAULT_WIND_MAX_KN,
+    boat_category: Optional[BoatCategory] = None,
 ) -> ActivitiesOverview:
     """Every spot in short. ``surf.NoSurfForecast`` when the swell of no spot can be had; ``ValueError`` when the wind range is not one."""
     global _memo
@@ -172,16 +179,23 @@ async def overview(
         and memo[1] is wind_data
         and memo[2] == hour
         and memo[3] == bucket
-        and (memo[4], memo[5]) == (wind_min_kn, wind_max_kn)
+        and (memo[4], memo[5], memo[6]) == (wind_min_kn, wind_max_kn, boat_category)
     ):
-        return memo[6]
+        return memo[7]
     gate = asyncio.Semaphore(WARNINGS_PARALLEL)
     asked = [(spot_id, lat, lon) for spot_id, lat, lon in points if spot_id in swell_data]
     answers = await asyncio.gather(*(_warnings_of(vigilances, spot_id, lat, lon, gate) for spot_id, lat, lon in asked))
     warnings = dict(zip((spot_id for spot_id, _, _ in asked), answers, strict=True))
     # 51 spots of rating and tide: a fraction of a second of numpy, in a worker thread, as the surf overview.
     built = await clock.run_blocking(
-        build, swell_data, wind_data, warnings, WindRange(min_kn=wind_min_kn, max_kn=wind_max_kn), now_unix, swell_stale or wind_stale
+        build,
+        swell_data,
+        wind_data,
+        warnings,
+        WindRange(min_kn=wind_min_kn, max_kn=wind_max_kn),
+        now_unix,
+        swell_stale or wind_stale,
+        boat_category,
     )
-    _memo = (swell_data, wind_data, hour, bucket, wind_min_kn, wind_max_kn, built)
+    _memo = (swell_data, wind_data, hour, bucket, wind_min_kn, wind_max_kn, boat_category, built)
     return built
