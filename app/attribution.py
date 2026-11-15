@@ -263,6 +263,12 @@ CREDITS: dict[str, Credit] = {
             "https://www.vigicrues.gouv.fr. Licence Ouverte 2.0",
             "ours",
         ),
+        Credit(
+            "meteofrance_vigilance",
+            "Météo-France (DPVigilance)",
+            "Source: Météo-France, Vigilance météorologique (https://vigilance.meteofrance.fr). Licence Ouverte 2.0",
+            "ours",
+        ),
         # The travel advice of the foreign ministries (SOURCES.md, "Travel advice").
         Credit(
             "travel_gb",

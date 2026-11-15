@@ -98,6 +98,14 @@ QUOTAS: dict[str, Quota] = {
     # the key (2026-11-09). The guide (https://candhis.cerema.fr/doc/04_Candhis_API_v1_Utilisateur.pdf, read 2026-11-09) states no number: it
     # only says that a 429 answers once the daily quota is reached. This API sends at most 72 a day (three kinds, once an hour).
     "candhis_tr": Quota("candhis", (Limit(DAY_S, 150),), "https://candhis.cerema.fr/doc/04_Candhis_API_v1_Utilisateur.pdf"),
+    # Météo-France Portail API (DPVigilance v1): the free plan allows 50 requests per minute
+    # (https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesVigilance, read 2026-11-15). This API sends at most
+    # two requests (the map and the texts) every 3 minutes.
+    "meteofrance_vigilance": Quota(
+        "meteofrance-vigilance",
+        (Limit(60, 50),),
+        "https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesVigilance",
+    ),
     # Not listed, no published quota: usgs_eq, emsc_seismic, gdacs_global, noaa_nws (a limit exists but "is
     # not public information"), usgs_volcano_gvp, noaa_swpc, and the other warning services: dwd_cap, metservice_cap and
     # vigicrues_flow publish none (nothing about a request rate on their terms or documentation pages, 2026-10-20: not

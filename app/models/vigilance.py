@@ -100,7 +100,7 @@ class Vigilance(BaseModel):
     """One official warning for one area."""
 
     id: str = Field(..., description="Identifier of this warning for this area in this API (unique, stable while the source keeps it)")
-    source: Literal["meteoalarm", "noaa_nws", "dwd", "eccc", "metservice", "vigicrues", "tsunami", "swic"] = Field(
+    source: Literal["meteoalarm", "meteofrance", "noaa_nws", "dwd", "eccc", "metservice", "vigicrues", "tsunami", "swic"] = Field(
         ...,
         description=(
             "Where the warning comes from. `swic`: a national service listed in the registry of the WMO Severe Weather "

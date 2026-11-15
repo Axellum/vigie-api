@@ -52,6 +52,7 @@ from app.collectors.meteoalarm import (
     MeteoAlarmFeed,
     with_cap,
 )
+from app.collectors.meteofrance import MeteoFranceVigilanceCollector
 from app.collectors.metservice import MetServiceCollector
 from app.collectors.swic import SwicCollector, notes_of
 from app.collectors.swic_registry import SwicRegistryCollector, SwicSource, bundled_registry
@@ -68,6 +69,7 @@ from app.models.vigilance import (
     VigilanceCoverage,
     VigilanceGeoJSONCollection,
     VigilanceGeoJSONFeature,
+    VigilancePhenomenon,
     VigilanceQuery,
     VigilancesResponse,
     VigilanceStatus,
@@ -97,12 +99,13 @@ FRANCE = "FR"
 NATIONAL_SOURCES: dict[str, str] = {"DE": "dwd", "CA": "eccc", "NZ": "metservice"}
 SUPPORTED_COUNTRIES = sorted({*COUNTRY_FEEDS, NWS_COUNTRY, *NATIONAL_SOURCES})
 # The sources whose warnings carry their words inline (no CAP document to fetch afterwards).
-INLINE_TEXT_SOURCES = ("dwd", "eccc", "metservice", "swic")
+INLINE_TEXT_SOURCES = ("dwd", "eccc", "meteofrance", "metservice", "swic")
 REGISTRY_RECHECK_S = 3600  # how often the registry cache is looked at (the registry itself is asked once a day)
 REGISTRY_RETRY_S = 3600  # after a registry that did not answer (the snapshot bundled with the code is used meanwhile)
 # Source -> key of its credit in ``app/attribution.py``, in the order the credits are printed.
 CREDIT_KEYS: dict[str, str] = {
     "meteoalarm": "meteoalarm",
+    "meteofrance": "meteofrance_vigilance",
     "dwd": "dwd_warnings",
     "eccc": "eccc_alerts",
     "metservice": "metservice_alerts",
@@ -115,6 +118,7 @@ CREDIT_KEYS: dict[str, str] = {
 # not: its feed says CC BY 4.0, the website terms it points to allow personal use only, and which one governs is not verified.
 LICENCE_VERIFIED: dict[str, bool] = {
     "meteoalarm": True,
+    "meteofrance": True,
     "noaa_nws": True,
     "tsunami": True,
     "dwd": True,
@@ -256,6 +260,7 @@ class VigilanceService:
         dwd: Optional[DWDCollector] = None,
         eccc: Optional[ECCCCollector] = None,
         metservice: Optional[MetServiceCollector] = None,
+        meteofrance: Optional[MeteoFranceVigilanceCollector] = None,
         vigicrues: Optional[VigicruesCollector] = None,
         tsunami: Optional[TsunamiCollector] = None,
         swic: Optional[SwicCollector] = None,
@@ -270,6 +275,7 @@ class VigilanceService:
         self.dwd = dwd
         self.eccc = eccc
         self.metservice = metservice
+        self.meteofrance = meteofrance
         self.vigicrues = vigicrues
         self.tsunami = tsunami
         self.swic = swic
@@ -412,6 +418,11 @@ class VigilanceService:
         national = self._national(country)
         if national is not None:
             return [national]
+        if country == FRANCE and self.meteofrance is not None:
+            plan = ["meteofrance"]
+            if self.vigicrues is not None:
+                plan.append("vigicrues")
+            return plan + swic
         plan = ["meteoalarm"] if country in COUNTRY_FEEDS else []
         if country == FRANCE and self.vigicrues is not None:
             plan.append("vigicrues")
@@ -573,6 +584,15 @@ class VigilanceService:
         status = fetched.value
         return self._national_data("dwd", "DE", self.dwd, "status", fetched, list(status.vigilances), status.updated_utc)
 
+    async def _meteofrance(self) -> SourceData:
+        assert self.meteofrance is not None
+        try:
+            fetched = await self.meteofrance.fetch_status()
+        except (CollectorUnavailableError, ValueError) as exc:
+            return self._unavailable("meteofrance", FRANCE, exc)
+        status = fetched.value
+        return self._national_data("meteofrance", FRANCE, self.meteofrance, "status", fetched, list(status.vigilances), status.updated_utc)
+
     async def _eccc(self) -> SourceData:
         assert self.eccc is not None
         try:
@@ -698,6 +718,19 @@ class VigilanceService:
                     "Used because the national service gave no answer; its copies of the warnings may not be matched to a point."
                 )
                 sources.append(fallback)
+            return sources
+        if country == FRANCE and self.meteofrance is not None:
+            data = await self._meteofrance()
+            sources = [data]
+            if data.coverage.status == "unavailable":
+                fallback = await self._meteoalarm(country)
+                fallback.fallback = True
+                fallback.note = (
+                    "Used because the national service gave no answer; its copies of the warnings may not be matched to a point."
+                )
+                sources.append(fallback)
+            if self.vigicrues is not None:
+                sources.append(await self._vigicrues())
             return sources
         sources = []
         if country in COUNTRY_FEEDS:
@@ -900,7 +933,11 @@ class VigilanceService:
             return found
         kept: list[Vigilance] = []
         for vigilance in found:
-            if vigilance.source == "meteoalarm" and vigilance.country == FRANCE and (vigilance.phenomenon_original or "").lower() == FLOODING_WORD:
+            is_fr_flood = vigilance.country == FRANCE and (
+                (vigilance.source == "meteoalarm" and (vigilance.phenomenon_original or "").lower() == FLOODING_WORD)
+                or (vigilance.source == "meteofrance" and vigilance.phenomenon == VigilancePhenomenon.FLOOD)
+            )
+            if is_fr_flood:
                 department, _ = geometry_of(vigilance, self.geometries)
                 if department is not None and any(
                     level_rank(river.level) >= level_rank(vigilance.level) and river.shape.intersects(department)  # type: ignore[union-attr]

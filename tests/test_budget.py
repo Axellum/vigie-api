@@ -132,6 +132,7 @@ def test_quotas_are_declared_in_one_place_with_their_source() -> None:
         "ecmwf_opendata",  # not published: a ceiling of our own for the pre-alert pilot (see budget.py)
         "travel_gb",  # GOV.UK Content API: 10 requests a second per client
         "candhis_tr",  # 150 requests a day, as the e-mail that gives the key says (see budget.py)
+        "meteofrance_vigilance",  # Météo-France API portal (DPVigilance v1): 50 requests a minute on the free plan
     }
     assert all(quota.source_url.startswith("https://") for quota in QUOTAS.values())
     assert len({id(QUOTAS[name]) for name in QUOTAS if name.startswith("open_meteo")}) == 1  # one shared quota
