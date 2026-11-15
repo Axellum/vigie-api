@@ -9,6 +9,8 @@ compared with the hazards that have a position:
   the distance to a surface trace says nothing about it.
 - **Volcanoes**: only those the hazard sources name themselves (a GDACS eruption, a USGS elevated alert), never a bundled list
   (the Smithsonian list has no licence we could read yet), and only for earthquakes. A volcano that is not in alert is not here.
+- **Active fires**: satellite thermal detections read from NASA FIRMS in the last 24 hours, for wildfires (``WILDFIRE``) when FIRMS
+  is enabled and has a recent reading. When FIRMS is off, unread, or older than 24 hours, a wildfire has ``near_places=None``.
 
 **The points the user watches are not here.** ``near_places`` is in the outputs every client shares, a watched point is personal (a
 home, for example) and anyone who can write one could make any text appear in everyone's hazards: the watched points are listed
@@ -41,9 +43,12 @@ from shapely import STRtree
 from shapely.affinity import translate
 from shapely.geometry import LineString, box
 
+from app import clock
 from app.attribution import SIMULATED_ID_PREFIX
+from app.collectors.firms import FireSet
 from app.models.places import NearPlace
 from app.models.schemas import HazardAlert, HazardCategory
+from app.services.fires import NEARBY_WINDOW_S, nearest_sources
 from app.services.geodesy import EARTH_RADIUS_KM, haversine_km
 from app.services.geoindex import DATA_DIR, line_distance_km
 
@@ -52,9 +57,10 @@ log = logging.getLogger(__name__)
 FAULTS_FILE = "gem-active-faults.geojson.gz"
 KM_PER_DEGREE = math.pi * EARTH_RADIUS_KM / 180.0
 
-# The hazards a fault can explain, and the hazards that are compared with the volcanoes in alert.
+# The hazards a fault can explain, the hazards compared with the volcanoes in alert, and the hazards compared with active fires.
 FAULT_CATEGORIES = frozenset({HazardCategory.EARTHQUAKE, HazardCategory.VOLCANO})
 VOLCANO_NEIGHBOUR_CATEGORIES = frozenset({HazardCategory.EARTHQUAKE})
+FIRE_CATEGORIES = frozenset({HazardCategory.WILDFIRE})
 
 
 def _number_from_env(name: str, default: float, low: float, high: float) -> float:
@@ -76,6 +82,7 @@ class PlaceSettings:
     fault_km: float = 10.0  # an epicentre within this distance of a mapped trace is "near" it
     fault_max_depth_km: float = 70.0  # deeper earthquakes (intermediate and deep focus) are not compared with surface traces
     volcano_km: float = 20.0  # an earthquake within this distance of a volcano in alert is "near" it
+    fire_km: float = 50.0  # a wildfire within this distance of a NASA FIRMS detection in the last 24h is "near" it
     max_places: int = 5  # at most this many places under a hazard, the nearest first
     watched_points_max: int = 50  # at most this many watched points on an instance
     quiet_max_gap_s: int = 900  # a source not read for longer than this breaks the run that "nothing happened" rests on
@@ -88,6 +95,7 @@ class PlaceSettings:
             fault_km=_number_from_env("VIGIE_NEAR_FAULT_KM", default.fault_km, 0.1, 100.0),
             fault_max_depth_km=_number_from_env("VIGIE_NEAR_FAULT_MAX_DEPTH_KM", default.fault_max_depth_km, 1.0, 1000.0),
             volcano_km=_number_from_env("VIGIE_NEAR_VOLCANO_KM", default.volcano_km, 0.1, 500.0),
+            fire_km=_number_from_env("VIGIE_NEAR_FIRE_KM", default.fire_km, 0.1, 500.0),
             max_places=int(_number_from_env("VIGIE_NEAR_MAX_PLACES", default.max_places, 1, 20)),
             watched_points_max=int(_number_from_env("VIGIE_WATCHED_POINTS_MAX", default.watched_points_max, 1, 500)),
             quiet_max_gap_s=int(_number_from_env("VIGIE_QUIET_MAX_GAP_S", default.quiet_max_gap_s, 60, 86400)),
@@ -183,14 +191,17 @@ class NearPlacesService:
         self,
         hazard: HazardAlert,
         volcanoes: Iterable[HazardAlert],
+        fires: Optional[FireSet] = None,
     ) -> Optional[list[NearPlace]]:
-        """The places near one hazard, nearest first; ``None`` when it is compared with nothing or the faults it needs are unknown."""
+        """The places near one hazard, nearest first; ``None`` when it is compared with nothing or the reference data it needs is unknown."""
         if hazard.id.startswith(SIMULATED_ID_PREFIX):
             return None  # a simulated alert is nowhere
-        if hazard.category not in FAULT_CATEGORIES:
+        in_fault = hazard.category in FAULT_CATEGORIES
+        in_fire = hazard.category in FIRE_CATEGORIES
+        if not in_fault and not in_fire:
             return None  # a storm, a flood, a tsunami: no reference place is compared with it, which is not "nothing is near"
         found: list[NearPlace] = []
-        if hazard.category in FAULT_CATEGORIES and (hazard.depth_km is None or hazard.depth_km <= self.settings.fault_max_depth_km):
+        if in_fault and (hazard.depth_km is None or hazard.depth_km <= self.settings.fault_max_depth_km):
             index = self.faults()
             if index is None:
                 return None
@@ -207,6 +218,13 @@ class NearPlacesService:
                     found.append(
                         NearPlace(name=volcano.place_name, kind="volcano", distance_km=round(distance, 1), sources=list(volcano.sources or [volcano.source]))
                     )
+        if in_fire:
+            if fires is None:
+                return None
+            match = nearest_sources(fires, hazard.lat, hazard.lon, self.settings.fire_km, int(clock.wall() - NEARBY_WINDOW_S))
+            if match is not None:
+                distance, sources = match
+                found.append(NearPlace(name="Active fire", kind="fire", distance_km=round(distance, 1), sources=sources))
         # The nearest first; a name is said once (a fault with several traces, a volcano that two sources name).
         found.sort(key=lambda place: (place.distance_km, place.kind, place.name))
         kept: list[NearPlace] = []
@@ -218,7 +236,7 @@ class NearPlacesService:
                 kept.append(place)
         return kept[: self.settings.max_places]
 
-    def annotate(self, hazards: list[HazardAlert]) -> list[HazardAlert]:
+    def annotate(self, hazards: list[HazardAlert], fires: Optional[FireSet] = None) -> list[HazardAlert]:
         """The hazards with their ``near_places`` (new objects: the collectors' cached alerts are not touched)."""
         volcanoes = [h for h in hazards if h.category == HazardCategory.VOLCANO and h.place_name is not None]
-        return [h.model_copy(update={"near_places": self.near_places(h, volcanoes)}) for h in hazards]
+        return [h.model_copy(update={"near_places": self.near_places(h, volcanoes, fires=fires)}) for h in hazards]

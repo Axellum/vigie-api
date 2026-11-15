@@ -67,7 +67,7 @@ words of the issuing services left as they are, the national services listed in 
 | `GET /v1/embedded/frame` | Compact text frame for the displays ([contract](docs/embedded-frame.md)); with `spot=<surf spot id>` it also carries that spot's activities (`SEA`, `ACT`, `CRIT` lines). |
 | `GET /v1/snapshot` | Watched zones (weather) and world hazards, compact JSON. |
 | `GET /v1/point?lat=&lon=` | Weather at one GPS position, marine (`marine=true`), river discharge, air quality, space weather, nearby hazards. |
-| `GET /v1/geojson/hazards` | Active hazards as GeoJSON (RFC 7946): one point each. `has_forecast` says whether a storm or a tsunami has a forecast; `near_places` and `derived` say what an earthquake or a volcanic event is close to (calculated by Vigie). See "Places near a hazard" below. |
+| `GET /v1/geojson/hazards` | Active hazards as GeoJSON (RFC 7946): one point each. `has_forecast` says whether a storm or a tsunami has a forecast; `near_places` and `derived` say what an earthquake, a volcanic event or a wildfire is close to (calculated by Vigie). See "Places near a hazard" below. |
 | `GET /v1/geojson/hazards/{id}/forecast` | The forecast of a hazard as GeoJSON: the cone, track and positions of a tropical cyclone, the epicentre and arrival times of a tsunami. See "Storms and tsunamis" below. |
 | `GET /v1/earthquakes?lat=&lon=` | The earthquakes (USGS and EMSC, merged) within `radius_km` of a position over the last `hours`, the strongest first, with their distance; `min_magnitude` filters them. No weather provider is asked. Not an official warning. |
 | `GET /v1/sky/aurora?lat=&lon=` | The aurora: NOAA SWPC's data as it gives it (OVATION summary, Kp observed and predicted for 3 days, solar wind, geomagnetic messages) and, for a place, **Vigie's own estimate** of the chance to see one hour by hour over the coming night, with its best window (magnetic latitude, Kp, darkness, Moon, forecast clouds; [ADR 0013](docs/decisions/0013-aurora-estimate.md), measured on past nights). Not an official forecast. |
@@ -632,7 +632,7 @@ warnings.
 
 ## Places near a hazard, and watched points
 
-An earthquake or a volcanic event says what it is close to. Each hazard of `/v1/geojson/hazards` (and of `/v1/history`, and of
+An earthquake, a volcanic event or a wildfire says what it is close to. Each hazard of `/v1/geojson/hazards` (and of `/v1/history`, and of
 `/v1/snapshot` and `/v1/point` with `compact=false`) carries `near_places`, nearest first, and names it in `derived`:
 
 ```json
@@ -649,9 +649,10 @@ M 7.7 of Panama, 9 October 2026, USGS `us6000u18k`: the distance to the mapped s
   `[]` means nothing is near; `null` means it was not worked out (a hazard that is compared with nothing, such as a storm or a flood; the fault
   file cannot be read; a simulated alert; or the compact profile of `/v1/snapshot` and `/v1/point`, which keeps to 16 KiB, and so the
   hazards pushed on `/v1/stream`).
-- **Two sets of reference places.** The active faults that have a name, from the GEM Global Active Faults Database (earthquakes and volcanic
-  events, at most 70 km deep, within 10 km); and the volcanoes that the hazard sources themselves report (an earthquake within 20 km of one).
-  **No list of the world's volcanoes is bundled** (the Smithsonian list has an unclear licence): Etna is named only while GDACS or the USGS
+- **Three sets of reference places.** The active faults that have a name, from the GEM Global Active Faults Database (earthquakes and volcanic
+  events, at most 70 km deep, within 10 km); the volcanoes that the hazard sources themselves report (an earthquake within 20 km of one); and
+  the active fires detected by NASA FIRMS in the last 24 hours (a wildfire within 50 km, when FIRMS is on and has a recent reading; its credit
+  goes into `attribution` and the response carries NASA's `disclaimer`). **No list of the world's volcanoes is bundled** (the Smithsonian list has an unclear licence): Etna is named only while GDACS or the USGS
   report it.
 - **The points you watch are never in `near_places`.** The hazards are shared with every client, a public website included, and a watched point
   is personal (a home, for example): its name would leak, and anyone who could write a point could make any text appear in everyone's hazards.
@@ -741,6 +742,7 @@ All settings are optional environment variables.
 | `VIGIE_NEAR_FAULT_KM` | `10` | An earthquake or volcanic event within this distance (km) of the mapped trace of a named active fault is near it (0.1 to 100). A setting, not a published fact. |
 | `VIGIE_NEAR_FAULT_MAX_DEPTH_KM` | `70` | An earthquake deeper than this (km) is not compared with the faults (1 to 1000). |
 | `VIGIE_NEAR_VOLCANO_KM` | `20` | An earthquake within this distance (km) of a volcano that a hazard source reports is near it (0.1 to 500). |
+| `VIGIE_NEAR_FIRE_KM` | `50` | A wildfire within this distance (km) of a NASA FIRMS detection in the last 24 hours is near an active fire (0.1 to 500). |
 | `VIGIE_NEAR_MAX_PLACES` | `5` | At most this many places under a hazard, the nearest first (1 to 20). |
 | `VIGIE_WATCHED_POINTS_MAX` | `50` | The most watched points the instance keeps (1 to 500). A new one over the limit is answered 409. |
 | `VIGIE_QUIET_MAX_GAP_S` | `900` | A hazard source not read for longer than this (seconds, 60 to 86,400) breaks the run of readings that a watched point's `quiet` rests on. |

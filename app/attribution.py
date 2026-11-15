@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 # What separates two credits in one ``attribution`` string.
 SEPARATOR = " | "
@@ -377,8 +377,14 @@ HAZARD_SOURCE_CREDITS: dict[str, str] = {
 }
 
 # The ``sources`` of a place named in ``near_places`` -> the credit of that source. A volcano carries the names of the hazard
-# sources that report it (``HAZARD_SOURCE_CREDITS``); a fault carries ``GEM``; a point the user watches carries none.
-PLACE_SOURCE_CREDITS: dict[str, str] = {"GEM": "gem_faults"}
+# sources that report it (``HAZARD_SOURCE_CREDITS``); a fault carries ``GEM``; an active fire carries its FIRMS product(s);
+# a point the user watches carries none.
+PLACE_SOURCE_CREDITS: dict[str, str] = {
+    "GEM": "gem_faults",
+    "VIIRS_NOAA20_NRT": "nasa_firms",
+    "VIIRS_NOAA21_NRT": "nasa_firms",
+    "NASA_FIRMS": "nasa_firms",
+}
 
 # Blocks of data and the credits they carry (the order is the order of the text).
 OPEN_METEO_WEATHER = ("open_meteo",)
@@ -442,3 +448,27 @@ def place_credit(sources: Iterable[str]) -> Optional[str]:
             if key is not None:
                 texts.append(CREDITS[key].text)
     return merge_credits(*texts)
+
+
+def has_fire_near_places(hazards: Iterable[Any]) -> bool:
+    """Whether any hazard carries NASA FIRMS active fire detections in ``near_places``."""
+    return any(
+        place.kind == "fire"
+        for hazard in hazards
+        for place in (getattr(hazard, "near_places", None) or ())
+    )
+
+
+def merge_disclaimers(*texts: Optional[str]) -> Optional[str]:
+    """Join distinct non-empty disclaimers with a blank line; ``None`` when there is none."""
+    parts: list[str] = []
+    for text in texts:
+        cleaned = (text or "").strip()
+        if cleaned and cleaned not in parts:
+            parts.append(cleaned)
+    return "\n\n".join(parts) if parts else None
+
+
+def fires_disclaimer_for(hazards: Iterable[Any]) -> Optional[str]:
+    """``FIRMS_DISCLAIMER`` when any hazard carries NASA FIRMS detections in ``near_places``, else ``None``."""
+    return FIRMS_DISCLAIMER if has_fire_near_places(hazards) else None
