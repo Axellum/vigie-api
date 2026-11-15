@@ -41,6 +41,7 @@ from app import clock as app_clock  # noqa: E402
 from app.attribution import AIR_QUALITY, FLOOD, SPACE_WEATHER, credit_text  # noqa: E402
 from app.collectors.base import Fetched  # noqa: E402
 from app.collectors.meteoalarm import MeteoAlarmFeed  # noqa: E402
+from app.collectors.vigieau import parse_zones_v2_payload  # noqa: E402
 from app.main import aggregator, app  # noqa: E402
 from app.models.schemas import (  # noqa: E402
     AirQualityStatus,
@@ -187,6 +188,23 @@ def world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:
                 "radar_tile_url_template": "https://tilecache.rainviewer.com/v2/radar/1792334400/256/{z}/{x}/{y}/2/1_1.png",
             }
         ),
+    )
+    import json as _json
+
+    from app.collectors.vigieau import to_point_status as _to_point_status
+
+    _vigieau_paris = Fetched(
+        parse_zones_v2_payload(
+            _json.loads((Path(__file__).resolve().parent / "fixtures" / "vigieau" / "zones_v2_paris.json").read_text(encoding="utf-8")),
+            snapped_lat=48.86,
+            snapped_lon=2.36,
+        )
+    )
+    monkeypatch.setattr(aggregator.vigieau, "fetch_point", AsyncMock(return_value=_vigieau_paris))
+    monkeypatch.setattr(
+        aggregator.vigieau,
+        "fetch_point_status",
+        AsyncMock(return_value=_to_point_status(_vigieau_paris.value)),
     )
 
     yield World(aggregator=aggregator, client=TestClient(app), weather=weather)

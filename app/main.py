@@ -60,6 +60,8 @@ Endpoints:
                                      of a tropical cyclone, the arrival times of a tsunami, as GeoJSON.
 - ``GET    /v1/fires``             : the active fires (NASA FIRMS hotspots) of a ``bbox`` and of the last hours, as GeoJSON.
 - ``GET    /v1/fires/grid``        : the same detections counted per cell, for small zooms. Both are off with ``VIGIE_ENABLE_FIRMS=0``.
+- ``GET    /v1/drought``           : French drought restriction zones, decrees and water-usage rules (VigiEau, Licence Ouverte 2.0) for a position (``lat, lon``) or commune INSEE code.
+- ``GET    /v1/drought/departments``: French departmental maximum drought levels (101 departments) from VigiEau.
 - ``GET    /v1/cap/alerts``        : OASIS CAP 1.2 (Common Alerting Protocol).
 - ``GET    /v1/vigilances``        : Official national weather warnings (MeteoAlarm, DWD, ECCC, MetService, NWS, the Vigicrues
                                      river floods of France, and the national services of the WMO registry) for a point
@@ -106,8 +108,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app import __version__, clock
+from app.collectors.base import CollectorUnavailableError
 from app.models.activities import ActivitiesForecast, ActivitiesOverview, BoatCategory
 from app.models.buoys import SpotBuoyReading, SpotBuoys
+from app.models.drought import (
+    DroughtDepartmentsResponse,
+    DroughtLevel,
+    DroughtProfile,
+    DroughtResponse,
+    DroughtWaterType,
+)
 from app.models.earthquakes import EarthquakesQuery, EarthquakesResponse
 from app.models.events import EventsResponse, FamiliesResponse
 from app.models.fires import FiresCollection, FiresGrid
@@ -1348,6 +1358,111 @@ async def get_fires_grid(
     except FiresUnavailable:
         raise HTTPException(status_code=503, detail=FIRMS_UNAVAILABLE) from None
     return JSONResponse(content, headers=FIRES_HEADERS)
+
+
+DROUGHT_DESCRIPTION = (
+    "French drought restriction alerts from VigiEau (`api.vigieau.gouv.fr`, Licence Ouverte 2.0, Ministère de la Transition écologique). "
+    "Covers metropolitan France and overseas departments (`971`-`974`, `976`). Coordinates outside French coverage return `status: outside_coverage` "
+    "with zero upstream calls. Coordinates inside France are snapped to a `0.02°` grid and cached for 1 hour; optional `water_type` (`AEP`, `SUP`, `SOU`) "
+    "and `profile` (`particulier`, `entreprise`, `collectivite`, `exploitation`) filters are applied locally without sending extra requests. "
+    "Provided for information only; prefectural decrees published in the Recueil des Actes Administratifs remain authoritative."
+)
+
+
+@app.get(
+    "/v1/drought",
+    response_model=DroughtResponse,
+    tags=["Drought"],
+    description=DROUGHT_DESCRIPTION,
+    responses={
+        422: {"description": "Provide either (`lat`, `lon`) or `commune`, not both, or an unknown commune code."},
+        503: {"description": "VigiEau is unavailable."},
+    },
+)
+async def get_drought(
+    lat: Optional[float] = Query(default=None, ge=-90.0, le=90.0, description="WGS84 latitude (paired with `lon`)"),
+    lon: Optional[float] = Query(default=None, ge=-180.0, le=180.0, description="WGS84 longitude (paired with `lat`)"),
+    commune: Optional[str] = Query(
+        default=None,
+        min_length=5,
+        max_length=5,
+        pattern=r"^([0-9]{5}|2[ABab][0-9]{3})$",
+        description="French 5-character INSEE commune code (e.g. `75056`, `2A004`), asked instead of `lat`/`lon`",
+    ),
+    water_type: Optional[DroughtWaterType] = Query(
+        default=None,
+        description="Filter zones locally by water resource (`AEP` drinking water, `SUP` surface water, `SOU` groundwater)",
+    ),
+    profile: Optional[DroughtProfile] = Query(
+        default=None,
+        description="Filter usage restrictions locally by user profile (`particulier`, `entreprise`, `collectivite`, `exploitation`)",
+    ),
+) -> DroughtResponse:
+    """French drought restriction zones, decrees, and usage rules from VigiEau."""
+    has_coords = lat is not None or lon is not None
+    if has_coords and (lat is None or lon is None):
+        raise HTTPException(status_code=422, detail="lat and lon must be provided together")
+    if has_coords and commune is not None:
+        raise HTTPException(status_code=422, detail="Pass either (lat, lon) or commune, not both")
+    if not has_coords and commune is None:
+        raise HTTPException(status_code=422, detail="Provide either (lat, lon) or commune")
+    try:
+        result = await aggregator.get_drought_zones(
+            lat=lat,
+            lon=lon,
+            commune=commune,
+            water_type=water_type,
+            profile=profile,
+        )
+    except CollectorUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from None
+    if result.status == "invalid_query":
+        raise HTTPException(status_code=422, detail=result.note or "Invalid or unknown commune code")
+    return result
+
+
+@app.get(
+    "/v1/drought/departments",
+    response_model=DroughtDepartmentsResponse,
+    tags=["Drought"],
+    description=(
+        "Departmental maximum drought levels across all 101 French departments (metropolitan and overseas) from VigiEau "
+        "(`api.vigieau.gouv.fr/api/departements`, Licence Ouverte 2.0). Fetched once per hour and filtered locally by `department`, "
+        "`region`, and `min_level`."
+    ),
+    responses={503: {"description": "VigiEau is unavailable."}},
+)
+async def get_drought_departments(
+    department: Optional[str] = Query(
+        default=None,
+        min_length=2,
+        max_length=3,
+        pattern=r"^([0-9]{2,3}|2[ABab])$",
+        description="Keep one French department code (e.g. `75`, `2A`, `971`)",
+    ),
+    region: Optional[str] = Query(default=None, max_length=80, description="Filter locally by case-insensitive substring of region name"),
+    bassin_versant: Optional[str] = Query(default=None, max_length=80, description="Optional river basin filter forwarded to VigiEau"),
+    min_level: Optional[DroughtLevel] = Query(
+        default=None,
+        description="Keep departments whose `max_level` is at least this severity (`vigilance`, `alerte`, `alerte_renforcee`, `crise`)",
+    ),
+    date: Optional[str] = Query(
+        default=None,
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        description="Optional ISO date (`YYYY-MM-DD`) forwarded to VigiEau",
+    ),
+) -> DroughtDepartmentsResponse:
+    """Departmental summary of French drought restrictions (VigiEau)."""
+    try:
+        return await aggregator.get_drought_departments(
+            department=department,
+            region=region,
+            bassin_versant=bassin_versant,
+            min_level=min_level,
+            date=date,
+        )
+    except CollectorUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from None
 
 
 @app.get("/v1/cap/alerts", response_model=CAPFeedResponse, tags=["Standards"])

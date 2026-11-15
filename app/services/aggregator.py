@@ -28,6 +28,7 @@ from typing import Any, Awaitable, Optional, TypeVar
 
 from app import clock
 from app.attribution import (
+    DROUGHT,
     MET_NORWAY_WEATHER,
     OPEN_METEO_WEATHER,
     RADAR,
@@ -79,6 +80,19 @@ from app.collectors.travel import (
 )
 from app.collectors.tsunami import TsunamiCollector
 from app.collectors.vigicrues import VigicruesCollector
+from app.collectors.vigieau import (
+    LEGAL_NOTE as VIGIEAU_LEGAL_NOTE,
+)
+from app.collectors.vigieau import (
+    VIGIEAU_COUNTRIES,
+    VigiEauCollector,
+)
+from app.collectors.vigieau import (
+    filter_zones as filter_vigieau_zones,
+)
+from app.collectors.vigieau import (
+    latest_as_of as latest_vigieau_as_of,
+)
 from app.collectors.weather import (
     MetNorwayCollector,
     OpenMeteoCollector,
@@ -87,6 +101,17 @@ from app.collectors.weather import (
     rainviewer_enabled_from_env,
 )
 from app.models.activities import ActivitiesForecast
+from app.models.drought import (
+    DROUGHT_LEVEL_RANK,
+    DroughtDepartmentsResponse,
+    DroughtLevel,
+    DroughtProfile,
+    DroughtResponse,
+    DroughtStatus,
+    DroughtWaterType,
+    restrictions_in_force_for,
+    worst_drought_level,
+)
 from app.models.earthquakes import EarthquakesQuery, EarthquakesResponse
 from app.models.events import EventsQuery, EventsResponse
 from app.models.forecast import HazardForecast
@@ -220,6 +245,7 @@ class AggregatorService:
         meteofrance: Optional[MeteoFranceVigilanceCollector] = None,
         meteofrance_obs: Optional[MeteoFranceObsCollector] = None,
         vigicrues: Optional[VigicruesCollector] = None,
+        vigieau: Optional[VigiEauCollector] = None,
         nhc: Optional[NHCCollector] = None,
         tsunami: Optional[TsunamiCollector] = None,
         swic: Optional[SwicCollector] = None,
@@ -310,6 +336,7 @@ class AggregatorService:
             meteofrance_obs = MeteoFranceObsCollector(mf_obs_key)
         self.meteofrance_obs = meteofrance_obs
         self.vigicrues = vigicrues or VigicruesCollector()
+        self.vigieau = vigieau or VigiEauCollector()
         self.nhc = nhc or NHCCollector()
         self.tsunami = tsunami or TsunamiCollector()
         self.swic = swic or SwicCollector()
@@ -505,6 +532,7 @@ class AggregatorService:
             self.eccc,
             self.metservice,
             self.vigicrues,
+            self.vigieau,
             self.nhc,
             self.tsunami,
             self.swic,
@@ -732,6 +760,121 @@ class AggregatorService:
         """Read the GloFAS river discharge at ``lat, lon``; ``None`` when it cannot be read."""
         return await _or_none(self.flood.fetch_flood_risk(lat, lon))
 
+    def is_in_vigieau_coverage(self, lat: float, lon: float) -> bool:
+        """Return ``True`` offline when ``(lat, lon)`` lies inside a territory covered by VigiEau."""
+        return any(code in VIGIEAU_COUNTRIES for code in self.vigilances.countries.countries_for_point(lat, lon))
+
+    async def get_drought_safe(self, lat: float, lon: float) -> Optional[DroughtStatus]:
+        """Read the compact VigiEau summary at ``lat, lon`` when in French coverage; ``None`` otherwise."""
+        if not self.is_in_vigieau_coverage(lat, lon):
+            return None
+        return await _or_none(self.vigieau.fetch_point_status(lat, lon))
+
+    async def get_drought_zones(
+        self,
+        *,
+        lat: Optional[float] = None,
+        lon: Optional[float] = None,
+        commune: Optional[str] = None,
+        water_type: Optional[DroughtWaterType] = None,
+        profile: Optional[DroughtProfile] = None,
+    ) -> DroughtResponse:
+        """Return detailed VigiEau restriction zones and usage rules for a French position or commune INSEE code."""
+        now_utc = int(time.time())
+        attribution = credit_text(*DROUGHT)
+        query: dict[str, Any] = {
+            "lat": lat,
+            "lon": lon,
+            "snapped_lat": None,
+            "snapped_lon": None,
+            "commune": commune.strip().upper() if commune else None,
+            "water_type": water_type,
+            "profile": profile,
+        }
+        if commune is None:
+            assert lat is not None and lon is not None
+            if not self.is_in_vigieau_coverage(lat, lon):
+                return DroughtResponse(
+                    server_utc=now_utc,
+                    query=query,
+                    status="outside_coverage",
+                    note=(
+                        "This coordinate is outside VigiEau coverage (metropolitan France and overseas "
+                        "departments 971-974, 976). No upstream request was sent."
+                    ),
+                    attribution=attribution,
+                )
+            fetched = await self.vigieau.fetch_point(lat, lon)
+        else:
+            fetched = await self.vigieau.fetch_commune(commune)
+
+        raw = fetched.value
+        query["snapped_lat"] = raw.snapped_lat
+        query["snapped_lon"] = raw.snapped_lon
+        if raw.status in ("ambiguous_commune", "invalid_query"):
+            return DroughtResponse(
+                server_utc=now_utc,
+                query=query,
+                status=raw.status,
+                note=raw.note,
+                ambiguous_water_types=list(raw.ambiguous_water_types),
+                stale=fetched.stale,
+                attribution=attribution,
+            )
+
+        filtered = filter_vigieau_zones(raw.zones, water_type=water_type, profile=profile)
+        max_level = worst_drought_level([z.level for z in filtered])
+        departments = [z.department for z in filtered if z.department]
+        if raw.status == "unavailable":
+            in_force: Optional[bool] = None
+        elif raw.status == "confirmed_none":
+            in_force = False
+        else:
+            in_force = restrictions_in_force_for(max_level)
+        return DroughtResponse(
+            server_utc=now_utc,
+            query=query,
+            status=raw.status,
+            note=raw.note or VIGIEAU_LEGAL_NOTE,
+            max_level=max_level,
+            restrictions_in_force=in_force,
+            department=departments[0] if departments else None,
+            zones=filtered,
+            availability=dict(raw.availability),
+            as_of=latest_vigieau_as_of(raw.availability),
+            stale=fetched.stale,
+            attribution=attribution,
+        )
+
+    async def get_drought_departments(
+        self,
+        *,
+        department: Optional[str] = None,
+        region: Optional[str] = None,
+        bassin_versant: Optional[str] = None,
+        min_level: Optional[DroughtLevel] = None,
+        date: Optional[str] = None,
+    ) -> DroughtDepartmentsResponse:
+        """Return VigiEau departmental maximum drought levels across France, filtered locally when possible."""
+        fetched = await self.vigieau.fetch_departments(date=date, bassin_versant=bassin_versant)
+        items = list(fetched.value)
+        if department is not None:
+            wanted_dep = department.strip().upper()
+            items = [d for d in items if d.code.upper() == wanted_dep]
+        if region is not None:
+            needle = region.strip().casefold()
+            items = [d for d in items if needle in (d.region or "").casefold()]
+        if min_level is not None:
+            min_rank = DROUGHT_LEVEL_RANK[min_level]
+            items = [d for d in items if DROUGHT_LEVEL_RANK.get(d.max_level or "", 0) >= min_rank]
+        return DroughtDepartmentsResponse(
+            server_utc=int(time.time()),
+            count=len(items),
+            departments=items,
+            stale=fetched.stale,
+            attribution=credit_text(*DROUGHT),
+        )
+
     async def get_air_quality_safe(self, lat: float, lon: float) -> Optional[AirQualityStatus]:
         """Read air quality, UV and dust at ``lat, lon``; ``None`` when it cannot be read."""
         status = await _or_none(self.air_quality.fetch_air_quality(lat, lon))
@@ -785,6 +928,7 @@ class AggregatorService:
             radar_meta,
             marine_conditions,
             fires_nearby,
+            drought_status,
         ) = await asyncio.gather(
             self.fetch_weather_with_fallback(lat, lon),
             self.collect_and_fuse_hazards(),
@@ -794,6 +938,7 @@ class AggregatorService:
             _or_none(self.rainviewer.fetch()) if self.rainviewer_enabled else _none_coro(),
             _or_none(self.marine.fetch_marine(lat, lon)) if include_marine else _none_coro(),
             _or_none(self.fires.nearby(lat, lon, fire_radius_km)),
+            self.get_drought_safe(lat, lon),
         )
         radar_meta = radar_meta or {}
 
@@ -898,6 +1043,8 @@ class AggregatorService:
             # Informative only: the fires never enter ``local_alert_level`` (a hotspot is a satellite pixel, not a warning).
             fires_nearby=fires_nearby,
             disclaimer=fires_disclaimer_for(enriched_nearby),
+            # Informative only: VigiEau drought restrictions never enter ``local_alert_level``.
+            drought=drought_status,
         )
 
     async def build_snapshot(

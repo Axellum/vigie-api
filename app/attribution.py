@@ -303,6 +303,12 @@ CREDITS: dict[str, Credit] = {
             "dated as in the answer (measured_at, UTC); the choice of the station, its distance, its age and the relative wind are calculated by Vigie",
             "ours",
         ),
+        Credit(
+            "vigieau",
+            "VigiEau (Ministère de la Transition écologique)",
+            "Source: VigiEau, Ministère de la Transition écologique (https://vigieau.gouv.fr). Licence Ouverte 2.0",
+            "ours",
+        ),
         # The travel advice of the foreign ministries (SOURCES.md, "Travel advice").
         Credit(
             "travel_gb",
@@ -396,6 +402,7 @@ SPACE_WEATHER = ("noaa_swpc",)
 ECLIPSES = ("nasa_eclipses",)
 RADAR = ("rainviewer",)
 FIRES = ("nasa_firms",)
+DROUGHT = ("vigieau",)
 PREALERT = ("ecmwf_opendata",)
 TIDES = ("eot20",)
 TIDES_CALIBRATED = ("eot20", "refmar_tides")

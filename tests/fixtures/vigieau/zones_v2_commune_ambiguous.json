@@ -1,0 +1,1 @@
+{"statusCode":409,"error":"Conflict","code":"ZONE_LOCATION_AMBIGUOUS","message":"La commune comporte plusieurs zones d’alerte de même type.","zoneTypes":["SUP"]}

@@ -35,6 +35,7 @@ from app.collectors.seismic import EMSCCollector, USGSCollector
 from app.collectors.space_weather import NOAASWPCCollector
 from app.collectors.tsunami import TsunamiCollector
 from app.collectors.vigicrues import VigicruesCollector
+from app.collectors.vigieau import VigiEauCollector
 from app.collectors.weather import MetNorwayCollector, OpenMeteoCollector, RainViewerCollector
 from app.services.aggregator import AggregatorService
 from app.services.storage_wal import SQLiteWALStorage
@@ -169,6 +170,7 @@ def make_service(db_path: Path, **collectors: Any) -> AggregatorService:
         "eccc": ECCCCollector(http_client=down),
         "metservice": MetServiceCollector(http_client=down),
         "vigicrues": VigicruesCollector(http_client=down),
+        "vigieau": VigiEauCollector(http_client=down),
         "nhc": NHCCollector(http_client=down),
         "tsunami": TsunamiCollector(http_client=down),
     }
