@@ -104,7 +104,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app import __version__, clock
-from app.models.activities import ActivitiesForecast, ActivitiesOverview
+from app.models.activities import ActivitiesForecast, ActivitiesOverview, BoatCategory
 from app.models.buoys import SpotBuoyReading, SpotBuoys
 from app.models.earthquakes import EarthquakesQuery, EarthquakesResponse
 from app.models.events import EventsResponse, FamiliesResponse
@@ -962,19 +962,26 @@ ACTIVITIES_CACHE = "public, max-age=300"  # shorter than the surf page: a warnin
         "and the criteria). The swell and the wind of all the spots are the two every-spot answers `GET /v1/surf/overview` already keeps: "
         "no request to a provider is added. A spot the wave model gave nothing for is left out; a spot whose official coastal warnings "
         "could not be read says `warnings: unknown` and nothing is capped there. `wind_min_kn` and `wind_max_kn` set the wind range of "
-        "the kite. **Every verdict is a rule of Vigie** (`rules`). **Not for safety.**"
+        "the kite; `boat_category` (`A`, `B`, `C` or `D`, EU Directive 2013/53/EU) sets the boat design category. **Every verdict is a rule "
+        "of Vigie** (`rules`). **Not for safety.**"
     ),
 )
 async def get_activities_overview(
     response: Response,
     wind_min_kn: float = Query(default=activities.DEFAULT_WIND_MIN_KN, gt=0, le=activities.MAX_WIND_KN, description="Kite: the lightest wind wanted (knots)"),
     wind_max_kn: float = Query(default=activities.DEFAULT_WIND_MAX_KN, gt=0, le=activities.MAX_WIND_KN, description="Kite: the strongest wind wanted (knots)"),
+    boat_category: Optional[BoatCategory] = Query(
+        default=None,
+        description="Optional recreational craft design category (`A`, `B`, `C` or `D`, EU Directive 2013/53/EU) for the `boat` verdict.",
+    ),
 ) -> ActivitiesOverview:
     """Every surf spot's activities in short."""
     if wind_min_kn >= wind_max_kn:
         raise HTTPException(status_code=422, detail="wind_min_kn has to be lower than wind_max_kn")
     try:
-        answer = await activities_summary.overview(aggregator.surf, aggregator.vigilances, clock.wall(), wind_min_kn, wind_max_kn)
+        answer = await activities_summary.overview(
+            aggregator.surf, aggregator.vigilances, clock.wall(), wind_min_kn, wind_max_kn, boat_category
+        )
     except surf.NoSurfForecast as error:
         raise HTTPException(status_code=503, detail=str(error)) from None
     response.headers["Cache-Control"] = ACTIVITIES_CACHE
@@ -993,7 +1000,8 @@ async def get_activities_overview(
         "the wind are the surf forecast's; the tide (high and low waters, and the coefficient **estimated** by Vigie, not SHOM's) is "
         "computed by Vigie; the official coastal warnings that cover the spot cap the verdicts (red: everything `poor`; orange: the boat "
         "and the shore fishing at `possible` at best). **Every verdict is a rule of Vigie**, with its thresholds in `rules`: it knows "
-        "neither the spot nor the person. `wind_min_kn` and `wind_max_kn` set the wind range of the kite. **Not for safety.**"
+        "neither the spot nor the person. `wind_min_kn` and `wind_max_kn` set the wind range of the kite; `boat_category` (`A`, `B`, `C` or `D`, "
+        "EU Directive 2013/53/EU) sets the boat design category. **Not for safety.**"
     ),
 )
 async def get_activities(
@@ -1002,12 +1010,18 @@ async def get_activities(
     days: int = Query(default=2, ge=1, le=activities.MAX_DAYS, description="Number of days from the current hour (1 to 3)"),
     wind_min_kn: float = Query(default=activities.DEFAULT_WIND_MIN_KN, gt=0, le=activities.MAX_WIND_KN, description="Kite: the lightest wind wanted (knots)"),
     wind_max_kn: float = Query(default=activities.DEFAULT_WIND_MAX_KN, gt=0, le=activities.MAX_WIND_KN, description="Kite: the strongest wind wanted (knots)"),
+    boat_category: Optional[BoatCategory] = Query(
+        default=None,
+        description="Optional recreational craft design category (`A`, `B`, `C` or `D`, EU Directive 2013/53/EU) for the `boat` verdict.",
+    ),
 ) -> ActivitiesForecast:
     """The activities of a surf spot."""
     if wind_min_kn >= wind_max_kn:
         raise HTTPException(status_code=422, detail="wind_min_kn has to be lower than wind_max_kn")
     try:
-        answer = await activities.forecast(aggregator.surf, aggregator.vigilances, spot_id, days, clock.wall(), wind_min_kn, wind_max_kn)
+        answer = await activities.forecast(
+            aggregator.surf, aggregator.vigilances, spot_id, days, clock.wall(), wind_min_kn, wind_max_kn, boat_category
+        )
     except surf.UnknownSpot:
         raise HTTPException(status_code=404, detail=f"no surf spot {spot_id!r}") from None
     except surf.NoSurfForecast as error:

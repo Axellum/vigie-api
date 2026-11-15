@@ -29,6 +29,7 @@ ACTIVITIES_DISCLAIMER = (
 
 Verdict = Literal["good", "possible", "poor"]
 ActivityId = Literal["surf", "kite", "boat", "shore_fishing"]
+BoatCategory = Literal["A", "B", "C", "D"]
 
 
 class ActivityCriterion(BaseModel):
@@ -131,6 +132,10 @@ class ActivitiesForecast(BaseModel):
     spot: SurfSpot
     days: int
     wind_range: WindRange = Field(description="The wind range of the kite, wing or windsurf: the one asked for, else the default")
+    boat_category: Optional[BoatCategory] = Field(
+        default=None,
+        description="The recreational craft design category (EU Directive 2013/53/EU: `A`, `B`, `C` or `D`) when asked for; null for the general boat rule",
+    )
     activities: list[Activity]
     tide: Optional[ActivityTide] = Field(default=None, description="Null where the tide model has no cell near the spot")
     sun: list[ActivitySun] = Field(default_factory=list, description="Sunrise and sunset of each day from the first hour; empty when unknown")
@@ -178,6 +183,10 @@ class ActivitiesOverview(BaseModel):
     generated_utc: int
     count: int
     wind_range: WindRange = Field(description="The wind range of the kite, wing or windsurf: the one asked for, else the default")
+    boat_category: Optional[BoatCategory] = Field(
+        default=None,
+        description="The recreational craft design category (EU Directive 2013/53/EU: `A`, `B`, `C` or `D`) when asked for; null for the general boat rule",
+    )
     spots: list[SpotActivities] = Field(description="Every surf spot, north to south, as `GET /v1/surf/spots`; a spot the wave model gave nothing for is left out")
     rules: dict[str, str]
     derived: list[str]

@@ -1,0 +1,1 @@
+- **Recreational craft design categories on the activity verdicts (`GET /v1/activities/{spot_id}`, `GET /v1/activities/overview`)**: an optional `boat_category` query parameter (`A`, `B`, `C` or `D`, EU Directive 2013/53/EU) adjusts the Beaufort wind, gust and significant wave height thresholds of the `boat` verdict while keeping the existing general boat rule when omitted.

@@ -31,6 +31,7 @@ from app.models.activities import (
     ActivitySun,
     ActivityTide,
     ActivityVigilance,
+    BoatCategory,
     Verdict,
     WindRange,
 )
@@ -58,6 +59,13 @@ GUST_GAP_GOOD_KN = 5.0
 GUST_GAP_POSSIBLE_KN = 8.0
 SEA_GOOD_BELOW_M = 1.25  # significant wave height; ours, like the other bounds of a band
 SEA_POSSIBLE_BELOW_M = 2.5
+# Recreational craft design categories (EU Directive 2013/53/EU): (wind_good_to, wind_possible_to, gust_good_to, gust_possible_to, sea_good_below_m, sea_possible_below_m).
+BOAT_CATEGORY_THRESHOLDS: dict[BoatCategory, tuple[int, int, int, int, float, float]] = {
+    "D": (3, 4, 4, 5, 0.3, 0.5),
+    "C": (4, 6, 5, 7, 1.0, 2.0),
+    "B": (5, 8, 6, 9, 2.0, 4.0),
+    "A": (6, 9, 7, 10, 3.0, 6.0),
+}
 FISHING_WINDOW_S = 2 * HOUR
 COEFFICIENT_SMALL_BELOW = 50
 COEFFICIENT_GOOD_FROM = 70
@@ -79,7 +87,12 @@ RULES: dict[str, str] = {
     "kite": "wind within the range asked for (default 12 to 25 knots): good; within 3 knots of it: possible; else poor. Gusts above the mean "
     "wind by 5 knots or less: good; 6 to 8: possible; more: poor. Wind from the land side (offshore): possible at best",
     "boat": "mean wind in Beaufort force (knots rounded): 4 or less good, 5 possible, 6 and over poor. Gusts: force 5 or less good, 6 to 7 "
-    "possible, 8 and over poor. Sea (significant wave height): under 1.25 m good, under 2.5 m possible, else poor",
+    "possible, 8 and over poor. Sea (significant wave height): under 1.25 m good, under 2.5 m possible, else poor. With `boat_category` "
+    "(EU Directive 2013/53/EU design categories): D (sheltered waters, up to force 4 and 0.5 m): wind 3 or less good, 4 possible; gusts 4 or less good, "
+    "5 possible; sea under 0.3 m good, under 0.5 m possible. C (inshore, up to force 6 and 2.0 m): wind 4 or less good, 5 to 6 possible; gusts 5 or less "
+    "good, 6 to 7 possible; sea under 1.0 m good, under 2.0 m possible. B (offshore, up to force 8 and 4.0 m): wind 5 or less good, 6 to 8 possible; "
+    "gusts 6 or less good, 7 to 9 possible; sea under 2.0 m good, under 4.0 m possible. A (ocean, over force 8 and 4.0 m): wind 6 or less good, "
+    "7 to 9 possible; gusts 7 or less good, 8 to 10 possible; sea under 3.0 m good, under 6.0 m possible",
     "shore_fishing": "only in the 2 hours before a low water, judged at the middle of the hour; outside, poor. Coefficient estimated by Vigie "
     "(not SHOM's) of the Brest high water nearest in time to that low water: 70 to 99 good, 50 to 69 possible, 100 and over possible (the "
     "SNSM says 100 and over is a danger), under 50 poor. Wind force 5 or less good, 6 possible, 7 and over poor. Sea under 1.25 m good, "
@@ -129,12 +142,14 @@ def _criterion(
     return ActivityCriterion(name=name, value=rounded, unit=unit, state=state, verdict=verdict, points=points, max_points=max_points)
 
 
-def _sea(height_m: Optional[float]) -> ActivityCriterion:
+def _sea(
+    height_m: Optional[float], good_below: float = SEA_GOOD_BELOW_M, possible_below: float = SEA_POSSIBLE_BELOW_M
+) -> ActivityCriterion:
     if height_m is None:
         return _criterion("sea_height", None, "m", None, None)
-    if height_m < SEA_GOOD_BELOW_M:
+    if height_m < good_below:
         return _criterion("sea_height", height_m, "m", "low", "good")
-    if height_m < SEA_POSSIBLE_BELOW_M:
+    if height_m < possible_below:
         return _criterion("sea_height", height_m, "m", "moderate", "possible")
     return _criterion("sea_height", height_m, "m", "high", "poor")
 
@@ -253,11 +268,15 @@ def _kite_criteria(hour: SurfHour, low_kn: float, high_kn: float) -> list[Activi
     return [wind, gap, side]
 
 
-def _boat_criteria(hour: SurfHour) -> list[ActivityCriterion]:
+def _boat_criteria(hour: SurfHour, boat_category: Optional[BoatCategory] = None) -> list[ActivityCriterion]:
+    if boat_category is not None:
+        w_good, w_pos, g_good, g_pos, s_good, s_pos = BOAT_CATEGORY_THRESHOLDS[boat_category]
+    else:
+        w_good, w_pos, g_good, g_pos, s_good, s_pos = 4, 5, 5, 7, SEA_GOOD_BELOW_M, SEA_POSSIBLE_BELOW_M
     return [
-        _force("wind_force", _kn(hour.wind.speed_kmh), 4, 5, ("up_to_moderate", "fresh", "strong_or_more")),
-        _force("gust_force", _kn(hour.wind.gust_kmh), 5, 7, ("up_to_fresh", "strong", "gale_or_more")),
-        _sea(hour.waves.height_m),
+        _force("wind_force", _kn(hour.wind.speed_kmh), w_good, w_pos, ("up_to_moderate", "fresh", "strong_or_more")),
+        _force("gust_force", _kn(hour.wind.gust_kmh), g_good, g_pos, ("up_to_fresh", "strong", "gale_or_more")),
+        _sea(hour.waves.height_m, s_good, s_pos),
     ]
 
 
@@ -447,7 +466,13 @@ def _suns(wind: Optional[dict[str, Any]], first_hour: int, days: int) -> list[Ac
     return kept[: days + 1]
 
 
-def _judge(name: str, hour: SurfHour, wind_range: WindRange, context: Optional[TideContext]) -> Optional[_Judged]:
+def _judge(
+    name: str,
+    hour: SurfHour,
+    wind_range: WindRange,
+    context: Optional[TideContext],
+    boat_category: Optional[BoatCategory] = None,
+) -> Optional[_Judged]:
     """One hour of one activity, before the warnings; ``None`` for the shore fishing where there is no tide."""
     if name == "surf":
         verdict, reason, criteria, points, out_of = _judge_surf(hour)
@@ -455,7 +480,7 @@ def _judge(name: str, hour: SurfHour, wind_range: WindRange, context: Optional[T
     if name == "kite":
         criteria = _kite_criteria(hour, wind_range.min_kn, wind_range.max_kn)
     elif name == "boat":
-        criteria = _boat_criteria(hour)
+        criteria = _boat_criteria(hour, boat_category)
     elif context is None:
         return None
     else:
@@ -474,6 +499,7 @@ def build(
     sun: list[ActivitySun],
     wind_range: WindRange,
     now_unix: float,
+    boat_category: Optional[BoatCategory] = None,
 ) -> ActivitiesForecast:
     """The activities forecast from the surf forecast of the spot, the tide, the warnings and the sun (pure: no request, no clock)."""
     now_hour = int(now_unix // HOUR) * HOUR
@@ -481,7 +507,7 @@ def build(
     for hour in forecast.hours:
         cap = _cap_at(alerts, hour.time_utc)
         for name in ACTIVITY_ORDER:
-            one = _judge(name, hour, wind_range, context)
+            one = _judge(name, hour, wind_range, context, boat_category)
             if one is None:
                 continue
             one.hour.verdict, one.hour.reason = _capped(name, one.hour.verdict, one.hour.reason, cap)
@@ -505,6 +531,7 @@ def build(
         spot=forecast.spot,
         days=forecast.days,
         wind_range=wind_range,
+        boat_category=boat_category,
         activities=activities,
         tide=activity_tide,
         sun=sun,
@@ -524,6 +551,7 @@ async def forecast(
     now_unix: float,
     wind_min_kn: float = DEFAULT_WIND_MIN_KN,
     wind_max_kn: float = DEFAULT_WIND_MAX_KN,
+    boat_category: Optional[BoatCategory] = None,
 ) -> ActivitiesForecast:
     """The activities of a spot. ``surf.UnknownSpot`` for an id that is not in the list; ``surf.NoSurfForecast`` when the swell cannot be had.
 
@@ -543,4 +571,6 @@ async def forecast(
     first = base.hours[0].time_utc if base.hours else int(now_unix // HOUR) * HOUR
     context = await clock.run_blocking(tide_context, spot, first, days, now_unix)
     sun = _suns(wind_data, first, days)
-    return await clock.run_blocking(build, base, context, alerts, known, sun, WindRange(min_kn=wind_min_kn, max_kn=wind_max_kn), now_unix)
+    return await clock.run_blocking(
+        build, base, context, alerts, known, sun, WindRange(min_kn=wind_min_kn, max_kn=wind_max_kn), now_unix, boat_category
+    )

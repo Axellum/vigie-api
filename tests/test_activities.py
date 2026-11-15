@@ -212,6 +212,29 @@ def test_the_boat_criteria_are_in_beaufort_and_metres() -> None:
     assert (wind.value, wind.unit, gust.value, gust.unit, sea.value, sea.unit) == (5, "Beaufort", 6, "Beaufort", 1.4, "m")
 
 
+@pytest.mark.parametrize(
+    ("category", "knots", "gust", "sea", "verdict", "reason"),
+    [
+        ("D", 9.0, 12.0, 0.25, "good", None),  # force 3, sea 0.25 m
+        ("D", 14.0, 15.0, 0.25, "possible", "wind_force.fresh"),  # force 4
+        ("D", 9.0, 12.0, 0.55, "poor", "sea_height.high"),  # sea >= 0.5 m
+        ("C", 15.0, 18.0, 0.9, "good", None),  # force 4, sea < 1.0 m
+        ("C", 24.0, 26.0, 1.8, "possible", "wind_force.fresh"),  # force 6, sea < 2.0 m
+        ("C", 24.0, 26.0, 2.2, "poor", "sea_height.high"),  # sea >= 2.0 m
+        ("B", 20.0, 24.0, 1.8, "good", None),  # force 5, gusts force 6, sea < 2.0 m
+        ("B", 35.0, 42.0, 3.5, "possible", "wind_force.fresh"),  # force 8, gusts force 9, sea < 4.0 m
+        ("A", 25.0, 30.0, 2.5, "good", None),  # force 6, gusts force 7, sea < 3.0 m
+        ("A", 42.0, 50.0, 5.5, "possible", "wind_force.fresh"),  # force 9, gusts force 10, sea < 6.0 m
+    ],
+)
+def test_the_boat_verdict_by_design_category(
+    category: str, knots: float, gust: float, sea: float, verdict: str, reason: Optional[str]
+) -> None:
+    one = activities._judge("boat", make_hour(speed_kn=knots, gust_kn=gust, sea_m=sea), RANGE, None, category)  # type: ignore[arg-type]
+    assert one is not None
+    assert (one.hour.verdict, one.hour.reason) == (verdict, reason)
+
+
 # ------------------------------------------------------------------------------------------------------------------ shore fishing
 
 LOW = FIRST_HOUR + 6 * HOUR + 20 * 60  # a low water at 06:20 UTC
@@ -880,9 +903,10 @@ def test_the_route_gives_the_activities_of_a_spot(client: TestClient) -> None:
 
 
 def test_the_route_takes_the_days_and_the_wind_range_of_the_kite(client: TestClient) -> None:
-    body = client.get(f"/v1/activities/{SPOT_ID}", params={"days": 3, "wind_min_kn": 15, "wind_max_kn": 30}).json()
-    assert body["days"] == 3 and body["wind_range"] == {"min_kn": 15.0, "max_kn": 30.0}
+    body = client.get(f"/v1/activities/{SPOT_ID}", params={"days": 3, "wind_min_kn": 15, "wind_max_kn": 30, "boat_category": "B"}).json()
+    assert body["days"] == 3 and body["wind_range"] == {"min_kn": 15.0, "max_kn": 30.0} and body["boat_category"] == "B"
     assert len(body["activities"][0]["hours"]) == 72
+    assert client.get(f"/v1/activities/{SPOT_ID}", params={"boat_category": "E"}).status_code == 422
 
 
 @pytest.mark.parametrize(
