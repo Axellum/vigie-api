@@ -250,6 +250,16 @@ def test_the_route_says_when_the_swell_is_missing(client: TestClient, monkeypatc
     assert client.get("/v1/activities/overview").status_code == 503
 
 
+def test_a_spot_without_place_is_kept_in_the_overview(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Spots without a matched town/village (``SurfSpot.place is None``) must stay in ``GET /v1/activities/overview``."""
+    spotless = {**SPOT_FILE, "spots": [{**SPOT_FILE["spots"][0], "place": None}]}
+    monkeypatch.setattr(surf, "spot_file", lambda: spotless)
+    result = pure()
+    assert result.count == 1
+    assert result.spots[0].id == SPOT_ID
+    assert result.spots[0].place is None
+
+
 def test_the_route_is_documented_and_the_spot_route_still_answers(client: TestClient) -> None:
     paths = client.get("/openapi.json").json()["paths"]
     operation = paths["/v1/activities/overview"]["get"]
