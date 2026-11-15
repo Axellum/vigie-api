@@ -73,6 +73,7 @@ GOOD_AIR = {"current": {"european_aqi": 31, "pm10": 14.0}}
 GOOD_RADAR = {"host": "https://tilecache.example", "radar": {"past": [{"time": 1792330000, "path": "/v2/radar/1792330000"}]}}
 FIXTURES = Path(__file__).parent / "fixtures" / "meteoalarm"
 VIGIEAU_FIXTURES = Path(__file__).parent / "fixtures" / "vigieau"
+AVALANCHE_FIXTURES = Path(__file__).parent / "fixtures" / "avalanches"
 METNO_HEADERS = {
     "Expires": "Tue, 20 Oct 2026 12:00:00 GMT",
     "Date": "Tue, 20 Oct 2026 11:30:00 GMT",
@@ -200,6 +201,14 @@ def good_answers() -> dict[str, Callable[[httpx.Request], httpx.Response]]:
         "api.vigieau.gouv.fr": lambda r: httpx.Response(
             200,
             content=(VIGIEAU_FIXTURES / ("departements.json" if r.url.path.endswith("/departements") else "zones_v2_paris.json")).read_bytes(),
+        ),
+        "aws.slf.ch": lambda r: httpx.Response(
+            200,
+            content=(AVALANCHE_FIXTURES / "slf_caaml_en.geojson").read_bytes(),
+        ),
+        "static.avalanche.report": lambda r: httpx.Response(
+            200,
+            content=(AVALANCHE_FIXTURES / "euregio_caaml_en.json").read_bytes(),
         ),
         "www.tsunami.gov": tsunami_host(),
         "www.nhc.noaa.gov": nhc_host(),
@@ -332,6 +341,8 @@ async def test_a_changed_format_is_a_failure_for_each_kind_of_source() -> None:
             "alerts.metservice.com": lambda r: httpx.Response(200, text="<html><body>maintenance</body></html>"),
             "www.vigicrues.gouv.fr": lambda r: httpx.Response(200, json={"error": "maintenance"}),
             "api.vigieau.gouv.fr": lambda r: httpx.Response(200, json={"unexpected": "format"}),
+            "aws.slf.ch": lambda r: httpx.Response(200, json={"unexpected": "format"}),
+            "static.avalanche.report": lambda r: httpx.Response(200, json={"unexpected": "format"}),
             "www.tsunami.gov": lambda r: httpx.Response(200, text="<html><body>maintenance</body></html>"),
             "www.nhc.noaa.gov": lambda r: httpx.Response(200, json={"error": "maintenance"}),
             "services.data.shom.fr": lambda r: httpx.Response(200, json={"error": "maintenance"}),
@@ -363,6 +374,8 @@ async def test_a_changed_format_is_a_failure_for_each_kind_of_source() -> None:
         "metservice_cap",
         "vigicrues_flow",
         "vigieau",
+        "slf_avalanche",
+        "euregio_avalanche",
     }
 
 

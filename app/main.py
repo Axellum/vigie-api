@@ -64,6 +64,7 @@ Endpoints:
 - ``GET    /v1/drought``           : French drought restriction zones, decrees and water-usage rules (VigiEau, Licence Ouverte 2.0) for a position (``lat, lon``) or commune INSEE code.
 - ``GET    /v1/drought/departments``: French departmental maximum drought levels (101 departments) from VigiEau.
 - ``GET    /v1/pollens``           : European pollen concentrations and 4-day daily peaks (CAMS Europe via Open-Meteo Air Quality); ``outside_coverage`` outside Europe with zero upstream calls.
+- ``GET    /v1/avalanches``        : Official CAAML v6 avalanche bulletins (SLF Switzerland/Liechtenstein, Avalanche.report Euregio Tirol/Südtirol/Trentino, CC BY 4.0) for a position (``lat, lon``).
 - ``GET    /v1/cap/alerts``        : OASIS CAP 1.2 (Common Alerting Protocol).
 - ``GET    /v1/vigilances``        : Official national weather warnings (MeteoAlarm, DWD, ECCC, MetService, NWS, the Vigicrues
                                      river floods of France, and the national services of the WMO registry) for a point
@@ -112,6 +113,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from app import __version__, clock
 from app.collectors.base import CollectorUnavailableError
 from app.models.activities import ActivitiesForecast, ActivitiesOverview, BoatCategory
+from app.models.avalanches import AvalancheResponse
 from app.models.buoys import SpotBuoyReading, SpotBuoys
 from app.models.catnat import CatNatHazardType, CatNatHistoryResponse
 from app.models.drought import (
@@ -1495,6 +1497,46 @@ async def get_drought(
     if result.status == "invalid_query":
         raise HTTPException(status_code=422, detail=result.note or "Invalid or unknown commune code")
     return result
+
+
+AVALANCHE_DESCRIPTION = (
+    "CAAML v6 avalanche bulletins for verified open-data Alpine coverage: Switzerland and Liechtenstein "
+    "(`slf_avalanche`, WSL Institute for Snow and Avalanche Research SLF, CC BY 4.0) and Euregio Tirol / Südtirol / Trentino "
+    "(`euregio_avalanche`, Avalanche.report, CC BY 4.0 DEED with CC0 1.0 EAWS micro-region boundaries). "
+    "Coordinates outside verified coverage return `status: outside_coverage` with zero upstream calls. "
+    "Expired/off-season bulletins are excluded by default (`status: confirmed_none`) unless `include_expired=true`."
+)
+
+
+@app.get(
+    "/v1/avalanches",
+    response_model=AvalancheResponse,
+    tags=["Avalanches"],
+    description=AVALANCHE_DESCRIPTION,
+    responses={503: {"description": "Upstream CAAML feed is unavailable."}},
+)
+async def get_avalanches(
+    lat: float = Query(..., ge=-90.0, le=90.0, description="WGS84 latitude"),
+    lon: float = Query(..., ge=-180.0, le=180.0, description="WGS84 longitude"),
+    source: Optional[Literal["slf", "euregio"]] = Query(
+        default=None,
+        description="Optional feed override (`slf` or `euregio`); defaults to automatic offline spatial match.",
+    ),
+    include_expired: bool = Query(
+        default=False,
+        description="Include expired or off-season bulletins in `bulletins` (never promoted into `max_danger_level`).",
+    ),
+) -> AvalancheResponse:
+    """Official CAAML v6 avalanche bulletins (SLF CH/LI and Avalanche.report Euregio) for a GPS point."""
+    try:
+        return await aggregator.get_avalanches(
+            lat=lat,
+            lon=lon,
+            source=source,
+            include_expired=include_expired,
+        )
+    except CollectorUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from None
 
 
 @app.get(

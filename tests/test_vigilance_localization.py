@@ -132,7 +132,13 @@ def test_the_shapes_keep_the_names_of_the_regions() -> None:
 
 def test_the_shapes_are_small_enough_to_live_in_the_repository() -> None:
     sizes = {path.name: path.stat().st_size for path in DATA_DIR.glob("*.geojson.gz")}
-    assert set(sizes) == {"countries.geojson.gz", "geocodes-nuts.geojson.gz", "gem-active-faults.geojson.gz", "provinces-tr.geojson.gz"}
+    assert set(sizes) == {
+        "countries.geojson.gz",
+        "eaws-euregio-regions.geojson.gz",
+        "geocodes-nuts.geojson.gz",
+        "gem-active-faults.geojson.gz",
+        "provinces-tr.geojson.gz",
+    }
     # The shapes the warnings are localized with: every country of Natural Earth, 244 borders (it was 135 for the countries with a source,
     # 42 before the services of the WMO registry), about 990 KiB gzipped for the borders.
     assert sizes["countries.geojson.gz"] + sizes["geocodes-nuts.geojson.gz"] < 1280 * 1024, sizes

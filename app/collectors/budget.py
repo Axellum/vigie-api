@@ -127,6 +127,8 @@ QUOTAS: dict[str, Quota] = {
     # vigicrues_flow publish none (nothing about a request rate on their terms or documentation pages, 2026-10-20: not
     # verified), meteoalarm_atom and meteoalarm_cap neither. The other travel advice sources (travel_us, travel_ca, travel_au,
     # travel_nl) publish none on the pages read on 2026-10-28 (not verified that none exists).
+    # slf_avalanche and euregio_avalanche publish no numeric rate limit on their open-data pages (2026-11-15: SLF terms
+    # forbid impairing/overloading infrastructure; both use a 1800s TTL + conditional ETag/304).
 }
 
 

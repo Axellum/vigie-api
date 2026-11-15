@@ -18,6 +18,7 @@ from app.collectors.aurora import (
     SWPCOvationCollector,
     SWPCSolarWindCollector,
 )
+from app.collectors.avalanches import EuregioAvalancheCollector, SLFAvalancheCollector
 from app.collectors.base import CacheEntry
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector
 from app.collectors.dwd import DWDCollector
@@ -171,6 +172,8 @@ def make_service(db_path: Path, **collectors: Any) -> AggregatorService:
         "metservice": MetServiceCollector(http_client=down),
         "vigicrues": VigicruesCollector(http_client=down),
         "vigieau": VigiEauCollector(http_client=down),
+        "slf_avalanche": SLFAvalancheCollector(http_client=down),
+        "euregio_avalanche": EuregioAvalancheCollector(http_client=down),
         "nhc": NHCCollector(http_client=down),
         "tsunami": TsunamiCollector(http_client=down),
     }
