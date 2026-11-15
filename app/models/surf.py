@@ -27,6 +27,7 @@ SURF_DISCLAIMER = (
 )
 
 Criterion = Literal["swell_height", "swell_period", "swell_direction", "wind", "tide"]
+TidePreference = Literal["low", "mid", "high", "any"]
 
 
 class SpotEvidence(BaseModel):
@@ -157,6 +158,12 @@ class SurfHour(BaseModel):
         default=None, description="Ours: deep-water power of the primary swell per metre of crest, 0.49 x height² x period"
     )
     swell_angle_deg: Optional[int] = Field(default=None, description="Ours: between where the swell comes from and the facing")
+    secondary_swell_power_kw_m: Optional[float] = Field(
+        default=None, description="Ours: deep-water power of the secondary swell per metre of crest, 0.49 x height² x period"
+    )
+    secondary_swell_angle_deg: Optional[int] = Field(
+        default=None, description="Ours: between where the secondary swell comes from and the facing"
+    )
     wind: SurfWind
     tide: Optional[SurfTide] = None
     rating: Optional[SurfRating] = None
@@ -165,6 +172,17 @@ class SurfHour(BaseModel):
 class SurfSlot(BaseModel):
     time_utc: int
     rating: SurfRating
+
+
+class SurfWindow(BaseModel):
+    """A run of consecutive daylight hours where the rating reaches at least half of what could be scored."""
+
+    start_utc: int = Field(description="First hour of the run (UTC)")
+    end_utc: int = Field(description="Last hour of the run (UTC, the start of that hour)")
+    hours: int = Field(description="Number of consecutive hours in the run")
+    best_time_utc: int = Field(description="The hour of the run with the highest share of points (the first on a tie)")
+    points: int = Field(description="Points of `best_time_utc`")
+    out_of: int = Field(description="What `points` is out of at `best_time_utc`")
 
 
 class SurfScore(BaseModel):
@@ -231,6 +249,10 @@ class SurfForecast(BaseModel):
     hours: list[SurfHour]
     best_slot: Optional[SurfSlot] = Field(
         default=None, description="Ours: the daylight hour of the next 72 with the best rating (the first one on a tie)"
+    )
+    windows: list[SurfWindow] = Field(
+        default_factory=list,
+        description="Ours: runs of consecutive daylight hours where the rating reaches at least half of what could be scored (at least three criteria)",
     )
     rules: dict[str, str] = Field(description="The thresholds of the rating, criterion by criterion (ours)")
     derived: list[str]

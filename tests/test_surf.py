@@ -152,7 +152,7 @@ def test_the_rating_gives_each_criterion_its_points_and_leaves_out_the_unknown()
     # The bands, at their edges.
     assert surf._band(0.5, surf.SWELL_HEIGHT_BANDS) == 1 and surf._band(4.0, surf.SWELL_HEIGHT_BANDS) == 0
     assert surf._band(11.0, surf.SWELL_PERIOD_BANDS) == 2 and surf._band(60.0, surf.SWELL_ANGLE_BANDS) == 0
-    assert set(surf.RULES) == {"swell_height", "swell_period", "swell_direction", "wind", "tide", "best_slot"}
+    assert set(surf.RULES) == {"swell_height", "swell_period", "swell_direction", "wind", "tide", "best_slot", "windows"}
 
 
 # ------------------------------------------------------------------------------------------------------------- the forecast
@@ -194,9 +194,29 @@ def test_the_forecast_of_hossegor(spot_file: dict[str, Any]) -> None:
     # Every block is credited, and what is ours is named.
     assert CREDITS["copernicus_mfwam"].text in forecast.attribution and CREDITS["osm_spots"].text in forecast.attribution
     assert CREDITS["eot20"].text in forecast.attribution and CREDITS["open_meteo"].text in forecast.attribution
-    assert "hours.rating" in forecast.derived and "best_slot" in forecast.derived
+    assert "hours.rating" in forecast.derived and "best_slot" in forecast.derived and "windows" in forecast.derived
+    assert "hours.secondary_swell_power_kw_m" in forecast.derived and "hours.secondary_swell_angle_deg" in forecast.derived
     assert forecast.swell_cell == {"lat": 43.625, "lon": pytest.approx(-1.4583282)}
     assert "Not for safety" in forecast.disclaimer
+    # Secondary swell power and angle are computed when the secondary swell is present.
+    with_secondary = [h for h in forecast.hours if h.secondary_swell.height_m is not None and h.secondary_swell.period_s is not None]
+    assert with_secondary
+    for hour in with_secondary:
+        assert hour.secondary_swell_power_kw_m == surf.swell_power_kw_m(hour.secondary_swell.height_m, hour.secondary_swell.period_s)
+        if hour.secondary_swell.from_deg is not None:
+            assert hour.secondary_swell_angle_deg == round(surf.angle_between(hour.secondary_swell.from_deg, spot.facing_deg))
+    # Contiguous daylight session windows where the rating reaches at least half of what could be scored.
+    assert forecast.windows
+    by_time = {h.time_utc: h for h in forecast.hours}
+    for w in forecast.windows:
+        assert w.end_utc - w.start_utc == (w.hours - 1) * 3600
+        assert w.start_utc <= w.best_time_utc <= w.end_utc
+        for step in range(w.hours):
+            h = by_time[w.start_utc + step * 3600]
+            assert h.daylight is True and h.rating is not None and h.rating.out_of >= 6
+            assert h.rating.points / h.rating.out_of >= 0.5
+        best_h = by_time[w.best_time_utc]
+        assert best_h.rating is not None and (w.points, w.out_of) == (best_h.rating.points, best_h.rating.out_of)
 
 
 def test_without_the_wind_the_forecast_says_it_does_not_know(spot_file: dict[str, Any]) -> None:
@@ -205,7 +225,7 @@ def test_without_the_wind_the_forecast_says_it_does_not_know(spot_file: dict[str
     assert len(forecast.hours) == 24
     assert all(h.wind.speed_kmh is None and h.wind.relative is None and h.daylight is None for h in forecast.hours)
     assert all(h.rating is not None and "wind" in h.rating.unknown for h in forecast.hours)
-    assert forecast.best_slot is None  # daylight unknown: no slot is offered
+    assert forecast.best_slot is None and forecast.windows == []  # daylight unknown: no slot or window is offered
 
 
 # ------------------------------------------------------------------------------------------------------------- the routes
@@ -227,6 +247,19 @@ def test_the_forecast_route(client: TestClient, monkeypatch: pytest.MonkeyPatch)
     assert len(body["hours"]) == 48 and body["stale"] is True and body["days"] == 2
     assert body["rules"]["wind"].startswith("under 10 km/h: 2")
     assert response.headers["cache-control"] == "public, max-age=600"
+    assert body["windows"] and body["hours"][0]["secondary_swell_power_kw_m"] is not None
+    # Optional tide and swell direction preferences score the tide and the swell direction against what was asked.
+    custom = client.get(
+        "/v1/surf/spots/hossegor-plage-centrale",
+        params={"days": 1, "best_tide": "mid", "best_swell_from_deg": 110},
+    )
+    assert custom.status_code == 200
+    custom_first = custom.json()["hours"][0]
+    assert custom_first["rating"]["out_of"] == 10 and "tide" not in custom_first["rating"]["unknown"]
+    by_name = {c["name"]: c for c in custom_first["rating"]["criteria"]}
+    assert by_name["swell_direction"]["points"] == 0  # 293 deg vs 110 deg is ~180 deg off
+    assert client.get("/v1/surf/spots/hossegor-plage-centrale", params={"best_tide": "spring"}).status_code == 422
+    assert client.get("/v1/surf/spots/hossegor-plage-centrale", params={"best_swell_from_deg": 360}).status_code == 422
     assert client.get("/v1/surf/spots/nowhere").status_code == 404
     assert client.get("/v1/surf/spots/hossegor-plage-centrale", params={"days": 8}).status_code == 422
     monkeypatch.setattr(aggregator.surf, "fetch_swell", AsyncMock(side_effect=RuntimeError("down")))

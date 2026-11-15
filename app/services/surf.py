@@ -40,7 +40,9 @@ from app.models.surf import (
     SurfSpots,
     SurfTide,
     SurfWind,
+    SurfWindow,
     Swell,
+    TidePreference,
 )
 from app.services import surf_correction, tides
 
@@ -62,15 +64,17 @@ OFFSHORE_MAX_KMH = 35.0
 CROSS_SHORE_MAX_KMH = 20.0
 SIDE_DEG = 45.0
 MIN_OUT_OF_FOR_BEST = 6  # the best slot is chosen among hours where at least three criteria could be scored
+WINDOW_MIN_SHARE = 0.5  # a session window asks for at least half of the points of what could be scored
 
 RULES: dict[str, str] = {
     "swell_height": "primary swell under 0.5 m: 0; 0.5 to 1 m: 1; 1 to 2.5 m: 2; 2.5 to 4 m: 1; 4 m and over: 0",
     "swell_period": "under 8 s: 0; 8 to 11 s: 1; 11 s and over: 2",
-    "swell_direction": "angle between where the swell comes from and the facing of the spot: up to 30 degrees: 2; up to 60: 1; more: 0",
+    "swell_direction": "angle between where the swell comes from and `best_swell_from_deg` when given, else the facing of the spot: up to 30 degrees: 2; up to 60: 1; more: 0",
     "wind": "under 10 km/h: 2; offshore (from the land side, within 45 degrees) under 35 km/h: 2; cross-shore under 20 km/h: 1; "
     "anything else: 0",
-    "tide": "2 when the tide stage is the one the spot works best with, 0 otherwise; left out while that is unknown (every spot today)",
+    "tide": "2 when the tide stage is the one the spot works best with (or `best_tide` is `any`), 0 otherwise; left out while that is unknown (every spot today, unless `best_tide` is given)",
     "best_slot": "the daylight hour of the next 72 with the most points for what could be scored, at least three criteria; the first on a tie",
+    "windows": "consecutive daylight hours where the rating reaches at least half of what could be scored, at least three criteria",
 }
 DERIVED = [
     "spot.facing_deg",
@@ -78,10 +82,13 @@ DERIVED = [
     "hours.daylight",
     "hours.swell_power_kw_m",
     "hours.swell_angle_deg",
+    "hours.secondary_swell_power_kw_m",
+    "hours.secondary_swell_angle_deg",
     "hours.wind.relative",
     "hours.tide",
     "hours.rating",
     "best_slot",
+    "windows",
 ]
 
 
@@ -224,6 +231,46 @@ def best_slot(hours: list[SurfHour], now_unix: float) -> Optional[SurfSlot]:
     return SurfSlot(time_utc=best[1].time_utc, rating=best[1].rating)
 
 
+def windows(hours: list[SurfHour]) -> list[SurfWindow]:
+    """Ours: runs of consecutive daylight hours where the rating reaches at least ``WINDOW_MIN_SHARE`` of what could be scored."""
+    found: list[SurfWindow] = []
+    run: list[SurfHour] = []
+
+    def flush() -> None:
+        if not run:
+            return
+        best = max(run, key=lambda h: (h.rating.points / h.rating.out_of) if h.rating else 0.0)
+        assert best.rating is not None
+        found.append(
+            SurfWindow(
+                start_utc=run[0].time_utc,
+                end_utc=run[-1].time_utc,
+                hours=len(run),
+                best_time_utc=best.time_utc,
+                points=best.rating.points,
+                out_of=best.rating.out_of,
+            )
+        )
+        run.clear()
+
+    for hour in hours:
+        rating = hour.rating
+        qualifies = (
+            hour.daylight is True
+            and rating is not None
+            and rating.out_of >= MIN_OUT_OF_FOR_BEST
+            and rating.points / rating.out_of >= WINDOW_MIN_SHARE
+        )
+        if qualifies and (not run or hour.time_utc == run[-1].time_utc + HOUR):
+            run.append(hour)
+        else:
+            flush()
+            if qualifies:
+                run.append(hour)
+    flush()
+    return found
+
+
 def _round(value: Optional[float], digits: int) -> Optional[float]:
     return None if value is None else round(value, digits)
 
@@ -288,6 +335,8 @@ def build_forecast(
     now_unix: float,
     stale: bool = False,
     correct: bool = False,
+    best_tide: Optional[TidePreference] = None,
+    best_swell_from_deg: Optional[int] = None,
 ) -> SurfForecast:
     """The forecast of ``spot`` from the parsed answers (``app/collectors/surf.py``): the hours from the current one, for ``days``.
 
@@ -297,6 +346,14 @@ def build_forecast(
     if swell.get("model_lat") is not None and swell.get("model_lon") is not None:
         swell_cell = (float(swell["model_lat"]), float(swell["model_lon"]))
     correction = surf_correction.plan(spot.id, swell_cell, correct)
+    tide_pref = best_tide if best_tide is not None else spot.best_tide
+    swell_target_deg = (
+        best_swell_from_deg
+        if best_swell_from_deg is not None
+        else spot.best_swell_from_deg
+        if spot.best_swell_from_deg is not None
+        else spot.facing_deg
+    )
     first = int(now_unix // HOUR) * HOUR
     wanted = [t for t in swell["times"] if first <= t < first + days * 24 * HOUR]
     swell_index = {t: i for i, t in enumerate(swell["times"])}
@@ -310,6 +367,11 @@ def build_forecast(
             period_s=_round(_at(swell, "swell_wave_period", s), 1),
             from_deg=_direction(_at(swell, "swell_wave_direction", s)),
         )
+        secondary = Swell(
+            height_m=_round(_at(swell, "secondary_swell_wave_height", s), 2),
+            period_s=_round(_at(swell, "secondary_swell_wave_period", s), 1),
+            from_deg=_direction(_at(swell, "secondary_swell_wave_direction", s)),
+        )
         wind_from = _direction(_at(wind, "wind_direction_10m", w)) if wind is not None else None
         surf_wind = SurfWind(
             speed_kmh=_round(_at(wind, "wind_speed_10m", w), 1) if wind is not None else None,
@@ -318,6 +380,8 @@ def build_forecast(
             relative=wind_relative(wind_from, spot.facing_deg),
         )
         angle = None if primary.from_deg is None else angle_between(primary.from_deg, spot.facing_deg)
+        rating_angle = None if primary.from_deg is None else angle_between(primary.from_deg, swell_target_deg)
+        secondary_angle = None if secondary.from_deg is None else angle_between(secondary.from_deg, spot.facing_deg)
         tide = tide_at.get(t)
         raw_height = _at(swell, "wave_height", s)
         sea_height = _round(raw_height, 2)
@@ -335,17 +399,15 @@ def build_forecast(
                 ),
                 waves_model_height_m=sea_height if correction.factor is not None else None,
                 swell=primary,
-                secondary_swell=Swell(
-                    height_m=_round(_at(swell, "secondary_swell_wave_height", s), 2),
-                    period_s=_round(_at(swell, "secondary_swell_wave_period", s), 1),
-                    from_deg=_direction(_at(swell, "secondary_swell_wave_direction", s)),
-                ),
+                secondary_swell=secondary,
                 wind_wave_height_m=_round(_at(swell, "wind_wave_height", s), 2),
                 swell_power_kw_m=swell_power_kw_m(primary.height_m, primary.period_s),
                 swell_angle_deg=None if angle is None else int(round(angle)),
+                secondary_swell_power_kw_m=swell_power_kw_m(secondary.height_m, secondary.period_s),
+                secondary_swell_angle_deg=None if secondary_angle is None else int(round(secondary_angle)),
                 wind=surf_wind,
                 tide=tide,
-                rating=rate(primary, angle, surf_wind, tide, spot.best_tide),
+                rating=rate(primary, rating_angle, surf_wind, tide, tide_pref),
             )
         )
     cell = None
@@ -360,6 +422,7 @@ def build_forecast(
         correction=correction.report,
         hours=hours,
         best_slot=best_slot(hours, now_unix),
+        windows=windows(hours),
         rules=RULES,
         derived=[*DERIVED, surf_correction.CORRECTED_FIELD] if correction.factor is not None else DERIVED,
         stale=stale,
@@ -385,13 +448,23 @@ async def fetch(collector: SurfForecastCollector, spot: SurfSpot) -> tuple[dict[
     return swell_data, wind_data, swell_stale or wind_stale
 
 
-async def forecast(collector: SurfForecastCollector, spot_id: str, days: int, now_unix: float, correct: bool = False) -> SurfForecast:
+async def forecast(
+    collector: SurfForecastCollector,
+    spot_id: str,
+    days: int,
+    now_unix: float,
+    correct: bool = False,
+    best_tide: Optional[TidePreference] = None,
+    best_swell_from_deg: Optional[int] = None,
+) -> SurfForecast:
     """The forecast of a spot. ``UnknownSpot`` for an id that is not in the list; ``NoSurfForecast`` when the swell cannot be had
     (the wind alone is not a surf forecast: without it, the wind is unknown and the rating says so). ``correct``: see ``build_forecast``."""
     spot = find_spot(spot_id)
     swell_data, wind_data, stale = await fetch(collector, spot)
     # The tide and the rating are computed in a worker thread: a few milliseconds of numpy, kept off the event loop.
-    return await clock.run_blocking(build_forecast, spot, swell_data, wind_data, days, now_unix, stale, correct)
+    return await clock.run_blocking(
+        build_forecast, spot, swell_data, wind_data, days, now_unix, stale, correct, best_tide, best_swell_from_deg
+    )
 
 
 def _now(hour: SurfHour) -> SurfNow:
