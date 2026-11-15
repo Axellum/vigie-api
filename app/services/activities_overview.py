@@ -186,7 +186,7 @@ async def overview(
     asked = [(spot_id, lat, lon) for spot_id, lat, lon in points if spot_id in swell_data]
     answers = await asyncio.gather(*(_warnings_of(vigilances, spot_id, lat, lon, gate) for spot_id, lat, lon in asked))
     warnings = dict(zip((spot_id for spot_id, _, _ in asked), answers, strict=True))
-    # 51 spots of rating and tide: a fraction of a second of numpy, in a worker thread, as the surf overview.
+    # Sea conditions rating and tide across all bundled spots: a fraction of a second of numpy, in a worker thread, as the surf overview.
     built = await clock.run_blocking(
         build,
         swell_data,

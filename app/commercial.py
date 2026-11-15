@@ -265,6 +265,29 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-10-28",
         ),
         CommercialUse(
+            "gip_littoral_plages",
+            "allowed",
+            "Licence Ouverte 2.0 (`lov2` on data.gouv.fr, read on 2026-11-15): any use, commercial included, naming the source "
+            "and the date.",
+            (
+                "https://www.data.gouv.fr/datasets/plages-de-nouvelle-aquitaine-1",
+                "https://www.pigma.org/fr/dataset/datasets/6870/resource/13842/download/",
+            ),
+            "2026-11-15",
+        ),
+        CommercialUse(
+            "shom_ndf",
+            "allowed",
+            "Licence Ouverte 2.0 d'avril 2017 (read in the ISO 19115 CSW metadata `HOM_GEOL_NATURES_FOND_50.xml`, dated "
+            "2025-07-09): any free reuse citing `Shom, 2025. Natures de fond au 1/50 000, https://dx.doi.org/10.17183/HOM_GEOL_NATURES_FOND_50`; "
+            "not for navigation.",
+            (
+                "https://services.data.shom.fr/geonetwork/INSPIRE?service=CSW&version=2.0.2&request=GetRecordById&elementSetName=full&Id=HOM_GEOL_NATURES_FOND_50.xml",
+                "https://www.etalab.gouv.fr/licence-ouverte-open-licence/",
+            ),
+            "2026-11-15",
+        ),
+        CommercialUse(
             "osm_places",
             "allowed",
             "ODbL 1.0: any use, with the credit, and a database made from it is shared under the ODbL too (the place file is).",

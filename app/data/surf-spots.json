@@ -1,10 +1,13 @@
 {
- "built_utc": "2026-10-29T07:18:06Z",
- "source": "OpenStreetMap, through the Overpass API (tools/build_spots.py)",
- "licence": "ODbL-1.0",
- "attribution": "© OpenStreetMap contributors",
+ "built_utc": "2026-11-15T12:47:36Z",
+ "source": "OpenStreetMap (Overpass API), GIP Littoral Plages de Nouvelle-Aquitaine (pigma.org, Licence Ouverte 2.0), SHOM Natures de fond au 1/50 000 (services.data.shom.fr, Licence Ouverte 2.0) (tools/build_spots.py)",
+ "licence": "ODbL-1.0 / Licence Ouverte 2.0",
+ "attribution": "© OpenStreetMap contributors | Beaches: GIP Littoral, Plages de Nouvelle-Aquitaine (Licence Ouverte 2.0) | Shom, 2025. Natures de fond au 1/50 000, https://dx.doi.org/10.17183/HOM_GEOL_NATURES_FOND_50 (not for navigation)",
  "derived": [
   "facing_deg",
+  "open_water_sectors",
+  "open_water_width_deg",
+  "bottom",
   "place",
   "id"
  ],
@@ -17,8 +20,26 @@
    "lat": 48.8225,
    "lon": -3.3552,
    "facing_deg": 322,
+   "open_water_sectors": [
+    [
+     300,
+     300
+    ],
+    [
+     310,
+     40
+    ]
+   ],
+   "open_water_width_deg": 100,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS",
+    "NFSF",
+    "NFSG"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "node/5843735745",
@@ -43,8 +64,25 @@
    "lat": 48.8171,
    "lon": -3.454,
    "facing_deg": 349,
+   "open_water_sectors": [
+    [
+     0,
+     45
+    ],
+    [
+     350,
+     350
+    ]
+   ],
+   "open_water_width_deg": 55,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS",
+    "NFSG"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/121675782",
@@ -64,8 +102,20 @@
    "lat": 48.6941,
    "lon": -3.6479,
    "facing_deg": 350,
+   "open_water_sectors": [
+    [
+     300,
+     10
+    ]
+   ],
+   "open_water_width_deg": 75,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/228737713",
@@ -90,8 +140,21 @@
    "lat": 48.6935,
    "lon": -4.0874,
    "facing_deg": 357,
+   "open_water_sectors": [
+    [
+     295,
+     25
+    ]
+   ],
+   "open_water_width_deg": 95,
    "beach_surface": null,
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS",
+    "NFSG"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "node/1390570470",
@@ -111,8 +174,20 @@
    "lat": 48.6874,
    "lon": -3.6767,
    "facing_deg": 330,
+   "open_water_sectors": [
+    [
+     305,
+     20
+    ]
+   ],
+   "open_water_width_deg": 80,
    "beach_surface": null,
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/396094896",
@@ -132,8 +207,25 @@
    "lat": 48.6661,
    "lon": -1.9928,
    "facing_deg": 293,
+   "open_water_sectors": [
+    [
+     265,
+     275
+    ],
+    [
+     285,
+     0
+    ]
+   ],
+   "open_water_width_deg": 95,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF",
+    "NFSG"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/142301906",
@@ -158,8 +250,17 @@
    "lat": 48.6444,
    "lon": -2.4073,
    "facing_deg": 358,
+   "open_water_sectors": [
+    [
+     310,
+     50
+    ]
+   ],
+   "open_water_width_deg": 105,
    "beach_surface": "sand",
    "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/46505869",
@@ -179,8 +280,17 @@
    "lat": 48.6368,
    "lon": -2.1223,
    "facing_deg": 329,
+   "open_water_sectors": [
+    [
+     295,
+     30
+    ]
+   ],
+   "open_water_width_deg": 100,
    "beach_surface": "sand",
    "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/290703254",
@@ -210,8 +320,20 @@
    "lat": 48.6296,
    "lon": -4.5296,
    "facing_deg": 355,
+   "open_water_sectors": [
+    [
+     325,
+     40
+    ]
+   ],
+   "open_water_width_deg": 80,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "node/7148158745",
@@ -236,8 +358,20 @@
    "lat": 48.531,
    "lon": -4.7515,
    "facing_deg": 346,
+   "open_water_sectors": [
+    [
+     300,
+     355
+    ]
+   ],
+   "open_water_width_deg": 60,
    "beach_surface": null,
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/107372651",
@@ -257,8 +391,21 @@
    "lat": 48.3382,
    "lon": -4.6169,
    "facing_deg": 208,
+   "open_water_sectors": [
+    [
+     190,
+     255
+    ]
+   ],
+   "open_water_width_deg": 70,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFC",
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/401782732",
@@ -283,8 +430,24 @@
    "lat": 48.2755,
    "lon": -4.6181,
    "facing_deg": 230,
+   "open_water_sectors": [
+    [
+     200,
+     255
+    ],
+    [
+     265,
+     290
+    ]
+   ],
+   "open_water_width_deg": 90,
    "beach_surface": null,
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "node/7204452693",
@@ -304,8 +467,24 @@
    "lat": 48.0464,
    "lon": -4.707,
    "facing_deg": 298,
+   "open_water_sectors": [
+    [
+     255,
+     255
+    ],
+    [
+     270,
+     325
+    ]
+   ],
+   "open_water_width_deg": 65,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "node/7204448240",
@@ -330,8 +509,20 @@
    "lat": 48.012,
    "lon": -4.5977,
    "facing_deg": 226,
+   "open_water_sectors": [
+    [
+     155,
+     280
+    ]
+   ],
+   "open_water_width_deg": 130,
    "beach_surface": null,
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "node/7204468674",
@@ -351,8 +542,20 @@
    "lat": 47.9399,
    "lon": -4.4039,
    "facing_deg": 220,
+   "open_water_sectors": [
+    [
+     180,
+     295
+    ]
+   ],
+   "open_water_width_deg": 120,
    "beach_surface": null,
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/1432324576",
@@ -377,8 +580,19 @@
    "lat": 47.8432,
    "lon": -4.3476,
    "facing_deg": 263,
+   "open_water_sectors": [
+    [
+     230,
+     325
+    ]
+   ],
+   "open_water_width_deg": 100,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/304662418",
@@ -403,8 +617,24 @@
    "lat": 47.7962,
    "lon": -3.822,
    "facing_deg": 178,
+   "open_water_sectors": [
+    [
+     125,
+     125
+    ],
+    [
+     135,
+     225
+    ]
+   ],
+   "open_water_width_deg": 100,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/259338899",
@@ -424,8 +654,28 @@
    "lat": 47.7937,
    "lon": -3.812,
    "facing_deg": 197,
+   "open_water_sectors": [
+    [
+     150,
+     155
+    ],
+    [
+     165,
+     225
+    ],
+    [
+     245,
+     260
+    ]
+   ],
+   "open_water_width_deg": 95,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/259338900",
@@ -445,8 +695,24 @@
    "lat": 47.7678,
    "lon": -3.5635,
    "facing_deg": 209,
+   "open_water_sectors": [
+    [
+     135,
+     140
+    ],
+    [
+     165,
+     265
+    ]
+   ],
+   "open_water_width_deg": 115,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/27085681",
@@ -466,8 +732,23 @@
    "lat": 47.5832,
    "lon": -3.1499,
    "facing_deg": 247,
+   "open_water_sectors": [
+    [
+     195,
+     195
+    ],
+    [
+     210,
+     300
+    ]
+   ],
+   "open_water_width_deg": 100,
    "beach_surface": null,
-   "bottom": null,
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/38708840",
@@ -487,8 +768,33 @@
    "lat": 47.5517,
    "lon": -3.1366,
    "facing_deg": 258,
+   "open_water_sectors": [
+    [
+     225,
+     240
+    ],
+    [
+     250,
+     265
+    ],
+    [
+     275,
+     275
+    ],
+    [
+     290,
+     320
+    ]
+   ],
+   "open_water_width_deg": 80,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFC",
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/262554328",
@@ -508,8 +814,21 @@
    "lat": 47.2657,
    "lon": -2.4568,
    "facing_deg": 216,
+   "open_water_sectors": [
+    [
+     145,
+     285
+    ]
+   ],
+   "open_water_width_deg": 145,
    "beach_surface": null,
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS",
+    "NFSG"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "node/4511511355",
@@ -529,8 +848,20 @@
    "lat": 46.6839,
    "lon": -1.936,
    "facing_deg": 233,
+   "open_water_sectors": [
+    [
+     155,
+     290
+    ]
+   ],
+   "open_water_width_deg": 140,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/88861411",
@@ -555,8 +886,20 @@
    "lat": 46.6136,
    "lon": -1.8617,
    "facing_deg": 225,
+   "open_water_sectors": [
+    [
+     165,
+     305
+    ]
+   ],
+   "open_water_width_deg": 145,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/1112019512",
@@ -581,8 +924,19 @@
    "lat": 46.5974,
    "lon": -1.8536,
    "facing_deg": 257,
+   "open_water_sectors": [
+    [
+     170,
+     320
+    ]
+   ],
+   "open_water_width_deg": 155,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/1112019511",
@@ -602,8 +956,20 @@
    "lat": 46.4802,
    "lon": -1.7628,
    "facing_deg": 237,
+   "open_water_sectors": [
+    [
+     155,
+     285
+    ]
+   ],
+   "open_water_width_deg": 135,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/1163062789",
@@ -616,6 +982,145 @@
    ]
   },
   {
+   "id": "les-portes-en-re-plage-du-petit-bec",
+   "name": "Plage du Petit Bec",
+   "osm_name": null,
+   "place": "Les Portes-en-Ré",
+   "lat": 46.2535,
+   "lon": -1.5197,
+   "facing_deg": 314,
+   "open_water_sectors": [
+    [
+     255,
+     335
+    ]
+   ],
+   "open_water_width_deg": 85,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/820188937",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "6044355",
+     "name": "Plage du Petit Bec",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "le-gillieux-plage-de-la-conche-des-baleines",
+   "name": "Plage de la Conche des Baleines",
+   "osm_name": null,
+   "place": "Le Gillieux",
+   "lat": 46.2455,
+   "lon": -1.5336,
+   "facing_deg": 330,
+   "open_water_sectors": [
+    [
+     270,
+     335
+    ]
+   ],
+   "open_water_width_deg": 70,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/820188938",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5870053",
+     "name": "Plage de la Conche des Baleines",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "saint-martin-de-re-la-plage-de-la-cible",
+   "name": "La Plage de la Cible",
+   "osm_name": null,
+   "place": "Saint-Martin-de-Ré",
+   "lat": 46.2046,
+   "lon": -1.3545,
+   "facing_deg": 37,
+   "open_water_sectors": [
+    [
+     315,
+     325
+    ]
+   ],
+   "open_water_width_deg": 15,
+   "beach_surface": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFV"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/5870062",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5870062",
+     "name": "La Plage de la Cible",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "l-houmeau-plage-de-pampin-l-houmeau",
+   "name": "Plage de Pampin - l'Houmeau",
+   "osm_name": null,
+   "place": "L'Houmeau",
+   "lat": 46.1932,
+   "lon": -1.1993,
+   "facing_deg": 278,
+   "open_water_sectors": [
+    [
+     225,
+     225
+    ],
+    [
+     285,
+     320
+    ]
+   ],
+   "open_water_width_deg": 45,
+   "beach_surface": "pebbles",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFV"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/5700197",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5700197",
+     "name": "Plage de Pampin - l'Houmeau",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
    "id": "la-couarde-sur-mer-plage-du-peu-ragot",
    "name": "Plage du Peu Ragot",
    "osm_name": null,
@@ -623,16 +1128,110 @@
    "lat": 46.1923,
    "lon": -1.4368,
    "facing_deg": 215,
+   "open_water_sectors": [
+    [
+     125,
+     160
+    ],
+    [
+     175,
+     270
+    ]
+   ],
+   "open_water_width_deg": 140,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/194912872",
    "evidence": [
     {
+     "source": "gip_littoral",
+     "id": "5870044",
+     "name": "Plage du Peu Ragot",
+     "kind": "beach"
+    },
+    {
      "osm": "node/12530052893",
      "name": "Neway",
      "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "la-flotte-plage-de-l-arnerault",
+   "name": "Plage de l'Arnerault",
+   "osm_name": null,
+   "place": "La Flotte",
+   "lat": 46.1872,
+   "lon": -1.3166,
+   "facing_deg": 345,
+   "open_water_sectors": [
+    [
+     310,
+     325
+    ]
+   ],
+   "open_water_width_deg": 20,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFV"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/515922507",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5870046",
+     "name": "Plage de l'Arnérault",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "le-bois-plage-en-re-plage-des-gollandieres",
+   "name": "Plage des Gollandières",
+   "osm_name": null,
+   "place": "Le Bois-Plage-en-Ré",
+   "lat": 46.1787,
+   "lon": -1.3973,
+   "facing_deg": 204,
+   "open_water_sectors": [
+    [
+     130,
+     160
+    ],
+    [
+     185,
+     280
+    ]
+   ],
+   "open_water_width_deg": 135,
+   "beach_surface": "sand;pebbles",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/194912873",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5870048",
+     "name": "Plage des Gollandières",
+     "kind": "beach"
     }
    ]
   },
@@ -644,16 +1243,796 @@
    "lat": 46.1726,
    "lon": -1.3827,
    "facing_deg": 219,
+   "open_water_sectors": [
+    [
+     130,
+     165
+    ],
+    [
+     190,
+     280
+    ]
+   ],
+   "open_water_width_deg": 135,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/1497408061",
    "evidence": [
     {
+     "source": "gip_littoral",
+     "id": "5870047",
+     "name": "Plage de Gros Jonc",
+     "kind": "beach"
+    },
+    {
      "osm": "node/14112910418",
      "name": "Ré Surf",
      "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "la-rochelle-plage-de-la-concurrence",
+   "name": "Plage de la Concurrence",
+   "osm_name": null,
+   "place": "La Rochelle",
+   "lat": 46.1554,
+   "lon": -1.161,
+   "facing_deg": 187,
+   "open_water_sectors": [
+    [
+     225,
+     250
+    ]
+   ],
+   "open_water_width_deg": 30,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS",
+    "NFV"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/39068226",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5677653",
+     "name": "Plage de la Concurrence",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "la-noue-plage-de-montamer",
+   "name": "Plage de Montamer",
+   "osm_name": null,
+   "place": "La Noue",
+   "lat": 46.15,
+   "lon": -1.3311,
+   "facing_deg": 209,
+   "open_water_sectors": [
+    [
+     130,
+     135
+    ],
+    [
+     145,
+     155
+    ],
+    [
+     210,
+     285
+    ]
+   ],
+   "open_water_width_deg": 105,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/194912877",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5870054",
+     "name": "Plage de Montamer",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "la-rochelle-plage-de-chef-de-baie",
+   "name": "Plage de Chef de Baie",
+   "osm_name": null,
+   "place": "La Rochelle",
+   "lat": 46.1477,
+   "lon": -1.2101,
+   "facing_deg": 195,
+   "open_water_sectors": [
+    [
+     145,
+     145
+    ],
+    [
+     160,
+     160
+    ],
+    [
+     175,
+     180
+    ],
+    [
+     235,
+     265
+    ]
+   ],
+   "open_water_width_deg": 55,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFV"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/5701460",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5701460",
+     "name": "Plage de Chef de Baie",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "la-rochelle-plage-des-minimes",
+   "name": "Plage des Minimes",
+   "osm_name": null,
+   "place": "La Rochelle",
+   "lat": 46.141,
+   "lon": -1.1716,
+   "facing_deg": 275,
+   "open_water_sectors": [
+    [
+     240,
+     270
+    ]
+   ],
+   "open_water_width_deg": 35,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS",
+    "NFSV",
+    "NFV"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/41778393",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5672947",
+     "name": "Plage des Minimes",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "angoulins-plage-de-la-platere",
+   "name": "Plage de la Platère",
+   "osm_name": null,
+   "place": "Angoulins",
+   "lat": 46.1063,
+   "lon": -1.1355,
+   "facing_deg": 198,
+   "open_water_sectors": [
+    [
+     180,
+     185
+    ],
+    [
+     200,
+     200
+    ],
+    [
+     250,
+     250
+    ]
+   ],
+   "open_water_width_deg": 20,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFV"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/1090874794",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5732087",
+     "name": "Plage de la Platère",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "chatelaillon-plage-la-plage-de-chatelaillon-plage",
+   "name": "La plage de Châtelaillon-Plage",
+   "osm_name": null,
+   "place": "Châtelaillon-Plage",
+   "lat": 46.0811,
+   "lon": -1.0959,
+   "facing_deg": 255,
+   "open_water_sectors": [
+    [
+     195,
+     210
+    ],
+    [
+     250,
+     290
+    ]
+   ],
+   "open_water_width_deg": 65,
+   "beach_surface": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS",
+    "NFV"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/5702866",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5702866",
+     "name": "La plage de Châtelaillon-Plage",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "saint-denis-d-oleron-plage-de-la-boirie",
+   "name": "Plage de la Boirie",
+   "osm_name": null,
+   "place": "Saint-Denis-d'Oléron",
+   "lat": 46.0338,
+   "lon": -1.3719,
+   "facing_deg": 89,
+   "open_water_sectors": [
+    [
+     70,
+     90
+    ],
+    [
+     105,
+     115
+    ]
+   ],
+   "open_water_width_deg": 40,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/1057950006",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5707367",
+     "name": "Plage de la Boirie",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "ile-d-aix-plage-de-l-anse-de-la-croix",
+   "name": "Plage de l'Anse de la Croix",
+   "osm_name": null,
+   "place": "Île-d'Aix",
+   "lat": 46.0111,
+   "lon": -1.1773,
+   "facing_deg": 272,
+   "open_water_sectors": [
+    [
+     285,
+     320
+    ]
+   ],
+   "open_water_width_deg": 40,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS",
+    "NFSV",
+    "NFV"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/105826570",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5761216",
+     "name": "Plage de l'Anse de la Croix",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "chaucre-plage-des-seulieres",
+   "name": "Plage des Seulières",
+   "osm_name": null,
+   "place": "Chaucre",
+   "lat": 46.0036,
+   "lon": -1.3896,
+   "facing_deg": 251,
+   "open_water_sectors": [
+    [
+     190,
+     335
+    ]
+   ],
+   "open_water_width_deg": 150,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/1494402920",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5707373",
+     "name": "Plage des Huttes",
+     "kind": "beach"
+    },
+    {
+     "source": "gip_littoral",
+     "id": "5707375",
+     "name": "Plage des Seulières",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "saint-georges-d-oleron-plage-de-plaisance",
+   "name": "Plage de Plaisance",
+   "osm_name": null,
+   "place": "Saint-Georges-d'Oléron",
+   "lat": 45.995,
+   "lon": -1.3159,
+   "facing_deg": 37,
+   "open_water_sectors": [
+    [
+     15,
+     15
+    ],
+    [
+     45,
+     45
+    ],
+    [
+     85,
+     85
+    ],
+    [
+     340,
+     345
+    ]
+   ],
+   "open_water_width_deg": 25,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/1238604909",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5707370",
+     "name": "Plage de Plaisance",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "fouras-plage-nord",
+   "name": "Plage Nord",
+   "osm_name": null,
+   "place": "Fouras",
+   "lat": 45.9921,
+   "lon": -1.0932,
+   "facing_deg": 351,
+   "open_water_sectors": [
+    [
+     320,
+     325
+    ]
+   ],
+   "open_water_width_deg": 10,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS",
+    "NFV"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/89679888",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5761222",
+     "name": "Plage Nord",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "sauzelle-plage-de-la-gautrelle",
+   "name": "Plage de la Gautrelle",
+   "osm_name": null,
+   "place": "Sauzelle",
+   "lat": 45.9886,
+   "lon": -1.2932,
+   "facing_deg": 12,
+   "open_water_sectors": [
+    [
+     10,
+     10
+    ],
+    [
+     25,
+     25
+    ],
+    [
+     315,
+     340
+    ]
+   ],
+   "open_water_width_deg": 40,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFG",
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/1238604911",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5707368",
+     "name": "Plage de la Gautrelle",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "fouras-grande-plage",
+   "name": "Grande Plage",
+   "osm_name": null,
+   "place": "Fouras",
+   "lat": 45.9872,
+   "lon": -1.0984,
+   "facing_deg": 244,
+   "open_water_sectors": [
+    [
+     285,
+     290
+    ],
+    [
+     315,
+     315
+    ]
+   ],
+   "open_water_width_deg": 15,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS",
+    "NFV"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/89679914",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5761215",
+     "name": "Grande plage",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "domino-plage-de-chaucre",
+   "name": "Plage de Chaucre",
+   "osm_name": null,
+   "place": "Domino",
+   "lat": 45.9813,
+   "lon": -1.3936,
+   "facing_deg": 295,
+   "open_water_sectors": [
+    [
+     190,
+     345
+    ]
+   ],
+   "open_water_width_deg": 160,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/300037537",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5707365",
+     "name": "Plage de Chaucre",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "boyardville-plage-de-boyardville",
+   "name": "Plage de Boyardville",
+   "osm_name": null,
+   "place": "Boyardville",
+   "lat": 45.9724,
+   "lon": -1.2345,
+   "facing_deg": 77,
+   "open_water_sectors": [
+    [
+     10,
+     10
+    ]
+   ],
+   "open_water_width_deg": 5,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS",
+    "NFSFV"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/234428620",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5707362",
+     "name": "Plage de Boyardville",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "domino-plage-des-bonnes",
+   "name": "Plage des Bonnes",
+   "osm_name": null,
+   "place": "Domino",
+   "lat": 45.9637,
+   "lon": -1.3863,
+   "facing_deg": 263,
+   "open_water_sectors": [
+    [
+     185,
+     335
+    ]
+   ],
+   "open_water_width_deg": 155,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/298811214",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5707376",
+     "name": "Plage des Bonnes",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "domino-plage-des-sables-vignier",
+   "name": "Plage des Sables Vignier",
+   "osm_name": null,
+   "place": "Domino",
+   "lat": 45.9593,
+   "lon": -1.3871,
+   "facing_deg": 276,
+   "open_water_sectors": [
+    [
+     180,
+     340
+    ]
+   ],
+   "open_water_width_deg": 165,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/298811215",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5707366",
+     "name": "Plage des Sables Vignier",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "port-des-barques-plage-des-anses",
+   "name": "Plage des Anses",
+   "osm_name": null,
+   "place": "Port-des-Barques",
+   "lat": 45.9444,
+   "lon": -1.0995,
+   "facing_deg": 222,
+   "open_water_sectors": [
+    [
+     295,
+     305
+    ]
+   ],
+   "open_water_width_deg": 15,
+   "beach_surface": "sand;pebbles",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFV"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/207568223",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5761221",
+     "name": "Plage des Anses",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "la-cotiniere-plage-de-matha",
+   "name": "Plage de Matha",
+   "osm_name": null,
+   "place": "La Cotinière",
+   "lat": 45.9105,
+   "lon": -1.3166,
+   "facing_deg": 222,
+   "open_water_sectors": [
+    [
+     165,
+     265
+    ]
+   ],
+   "open_water_width_deg": 105,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/143786011",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5749980",
+     "name": "Plage de Matha",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "dolus-d-oleron-plage-de-la-remigeasse",
+   "name": "Plage de la Rémigeasse",
+   "osm_name": null,
+   "place": "Dolus-d'Oléron",
+   "lat": 45.8965,
+   "lon": -1.2899,
+   "facing_deg": 232,
+   "open_water_sectors": [
+    [
+     170,
+     235
+    ],
+    [
+     250,
+     295
+    ]
+   ],
+   "open_water_width_deg": 120,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/1494402919",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5750291",
+     "name": "Plage de la Rémigeasse",
+     "kind": "beach"
     }
    ]
   },
@@ -665,16 +2044,467 @@
    "lat": 45.8698,
    "lon": -1.2587,
    "facing_deg": 246,
+   "open_water_sectors": [
+    [
+     175,
+     310
+    ]
+   ],
+   "open_water_width_deg": 140,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS"
+   ],
+   "lifeguarded": true,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "node/5826913428",
    "evidence": [
     {
+     "source": "gip_littoral",
+     "id": "5732918",
+     "name": "Plage de Vert bois",
+     "kind": "beach"
+    },
+    {
      "osm": "node/5826913428",
      "name": "Take Off Surf",
      "kind": "spot"
+    }
+   ]
+  },
+  {
+   "id": "le-grand-village-plage-plage-de-la-giraudiere",
+   "name": "Plage de la Giraudière",
+   "osm_name": null,
+   "place": "Le Grand-Village-Plage",
+   "lat": 45.8501,
+   "lon": -1.2509,
+   "facing_deg": 260,
+   "open_water_sectors": [
+    [
+     180,
+     315
+    ]
+   ],
+   "open_water_width_deg": 140,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/5735178",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5735178",
+     "name": "Plage de la Giraudière",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "le-grand-village-plage-la-grande-plage",
+   "name": "La Grande Plage",
+   "osm_name": null,
+   "place": "Le Grand-Village-Plage",
+   "lat": 45.8405,
+   "lon": -1.2488,
+   "facing_deg": 263,
+   "open_water_sectors": [
+    [
+     180,
+     315
+    ]
+   ],
+   "open_water_width_deg": 140,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/316981030",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5735273",
+     "name": "La Grande plage",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "saint-trojan-les-bains-plage-de-gatseau",
+   "name": "Plage de Gatseau",
+   "osm_name": null,
+   "place": "Saint-Trojan-les-Bains",
+   "lat": 45.8119,
+   "lon": -1.2189,
+   "facing_deg": 150,
+   "open_water_sectors": [
+    [
+     210,
+     215
+    ]
+   ],
+   "open_water_width_deg": 10,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS",
+    "NFSG",
+    "NFV"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/1238639059",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5740888",
+     "name": "Plage de Gatseau",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "ronce-les-bains-plage-de-la-pointe-espagnole",
+   "name": "Plage de la Pointe Espagnole",
+   "osm_name": null,
+   "place": "Ronce-les-Bains",
+   "lat": 45.7791,
+   "lon": -1.2415,
+   "facing_deg": 281,
+   "open_water_sectors": [
+    [
+     185,
+     330
+    ]
+   ],
+   "open_water_width_deg": 150,
+   "beach_surface": "sand",
+   "bottom": "gravel",
+   "seafloor_shom": [
+    "NFSG"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/719642479",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5773752",
+     "name": "Plage de la Pointe Espagnole",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "la-palmyre-plage-la-bouverie",
+   "name": "Plage La Bouverie",
+   "osm_name": null,
+   "place": "La Palmyre",
+   "lat": 45.7311,
+   "lon": -1.2391,
+   "facing_deg": 267,
+   "open_water_sectors": [
+    [
+     180,
+     340
+    ]
+   ],
+   "open_water_width_deg": 165,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/5774075",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5774075",
+     "name": "Plage La Bouverie",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "la-palmyre-plage-du-phare-de-la-coubre",
+   "name": "Plage du Phare de la Coubre",
+   "osm_name": null,
+   "place": "La Palmyre",
+   "lat": 45.6963,
+   "lon": -1.2342,
+   "facing_deg": 264,
+   "open_water_sectors": [
+    [
+     175,
+     350
+    ]
+   ],
+   "open_water_width_deg": 180,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/5774187",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5774187",
+     "name": "Plage du Phare de la Coubre",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "la-palmyre-plage-de-la-palmyre",
+   "name": "Plage de la Palmyre",
+   "osm_name": null,
+   "place": "La Palmyre",
+   "lat": 45.6806,
+   "lon": -1.177,
+   "facing_deg": 213,
+   "open_water_sectors": [
+    [
+     130,
+     140
+    ],
+    [
+     175,
+     245
+    ]
+   ],
+   "open_water_width_deg": 90,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS",
+    "NFV"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "relation/3188493",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5773098",
+     "name": "Plage de La Palmyre",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "la-palmyre-plage-des-pins-de-cordouan",
+   "name": "Plage des Pins de Cordouan",
+   "osm_name": null,
+   "place": "La Palmyre",
+   "lat": 45.6744,
+   "lon": -1.1608,
+   "facing_deg": 204,
+   "open_water_sectors": [
+    [
+     135,
+     145
+    ],
+    [
+     180,
+     180
+    ],
+    [
+     190,
+     260
+    ]
+   ],
+   "open_water_width_deg": 95,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/5774397",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5774397",
+     "name": "Plage des Pins de Cordouan",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "saint-augustin-plage-les-combots",
+   "name": "Plage Les Combots",
+   "osm_name": null,
+   "place": "Saint-Augustin",
+   "lat": 45.6595,
+   "lon": -1.1338,
+   "facing_deg": 221,
+   "open_water_sectors": [
+    [
+     135,
+     145
+    ],
+    [
+     185,
+     185
+    ],
+    [
+     195,
+     195
+    ],
+    [
+     205,
+     280
+    ]
+   ],
+   "open_water_width_deg": 105,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/5772231",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5772231",
+     "name": "Plage Les Combots",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "saint-palais-sur-mer-plage-de-la-grande-cote",
+   "name": "Plage de la Grande Côte",
+   "osm_name": null,
+   "place": "Saint-Palais-sur-Mer",
+   "lat": 45.6528,
+   "lon": -1.124,
+   "facing_deg": 229,
+   "open_water_sectors": [
+    [
+     135,
+     150
+    ],
+    [
+     190,
+     190
+    ],
+    [
+     205,
+     285
+    ]
+   ],
+   "open_water_width_deg": 110,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/5773545",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5773545",
+     "name": "Plage de la Grande Côte",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "saint-palais-sur-mer-plage-du-bureau",
+   "name": "Plage du Bureau",
+   "osm_name": null,
+   "place": "Saint-Palais-sur-Mer",
+   "lat": 45.642,
+   "lon": -1.0884,
+   "facing_deg": 179,
+   "open_water_sectors": [
+    [
+     200,
+     220
+    ]
+   ],
+   "open_water_width_deg": 25,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "relation/15906311",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5772182",
+     "name": "Plage du Bureau",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "saint-palais-sur-mer-plage-de-nauzan",
+   "name": "Plage de Nauzan",
+   "osm_name": null,
+   "place": "Saint-Palais-sur-Mer",
+   "lat": 45.6388,
+   "lon": -1.0797,
+   "facing_deg": 164,
+   "open_water_sectors": [
+    [
+     160,
+     160
+    ]
+   ],
+   "open_water_width_deg": 5,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/5772343",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5772343",
+     "name": "Plage de Nauzan",
+     "kind": "beach"
     }
    ]
   },
@@ -686,16 +2516,868 @@
    "lat": 45.6254,
    "lon": -1.0531,
    "facing_deg": 246,
-   "beach_surface": null,
-   "bottom": null,
+   "open_water_sectors": [
+    [
+     210,
+     240
+    ]
+   ],
+   "open_water_width_deg": 35,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/285355870",
    "evidence": [
     {
+     "source": "gip_littoral",
+     "id": "5774290",
+     "name": "Plage de Pontaillac",
+     "kind": "beach"
+    },
+    {
      "osm": "way/335135269",
      "name": "Surf Club Royan",
      "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "royan-plage-du-pigeonnier",
+   "name": "Plage du Pigeonnier",
+   "osm_name": null,
+   "place": "Royan",
+   "lat": 45.6217,
+   "lon": -1.0469,
+   "facing_deg": 187,
+   "open_water_sectors": [
+    [
+     140,
+     160
+    ],
+    [
+     210,
+     235
+    ]
+   ],
+   "open_water_width_deg": 55,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/44538996",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5773241",
+     "name": "Plage du Pigeonnier",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "royan-plage-de-la-grande-conche",
+   "name": "Plage de la Grande Conche",
+   "osm_name": null,
+   "place": "Royan",
+   "lat": 45.6221,
+   "lon": -1.0235,
+   "facing_deg": 208,
+   "open_water_sectors": [
+    [
+     160,
+     160
+    ]
+   ],
+   "open_water_width_deg": 5,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS",
+    "NFSV",
+    "NFV"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/5772241",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5772241",
+     "name": "Plage de la Grande Conche",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "royan-plage-du-chay",
+   "name": "Plage du Chay",
+   "osm_name": null,
+   "place": "Royan",
+   "lat": 45.6199,
+   "lon": -1.0426,
+   "facing_deg": 225,
+   "open_water_sectors": [
+    [
+     215,
+     245
+    ],
+    [
+     260,
+     280
+    ]
+   ],
+   "open_water_width_deg": 60,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/44539000",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5773855",
+     "name": "Plage du Chay",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "royan-plage-de-foncillon",
+   "name": "Plage de Foncillon",
+   "osm_name": null,
+   "place": "Royan",
+   "lat": 45.6192,
+   "lon": -1.034,
+   "facing_deg": 194,
+   "open_water_sectors": [
+    [
+     145,
+     160
+    ],
+    [
+     220,
+     240
+    ]
+   ],
+   "open_water_width_deg": 45,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS",
+    "NFV"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/222741774",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5773295",
+     "name": "Plage de Foncillon",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "saint-georges-de-didonne-plage-de-vallieres",
+   "name": "Plage de Vallières",
+   "osm_name": null,
+   "place": "Saint-Georges-de-Didonne",
+   "lat": 45.6088,
+   "lon": -1.0089,
+   "facing_deg": 266,
+   "open_water_sectors": [
+    [
+     235,
+     260
+    ],
+    [
+     270,
+     290
+    ]
+   ],
+   "open_water_width_deg": 55,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS",
+    "NFV"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/5772276",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5772276",
+     "name": "Plage de Vallières",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "saint-georges-de-didonne-grande-plage-nord-trier",
+   "name": "Grande Plage Nord - Trier",
+   "osm_name": null,
+   "place": "Saint-Georges-de-Didonne",
+   "lat": 45.6008,
+   "lon": -0.9979,
+   "facing_deg": 197,
+   "open_water_sectors": [
+    [
+     245,
+     245
+    ]
+   ],
+   "open_water_width_deg": 5,
+   "beach_surface": null,
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/5772203",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5772203",
+     "name": "Grande Plage Nord - Trier",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "saint-georges-de-didonne-grande-plage-sud-les-oliviers",
+   "name": "Grande Plage Sud -Les Oliviers",
+   "osm_name": null,
+   "place": "Saint-Georges-de-Didonne",
+   "lat": 45.5957,
+   "lon": -0.9917,
+   "facing_deg": 247,
+   "open_water_sectors": [
+    [
+     250,
+     285
+    ]
+   ],
+   "open_water_width_deg": 40,
+   "beach_surface": null,
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS",
+    "NFV"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/5772350",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5772350",
+     "name": "Grande Plage Sud -Les Oliviers",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "saint-georges-de-didonne-plage-de-suzac",
+   "name": "Plage de Suzac",
+   "osm_name": null,
+   "place": "Saint-Georges-de-Didonne",
+   "lat": 45.5768,
+   "lon": -0.9836,
+   "facing_deg": 247,
+   "open_water_sectors": [
+    [
+     160,
+     160
+    ],
+    [
+     270,
+     270
+    ]
+   ],
+   "open_water_width_deg": 10,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "relation/2954159",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5772259",
+     "name": "Plage de Suzac",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "le-verdon-sur-mer-plage-de-saint-nicolas",
+   "name": "Plage de Saint Nicolas",
+   "osm_name": null,
+   "place": "Le Verdon-sur-Mer",
+   "lat": 45.5663,
+   "lon": -1.0814,
+   "facing_deg": 337,
+   "open_water_sectors": [
+    [
+     245,
+     295
+    ],
+    [
+     310,
+     315
+    ]
+   ],
+   "open_water_width_deg": 65,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033V50EFWD",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033V50EFWD",
+     "name": "Plage de Saint Nicolas",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "meschers-sur-gironde-plage-les-vergnes",
+   "name": "Plage Les Vergnes",
+   "osm_name": null,
+   "place": "Meschers-sur-Gironde",
+   "lat": 45.5647,
+   "lon": -0.9716,
+   "facing_deg": 255,
+   "open_water_sectors": [
+    [
+     155,
+     155
+    ],
+    [
+     280,
+     280
+    ],
+    [
+     290,
+     305
+    ]
+   ],
+   "open_water_width_deg": 30,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/5772325",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5772325",
+     "name": "Plage Les Vergnes",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "meschers-sur-gironde-plage-les-nonnes",
+   "name": "Plage Les Nonnes",
+   "osm_name": null,
+   "place": "Meschers-sur-Gironde",
+   "lat": 45.5609,
+   "lon": -0.9655,
+   "facing_deg": 210,
+   "open_water_sectors": [
+    [
+     145,
+     155
+    ],
+    [
+     285,
+     285
+    ]
+   ],
+   "open_water_width_deg": 20,
+   "beach_surface": "sand;pebbles",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/5774503",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "5774503",
+     "name": "Plage Les Nonnes",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "le-verdon-sur-mer-plage-de-la-chambrette",
+   "name": "Plage de la Chambrette",
+   "osm_name": null,
+   "place": "Le Verdon-sur-Mer",
+   "lat": 45.548,
+   "lon": -1.056,
+   "facing_deg": 38,
+   "open_water_sectors": [
+    [
+     115,
+     115
+    ]
+   ],
+   "open_water_width_deg": 5,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/911007114",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033V50EERC",
+     "name": "Plage de la Chambrette",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "soulac-sur-mer-plage-nord",
+   "name": "Plage Nord",
+   "osm_name": null,
+   "place": "Soulac-sur-Mer",
+   "lat": 45.5184,
+   "lon": -1.1256,
+   "facing_deg": 317,
+   "open_water_sectors": [
+    [
+     210,
+     330
+    ]
+   ],
+   "open_water_width_deg": 125,
+   "beach_surface": null,
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033V50Q8LS",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033V50Q8LS",
+     "name": "Plage Nord",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "soulac-sur-mer-plage-centrale",
+   "name": "Plage Centrale",
+   "osm_name": null,
+   "place": "Soulac-sur-Mer",
+   "lat": 45.5167,
+   "lon": -1.1279,
+   "facing_deg": 306,
+   "open_water_sectors": [
+    [
+     210,
+     335
+    ]
+   ],
+   "open_water_width_deg": 130,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033V50EFWZ",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033V50EFWZ",
+     "name": "Plage Centrale",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "soulac-sur-mer-plage-sud",
+   "name": "Plage Sud",
+   "osm_name": null,
+   "place": "Soulac-sur-Mer",
+   "lat": 45.5044,
+   "lon": -1.1385,
+   "facing_deg": 293,
+   "open_water_sectors": [
+    [
+     210,
+     340
+    ],
+    [
+     350,
+     350
+    ]
+   ],
+   "open_water_width_deg": 140,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033V50EFXI",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033V50EFXI",
+     "name": "Plage Sud",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "soulac-sur-mer-plage-de-l-amelie",
+   "name": "Plage de L'Amelie",
+   "osm_name": null,
+   "place": "Soulac-sur-Mer",
+   "lat": 45.4849,
+   "lon": -1.1516,
+   "facing_deg": 296,
+   "open_water_sectors": [
+    [
+     190,
+     355
+    ]
+   ],
+   "open_water_width_deg": 170,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033V50EFXO",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033V50EFXO",
+     "name": "Plage de L'Amelie",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "grayan-plage-du-gurp",
+   "name": "Plage du Gurp",
+   "osm_name": null,
+   "place": "Grayan",
+   "lat": 45.4347,
+   "lon": -1.1529,
+   "facing_deg": 286,
+   "open_water_sectors": [
+    [
+     195,
+     350
+    ]
+   ],
+   "open_water_width_deg": 160,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFS"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033V50EFQW",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033V50EFQW",
+     "name": "Plage du Gurp",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "montalivet-les-bains-plage-centrale",
+   "name": "Plage Centrale",
+   "osm_name": null,
+   "place": "Montalivet-les-Bains",
+   "lat": 45.3791,
+   "lon": -1.1592,
+   "facing_deg": 267,
+   "open_water_sectors": [
+    [
+     185,
+     0
+    ]
+   ],
+   "open_water_width_deg": 180,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033FS000T2",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033FS000T2",
+     "name": "Plage Centrale",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "montalivet-les-bains-plage-sud",
+   "name": "Plage Sud",
+   "osm_name": null,
+   "place": "Montalivet-les-Bains",
+   "lat": 45.3763,
+   "lon": -1.1589,
+   "facing_deg": 268,
+   "open_water_sectors": [
+    [
+     185,
+     0
+    ]
+   ],
+   "open_water_width_deg": 180,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033V50EFY1",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033V50EFY1",
+     "name": "Plage Sud",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "vendays-montalivet-plage-centrale-d-hourtin",
+   "name": "Plage centrale d'Hourtin",
+   "osm_name": null,
+   "place": "Vendays-Montalivet",
+   "lat": 45.351,
+   "lon": -1.1598,
+   "facing_deg": 273,
+   "open_water_sectors": [
+    [
+     185,
+     355
+    ]
+   ],
+   "open_water_width_deg": 175,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": null,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/158366096",
+   "evidence": [
+    {
+     "osm": "node/13032209359",
+     "name": "Ecole de Surf",
+     "kind": "school"
+    },
+    {
+     "osm": "node/9070636034",
+     "name": "Mayasurfschool",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "plage-du-pin-sec",
+   "name": "Plage du Pin Sec",
+   "osm_name": null,
+   "place": null,
+   "lat": 45.2681,
+   "lon": -1.1654,
+   "facing_deg": 276,
+   "open_water_sectors": [
+    [
+     190,
+     0
+    ]
+   ],
+   "open_water_width_deg": 175,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033V50EFUZ",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033V50EFUZ",
+     "name": "Plage du Pin Sec",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "plage-centrale",
+   "name": "Plage Centrale",
+   "osm_name": null,
+   "place": null,
+   "lat": 45.2234,
+   "lon": -1.1722,
+   "facing_deg": 274,
+   "open_water_sectors": [
+    [
+     190,
+     0
+    ]
+   ],
+   "open_water_width_deg": 175,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033FS000N0",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033FS000N0",
+     "name": "Plage Centrale",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "carcans-plage-plage-centrale",
+   "name": "Plage Centrale",
+   "osm_name": null,
+   "place": "Carcans Plage",
+   "lat": 45.0818,
+   "lon": -1.1923,
+   "facing_deg": 275,
+   "open_water_sectors": [
+    [
+     190,
+     5
+    ]
+   ],
+   "open_water_width_deg": 180,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033V505BP5",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033V505BP5",
+     "name": "Plage Centrale",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "lacanau-ocean-plage-nord",
+   "name": "Plage Nord",
+   "osm_name": null,
+   "place": "Lacanau-Océan",
+   "lat": 45.01,
+   "lon": -1.2009,
+   "facing_deg": 276,
+   "open_water_sectors": [
+    [
+     190,
+     5
+    ]
+   ],
+   "open_water_width_deg": 180,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033V504QJH",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033V504QJH",
+     "name": "Plage Nord",
+     "kind": "beach"
     }
    ]
   },
@@ -707,12 +3389,27 @@
    "lat": 45.0016,
    "lon": -1.2023,
    "facing_deg": 274,
+   "open_water_sectors": [
+    [
+     190,
+     355
+    ]
+   ],
+   "open_water_width_deg": 170,
    "beach_surface": "sand",
    "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/373825572",
    "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033FS000UQ",
+     "name": "Plage Centrale",
+     "kind": "beach"
+    },
     {
      "osm": "node/1214950425",
      "name": "HCL Océan Club",
@@ -736,15 +3433,148 @@
    ]
   },
   {
+   "id": "lacanau-ocean-plage-sud",
+   "name": "Plage Sud",
+   "osm_name": null,
+   "place": "Lacanau-Océan",
+   "lat": 44.9937,
+   "lon": -1.2029,
+   "facing_deg": 273,
+   "open_water_sectors": [
+    [
+     190,
+     355
+    ]
+   ],
+   "open_water_width_deg": 170,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033V50UM83",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033V50UM83",
+     "name": "Plage Sud",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "plage-super-sud",
+   "name": "Plage Super Sud",
+   "osm_name": null,
+   "place": null,
+   "lat": 44.98,
+   "lon": -1.2048,
+   "facing_deg": 276,
+   "open_water_sectors": [
+    [
+     190,
+     0
+    ]
+   ],
+   "open_water_width_deg": 175,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033V504QJM",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033V504QJM",
+     "name": "Plage Super Sud",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "le-porge-ocean-plage-du-gressier",
+   "name": "Plage du Gressier",
+   "osm_name": null,
+   "place": "Le Porge Océan",
+   "lat": 44.894,
+   "lon": -1.2179,
+   "facing_deg": 276,
+   "open_water_sectors": [
+    [
+     190,
+     5
+    ]
+   ],
+   "open_water_width_deg": 180,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033FS0010F",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033FS0010F",
+     "name": "Plage du Gressier",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "lege-cap-ferret-plage-du-grand-crohot",
+   "name": "Plage du Grand Crohot",
+   "osm_name": null,
+   "place": "Lège-Cap-Ferret",
+   "lat": 44.7989,
+   "lon": -1.2344,
+   "facing_deg": 277,
+   "open_water_sectors": [
+    [
+     190,
+     5
+    ]
+   ],
+   "open_water_width_deg": 180,
+   "beach_surface": null,
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033FS00040",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033FS00040",
+     "name": "Plage du Grand Crohot",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
    "id": "lege-cap-ferret-zone-de-surf-du-grand-crohot",
-   "name": "Zone de Surf du Grand Crohot",
+   "name": "Plage naturiste",
    "osm_name": null,
    "place": "Lège-Cap-Ferret",
    "lat": 44.798,
    "lon": -1.2399,
    "facing_deg": 276,
-   "beach_surface": null,
+   "open_water_sectors": [
+    [
+     190,
+     5
+    ]
+   ],
+   "open_water_width_deg": 180,
+   "beach_surface": "sand",
    "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/98871897",
@@ -757,6 +3587,37 @@
    ]
   },
   {
+   "id": "le-truc-vert-plage-du-truc-vert",
+   "name": "Plage du Truc vert",
+   "osm_name": null,
+   "place": "Le Truc Vert",
+   "lat": 44.7151,
+   "lon": -1.2503,
+   "facing_deg": 279,
+   "open_water_sectors": [
+    [
+     190,
+     5
+    ]
+   ],
+   "open_water_width_deg": 180,
+   "beach_surface": null,
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033FS0003W",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033FS0003W",
+     "name": "Plage du Truc vert",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
    "id": "le-truc-vert-zone-de-surf-du-truc-vert",
    "name": "Zone de surf du Truc Vert",
    "osm_name": null,
@@ -764,8 +3625,17 @@
    "lat": 44.7135,
    "lon": -1.2587,
    "facing_deg": 279,
+   "open_water_sectors": [
+    [
+     190,
+     5
+    ]
+   ],
+   "open_water_width_deg": 180,
    "beach_surface": null,
    "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/98874326",
@@ -778,6 +3648,227 @@
    ]
   },
   {
+   "id": "arcachon-plage-de-la-garonne",
+   "name": "Plage de la Garonne",
+   "osm_name": null,
+   "place": "Arcachon",
+   "lat": 44.6973,
+   "lon": -1.2501,
+   "facing_deg": 276,
+   "open_water_sectors": [
+    [
+     190,
+     5
+    ]
+   ],
+   "open_water_width_deg": 180,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033V50XU8D",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033V50XU8D",
+     "name": "Plage de la Garonne",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "arcachon-plage-de-l-horizon",
+   "name": "Plage de l'Horizon",
+   "osm_name": null,
+   "place": "Arcachon",
+   "lat": 44.6553,
+   "lon": -1.258,
+   "facing_deg": 276,
+   "open_water_sectors": [
+    [
+     185,
+     5
+    ]
+   ],
+   "open_water_width_deg": 185,
+   "beach_surface": null,
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033FS0003T",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033FS0003T",
+     "name": "Plage de l'Horizon",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "la-teste-de-buch-plage-de-la-corniche",
+   "name": "Plage de la Corniche",
+   "osm_name": null,
+   "place": "La Teste-de-Buch",
+   "lat": 44.6022,
+   "lon": -1.2103,
+   "facing_deg": 288,
+   "open_water_sectors": [
+    [
+     210,
+     210
+    ],
+    [
+     280,
+     300
+    ]
+   ],
+   "open_water_width_deg": 30,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033FS00094",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033FS00094",
+     "name": "Plage de la Corniche",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "plage-du-petit-nice",
+   "name": "Plage du Petit Nice",
+   "osm_name": null,
+   "place": null,
+   "lat": 44.5598,
+   "lon": -1.2418,
+   "facing_deg": 299,
+   "open_water_sectors": [
+    [
+     205,
+     300
+    ]
+   ],
+   "open_water_width_deg": 100,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033FS00095",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033FS00095",
+     "name": "Plage du Petit Nice",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "plage-de-la-lagune",
+   "name": "Plage de la Lagune",
+   "osm_name": null,
+   "place": null,
+   "lat": 44.5486,
+   "lon": -1.2491,
+   "facing_deg": 294,
+   "open_water_sectors": [
+    [
+     200,
+     335
+    ]
+   ],
+   "open_water_width_deg": 140,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033FS00096",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033FS00096",
+     "name": "Plage de la Lagune",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "plage-de-la-salie-nord",
+   "name": "Plage de la Salie-Nord",
+   "osm_name": null,
+   "place": null,
+   "lat": 44.5287,
+   "lon": -1.2559,
+   "facing_deg": 269,
+   "open_water_sectors": [
+    [
+     185,
+     350
+    ]
+   ],
+   "open_water_width_deg": 170,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU033FS00098",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU033FS00098",
+     "name": "Plage de la Salie-Nord",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "biscarrosse-plage-plage-du-vivier",
+   "name": "Plage du Vivier",
+   "osm_name": null,
+   "place": "Biscarrosse-Plage",
+   "lat": 44.4583,
+   "lon": -1.2544,
+   "facing_deg": 274,
+   "open_water_sectors": [
+    [
+     190,
+     355
+    ]
+   ],
+   "open_water_width_deg": 170,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU04001WV7OX",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001WV7OX",
+     "name": "Plage du Vivier",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
    "id": "biscarrosse-plage-la-nord",
    "name": "La nord",
    "osm_name": null,
@@ -785,16 +3876,248 @@
    "lat": 44.449,
    "lon": -1.2569,
    "facing_deg": 278,
-   "beach_surface": null,
+   "open_water_sectors": [
+    [
+     190,
+     355
+    ]
+   ],
+   "open_water_width_deg": 170,
+   "beach_surface": "sand",
    "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "node/2785641712",
    "evidence": [
     {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001WV9CK",
+     "name": "Plage Nord",
+     "kind": "beach"
+    },
+    {
      "osm": "node/2785641712",
      "name": "La nord",
      "kind": "spot"
+    }
+   ]
+  },
+  {
+   "id": "biscarrosse-plage-plage-centrale",
+   "name": "Plage Centrale",
+   "osm_name": null,
+   "place": "Biscarrosse-Plage",
+   "lat": 44.4463,
+   "lon": -1.2557,
+   "facing_deg": 275,
+   "open_water_sectors": [
+    [
+     190,
+     355
+    ]
+   ],
+   "open_water_width_deg": 170,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU04001WV7OW",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001WV7OW",
+     "name": "Plage Centrale",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "biscarrosse-plage-plage-sud",
+   "name": "Plage Sud",
+   "osm_name": null,
+   "place": "Biscarrosse-Plage",
+   "lat": 44.4426,
+   "lon": -1.2569,
+   "facing_deg": 277,
+   "open_water_sectors": [
+    [
+     190,
+     355
+    ]
+   ],
+   "open_water_width_deg": 170,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU04001WV7OV",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001WV7OV",
+     "name": "Plage Sud",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "mimizan-plage-nord",
+   "name": "Plage Nord",
+   "osm_name": null,
+   "place": "Mimizan",
+   "lat": 44.2185,
+   "lon": -1.2968,
+   "facing_deg": 276,
+   "open_water_sectors": [
+    [
+     190,
+     5
+    ]
+   ],
+   "open_water_width_deg": 180,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/123452418",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001TXIIS",
+     "name": "Plage Nord",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "mimizan-plage-de-la-garluche",
+   "name": "Plage de la Garluche",
+   "osm_name": null,
+   "place": "Mimizan",
+   "lat": 44.2149,
+   "lon": -1.2977,
+   "facing_deg": 277,
+   "open_water_sectors": [
+    [
+     190,
+     5
+    ]
+   ],
+   "open_water_width_deg": 180,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU040V50TGRY",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU040V50TGRY",
+     "name": "Plage de la Garluche",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "mimizan-plage-sud",
+   "name": "Plage Sud",
+   "osm_name": null,
+   "place": "Mimizan",
+   "lat": 44.2053,
+   "lon": -1.2993,
+   "facing_deg": 281,
+   "open_water_sectors": [
+    [
+     190,
+     5
+    ]
+   ],
+   "open_water_width_deg": 180,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/222354554",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001TXIIO",
+     "name": "Plage Sud",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "bias-plage-de-lespecier",
+   "name": "Plage de Lespecier",
+   "osm_name": null,
+   "place": "Bias",
+   "lat": 44.1641,
+   "lon": -1.3069,
+   "facing_deg": 280,
+   "open_water_sectors": [
+    [
+     195,
+     5
+    ]
+   ],
+   "open_water_width_deg": 175,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU04001TXIIQ",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001TXIIQ",
+     "name": "Plage de Lespecier",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "plage-de-contis",
+   "name": "Plage de Contis",
+   "osm_name": null,
+   "place": null,
+   "lat": 44.0935,
+   "lon": -1.3257,
+   "facing_deg": 282,
+   "open_water_sectors": [
+    [
+     195,
+     5
+    ]
+   ],
+   "open_water_width_deg": 175,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU040014XA9G",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU040014XA9G",
+     "name": "Plage de Contis",
+     "kind": "beach"
     }
    ]
   },
@@ -806,12 +4129,27 @@
    "lat": 44.0413,
    "lon": -1.3407,
    "facing_deg": 281,
+   "open_water_sectors": [
+    [
+     195,
+     5
+    ]
+   ],
+   "open_water_width_deg": 175,
    "beach_surface": "sand",
    "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/222345105",
    "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001LMVCW",
+     "name": "Plage du Cap de l'Homy",
+     "kind": "beach"
+    },
     {
      "osm": "way/126505726",
      "name": "Esprit Océan Surf School",
@@ -825,6 +4163,68 @@
    ]
   },
   {
+   "id": "saint-girons-en-marensin-saint-girons-plage",
+   "name": "Saint-Girons Plage",
+   "osm_name": null,
+   "place": "Saint-Girons-en-Marensin",
+   "lat": 43.9527,
+   "lon": -1.3643,
+   "facing_deg": 282,
+   "open_water_sectors": [
+    [
+     195,
+     10
+    ]
+   ],
+   "open_water_width_deg": 180,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/222347863",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001SQMLG",
+     "name": "Saint Girons Plage",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "moliets-et-maa-plage-de-la-lette-blanche",
+   "name": "Plage de la Lette blanche",
+   "osm_name": null,
+   "place": "Moliets-et-Maâ",
+   "lat": 43.9028,
+   "lon": -1.3773,
+   "facing_deg": 282,
+   "open_water_sectors": [
+    [
+     195,
+     10
+    ]
+   ],
+   "open_water_width_deg": 180,
+   "beach_surface": "sand",
+   "bottom": null,
+   "seafloor_shom": null,
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU04001SQMLE",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001SQMLE",
+     "name": "Plage de la Lette blanche",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
    "id": "moliets-et-maa-plage-de-la-balise",
    "name": "Plage de la Balise",
    "osm_name": null,
@@ -832,12 +4232,29 @@
    "lat": 43.8531,
    "lon": -1.3926,
    "facing_deg": 282,
+   "open_water_sectors": [
+    [
+     195,
+     10
+    ]
+   ],
+   "open_water_width_deg": 180,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/234222592",
    "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001YTAOQ",
+     "name": "Plage Centrale",
+     "kind": "beach"
+    },
     {
      "osm": "node/4966076269",
      "name": "École de surf et skate Soonline, location de vélo",
@@ -868,12 +4285,29 @@
    "lat": 43.8424,
    "lon": -1.3972,
    "facing_deg": 282,
+   "open_water_sectors": [
+    [
+     195,
+     10
+    ]
+   ],
+   "open_water_width_deg": 180,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/112619456",
    "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001YTAOS",
+     "name": "Plage des Chênes lièges",
+     "kind": "beach"
+    },
     {
      "osm": "node/5062236927",
      "name": "École de Surf du Golf",
@@ -889,16 +4323,66 @@
    "lat": 43.817,
    "lon": -1.4056,
    "facing_deg": 280,
+   "open_water_sectors": [
+    [
+     195,
+     10
+    ]
+   ],
+   "open_water_width_deg": 180,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/123209213",
    "evidence": [
     {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001UAD7B",
+     "name": "Plage centrale",
+     "kind": "beach"
+    },
+    {
      "osm": "node/12855068667",
      "name": "WAITEUTEU Sauvetage Côtier",
      "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "vieux-boucau-les-bains-plage-sud",
+   "name": "Plage Sud",
+   "osm_name": null,
+   "place": "Vieux-Boucau-les-Bains",
+   "lat": 43.8,
+   "lon": -1.4086,
+   "facing_deg": 286,
+   "open_water_sectors": [
+    [
+     195,
+     10
+    ]
+   ],
+   "open_water_width_deg": 180,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU04001UAD7C",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001UAD7C",
+     "name": "Plage Sud",
+     "kind": "beach"
     }
    ]
   },
@@ -910,12 +4394,29 @@
    "lat": 43.795,
    "lon": -1.4128,
    "facing_deg": 280,
+   "open_water_sectors": [
+    [
+     195,
+     10
+    ]
+   ],
+   "open_water_width_deg": 180,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/923690705",
    "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001K7GHF",
+     "name": "Plage Nord des Sablères",
+     "kind": "beach"
+    },
     {
      "osm": "node/5111856736",
      "name": "École de Surf Côte Française Vieux-Boucau",
@@ -946,12 +4447,29 @@
    "lat": 43.7879,
    "lon": -1.4131,
    "facing_deg": 280,
+   "open_water_sectors": [
+    [
+     195,
+     10
+    ]
+   ],
+   "open_water_width_deg": 180,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/122113061",
    "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001K7GDV",
+     "name": "Plage Centrale",
+     "kind": "beach"
+    },
     {
      "osm": "node/8319044615",
      "name": "Surf Univers",
@@ -970,6 +4488,280 @@
    ]
   },
   {
+   "id": "vieux-boucau-les-bains-plage-de-l-ocean",
+   "name": "Plage de l'Océan",
+   "osm_name": null,
+   "place": "Vieux-Boucau-les-Bains",
+   "lat": 43.7759,
+   "lon": -1.4176,
+   "facing_deg": 280,
+   "open_water_sectors": [
+    [
+     195,
+     10
+    ]
+   ],
+   "open_water_width_deg": 180,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU04001TC3NL",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001TC3NL",
+     "name": "Plage de l'Océan",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "le-penon-plage-des-casernes",
+   "name": "Plage des Casernes",
+   "osm_name": null,
+   "place": "Le Penon",
+   "lat": 43.7233,
+   "lon": -1.4328,
+   "facing_deg": 281,
+   "open_water_sectors": [
+    [
+     200,
+     10
+    ]
+   ],
+   "open_water_width_deg": 175,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU040011CO2D",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU040011CO2D",
+     "name": "Plage des Casernes",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "le-penon-plage-du-penon",
+   "name": "Plage du Penon",
+   "osm_name": null,
+   "place": "Le Penon",
+   "lat": 43.7093,
+   "lon": -1.4365,
+   "facing_deg": 278,
+   "open_water_sectors": [
+    [
+     200,
+     10
+    ]
+   ],
+   "open_water_width_deg": 175,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU040011CO2C",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU040011CO2C",
+     "name": "Plage du Penon",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "le-penon-plage-des-bourdaines",
+   "name": "Plage des Bourdaines",
+   "osm_name": null,
+   "place": "Le Penon",
+   "lat": 43.6978,
+   "lon": -1.4387,
+   "facing_deg": 278,
+   "open_water_sectors": [
+    [
+     205,
+     10
+    ]
+   ],
+   "open_water_width_deg": 170,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU040011CO2A",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU040011CO2A",
+     "name": "Plage des Bourdaines",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "le-penon-plage-des-estagnots",
+   "name": "Plage des Estagnots",
+   "osm_name": null,
+   "place": "Le Penon",
+   "lat": 43.687,
+   "lon": -1.4407,
+   "facing_deg": 273,
+   "open_water_sectors": [
+    [
+     205,
+     5
+    ]
+   ],
+   "open_water_width_deg": 165,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU040011CO29",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU040011CO29",
+     "name": "Plage des Estagnots",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "le-penon-plage-naturiste",
+   "name": "Plage Naturiste",
+   "osm_name": null,
+   "place": "Le Penon",
+   "lat": 43.6795,
+   "lon": -1.4401,
+   "facing_deg": 271,
+   "open_water_sectors": [
+    [
+     205,
+     5
+    ]
+   ],
+   "open_water_width_deg": 165,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU04001OYWY9",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001OYWY9",
+     "name": "Plage Naturiste",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "soorts-hossegor-plage-de-la-graviere",
+   "name": "Plage de la Gravière",
+   "osm_name": null,
+   "place": "Soorts-Hossegor",
+   "lat": 43.6712,
+   "lon": -1.4426,
+   "facing_deg": 279,
+   "open_water_sectors": [
+    [
+     205,
+     0
+    ]
+   ],
+   "open_water_width_deg": 160,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU04001OYX7J",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001OYX7J",
+     "name": "Plage de la Gravière",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "soorts-hossegor-plage-centrale",
+   "name": "Plage Centrale",
+   "osm_name": null,
+   "place": "Soorts-Hossegor",
+   "lat": 43.6644,
+   "lon": -1.4432,
+   "facing_deg": 282,
+   "open_water_sectors": [
+    [
+     210,
+     5
+    ]
+   ],
+   "open_water_width_deg": 160,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/916176500",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001OYWYA",
+     "name": "Plage Centrale",
+     "kind": "beach"
+    },
+    {
+     "osm": "node/8521144860",
+     "name": "Hossegor Surf Club",
+     "kind": "school"
+    },
+    {
+     "osm": "way/917846139",
+     "name": "Darrigood Surf School",
+     "kind": "school"
+    }
+   ]
+  },
+  {
    "id": "soorts-hossegor-plage-sud-point-d-or",
    "name": "Plage Sud (Point d'Or)",
    "osm_name": null,
@@ -977,12 +4769,29 @@
    "lat": 43.6601,
    "lon": -1.4448,
    "facing_deg": 288,
+   "open_water_sectors": [
+    [
+     210,
+     5
+    ]
+   ],
+   "open_water_width_deg": 160,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/916176499",
    "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001OYXOE",
+     "name": "Plage Sud",
+     "kind": "beach"
+    },
     {
      "osm": "node/12882921537",
      "name": "Natural Surf Lodge",
@@ -991,11 +4800,6 @@
     {
      "osm": "node/8499654526",
      "name": "Surftrip Surfschool",
-     "kind": "school"
-    },
-    {
-     "osm": "node/8521144860",
-     "name": "Hossegor Surf Club",
      "kind": "school"
     },
     {
@@ -1017,11 +4821,45 @@
      "osm": "node/9642790108",
      "name": "Spirit Surf School",
      "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "soorts-hossegor-plage-notre-dame",
+   "name": "Plage Notre Dame",
+   "osm_name": null,
+   "place": "Soorts-Hossegor",
+   "lat": 43.6567,
+   "lon": -1.4454,
+   "facing_deg": 266,
+   "open_water_sectors": [
+    [
+     210,
+     5
+    ]
+   ],
+   "open_water_width_deg": 160,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU040FS0001A",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU040FS0001A",
+     "name": "Plage Notre Dame",
+     "kind": "beach"
     },
     {
-     "osm": "way/917846139",
-     "name": "Darrigood Surf School",
-     "kind": "school"
+     "source": "gip_littoral",
+     "id": "LOIAQU040FS000NC",
+     "name": "Plage de l'Estacade",
+     "kind": "beach"
     }
    ]
   },
@@ -1033,12 +4871,35 @@
    "lat": 43.6517,
    "lon": -1.446,
    "facing_deg": 264,
+   "open_water_sectors": [
+    [
+     210,
+     345
+    ]
+   ],
+   "open_water_width_deg": 140,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/233344667",
    "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU040FS00018",
+     "name": "Plage Centrale",
+     "kind": "beach"
+    },
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU040FS000JA",
+     "name": "Plage du Prévent",
+     "kind": "beach"
+    },
     {
      "osm": "node/11883865273",
      "name": "Prévent Surf Cool",
@@ -1067,6 +4928,105 @@
    ]
   },
   {
+   "id": "capbreton-plage-santocha",
+   "name": "Plage Santocha",
+   "osm_name": null,
+   "place": "Capbreton",
+   "lat": 43.6462,
+   "lon": -1.4451,
+   "facing_deg": 276,
+   "open_water_sectors": [
+    [
+     210,
+     340
+    ]
+   ],
+   "open_water_width_deg": 135,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU040FS00019",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU040FS00019",
+     "name": "Plage Santocha",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "capbreton-plage-de-la-piste",
+   "name": "Plage de La Piste",
+   "osm_name": null,
+   "place": "Capbreton",
+   "lat": 43.6411,
+   "lon": -1.4471,
+   "facing_deg": 290,
+   "open_water_sectors": [
+    [
+     210,
+     0
+    ]
+   ],
+   "open_water_width_deg": 155,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU040FS0001K",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU040FS0001K",
+     "name": "Plage de La Piste",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "capbreton-plage-des-oceanides",
+   "name": "Plage des Océanides",
+   "osm_name": null,
+   "place": "Capbreton",
+   "lat": 43.6363,
+   "lon": -1.4508,
+   "facing_deg": 291,
+   "open_water_sectors": [
+    [
+     210,
+     5
+    ]
+   ],
+   "open_water_width_deg": 160,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU040FS0001C",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU040FS0001C",
+     "name": "Plage des Océanides",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
    "id": "ondres-plage-ondres-ocean",
    "name": "Plage Ondres-Océan",
    "osm_name": null,
@@ -1074,12 +5034,29 @@
    "lat": 43.5773,
    "lon": -1.4884,
    "facing_deg": 296,
+   "open_water_sectors": [
+    [
+     215,
+     10
+    ]
+   ],
+   "open_water_width_deg": 160,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/552158217",
    "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001M8B1B",
+     "name": "Plage Centrale",
+     "kind": "beach"
+    },
     {
      "osm": "node/10994935221",
      "name": "Ondres surf académy",
@@ -1100,15 +5077,205 @@
    "lat": 43.5641,
    "lon": -1.4974,
    "facing_deg": 297,
+   "open_water_sectors": [
+    [
+     220,
+     15
+    ]
+   ],
+   "open_water_width_deg": 160,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/512630064",
    "evidence": [
     {
+     "source": "gip_littoral",
+     "id": "LOIAQU04001M8AX8",
+     "name": "Plage du Métro",
+     "kind": "beach"
+    },
+    {
      "osm": "node/5406105336",
      "name": "Surfescapade",
+     "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "boucau-plage-de-la-barre",
+   "name": "Plage de la Barre",
+   "osm_name": null,
+   "place": "Boucau",
+   "lat": 43.527,
+   "lon": -1.522,
+   "facing_deg": 305,
+   "open_water_sectors": [
+    [
+     245,
+     285
+    ]
+   ],
+   "open_water_width_deg": 45,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFGC",
+    "NFGS",
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/183134276",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS000C6",
+     "name": "Plage de La Barre",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "boucau-plage-des-cavaliers",
+   "name": "Plage des Cavaliers",
+   "osm_name": null,
+   "place": "Boucau",
+   "lat": 43.5208,
+   "lon": -1.5266,
+   "facing_deg": 273,
+   "open_water_sectors": [
+    [
+     225,
+     335
+    ]
+   ],
+   "open_water_width_deg": 115,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU064FS000C5",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS000C5",
+     "name": "Plage des Cavaliers",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "boucau-plage-de-l-ocean",
+   "name": "Plage de l'Océan",
+   "osm_name": null,
+   "place": "Boucau",
+   "lat": 43.5147,
+   "lon": -1.5314,
+   "facing_deg": 302,
+   "open_water_sectors": [
+    [
+     230,
+     355
+    ]
+   ],
+   "open_water_width_deg": 130,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/183134274",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS000C3",
+     "name": "Plage de l'Ocean",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "anglet-plage-de-la-madrague",
+   "name": "Plage de la Madrague",
+   "osm_name": null,
+   "place": "Anglet",
+   "lat": 43.5111,
+   "lon": -1.5345,
+   "facing_deg": 301,
+   "open_water_sectors": [
+    [
+     230,
+     5
+    ]
+   ],
+   "open_water_width_deg": 140,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU064FS000C1",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS000C1",
+     "name": "Plage de la Madrague",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "biarritz-plage-des-corsaires",
+   "name": "Plage des Corsaires",
+   "osm_name": null,
+   "place": "Biarritz",
+   "lat": 43.5074,
+   "lon": -1.5375,
+   "facing_deg": 296,
+   "open_water_sectors": [
+    [
+     230,
+     5
+    ]
+   ],
+   "open_water_width_deg": 140,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/741058701",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS000C0",
+     "name": "Plage des Corsaires",
+     "kind": "beach"
+    },
+    {
+     "osm": "node/6605238110",
+     "name": "École de surf Uhaina",
      "kind": "school"
     }
    ]
@@ -1121,26 +5288,171 @@
    "lat": 43.5044,
    "lon": -1.5396,
    "facing_deg": 296,
+   "open_water_sectors": [
+    [
+     230,
+     10
+    ]
+   ],
+   "open_water_width_deg": 145,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/183134275",
    "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS000BW",
+     "name": "Plage de Marinella",
+     "kind": "beach"
+    },
     {
      "osm": "node/13470179479",
      "name": "Le Club de la Glisse",
      "kind": "school"
     },
     {
-     "osm": "node/6605238110",
-     "name": "École de surf Uhaina",
-     "kind": "school"
-    },
-    {
      "osm": "way/1194914654",
      "name": "Le Club de la Glisse",
      "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "biarritz-plage-des-sables-d-or",
+   "name": "Plage des Sables d'Or",
+   "osm_name": null,
+   "place": "Biarritz",
+   "lat": 43.502,
+   "lon": -1.5408,
+   "facing_deg": 307,
+   "open_water_sectors": [
+    [
+     230,
+     0
+    ]
+   ],
+   "open_water_width_deg": 135,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/183134272",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS000BV",
+     "name": "Plage des Sables d'Or",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "biarritz-plage-de-la-petite-chambre-d-amour",
+   "name": "Plage de la Petite Chambre d'Amour",
+   "osm_name": null,
+   "place": "Biarritz",
+   "lat": 43.4971,
+   "lon": -1.5454,
+   "facing_deg": 295,
+   "open_water_sectors": [
+    [
+     245,
+     15
+    ]
+   ],
+   "open_water_width_deg": 135,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/23635506",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS000BS",
+     "name": "Plage de la Petite Chambre d'Amour",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "biarritz-plage-du-miramar",
+   "name": "Plage du Miramar",
+   "osm_name": null,
+   "place": "Biarritz",
+   "lat": 43.4883,
+   "lon": -1.5554,
+   "facing_deg": 306,
+   "open_water_sectors": [
+    [
+     245,
+     5
+    ]
+   ],
+   "open_water_width_deg": 125,
+   "beach_surface": "sand",
+   "bottom": "rock",
+   "seafloor_shom": [
+    "NFRoche"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/156866495",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS000BN",
+     "name": "Plage du Miramar",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "biarritz-grande-plage",
+   "name": "Grande Plage",
+   "osm_name": null,
+   "place": "Biarritz",
+   "lat": 43.484,
+   "lon": -1.5587,
+   "facing_deg": 325,
+   "open_water_sectors": [
+    [
+     270,
+     20
+    ]
+   ],
+   "open_water_width_deg": 115,
+   "beach_surface": "sand",
+   "bottom": "rock",
+   "seafloor_shom": [
+    "NFRoche"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/156866423",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS00058",
+     "name": "Grande plage",
+     "kind": "beach"
     }
    ]
   },
@@ -1152,12 +5464,30 @@
    "lat": 43.4825,
    "lon": -1.5679,
    "facing_deg": 267,
+   "open_water_sectors": [
+    [
+     235,
+     350
+    ]
+   ],
+   "open_water_width_deg": 120,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": true,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/156866444",
    "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS000BO",
+     "name": "Plage du Port vieux",
+     "kind": "beach"
+    },
     {
      "osm": "node/10973923405",
      "name": "La Vague Basque",
@@ -1171,6 +5501,40 @@
    ]
   },
   {
+   "id": "biarritz-plage-de-la-cote-des-basques",
+   "name": "Plage de la Côte des Basques",
+   "osm_name": null,
+   "place": "Biarritz",
+   "lat": 43.4745,
+   "lon": -1.5688,
+   "facing_deg": 293,
+   "open_water_sectors": [
+    [
+     240,
+     350
+    ]
+   ],
+   "open_water_width_deg": 115,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU064V5086TU",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064V5086TU",
+     "name": "Plage de la Côte des Basques",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
    "id": "biarritz-plage-de-la-marbella",
    "name": "Plage de la Marbella",
    "osm_name": "Plage de la Marbellla",
@@ -1178,16 +5542,204 @@
    "lat": 43.4678,
    "lon": -1.5735,
    "facing_deg": 309,
+   "open_water_sectors": [
+    [
+     280,
+     10
+    ]
+   ],
+   "open_water_width_deg": 95,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": true,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/249245278",
    "evidence": [
     {
+     "source": "gip_littoral",
+     "id": "LOIAQU064V5086U0",
+     "name": "Plage Marbella",
+     "kind": "beach"
+    },
+    {
      "osm": "node/14222393485",
      "name": "Marbella Surf Club",
      "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "biarritz-plage-de-la-milady",
+   "name": "Plage de la Milady",
+   "osm_name": null,
+   "place": "Biarritz",
+   "lat": 43.4653,
+   "lon": -1.5745,
+   "facing_deg": 286,
+   "open_water_sectors": [
+    [
+     250,
+     295
+    ]
+   ],
+   "open_water_width_deg": 50,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/121832050",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS000BP",
+     "name": "Plage de la Milady",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "bidart-plage-d-ilbarritz",
+   "name": "Plage d'Ilbarritz",
+   "osm_name": null,
+   "place": "Bidart",
+   "lat": 43.4604,
+   "lon": -1.5781,
+   "facing_deg": 299,
+   "open_water_sectors": [
+    [
+     250,
+     5
+    ]
+   ],
+   "open_water_width_deg": 120,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU064FS000BG",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS000BG",
+     "name": "Plage d'Ilbarritz",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "bidart-plage-du-pavillon-royal",
+   "name": "Plage du Pavillon royal",
+   "osm_name": null,
+   "place": "Bidart",
+   "lat": 43.4545,
+   "lon": -1.5827,
+   "facing_deg": 298,
+   "open_water_sectors": [
+    [
+     250,
+     15
+    ]
+   ],
+   "open_water_width_deg": 130,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU064FS000BH",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS000BH",
+     "name": "Plage du Pavillon royal",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "bidart-plage-d-erretegia",
+   "name": "Plage d'Erretegia",
+   "osm_name": null,
+   "place": "Bidart",
+   "lat": 43.446,
+   "lon": -1.5898,
+   "facing_deg": 299,
+   "open_water_sectors": [
+    [
+     255,
+     20
+    ]
+   ],
+   "open_water_width_deg": 130,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU064FS000BI",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS000BI",
+     "name": "Plage d'Erretegia",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "bidart-plage-du-centre",
+   "name": "Plage du Centre",
+   "osm_name": null,
+   "place": "Bidart",
+   "lat": 43.4359,
+   "lon": -1.597,
+   "facing_deg": 299,
+   "open_water_sectors": [
+    [
+     255,
+     20
+    ]
+   ],
+   "open_water_width_deg": 130,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/183132015",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS000BE",
+     "name": "Plage du Centre",
+     "kind": "beach"
     }
    ]
   },
@@ -1199,16 +5751,68 @@
    "lat": 43.4316,
    "lon": -1.6001,
    "facing_deg": 312,
+   "open_water_sectors": [
+    [
+     260,
+     20
+    ]
+   ],
+   "open_water_width_deg": 125,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": true,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/172947079",
    "evidence": [
     {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS000F6",
+     "name": "Plage de l'Uhabia",
+     "kind": "beach"
+    },
+    {
      "osm": "node/9951918830",
      "name": "École de surf H2O",
      "kind": "school"
+    }
+   ]
+  },
+  {
+   "id": "guethary-plage-de-parlementia",
+   "name": "Plage de Parlementia",
+   "osm_name": null,
+   "place": "Guéthary",
+   "lat": 43.4283,
+   "lon": -1.6061,
+   "facing_deg": 325,
+   "open_water_sectors": [
+    [
+     260,
+     25
+    ]
+   ],
+   "open_water_width_deg": 130,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU064FS00059",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS00059",
+     "name": "Plage de Parlementia",
+     "kind": "beach"
     }
    ]
   },
@@ -1220,8 +5824,20 @@
    "lat": 43.4255,
    "lon": -1.6144,
    "facing_deg": 349,
+   "open_water_sectors": [
+    [
+     265,
+     25
+    ]
+   ],
+   "open_water_width_deg": 125,
    "beach_surface": null,
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/454703748",
@@ -1234,6 +5850,212 @@
    ]
   },
   {
+   "id": "guethary-plage-de-senix",
+   "name": "Plage de Senix",
+   "osm_name": null,
+   "place": "Guéthary",
+   "lat": 43.4213,
+   "lon": -1.6204,
+   "facing_deg": 358,
+   "open_water_sectors": [
+    [
+     280,
+     10
+    ]
+   ],
+   "open_water_width_deg": 95,
+   "beach_surface": "sand;pebbles",
+   "bottom": "rock",
+   "seafloor_shom": [
+    "NFRoche"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU064FS0009E",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS0009E",
+     "name": "Plage de Senix",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "guethary-plage-de-mayarco",
+   "name": "Plage de Mayarco",
+   "osm_name": null,
+   "place": "Guéthary",
+   "lat": 43.4179,
+   "lon": -1.6258,
+   "facing_deg": 321,
+   "open_water_sectors": [
+    [
+     260,
+     30
+    ]
+   ],
+   "open_water_width_deg": 135,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU064FS00093",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS00093",
+     "name": "Plage de Mayarco",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "guethary-plage-de-lafitenia",
+   "name": "Plage de Lafitenia",
+   "osm_name": null,
+   "place": "Guéthary",
+   "lat": 43.4141,
+   "lon": -1.6279,
+   "facing_deg": 299,
+   "open_water_sectors": [
+    [
+     265,
+     355
+    ]
+   ],
+   "open_water_width_deg": 95,
+   "beach_surface": "sand;pebbles",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU064FS00094",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS00094",
+     "name": "Plage de Lafitenia",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "saint-jean-de-luz-plage-d-erromardie",
+   "name": "Plage d'Erromardie",
+   "osm_name": null,
+   "place": "Saint-Jean-de-Luz",
+   "lat": 43.4072,
+   "lon": -1.6414,
+   "facing_deg": 324,
+   "open_water_sectors": [
+    [
+     265,
+     30
+    ]
+   ],
+   "open_water_width_deg": 130,
+   "beach_surface": "sand;pebbles",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU064FS00092",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS00092",
+     "name": "Plage d'Erromardie",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "ciboure-plage-du-fort-de-socoa",
+   "name": "Plage du Fort de Socoa",
+   "osm_name": null,
+   "place": "Ciboure",
+   "lat": 43.3961,
+   "lon": -1.6825,
+   "facing_deg": 344,
+   "open_water_sectors": [
+    [
+     270,
+     35
+    ]
+   ],
+   "open_water_width_deg": 130,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU064FS000IO",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS000IO",
+     "name": "Plage du Fort de Socoa",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "saint-jean-de-luz-grande-plage-pergola-digue-aux-chevaux",
+   "name": "Grande plage Pergola - Digue aux chevaux",
+   "osm_name": null,
+   "place": "Saint-Jean-de-Luz",
+   "lat": 43.392,
+   "lon": -1.6611,
+   "facing_deg": 296,
+   "open_water_sectors": [
+    [
+     295,
+     300
+    ],
+    [
+     315,
+     330
+    ]
+   ],
+   "open_water_width_deg": 30,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU064FS0005B",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS0005B",
+     "name": "Grande plage Pergola - Digue aux chevaux",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
    "id": "saint-jean-de-luz-grande-plage",
    "name": "Grande Plage",
    "osm_name": null,
@@ -1241,12 +6063,34 @@
    "lat": 43.3913,
    "lon": -1.6645,
    "facing_deg": 315,
+   "open_water_sectors": [
+    [
+     305,
+     310
+    ],
+    [
+     330,
+     345
+    ]
+   ],
+   "open_water_width_deg": 30,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": true,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/18893856",
    "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064V5010D6",
+     "name": "Plage Sud",
+     "kind": "beach"
+    },
     {
      "osm": "node/7653001257",
      "name": "École de surf Français Hendaia",
@@ -1260,6 +6104,73 @@
    ]
   },
   {
+   "id": "ciboure-plage-de-socoa",
+   "name": "Plage de Socoa",
+   "osm_name": null,
+   "place": "Ciboure",
+   "lat": 43.39,
+   "lon": -1.684,
+   "facing_deg": 44,
+   "open_water_sectors": [
+    [
+     30,
+     35
+    ]
+   ],
+   "open_water_width_deg": 10,
+   "beach_surface": "sand",
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "way/190721070",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064FS000IN",
+     "name": "Plage de Socoa",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
+   "id": "hendaye-plage-des-2-jumeaux",
+   "name": "Plage des 2 jumeaux",
+   "osm_name": null,
+   "place": "Hendaye",
+   "lat": 43.3759,
+   "lon": -1.7627,
+   "facing_deg": 335,
+   "open_water_sectors": [
+    [
+     315,
+     45
+    ]
+   ],
+   "open_water_width_deg": 95,
+   "beach_surface": "sand",
+   "bottom": "mixed",
+   "seafloor_shom": [
+    "NFRoche",
+    "NFSF"
+   ],
+   "lifeguarded": true,
+   "best_tide": null,
+   "best_swell_from_deg": null,
+   "osm": "gip/LOIAQU064V5018OZ",
+   "evidence": [
+    {
+     "source": "gip_littoral",
+     "id": "LOIAQU064V5018OZ",
+     "name": "Plage des 2 jumeaux",
+     "kind": "beach"
+    }
+   ]
+  },
+  {
    "id": "hendaye-ondarraitz",
    "name": "Ondarraitz",
    "osm_name": null,
@@ -1267,8 +6178,19 @@
    "lat": 43.3745,
    "lon": -1.7743,
    "facing_deg": 358,
+   "open_water_sectors": [
+    [
+     335,
+     55
+    ]
+   ],
+   "open_water_width_deg": 85,
    "beach_surface": "sand",
-   "bottom": null,
+   "bottom": "sand",
+   "seafloor_shom": [
+    "NFSF"
+   ],
+   "lifeguarded": null,
    "best_tide": null,
    "best_swell_from_deg": null,
    "osm": "way/234073850",

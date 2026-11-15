@@ -1,27 +1,17 @@
 # Notice: `surf-spots.json`
 
-This file is a **database made from OpenStreetMap**. It is **not** under the MIT licence of the code of this repository: it is
-under the licence of the database it comes from, and any copy or adaptation of it must be too.
+This file is a bundled coastal database derived from **OpenStreetMap**, **GIP Littoral**, and **Shom**. The OpenStreetMap extract and attributes are shared under **ODbL 1.0**, and the derived file as a whole preserves share-alike under **ODbL 1.0** alongside **Licence Ouverte 2.0** attributions for GIP Littoral and Shom. The Python code in this repository stays under MIT.
 
 | | |
 | --- | --- |
-| **Licence** | Open Data Commons Open Database License (**ODbL 1.0**): <https://opendatacommons.org/licenses/odbl/1-0/>. The terms of OpenStreetMap: <https://www.openstreetmap.org/copyright> (read on 2026-10-28) |
-| **Credit** | © OpenStreetMap contributors (the credit OpenStreetMap asks for, with a link to <https://www.openstreetmap.org/copyright>) |
-| **Source** | The OpenStreetMap database, read through the Overpass API by `tools/build_spots.py`; the date of the read is the file's `built_utc` |
-| **What was taken** | Elements tagged `sport=surfing` that are places, not businesses; named beaches (`natural=beach`) within 1 km of a surf school or club; city, town, village and suburb nodes to name the place; the coastline (`natural=coastline`) near each spot. Each spot lists the elements that make it one (`osm`, `evidence`) |
-| **What was added** | The direction each beach faces (`facing_deg`), worked out by Vigie from the coastline, the place chosen (`place`) and the identifier (`id`): they are named in `derived`. A name OpenStreetMap misspells is corrected by the table `tools/surf-spot-corrections.json` (with the evidence); OpenStreetMap's name is then kept in `osm_name` |
-| **Endorsement** | None. The OpenStreetMap Foundation and its contributors did not make, check or endorse this file or the API that uses it |
-| **Warranty** | None. It says where people surf, not whether the sea is safe there |
+| **Licences** | Open Data Commons Open Database License (**ODbL 1.0**): <https://opendatacommons.org/licenses/odbl/1-0/> and **Licence Ouverte / Open Licence 2.0 (Etalab)**: <https://www.etalab.gouv.fr/licence-ouverte-open-licence/> |
+| **Credits** | `© OpenStreetMap contributors` (<https://www.openstreetmap.org/copyright>) · `GIP Littoral, "Plages de Nouvelle-Aquitaine" (PIGMA / data.gouv.fr, read on 2026-11-15), Licence Ouverte 2.0` · `Shom, 2025. Natures de fond au 1/50 000, https://dx.doi.org/10.17183/HOM_GEOL_NATURES_FOND_50 (not for navigation)` |
+| **Sources** | OpenStreetMap (Overpass API), GIP Littoral Nouvelle-Aquitaine (<https://www.data.gouv.fr/datasets/plages-de-nouvelle-aquitaine-1>), and Shom WFS INSPIRE `NDF_BDD_WLD_WGS84G_WFS:natures_fond_50000` (`HOM_GEOL_NATURES_FOND_50`, revised 2025-06-23); read offline by `tools/build_spots.py` on `built_utc` |
+| **What was taken** | OpenStreetMap `sport=surfing` places, named beaches (`natural=beach`) within 1 km of a surf school/club, coastlines (`natural=coastline`), harbour breakwaters/groins (`man_made=breakwater\|groin\|groyne`), and place names; GIP Littoral oceanic supervised beaches (`nature_baignade=Océanique`); Shom 1/50 000 geological seabed sediment polygons near each spot |
+| **What was added** | Coastline facing (`facing_deg`), 360-degree unobstructed open-water sectors over 20 km (`open_water_sectors`, `open_water_width_deg`), normalized seabed category (`bottom` + `seafloor_shom`), `lifeguarded`, nearest locality (`place`), and stable `id` (preserving legacy spot slugs). Overpass typos fixed by `tools/surf-spot-corrections.json` keep `osm_name` alongside `name` |
+| **Endorsement** | None. OpenStreetMap contributors, GIP Littoral, and Shom did not build, verify, or endorse this file or this API |
+| **Warranty** | **None. Not for navigation or safety.** Seafloor categories are 1/50 000 regional geological layers, and open-water sectors do not model shallow-water wave refraction or local currents |
 
-## Share-alike, and what it means for this repository
+## What stays `null`
 
-- **This file** (and every database made from it) is ODbL 1.0. Whoever receives it receives the licence, the credit and this notice.
-- **The code** of the API that reads it is a separate work under the MIT licence; the answers of `GET /v1/surf/spots` and
-  `GET /v1/surf/spots/{id}` carry the credit (`app/attribution.py`, key `osm_spots`). That reading of the licence is the project's,
-  **not a lawyer's advice**.
-
-## What is not in the file
-
-The bottom of a spot (sand, reef, rocks), the tide and the swell it works best with: no open source gives them. They stay `null` until
-someone who knows the spot gives them with a source. `beach_surface` is the `surface` tag of the beach (what the beach is made of), not
-the bottom under the waves.
+`best_tide` and `best_swell_from_deg` stay `null`: no open-data source with compatible licensing publishes verified per-spot tide or swell preferences. `bottom` and `seafloor_shom` stay `null` (35 of 171 spots) where a spot falls outside Shom's 1/50 000 coastal polygons.

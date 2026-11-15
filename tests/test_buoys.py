@@ -5,12 +5,12 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services import buoys
+from app.services import buoys, surf
 
 
 def test_every_spot_has_its_nearest_buoy_and_the_counts_add_up() -> None:
     answer = buoys.spot_buoys()
-    assert answer.count == len(answer.spots) == 51
+    assert answer.count == len(answer.spots) == surf.spots().count == 171
     for row in answer.spots:
         assert 0 <= row.distance_km < 500
         if row.real_time_buoy is not None:
@@ -28,4 +28,4 @@ def test_a_station_is_never_called_real_time_without_a_reading() -> None:
 
 def test_the_route() -> None:
     body = TestClient(app).get("/v1/surf/buoys").json()
-    assert body["count"] == 51 and "Candhis" in body["attribution"] and "distance_km" in body["derived"]
+    assert body["count"] == 171 and "Candhis" in body["attribution"] and "distance_km" in body["derived"]

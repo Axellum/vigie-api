@@ -1,9 +1,11 @@
 """Models of the surf forecast (``GET /v1/surf/spots``, ``GET /v1/surf/spots/{spot_id}``, ``GET /v1/surf/overview``).
 
 The swell and the wind are the providers' (Météo-France's MFWAM and Open-Meteo, through Open-Meteo); the tide is computed by
-Vigie (EOT20, as ``GET /v1/tides``). Everything else is worked out by Vigie and named in ``derived``: the facing of a spot (from the
-OpenStreetMap coastline), the wind relative to the coast, the swell's angle to the beach, its power, the tide stage, the rating
-and the best slot. The rating is a rule of ours with its thresholds in ``rules``; it does not know the spot.
+Vigie (EOT20, as ``GET /v1/tides``). Everything else is worked out by Vigie and named in ``derived``: the facing of a spot and its
+unobstructed open-water sectors (from the OpenStreetMap coastline and harbour breakwaters over 20 km), the seafloor category (from
+SHOM Natures de fond at 1/50 000, where mapped), the wind relative to the coast, the swell's angle to the beach and whether the
+primary swell arrives from outside the open-water sectors, its power, the tide stage, the rating and the best slot. The rating is a
+rule of ours with its thresholds in ``rules``; it does not know the spot.
 
 At eight spots the height of the whole sea can be multiplied by a factor found against a wave buoy, only when asked
 (``correction``, ADR 0023); nothing else is changed.
@@ -17,10 +19,12 @@ from pydantic import BaseModel, Field
 
 SURF_LIMITS = (
     "The swell is Météo-France's MFWAM wave model on its grid of about 8 km, computed every 3 hours (Open-Meteo gives it every "
-    "hour): it does not see the sandbanks, the reefs, the jetties or the shelter of a beach, and the waves on the beach can be "
-    "much smaller or larger. The wind is a forecast at 10 m. The tide is computed from a global model and can be an hour late or "
-    "more inside a bay. The facing of a spot is worked out from the OpenStreetMap coastline. The rating is Vigie's own rule: a "
-    "few thresholds, given in `rules`; it knows neither the spot nor the surfer."
+    "hour): it does not see the sandbanks, the reefs, the jetties or nearshore wave refraction, and the waves on the beach can be "
+    "much smaller or larger. `open_water_sectors` and `swell_sheltered` are straight-line geometric visibility over 20 km against "
+    "OpenStreetMap coastlines and breakwaters, not a wave-refraction model. `bottom` comes from SHOM's 1/50 000 seafloor survey "
+    "(where mapped, not for navigation). The wind is a forecast at 10 m. The tide is computed from a global model and can be an "
+    "hour late or more inside a bay. The facing of a spot is worked out from the OpenStreetMap coastline. The rating is Vigie's "
+    "own rule: a few thresholds, given in `rules`; it knows neither the spot nor the surfer."
 )
 SURF_DISCLAIMER = (
     "Not for safety and not for navigation: look at the sea on the spot, the flags and the lifeguards before going in."
@@ -31,11 +35,15 @@ TidePreference = Literal["low", "mid", "high", "any"]
 
 
 class SpotEvidence(BaseModel):
-    """An OpenStreetMap element that makes the place a spot: a surf spot, or a surf school or club near the beach."""
+    """What makes the place a spot: an OpenStreetMap surf element or school, or an oceanic GIP Littoral beach."""
 
-    osm: str = Field(description="OpenStreetMap element, `node/1`, `way/2` or `relation/3`")
+    osm: Optional[str] = Field(default=None, description="OpenStreetMap element, `node/1`, `way/2` or `relation/3`")
+    source: Optional[str] = Field(
+        default=None, description="External dataset identifier when the evidence does not come from OpenStreetMap (e.g. `gip_littoral`)"
+    )
+    id: Optional[str] = Field(default=None, description="Identifier of the record in that dataset")
     name: Optional[str] = None
-    kind: Literal["spot", "school"]
+    kind: Literal["spot", "school", "beach"]
 
 
 class SurfSpot(BaseModel):
@@ -53,8 +61,25 @@ class SurfSpot(BaseModel):
     lat: float
     lon: float
     facing_deg: int = Field(description="Direction from the beach to the open sea, degrees from north (ours, from the coastline)")
+    open_water_sectors: Optional[list[list[int]]] = Field(
+        default=None,
+        description="Azimuth intervals `[start_deg, end_deg]` (wrapping through 0) with unobstructed water for at least 20 km against "
+        "OpenStreetMap coastlines and breakwaters (ours)",
+    )
+    open_water_width_deg: Optional[int] = Field(
+        default=None, description="Total angular width in degrees covered by `open_water_sectors` (ours, 0 to 360)"
+    )
     beach_surface: Optional[str] = Field(default=None, description="The `surface` tag of the beach (what the beach is made of)")
-    bottom: Optional[str] = Field(default=None, description="The bottom under the waves: unknown (no open source gives it)")
+    bottom: Optional[str] = Field(
+        default=None,
+        description="Nearshore seafloor category (`sand`, `rock`, `gravel`, `mixed`, `mud`) from SHOM Natures de fond 1/50 000, else null",
+    )
+    seafloor_shom: Optional[list[str]] = Field(
+        default=None, description="Raw SHOM seafloor codes (e.g. `['NFS']`, `['NFRoche']`) near the spot, null when unmapped"
+    )
+    lifeguarded: Optional[bool] = Field(
+        default=None, description="True when listed as seasonally supervised (`plage_surveillee=Oui`) by GIP Littoral Nouvelle-Aquitaine, else null"
+    )
     best_tide: Optional[Literal["low", "mid", "high", "any"]] = Field(default=None, description="Unknown (no open source)")
     best_swell_from_deg: Optional[int] = Field(default=None, description="Unknown (no open source)")
     osm: str
@@ -158,6 +183,11 @@ class SurfHour(BaseModel):
         default=None, description="Ours: deep-water power of the primary swell per metre of crest, 0.49 x height² x period"
     )
     swell_angle_deg: Optional[int] = Field(default=None, description="Ours: between where the swell comes from and the facing")
+    swell_sheltered: Optional[bool] = Field(
+        default=None,
+        description="Ours: true when primary swell arrives outside `spot.open_water_sectors` (geometrically blocked within 20 km), "
+        "false when exposed, null when sectors or swell direction are unknown",
+    )
     secondary_swell_power_kw_m: Optional[float] = Field(
         default=None, description="Ours: deep-water power of the secondary swell per metre of crest, 0.49 x height² x period"
     )

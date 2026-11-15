@@ -90,6 +90,8 @@ def parse_wind(payload: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError("Open-Meteo answer has no wind")
     return {
         "times": times,
+        "model_lat": optional_float(payload.get("latitude")),
+        "model_lon": optional_float(payload.get("longitude")),
         **series,
         "sunrise": [int(v) if v is not None else None for v in _series(daily, "sunrise", days)],
         "sunset": [int(v) if v is not None else None for v in _series(daily, "sunset", days)],
@@ -114,6 +116,14 @@ def _items(payload: Any, count: int) -> list[Optional[Mapping[str, Any]]]:
 Point = tuple[str, float, float]
 
 
+def _model_cell(parsed: Mapping[str, Any]) -> Optional[tuple[float, float]]:
+    """Grid cell coordinate returned by Open-Meteo, rounded to 5 decimals for deterministic matching."""
+    lat, lon = parsed.get("model_lat"), parsed.get("model_lon")
+    if lat is None or lon is None:
+        return None
+    return (round(float(lat), 5), round(float(lon), 5))
+
+
 class SurfForecastCollector(BaseCollector[dict[str, Any]]):
     """The swell (MFWAM) and the wind of the surf spots, from Open-Meteo's free APIs (one quota with the other Open-Meteo ones)."""
 
@@ -128,6 +138,8 @@ class SurfForecastCollector(BaseCollector[dict[str, Any]]):
         self.on_fetched: Optional[Callable[[str, dict[str, dict[str, Any]]], None]] = None
         self.MARINE_URL = open_meteo_marine_url()
         self.FORECAST_URL = open_meteo_forecast_url()
+        # Learned Open-Meteo model grid cell per spot id, populated only from real upstream responses.
+        self._cell_of: dict[str, dict[str, tuple[float, float]]] = {"swell": {}, "wind": {}}
         super().__init__(
             provider_id="open_meteo_surf",
             name="Open-Meteo surf (MFWAM swell, wind)",
@@ -147,16 +159,34 @@ class SurfForecastCollector(BaseCollector[dict[str, Any]]):
             return None
         return entry.value.get(spot_id)
 
+    def _from_peer_cell(self, kind: str, spot_id: str, max_age_s: float) -> Optional[dict[str, Any]]:
+        """Reuse a fresh single-spot cache entry from another spot learned to share the same Open-Meteo grid cell."""
+        cell = self._cell_of[kind].get(spot_id)
+        if cell is None:
+            return None
+        now = clock.monotonic()
+        prefix = f"surf-{kind}:"
+        for peer_id, peer_cell in self._cell_of[kind].items():
+            if peer_cell != cell or peer_id == spot_id:
+                continue
+            entry = self._cache.get(f"{prefix}{peer_id}")
+            if entry is not None and now - entry.stored_at <= max_age_s and _model_cell(entry.value) == cell:
+                return entry.value
+        return None
+
     async def fetch_all(self, kind: str, points: tuple[Point, ...]) -> tuple[dict[str, dict[str, Any]], bool]:
         """The swell or the wind (``kind``) of every spot of ``points`` (id, lat, lon), by spot id, in one request; and whether
-        it is a stale copy. A spot whose item cannot be read is left out; none at all raises."""
+        it is a stale copy. Neighbouring spots already learned to share an Open-Meteo grid cell are collapsed to one coordinate
+        per cell on refresh while preserving the full per-spot mapping."""
         ttl = self.SWELL_TTL_SECONDS if kind == "swell" else self.OVERVIEW_WIND_TTL_SECONDS
         fetched = await self.fetch_ex(cache_key=f"surf-{kind}:all", kind=kind, points=points, ttl_seconds=ttl)
         return fetched.value, fetched.stale
 
     async def fetch_swell(self, spot_id: str, lat: float, lon: float) -> tuple[dict[str, Any], bool]:
         """The hourly swell of a spot, and whether it is a stale copy."""
-        shared = self._from_all("swell", spot_id, self.SWELL_TTL_SECONDS)
+        shared = self._from_all("swell", spot_id, self.SWELL_TTL_SECONDS) or self._from_peer_cell(
+            "swell", spot_id, self.SWELL_TTL_SECONDS
+        )
         if shared is not None:
             return shared, False
         fetched = await self.fetch_ex(
@@ -166,7 +196,9 @@ class SurfForecastCollector(BaseCollector[dict[str, Any]]):
 
     async def fetch_wind(self, spot_id: str, lat: float, lon: float) -> tuple[dict[str, Any], bool]:
         """The hourly wind and the daylight of a spot, and whether it is a stale copy."""
-        shared = self._from_all("wind", spot_id, self.WIND_TTL_SECONDS)
+        shared = self._from_all("wind", spot_id, self.WIND_TTL_SECONDS) or self._from_peer_cell(
+            "wind", spot_id, self.WIND_TTL_SECONDS
+        )
         if shared is not None:
             return shared, False
         fetched = await self.fetch_ex(
@@ -175,12 +207,27 @@ class SurfForecastCollector(BaseCollector[dict[str, Any]]):
         return fetched.value, fetched.stale
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> dict[str, Any]:
+        kind = str(kwargs["kind"])
+        swell = kind == "swell"
         points: Optional[tuple[Point, ...]] = kwargs.get("points")
         if points is None:
+            req_points: tuple[Point, ...] = ()
             lats, lons = coord_str(float(kwargs["lat"])), coord_str(float(kwargs["lon"]))
         else:
-            lats = ",".join(coord_str(lat) for _, lat, _ in points)
-            lons = ",".join(coord_str(lon) for _, _, lon in points)
+            # Collapse spots with a known Open-Meteo model grid cell to one representative coordinate per unique cell.
+            known = self._cell_of[kind]
+            seen_cells: set[tuple[float, float]] = set()
+            chosen: list[Point] = []
+            for pt in points:
+                cell = known.get(pt[0])
+                if cell is None:
+                    chosen.append(pt)
+                elif cell not in seen_cells:
+                    seen_cells.add(cell)
+                    chosen.append(pt)
+            req_points = tuple(chosen)
+            lats = ",".join(coord_str(lat) for _, lat, _ in req_points)
+            lons = ",".join(coord_str(lon) for _, _, lon in req_points)
         common = {
             "latitude": lats,
             "longitude": lons,
@@ -188,7 +235,6 @@ class SurfForecastCollector(BaseCollector[dict[str, Any]]):
             "timeformat": "unixtime",
             "timezone": "GMT",
         }
-        swell = kwargs["kind"] == "swell"
         if swell:
             params = {**common, "hourly": ",".join(SWELL_VARIABLES), "models": MARINE_MODEL}
             response = await self._get(client, self.MARINE_URL, params=params)
@@ -197,19 +243,45 @@ class SurfForecastCollector(BaseCollector[dict[str, Any]]):
             response = await self._get(client, self.FORECAST_URL, params=params)
         response.raise_for_status()
         parse = parse_swell if swell else parse_wind
-        kind = str(kwargs["kind"])
         if points is None:
             parsed = parse(response.json())
-            self._tell(kind, {str(kwargs["spot_id"]): parsed} if "spot_id" in kwargs else {})
+            sid = kwargs.get("spot_id")
+            if sid is not None:
+                cell = _model_cell(parsed)
+                if cell is not None:
+                    self._cell_of[kind][str(sid)] = cell
+            self._tell(kind, {str(sid): parsed} if sid is not None else {})
             return parsed
-        out: dict[str, Any] = {}
-        for (spot_id, _, _), item in zip(points, _items(response.json(), len(points)), strict=True):
+
+        rep_parsed: dict[str, dict[str, Any]] = {}
+        cell_answers: dict[tuple[float, float], dict[str, Any]] = {}
+        known = self._cell_of[kind]
+        for (spot_id, _, _), item in zip(req_points, _items(response.json(), len(req_points)), strict=True):
             if item is None:
                 continue
             try:
-                out[spot_id] = parse(item)
+                parsed = parse(item)
             except ValueError:
                 continue
+            rep_parsed[spot_id] = parsed
+            new_cell = _model_cell(parsed)
+            prev_cell = known.get(spot_id)
+            if prev_cell is not None and new_cell != prev_cell:
+                # Provider grid shifted: forget peers on prev_cell so the next refresh probes them individually.
+                for peer in [k for k, v in known.items() if v == prev_cell]:
+                    del known[peer]
+            if new_cell is not None:
+                known[spot_id] = new_cell
+                cell_answers[new_cell] = parsed
+
+        out: dict[str, Any] = {}
+        for spot_id, _, _ in points:
+            if spot_id in rep_parsed:
+                out[spot_id] = rep_parsed[spot_id]
+            else:
+                cell = known.get(spot_id)
+                if cell is not None and cell in cell_answers:
+                    out[spot_id] = cell_answers[cell]
         if not out:
             raise ValueError("Open-Meteo answer has no spot that could be read")
         self._tell(kind, out)
