@@ -43,7 +43,7 @@ PAQUET_URL = "https://public-api.meteofrance.fr/public/DPPaquetObs/v1/paquet/inf
 KEY_ENV = "VIGIE_METEOFRANCE_OBS_API_KEY"
 FALLBACK_KEY_ENV = "VIGIE_METEOFRANCE_API_KEY"
 TTL_SECONDS = 360
-_KEY_SHAPE = re.compile(r"^[A-Za-z0-9._\-]{16,}$")
+_KEY_SHAPE = re.compile(r"^[A-Za-z0-9._\-+/=]{16,}$")
 
 
 @dataclass(frozen=True)

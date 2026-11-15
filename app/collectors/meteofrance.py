@@ -52,7 +52,7 @@ WEB_URL = "https://vigilance.meteofrance.fr/fr"
 KEY_ENV = "VIGIE_METEOFRANCE_API_KEY"
 TTL_SECONDS = 180
 ISSUER = "Météo-France"
-_KEY_SHAPE = re.compile(r"^[A-Za-z0-9._\-]{16,}$")
+_KEY_SHAPE = re.compile(r"^[A-Za-z0-9._\-+/=]{16,}$")
 
 # Météo-France colour id -> (French label as published, derived SeverityLevel). Colour 1 is green (no warning).
 COLORS: dict[int, tuple[str, SeverityLevel]] = {
