@@ -700,6 +700,24 @@ on Korean KMA partner buoys, stays `null`), `APD` is `period_s` (`period_kind="A
 `WTMP` is `sea_temp_c` (`[-3, 45]`); `hmax_m` and `spread_deg` are absent from `latest_obs.txt` and stay `null`. When both CANDHIS
 and NDBC are enabled, the nearest current buoy (at most `MAX_AGE_S` old) wins; `attribution` and `licence` follow the chosen source.
 
+## Offshore buoys (Météo-France)
+
+`GET /v1/sea/buoys` lists the latest hourly record of the moored buoys of Météo-France (`meteofrance_buoys`,
+`app/collectors/meteofrance_buoys.py`): `https://public-api.meteofrance.fr/public/DPObs/v2/bouees?format=json&date_debut=...`,
+asked at most every 30 minutes for the last 6 hours (about 15 kB; 375 kB for the 5 days the API answers without a date). Read on
+2026-11-16: 10 buoys, the Gulf of Lion, Provence, PACA, Azur, Ajaccio, Calvi, Porto-Vecchio and Sardinia in the Mediterranean, Gascogne
+in the Bay of Biscay and one off the Antilles; none of them is in the NOAA NDBC table. They float 30 to 100 km off the coast and none is
+nearer to a surf spot than a real-time CANDHIS buoy, so they are not used for the buoy of a spot (`GET /v1/surf/spots/{id}/buoy`): they
+say what the open sea does.
+
+The API documents no field. The units are the ones of `DPPaquetObs` (the same family): `haut_vag` metres -> `wave_height_m` (which
+significant height, H1/3 or Hm0, is not stated), `per_moy_vag` seconds -> `wave_period_s` (a mean period), `dir_vag` degrees ->
+`wave_from_deg` (convention not stated; WMO practice: where the waves come from), `tmer` and `t` Kelvin -> `sea_temp_c` (kept within
+`[-3, 45]`) and `air_temp_c`, `ff` and `rafper` m/s -> `wind_speed_kmh` and `wind_gust_kmh`, `dd` -> `wind_from_deg` (null in a calm),
+`pmer` Pa -> `pressure_hpa`. A buoy whose latest record is more than 3 hours old (`max_age_hours`, a setting of ours) is left out. It
+needs `VIGIE_METEOFRANCE_API_KEY` (an application of the portal subscribed to `DonneesPubliquesObservation`): without it `status` is
+`not_configured` and the source is in `disabled_sources`. **Not verified:** the licence of this API (see `SOURCES.md`).
+
 ## Places of the coast (ports, slipways, anchorages, dive sites, bathing sites)
 
 `GET /v1/sea/places` and `GET /v1/sea/places/{id}` read `app/data/sea-places.json.gz`, built by `tools/build_places.py` ([ADR 0021](decisions/0021-sea-places-catalogue-from-open-data.md)).

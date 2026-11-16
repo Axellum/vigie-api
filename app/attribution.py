@@ -304,6 +304,13 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "meteofrance_buoys",
+            "Météo-France (DPObs), latest records of the moored buoys",
+            "Source: Météo-France, observations des bouées (https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesObservation), "
+            "dated as in the answer (measured_at, UTC); the distance and the age are calculated by Vigie, the units converted by Vigie",
+            "ours",
+        ),
+        Credit(
             "meteofrance_piaf",
             "Météo-France (PIAF), rain over the next hour",
             "Source: Météo-France, prévision immédiate des précipitations PIAF (https://portail-api.meteofrance.fr), "

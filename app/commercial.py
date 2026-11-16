@@ -292,6 +292,17 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-11-16",
         ),
         CommercialUse(
+            "meteofrance_buoys",
+            "not_verified",
+            "Free of charge on the Météo-France portal (catalogue: PAYANT: Non, tags 'données publiques' and 'open data', the family of "
+            "DPPaquetObs, which is under Licence Ouverte 2.0); the page of this API is rendered by script and its licence was not read.",
+            (
+                "https://portail-api.meteofrance.fr/api/am/devportal/v3/apis/c3b1fe90-c209-447c-8cab-8342bf157b83",
+                "https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesObservation",
+            ),
+            "2026-11-16",
+        ),
+        CommercialUse(
             "meteofrance_obs",
             "allowed",
             "Licence Ouverte 2.0 (Etalab): any use, commercial included, with the source and the date of the data named.",

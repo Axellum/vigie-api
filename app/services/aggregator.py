@@ -76,6 +76,7 @@ from app.collectors.meteo_gateway import MeteoGatewayRainCollector, meteo_gatewa
 from app.collectors.meteoalarm import MeteoAlarmCapCollector, MeteoAlarmCollector
 from app.collectors.meteofrance import MeteoFranceVigilanceCollector, meteofrance_key_from_env
 from app.collectors.meteofrance_bra import KEY_ENV, MeteoFranceBRACollector, massif_code, meteofrance_bra_key_from_env
+from app.collectors.meteofrance_buoys import MeteoFranceBuoysCollector, meteofrance_buoys_key_from_env
 from app.collectors.meteofrance_obs import MeteoFranceObsCollector, meteofrance_obs_key_from_env
 from app.collectors.metservice import MetServiceCollector, metservice_enabled_from_env
 from app.collectors.ndbc import NdbcCollector
@@ -267,6 +268,7 @@ class AggregatorService:
         meteofrance: Optional[MeteoFranceVigilanceCollector] = None,
         meteofrance_obs: Optional[MeteoFranceObsCollector] = None,
         meteofrance_bra: Optional[MeteoFranceBRACollector] = None,
+        meteofrance_buoys: Optional[MeteoFranceBuoysCollector] = None,
         meteo_gateway: Optional[MeteoGatewayRainCollector] = None,
         vigicrues: Optional[VigicruesCollector] = None,
         vigieau: Optional[VigiEauCollector] = None,
@@ -370,6 +372,14 @@ class AggregatorService:
         if meteofrance_bra is None and bra_key is not None:
             meteofrance_bra = MeteoFranceBRACollector(bra_key)
         self.meteofrance_bra = meteofrance_bra
+        # The moored buoys of Météo-France (DPObs v2) need the same key: without it ``/v1/sea/buoys`` says ``not_configured``.
+        buoys_key, buoys_problem = meteofrance_buoys_key_from_env()
+        if buoys_problem is not None:
+            log.warning(buoys_problem)
+        self.meteofrance_buoys_off_reason = "no Météo-France API key: set VIGIE_METEOFRANCE_API_KEY (portail-api.meteofrance.fr, DPObs v2)"
+        if meteofrance_buoys is None and buoys_key is not None:
+            meteofrance_buoys = MeteoFranceBuoysCollector(buoys_key)
+        self.meteofrance_buoys = meteofrance_buoys
         # Météo-France PIAF rain through a vigie-meteo gateway: without ``VIGIE_METEO_GATEWAY_URL`` the rain of the next hour
         # stays Open-Meteo's everywhere.
         gateway_url, gateway_problem = meteo_gateway_url_from_env()
@@ -613,6 +623,8 @@ class AggregatorService:
             collectors.append(self.meteofrance_obs)
         if self.meteofrance_bra is not None:
             collectors.append(self.meteofrance_bra)
+        if self.meteofrance_buoys is not None:
+            collectors.append(self.meteofrance_buoys)
         if self.meteo_gateway is not None:
             collectors.append(self.meteo_gateway)
         return [c for c in collectors if c not in off]
@@ -663,6 +675,15 @@ class AggregatorService:
                     "name": "Météo-France BRA avalanche bulletins (DPBRA)",
                     "domain": "avalanches",
                     "reason": self.meteofrance_bra_off_reason,
+                }
+            )
+        if self.meteofrance_buoys is None:
+            off.append(
+                {
+                    "provider_id": "meteofrance_buoys",
+                    "name": "Météo-France moored buoys (DPObs v2)",
+                    "domain": "marine",
+                    "reason": self.meteofrance_buoys_off_reason,
                 }
             )
         if self.meteo_gateway is None:
