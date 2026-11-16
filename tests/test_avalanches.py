@@ -41,7 +41,7 @@ INNSBRUCK = (47.2692, 11.4041)    # AT-07-14 / AT-07-14-04
 BOLZANO = (46.4983, 11.3548)      # IT-32-BZ-08
 TRENTO = (46.0748, 11.1217)       # IT-32-TN-03
 PARIS = (48.8566, 2.3522)         # Outside avalanche coverage
-CHAMONIX = (45.9237, 6.8694)      # FR outside SLF/Euregio verified coverage
+LYON = (45.7640, 4.8357)          # FR outside every verified coverage (Chamonix is now a Météo-France BRA massif)
 VIENNA = (48.2082, 16.3738)       # AT outside Euregio Tyrol
 
 
@@ -118,7 +118,7 @@ async def test_coverage_gating_makes_zero_upstream_calls_outside_territory(tmp_p
     eur = EuregioAvalancheCollector(http_client=http)
     service = make_service(tmp_path / "cov.db", slf_avalanche=slf, euregio_avalanche=eur)
 
-    for lat, lon in (PARIS, CHAMONIX, VIENNA):
+    for lat, lon in (PARIS, LYON, VIENNA):
         res = await service.get_avalanches(lat=lat, lon=lon)
         assert res.status == "outside_coverage"
         assert res.covered_by is None

@@ -46,8 +46,7 @@ from app.collectors.aurora import (
     SWPCSolarWindCollector,
 )
 from app.collectors.avalanches import (
-    EUREGIO_ATTRIBUTION,
-    SLF_ATTRIBUTION,
+    SOURCE_LINKS,
     EuregioAvalancheCollector,
     SLFAvalancheCollector,
     is_bulletin_active,
@@ -74,6 +73,7 @@ from app.collectors.health import ECDCHealthCollector
 from app.collectors.marine import OpenMeteoMarineCollector
 from app.collectors.meteoalarm import MeteoAlarmCapCollector, MeteoAlarmCollector
 from app.collectors.meteofrance import MeteoFranceVigilanceCollector, meteofrance_key_from_env
+from app.collectors.meteofrance_bra import KEY_ENV, MeteoFranceBRACollector, massif_code, meteofrance_bra_key_from_env
 from app.collectors.meteofrance_obs import MeteoFranceObsCollector, meteofrance_obs_key_from_env
 from app.collectors.metservice import MetServiceCollector, metservice_enabled_from_env
 from app.collectors.ndbc import NdbcCollector
@@ -116,6 +116,7 @@ from app.collectors.weather import (
 from app.models.activities import ActivitiesForecast
 from app.models.avalanches import (
     AvalancheQuery,
+    AvalancheRegion,
     AvalancheResponse,
     AvalancheStatus,
 )
@@ -263,6 +264,7 @@ class AggregatorService:
         metservice: Optional[MetServiceCollector] = None,
         meteofrance: Optional[MeteoFranceVigilanceCollector] = None,
         meteofrance_obs: Optional[MeteoFranceObsCollector] = None,
+        meteofrance_bra: Optional[MeteoFranceBRACollector] = None,
         vigicrues: Optional[VigicruesCollector] = None,
         vigieau: Optional[VigiEauCollector] = None,
         slf_avalanche: Optional[SLFAvalancheCollector] = None,
@@ -356,6 +358,15 @@ class AggregatorService:
         if meteofrance_obs is None and mf_obs_key is not None:
             meteofrance_obs = MeteoFranceObsCollector(mf_obs_key)
         self.meteofrance_obs = meteofrance_obs
+        # The Météo-France avalanche bulletins (DPBRA v1) need the same key: without it the massifs are still placed offline and
+        # ``/v1/avalanches`` says the source is off.
+        bra_key, bra_problem = meteofrance_bra_key_from_env()
+        if bra_problem is not None:
+            log.warning(bra_problem)
+        self.meteofrance_bra_off_reason = f"no Météo-France API key: set {KEY_ENV} (portail-api.meteofrance.fr, DPBRA v1)"
+        if meteofrance_bra is None and bra_key is not None:
+            meteofrance_bra = MeteoFranceBRACollector(bra_key)
+        self.meteofrance_bra = meteofrance_bra
         self.vigicrues = vigicrues or VigicruesCollector()
         self.vigieau = vigieau or VigiEauCollector()
         self.slf_avalanche = slf_avalanche or SLFAvalancheCollector()
@@ -588,6 +599,8 @@ class AggregatorService:
             collectors.append(self.meteofrance)
         if self.meteofrance_obs is not None:
             collectors.append(self.meteofrance_obs)
+        if self.meteofrance_bra is not None:
+            collectors.append(self.meteofrance_bra)
         return [c for c in collectors if c not in off]
 
     def disabled_sources(self) -> list[dict[str, str]]:
@@ -627,6 +640,15 @@ class AggregatorService:
                     "name": "Météo-France 6-minute observations (DPPaquetObs)",
                     "domain": "weather",
                     "reason": self.meteofrance_obs_off_reason,
+                }
+            )
+        if self.meteofrance_bra is None:
+            off.append(
+                {
+                    "provider_id": "meteofrance_bra",
+                    "name": "Météo-France BRA avalanche bulletins (DPBRA)",
+                    "domain": "avalanches",
+                    "reason": self.meteofrance_bra_off_reason,
                 }
             )
         return off
@@ -796,7 +818,7 @@ class AggregatorService:
         return await _or_none(self.vigieau.fetch_point_status(lat, lon))
 
     def is_in_avalanche_coverage(self, lat: float, lon: float) -> bool:
-        """Return ``True`` offline when ``(lat, lon)`` lies inside SLF (CH/LI) or Euregio (AT-07/IT-32-BZ/IT-32-TN) coverage."""
+        """Return ``True`` offline when ``(lat, lon)`` lies inside SLF (CH/LI), Euregio (AT-07/IT-32-BZ/IT-32-TN) or Météo-France BRA coverage."""
         source, _ = resolve_avalanche_coverage(
             lat,
             lon,
@@ -806,8 +828,8 @@ class AggregatorService:
         return source is not None
 
     async def get_avalanche_safe(self, lat: float, lon: float) -> Optional[AvalancheStatus]:
-        """Read the compact CAAML avalanche summary at ``lat, lon`` when in verified coverage; ``None`` otherwise."""
-        source, eur_regions = resolve_avalanche_coverage(
+        """Read the compact avalanche summary at ``lat, lon`` when in verified coverage; ``None`` otherwise."""
+        source, regions = resolve_avalanche_coverage(
             lat,
             lon,
             euregio_index=self.euregio_avalanche.region_index,
@@ -836,12 +858,27 @@ class AggregatorService:
                 region_id=reg_id,
                 region_name=reg_name,
             )
+        primary = regions[0] if regions else None
+        if source == "meteofrance_bra":
+            code = massif_code(primary) if primary is not None else None
+            if self.meteofrance_bra is None or primary is None or code is None:
+                return None
+            bra = await _or_none(self.meteofrance_bra.fetch_massif(code))
+            if bra is None:
+                return None
+            found = [bra.value.bulletin] if bra.value.bulletin is not None else []
+            return summarize_point_avalanche(
+                source="meteofrance_bra",
+                active_bulletins=[b for b in found if is_bulletin_active(b, now_utc)],
+                stale=bra.stale,
+                region_id=primary.region_id,
+                region_name=primary.name,
+            )
         fetched = await _or_none(self.euregio_avalanche.fetch_feed())
         if fetched is None:
             return None
-        matched = fetched.value.match_regions([r.region_id for r in eur_regions])
+        matched = fetched.value.match_regions([r.region_id for r in regions])
         active = [b for b in matched if is_bulletin_active(b, now_utc)]
-        primary = eur_regions[0] if eur_regions else None
         return summarize_point_avalanche(
             source="euregio_avalanche",
             active_bulletins=active,
@@ -855,12 +892,12 @@ class AggregatorService:
         *,
         lat: float,
         lon: float,
-        source: Optional[Literal["slf", "euregio"]] = None,
+        source: Optional[Literal["slf", "euregio", "meteofrance"]] = None,
         include_expired: bool = False,
     ) -> AvalancheResponse:
-        """Return detailed CAAML v6 avalanche bulletins at ``lat, lon`` for verified open-data coverage."""
+        """Return the detailed avalanche bulletins at ``lat, lon`` for verified open-data coverage."""
         now_utc = datetime.fromtimestamp(clock.wall(), tz=timezone.utc)
-        chosen, eur_regions = resolve_avalanche_coverage(
+        chosen, regions = resolve_avalanche_coverage(
             lat,
             lon,
             euregio_index=self.euregio_avalanche.region_index,
@@ -876,8 +913,8 @@ class AggregatorService:
                 status="outside_coverage",
                 covered_by=None,
                 note=(
-                    "Point lies outside verified CAAML open-data avalanche coverage "
-                    "(SLF Switzerland/Liechtenstein and Avalanche.report Euregio Tirol/Südtirol/Trentino)."
+                    "Point lies outside verified avalanche bulletin coverage "
+                    "(SLF Switzerland/Liechtenstein, Avalanche.report Euregio Tirol/Südtirol/Trentino and Météo-France BRA massifs)."
                 ),
                 bulletins=[],
                 stale=False,
@@ -935,17 +972,20 @@ class AggregatorService:
                 max_danger_label=summary.max_danger_label,
                 bulletins=returned,
                 stale=fetched.stale,
-                attribution=SLF_ATTRIBUTION,
+                attribution=SOURCE_LINKS["slf_avalanche"][1],
             )
+
+        if chosen == "meteofrance_bra":
+            return await self._get_bra_avalanches(regions, query=query, now_utc=now_utc, include_expired=include_expired)
 
         try:
             fetched = await self.euregio_avalanche.fetch_feed(allow_stale_on_error=True)
         except Exception as exc:
             raise CollectorUnavailableError(f"Euregio avalanche feed is unavailable: {exc}") from exc
-        matched = refresh_expiry_flags(fetched.value.match_regions([r.region_id for r in eur_regions]), now_utc)
+        matched = refresh_expiry_flags(fetched.value.match_regions([r.region_id for r in regions]), now_utc)
         active = [b for b in matched if is_bulletin_active(b, now_utc)]
         returned = matched if include_expired else active
-        primary = eur_regions[0] if eur_regions else None
+        primary = regions[0] if regions else None
         reg_id = primary.region_id if primary else None
         reg_name = primary.name if primary else None
         summary = summarize_point_avalanche(
@@ -978,7 +1018,78 @@ class AggregatorService:
             max_danger_label=summary.max_danger_label,
             bulletins=returned,
             stale=fetched.stale,
-            attribution=EUREGIO_ATTRIBUTION,
+            attribution=SOURCE_LINKS["euregio_avalanche"][1],
+        )
+
+    async def _get_bra_avalanches(
+        self,
+        regions: list[AvalancheRegion],
+        *,
+        query: AvalancheQuery,
+        now_utc: datetime,
+        include_expired: bool,
+    ) -> AvalancheResponse:
+        """The Météo-France BRA answer of the massif holding the point (one request, cached 30 minutes)."""
+        primary = regions[0]
+        massif = primary.name or primary.region_id
+        code = massif_code(primary)
+        if self.meteofrance_bra is None or code is None:
+            # The massif is known offline but its bulletin cannot be read: say so rather than claim "outside coverage".
+            return AvalancheResponse(
+                version=__version__,
+                server_utc=now_utc,
+                query=query,
+                status="unavailable",
+                covered_by="meteofrance_bra",
+                note=(
+                    f"Point lies in Météo-France BRA massif {massif}, but this instance has no Météo-France API key "
+                    f"({KEY_ENV}), so the bulletin is not read."
+                ),
+                region_id=primary.region_id,
+                region_name=primary.name,
+                bulletins=[],
+                stale=False,
+                attribution=None,
+            )
+        try:
+            fetched = await self.meteofrance_bra.fetch_massif(code, allow_stale_on_error=True)
+        except Exception as exc:
+            raise CollectorUnavailableError(f"Météo-France BRA is unavailable: {exc}") from exc
+        found = [fetched.value.bulletin] if fetched.value.bulletin is not None else []
+        matched = refresh_expiry_flags(found, now_utc)
+        active = [b for b in matched if is_bulletin_active(b, now_utc)]
+        returned = matched if include_expired else active
+        summary = summarize_point_avalanche(
+            source="meteofrance_bra",
+            active_bulletins=active,
+            stale=fetched.stale,
+            region_id=primary.region_id,
+            region_name=primary.name,
+        )
+        if active:
+            note = f"{len(active)} active Météo-France BRA bulletin(s) matched for massif {massif}."
+        elif matched:
+            latest_end = max((b.valid_until for b in matched if b.valid_until is not None), default=None)
+            note = (
+                f"Point lies in Météo-France BRA massif {massif}; latest published bulletin expired at "
+                f"{latest_end.isoformat() if latest_end else 'unknown'} (off-season or expired)."
+            )
+        else:
+            note = f"Point lies in Météo-France BRA massif {massif}; Météo-France publishes no bulletin for this massif right now."
+        return AvalancheResponse(
+            version=__version__,
+            server_utc=now_utc,
+            query=query,
+            status=summary.status,
+            covered_by="meteofrance_bra",
+            note=note,
+            region_id=primary.region_id,
+            region_name=primary.name,
+            max_danger_level=summary.max_danger_level,
+            max_danger_label=summary.max_danger_label,
+            bulletins=returned,
+            stale=fetched.stale,
+            attribution=SOURCE_LINKS["meteofrance_bra"][1],
         )
 
     async def get_drought_zones(

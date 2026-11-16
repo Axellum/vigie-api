@@ -243,6 +243,16 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-11-15",
         ),
         CommercialUse(
+            "meteofrance_bra",
+            "allowed",
+            "Licence Ouverte 2.0 (Etalab): any use, commercial included, with the source and the date of the data named.",
+            (
+                "https://www.data.gouv.fr/datasets/archive-des-bulletins-avalanches",
+                "https://www.etalab.gouv.fr/licence-ouverte-open-licence/",
+            ),
+            "2026-11-16",
+        ),
+        CommercialUse(
             "euregio_avalanche",
             "allowed",
             "CC BY 4.0 DEED on Avalanche.report Open Data (Tirol, Südtirol, Trentino CAAML v6 bulletins; EAWS micro-region boundaries are CC0 1.0 Universal).",

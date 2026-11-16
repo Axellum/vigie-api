@@ -226,6 +226,8 @@ def source_of(request: httpx.Request) -> Optional[str]:
     """The provider id a simulated request is for (MeteoAlarm has two: its feeds and its CAP documents)."""
     if request.url.host == "feeds.meteoalarm.org":
         return "meteoalarm_cap" if request.url.path.startswith("/api/v1/warnings/") else "meteoalarm_atom"
+    if request.url.host == "public-api.meteofrance.fr" and "/DPBRA/" in request.url.path:
+        return "meteofrance_bra"  # the other Météo-France APIs on this host are not simulated
     return HOST_TO_SOURCE.get(request.url.host)
 
 
@@ -432,6 +434,10 @@ class Upstream:
             return httpx.Response(200, content=(FIXTURES / "avalanches" / "slf_caaml_en.geojson").read_bytes())
         if source == "euregio_avalanche":
             return httpx.Response(200, content=(FIXTURES / "avalanches" / "euregio_caaml_en.json").read_bytes())
+        if source == "meteofrance_bra":
+            names = {"3": "meteofrance_bra_mont_blanc.xml", "66": "meteofrance_bra_haute_bigorre.xml"}
+            name = names.get(request.url.params.get("id-massif", ""))
+            return httpx.Response(200, content=(FIXTURES / "avalanches" / name).read_bytes()) if name else httpx.Response(404)
         if source == "tsunami_warning_centers":
             return self._tsunami(request)
         if source == "nhc_storms":

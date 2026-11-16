@@ -1,4 +1,4 @@
-"""Pydantic models for CAAML v6 avalanche bulletins (SLF Switzerland/Liechtenstein and EAWS Euregio)."""
+"""Pydantic models for avalanche bulletins (CAAML v6 from SLF Switzerland/Liechtenstein and EAWS Euregio; Météo-France BRA)."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -16,7 +16,7 @@ EAWS_DANGER_LEVELS: dict[str, int] = {
 }
 EAWS_DANGER_LABELS: dict[int, str] = {level: label for label, level in EAWS_DANGER_LEVELS.items()}
 
-AvalancheSourceId = Literal["slf_avalanche", "euregio_avalanche"]
+AvalancheSourceId = Literal["slf_avalanche", "euregio_avalanche", "meteofrance_bra"]
 AvalancheFeedStatus = Literal["active", "confirmed_none", "outside_coverage", "unavailable"]
 
 
@@ -58,7 +58,9 @@ class AvalancheProblem(BaseModel):
 
     problem_type: str = Field(
         ...,
-        description="EAWS avalanche problem type (`new_snow`, `wind_slab`, `persistent_weak_layers`, `wet_snow`, `gliding_snow`, `favourable_situation`).",
+        description="EAWS avalanche problem type (`new_snow`, `wind_slab`, `persistent_weak_layers`, `wet_snow`, `gliding_snow`, `favourable_situation`). "
+        "For `meteofrance_bra` it is derived from the code of the typical avalanche situation (`SitAvalTyp`): codes 1, 2 and 4 were checked against live "
+        "bulletins, 3 and 5 follow the EAWS order and are not confirmed.",
     )
     danger_rating_value: Optional[str] = Field(default=None, description="Problem-specific CAAML danger value when provided.")
     danger_level: Optional[int] = Field(default=None, ge=1, le=5, description="Numeric danger level 1..5 for this problem, if any.")
@@ -93,8 +95,8 @@ class AvalancheTendency(BaseModel):
 class AvalancheBulletin(BaseModel):
     """Normalized CAAML v6 avalanche bulletin covering a query point or region."""
 
-    bulletin_id: str = Field(..., description="Official provider bulletin UUID/identifier.")
-    source: AvalancheSourceId = Field(..., description="Collector key (`slf_avalanche` or `euregio_avalanche`).")
+    bulletin_id: str = Field(..., description="Official provider bulletin UUID/identifier (`FR-BRA-<massif code>-<date>` for Météo-France, built by Vigie).")
+    source: AvalancheSourceId = Field(..., description="Collector key (`slf_avalanche`, `euregio_avalanche` or `meteofrance_bra`).")
     lang: Optional[str] = Field(default=None, description="Bulletin language (`en`).")
     publication_time: Optional[datetime] = Field(default=None, description="Publication timestamp (UTC).")
     valid_from: Optional[datetime] = Field(default=None, description="Bulletin validity start (UTC).")
@@ -124,12 +126,12 @@ class AvalancheStatus(BaseModel):
 
     status: Literal["active", "confirmed_none"] = Field(
         ...,
-        description="`active` when an in-validity CAAML v6 bulletin covers this point; "
+        description="`active` when an in-validity bulletin covers this point; "
         "`confirmed_none` when the point lies in a covered territory with no currently active bulletin "
         "(off-season, expired feed, or uncovered summer day).",
     )
     covered_by: AvalancheSourceId = Field(..., description="Authoritative CAAML provider matched for this coordinate.")
-    region_id: Optional[str] = Field(default=None, description="Matched EAWS/SLF micro-region identifier, when resolved.")
+    region_id: Optional[str] = Field(default=None, description="Matched EAWS/SLF micro-region identifier or `FR-BRA-<massif code>`, when resolved.")
     region_name: Optional[str] = Field(default=None, description="Matched micro-region name, when resolved.")
     max_danger_level: Optional[int] = Field(default=None, ge=1, le=5, description="Highest danger level (1..5) in force, or null.")
     max_danger_label: Optional[str] = Field(
@@ -155,9 +157,10 @@ class AvalancheResponse(BaseModel):
     status: AvalancheFeedStatus = Field(
         ...,
         description="`active` (current bulletin in force), `confirmed_none` (in coverage, no active bulletin right now), "
-        "`outside_coverage` (outside SLF CH/LI and Euregio AT-07/IT-32-BZ/IT-32-TN), or `unavailable` (upstream error without cache).",
+        "`outside_coverage` (outside SLF CH/LI, Euregio AT-07/IT-32-BZ/IT-32-TN and the Météo-France BRA massifs), or `unavailable` "
+        "(upstream error without cache, or `meteofrance_bra` covers the point but this instance has no Météo-France key).",
     )
-    covered_by: Optional[AvalancheSourceId] = Field(default=None, description="Provider consulted (`slf_avalanche` or `euregio_avalanche`).")
+    covered_by: Optional[AvalancheSourceId] = Field(default=None, description="Provider that covers the point (`slf_avalanche`, `euregio_avalanche` or `meteofrance_bra`).")
     note: str = Field(..., description="Explicit explanation of validity, off-season status, or coverage boundary.")
     region_id: Optional[str] = Field(default=None, description="Matched micro-region ID, when resolved.")
     region_name: Optional[str] = Field(default=None, description="Matched micro-region name, when resolved.")

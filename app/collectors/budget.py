@@ -114,6 +114,14 @@ QUOTAS: dict[str, Quota] = {
         (Limit(60, 50),),
         "https://portail-api.meteofrance.fr/web/fr/api/PaquetObs",
     ),
+    # Météo-France Portail API (DPBRA v1): 50 requests per minute, as stated by the owner for this subscription on 2026-11-16 (not
+    # re-read on https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesBRA; the same plan as DPVigilance).
+    # This API sends at most one request per massif every 30 minutes (35 massifs: 70 an hour at the very most).
+    "meteofrance_bra": Quota(
+        "meteofrance-bra",
+        (Limit(60, 50),),
+        "https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesBRA",
+    ),
     # VigiEau (https://api.vigieau.gouv.fr): MTES-MCT/vigieau-api configures ThrottlerModule at 300 requests per 15 minutes
     # per IP (``x-ratelimit-limit: 300`` observed on 2026-11-15, alongside a 1s reset header from throttler v6 ms units).
     # Enforcing 300 / 900s (held to 90% = 270 / 15 min) protects the upstream and is backed by 1-hour grid/commune caching.
