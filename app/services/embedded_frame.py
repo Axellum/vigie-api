@@ -69,6 +69,14 @@ def _rain_eta_and_max_mmh(c15: list[float]) -> tuple[int, float]:
     return eta_min, round(max(c15) * 4.0, 1)
 
 
+def _rain_5m(c15: list[float], rates_5m: Optional[list[float]]) -> list[float]:
+    """The twelve 5-minute rates (mm/h) of ``RAIN5M``: the provider's own when it has 5-minute steps (Météo-France PIAF),
+    else the 15-minute amounts as a step function (``_rain_5m_from_15m``)."""
+    if rates_5m is not None and len(rates_5m) == 12:
+        return [round(max(0.0, float(v)), 2) for v in rates_5m]
+    return _rain_5m_from_15m(c15)
+
+
 def _rain_5m_from_15m(c15: list[float]) -> list[float]:
     """Resample four 15-minute amounts to twelve 5-minute steps expressed in mm/h.
 
@@ -89,6 +97,7 @@ def _emit_zone_block(
     rain_next_60m: Optional[list[float]],
     daily: list[DailyForecast],
     marine: Optional[MarineConditions] = None,
+    rain_rate_5m: Optional[list[float]] = None,
 ) -> None:
     """Emit the ``ZONE|``, ``RAIN5M|`` and ``DAY|`` lines of one zone."""
     zid = _clean_field(zone_id, 12)
@@ -138,7 +147,7 @@ def _emit_zone_block(
     )
 
     # RAIN5M line: twelve 5-minute steps, or an empty field when the nowcast is unknown
-    rain_5m_csv = "" if c15 is None else ",".join(f"{v:.2f}" for v in _rain_5m_from_15m(c15))
+    rain_5m_csv = "" if c15 is None else ",".join(f"{v:.2f}" for v in _rain_5m(c15, rain_rate_5m))
     lines.append(f"RAIN5M|{zid}|{rain_5m_csv}")
 
     # DAY lines: one per forecast day
@@ -336,6 +345,7 @@ def serialize_embedded_frame(
             rain_next_60m=point.rain_nowcast.mm_per_step,
             daily=point.daily,
             marine=point.marine,
+            rain_rate_5m=point.rain_nowcast.rate_5m_mm_h,
         )
 
     # 3. Watched zones (ZONE + RAIN5M + DAY)
@@ -350,6 +360,7 @@ def serialize_embedded_frame(
             current=z.current,
             rain_next_60m=z.rain_next_60m,
             daily=z.daily_10d,
+            rain_rate_5m=z.rain_rate_5m_mm_h,
         )
 
     # 4. Active hazards (HAZ)

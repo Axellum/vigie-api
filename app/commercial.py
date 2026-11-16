@@ -284,6 +284,14 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-11-15",
         ),
         CommercialUse(
+            "meteofrance_piaf",
+            "not_verified",
+            "Free of charge on the Météo-France portal (its catalogue says PAYANT: Non); the catalogue entry names no licence, "
+            "and the terms of this API were not read.",
+            ("https://portail-api.meteofrance.fr/api/am/devportal/v3/apis/aa174208-b051-4c95-af8f-dd52241a4d06",),
+            "2026-11-16",
+        ),
+        CommercialUse(
             "meteofrance_obs",
             "allowed",
             "Licence Ouverte 2.0 (Etalab): any use, commercial included, with the source and the date of the data named.",

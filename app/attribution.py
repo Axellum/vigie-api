@@ -304,6 +304,13 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "meteofrance_piaf",
+            "Météo-France (PIAF), rain over the next hour",
+            "Source: Météo-France, prévision immédiate des précipitations PIAF (https://portail-api.meteofrance.fr), "
+            "5-minute steps read through a vigie-meteo gateway; the 15-minute amounts are summed by Vigie",
+            "ours",
+        ),
+        Credit(
             "vigieau",
             "VigiEau (Ministère de la Transition écologique)",
             "Source: VigiEau, Ministère de la Transition écologique (https://vigieau.gouv.fr). Licence Ouverte 2.0",
@@ -434,6 +441,7 @@ PREALERT = ("ecmwf_opendata",)
 AVALANCHE_SLF = ("slf_avalanche",)
 AVALANCHE_EUREGIO = ("euregio_avalanche",)
 AVALANCHE_BRA = ("meteofrance_bra",)
+RAIN_PIAF = ("meteofrance_piaf",)
 TIDES = ("eot20",)
 TIDES_CALIBRATED = ("eot20", "refmar_tides")
 TIDE_CORRECTION = ("shom_refmar",)

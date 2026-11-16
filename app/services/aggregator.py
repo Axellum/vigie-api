@@ -32,6 +32,7 @@ from app.attribution import (
     MET_NORWAY_WEATHER,
     OPEN_METEO_WEATHER,
     RADAR,
+    RAIN_PIAF,
     SIMULATED_ID_PREFIX,
     SIMULATION_CREDIT,
     credit_text,
@@ -71,6 +72,7 @@ from app.collectors.flood_air import (
 from app.collectors.grid import snap_to_grid
 from app.collectors.health import ECDCHealthCollector
 from app.collectors.marine import OpenMeteoMarineCollector
+from app.collectors.meteo_gateway import MeteoGatewayRainCollector, meteo_gateway_url_from_env, quarter_hour_amounts
 from app.collectors.meteoalarm import MeteoAlarmCapCollector, MeteoAlarmCollector
 from app.collectors.meteofrance import MeteoFranceVigilanceCollector, meteofrance_key_from_env
 from app.collectors.meteofrance_bra import KEY_ENV, MeteoFranceBRACollector, massif_code, meteofrance_bra_key_from_env
@@ -265,6 +267,7 @@ class AggregatorService:
         meteofrance: Optional[MeteoFranceVigilanceCollector] = None,
         meteofrance_obs: Optional[MeteoFranceObsCollector] = None,
         meteofrance_bra: Optional[MeteoFranceBRACollector] = None,
+        meteo_gateway: Optional[MeteoGatewayRainCollector] = None,
         vigicrues: Optional[VigicruesCollector] = None,
         vigieau: Optional[VigiEauCollector] = None,
         slf_avalanche: Optional[SLFAvalancheCollector] = None,
@@ -367,6 +370,15 @@ class AggregatorService:
         if meteofrance_bra is None and bra_key is not None:
             meteofrance_bra = MeteoFranceBRACollector(bra_key)
         self.meteofrance_bra = meteofrance_bra
+        # Météo-France PIAF rain through a vigie-meteo gateway: without ``VIGIE_METEO_GATEWAY_URL`` the rain of the next hour
+        # stays Open-Meteo's everywhere.
+        gateway_url, gateway_problem = meteo_gateway_url_from_env()
+        if gateway_problem is not None:
+            log.warning(gateway_problem)
+        self.meteo_gateway_off_reason = "no vigie-meteo gateway: set VIGIE_METEO_GATEWAY_URL (Météo-France PIAF rain over France)"
+        if meteo_gateway is None and gateway_url is not None:
+            meteo_gateway = MeteoGatewayRainCollector(gateway_url, grid_deg=self.open_meteo.grid_deg)
+        self.meteo_gateway = meteo_gateway
         self.vigicrues = vigicrues or VigicruesCollector()
         self.vigieau = vigieau or VigiEauCollector()
         self.slf_avalanche = slf_avalanche or SLFAvalancheCollector()
@@ -601,6 +613,8 @@ class AggregatorService:
             collectors.append(self.meteofrance_obs)
         if self.meteofrance_bra is not None:
             collectors.append(self.meteofrance_bra)
+        if self.meteo_gateway is not None:
+            collectors.append(self.meteo_gateway)
         return [c for c in collectors if c not in off]
 
     def disabled_sources(self) -> list[dict[str, str]]:
@@ -651,6 +665,15 @@ class AggregatorService:
                     "reason": self.meteofrance_bra_off_reason,
                 }
             )
+        if self.meteo_gateway is None:
+            off.append(
+                {
+                    "provider_id": "meteofrance_piaf",
+                    "name": "Météo-France PIAF rain (vigie-meteo gateway)",
+                    "domain": "weather",
+                    "reason": self.meteo_gateway_off_reason,
+                }
+            )
         return off
 
     def get_providers_health(self) -> list[ProviderHealth]:
@@ -658,6 +681,31 @@ class AggregatorService:
         return [collector.get_health() for collector in self.get_all_collectors()]
 
     async def fetch_weather_with_fallback(
+        self, lat: float, lon: float, utc_offset_s: Optional[int] = None
+    ) -> tuple[Optional[dict[str, Any]], bool]:
+        """The weather of a GPS point (``_fetch_weather_sources``), with the rain of the next hour from Météo-France PIAF when
+        the gateway is configured and answers for the point (``_with_piaf_rain``)."""
+        bundle, fallback_used = await self._fetch_weather_sources(lat, lon, utc_offset_s)
+        return await self._with_piaf_rain(bundle, lat, lon), fallback_used
+
+    async def _with_piaf_rain(self, bundle: Optional[dict[str, Any]], lat: float, lon: float) -> Optional[dict[str, Any]]:
+        """``bundle`` with its rain of the next hour taken from PIAF: the four 15-minute amounts (``rain_next_60m``), the twelve
+        5-minute rates (``rain_rate_5m_mm_h``) and the PIAF credit. ``bundle`` unchanged when PIAF has no full hour for the point.
+
+        The other values of the bundle (current conditions, daily forecast) keep their provider. A point with no weather at all
+        stays without weather: the rain alone is not shown without the current conditions."""
+        if bundle is None or self.meteo_gateway is None:
+            return bundle
+        rates = await self.meteo_gateway.rain_next_hour(lat, lon)
+        if rates is None:
+            return bundle
+        out = dict(bundle)
+        out["rain_next_60m"] = quarter_hour_amounts(rates)
+        out["rain_rate_5m_mm_h"] = rates
+        out["attribution"] = merge_credits(bundle.get("attribution"), credit_text(*RAIN_PIAF))
+        return out
+
+    async def _fetch_weather_sources(
         self, lat: float, lon: float, utc_offset_s: Optional[int] = None
     ) -> tuple[Optional[dict[str, Any]], bool]:
         """Fetch the weather of a GPS point: Open-Meteo, then MET Norway, then the stale cache.
@@ -1352,14 +1400,21 @@ class AggregatorService:
             enriched_nearby = [h.model_copy(update={"near_places": None}) for h in enriched_nearby]
 
         rain_steps: Optional[list[float]] = weather_bundle.get("rain_next_60m") if weather_bundle else None
+        # Twelve 5-minute rates only when the rain comes from Météo-France PIAF (``_with_piaf_rain``)
+        rain_rates: Optional[list[float]] = (
+            weather_bundle.get("rain_rate_5m_mm_h") if weather_bundle and rain_steps is not None else None
+        )
         rain_nowcast = RainNowcast(
             interval_minutes=15,
             mm_per_step=rain_steps,
+            rate_5m_mm_h=rain_rates,
             rain_expected_60m=None if rain_steps is None else any(v > 0.05 for v in rain_steps),
-            max_mm_h=None if rain_steps is None else round(max(rain_steps) * 4.0, 2),
+            max_mm_h=None
+            if rain_steps is None
+            else (round(max(rain_rates), 2) if rain_rates is not None else round(max(rain_steps) * 4.0, 2)),
             radar_tile_url_template=radar_meta.get("radar_tile_url_template"),
             radar_timestamp_utc=radar_meta.get("radar_timestamp_utc"),
-            # the rain steps come from the weather provider (Open-Meteo), the radar fields from RainViewer
+            # the rain steps come from the weather provider (Open-Meteo, and PIAF when it gave the rain), the radar fields from RainViewer
             attribution=merge_credits(
                 weather_bundle.get("attribution") if weather_bundle and rain_steps is not None else None,
                 credit_text(*RADAR)
@@ -1490,6 +1545,7 @@ class AggregatorService:
                     weather_source=str(w_bundle["provider_name"]),
                     current=self._with_air_quality(w_bundle["current"], aqi_results[idx]),
                     rain_next_60m=w_bundle.get("rain_next_60m"),
+                    rain_rate_5m_mm_h=w_bundle.get("rain_rate_5m_mm_h") if w_bundle.get("rain_next_60m") is not None else None,
                     daily_10d=list(w_bundle.get("daily_10d") or [])[:days_per_zone],
                     # the weather provider, and the air quality provider when its index was added to `current`
                     attribution=merge_credits(

@@ -32,6 +32,7 @@ for _name in (
     "VIGIE_ENABLE_WATCHED_POINTS_WRITE",
     "VIGIE_ADMIN_TOKEN",
     "VIGIE_FIRMS_MAP_KEY",
+    "VIGIE_METEO_GATEWAY_URL",
 ):
     os.environ.pop(_name, None)
 # The application of the tests does not read NASA FIRMS (it is on by default, 20 MB an hour): the tests of the fires build their own collector.
