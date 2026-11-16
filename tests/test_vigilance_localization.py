@@ -137,6 +137,7 @@ def test_the_shapes_are_small_enough_to_live_in_the_repository() -> None:
         "eaws-euregio-regions.geojson.gz",
         "geocodes-nuts.geojson.gz",
         "gem-active-faults.geojson.gz",
+        "meteofrance-bra-massifs.geojson.gz",
         "provinces-tr.geojson.gz",
     }
     # The shapes the warnings are localized with: every country of Natural Earth, 244 borders (it was 135 for the countries with a source,

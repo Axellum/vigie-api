@@ -1,6 +1,6 @@
-"""Sober CAAML v6 avalanche bulletin collectors (SLF Switzerland/Liechtenstein and EAWS Euregio).
+"""Sober avalanche bulletin collectors (SLF Switzerland/Liechtenstein, EAWS Euregio, and Météo-France BRA in ``meteofrance_bra.py``).
 
-Both feeds are single-document downloads updated once or twice per day during the snow
+The two CAAML feeds are single-document downloads updated once or twice per day during the snow
 season and on unscheduled snow events:
 
 * ``slf_avalanche``: ``https://aws.slf.ch/api/bulletin/caaml/en/geojson`` (WSL Institute for
@@ -16,6 +16,10 @@ season and on unscheduled snow events:
 Neither collector performs per-coordinate upstream requests: coverage gating uses the
 bundled offline country and micro-region shapefiles, and a 30-minute TTL with conditional
 validators keeps upstream traffic minimal.
+
+The third source, ``meteofrance_bra`` (France: Alps, Corsica, Pyrenees), is one small request per massif, cached 30 minutes, and needs
+a key; its massifs are matched offline against ``app/data/meteofrance-bra-massifs.geojson.gz``. ``resolve_avalanche_coverage`` tries
+SLF (CH/LI), then Euregio, then the BRA massifs.
 """
 from __future__ import annotations
 
@@ -36,6 +40,7 @@ from shapely.strtree import STRtree
 
 from app import clock
 from app.collectors.base import BaseCollector, CacheEntry, Collected, Fetched, parse_iso_utc
+from app.collectors.meteofrance_bra import BRA_ATTRIBUTION, BRA_WEB_URL, BRAMassifIndex, get_bra_index
 from app.models.avalanches import (
     EAWS_DANGER_LABELS,
     EAWS_DANGER_LEVELS,
@@ -61,6 +66,13 @@ EUREGIO_ATTRIBUTION = (
     "Avalanche.report — Avalanche Warning Service Tirol, Südtirol, Trentino "
     "(https://avalanche.report). CC BY 4.0 DEED"
 )
+
+# Public page and credit of each source (one place, so a new source is one line here).
+SOURCE_LINKS: dict[str, tuple[str, str]] = {
+    "slf_avalanche": (SLF_BULLETIN_WEB_URL, SLF_ATTRIBUTION),
+    "euregio_avalanche": (EUREGIO_BULLETIN_WEB_URL, EUREGIO_ATTRIBUTION),
+    "meteofrance_bra": (BRA_WEB_URL, BRA_ATTRIBUTION),
+}
 
 EUREGIO_REGIONS_PATH = Path(__file__).resolve().parent.parent / "data" / "eaws-euregio-regions.geojson.gz"
 AVALANCHE_TTL_SECONDS = 1800
@@ -578,10 +590,11 @@ def resolve_avalanche_coverage(
     lon: float,
     *,
     euregio_index: Optional[EuregioRegionIndex] = None,
+    bra_index: Optional[BRAMassifIndex] = None,
     countries: Optional[CountryIndex] = None,
     preferred_source: Optional[str] = None,
 ) -> tuple[Optional[AvalancheSourceId], list[AvalancheRegion]]:
-    """Determine offline whether ``(lat, lon)`` belongs to SLF or Euregio coverage.
+    """Determine offline whether ``(lat, lon)`` belongs to SLF, Euregio or Météo-France BRA coverage (in that order).
 
     Returns ``(source_id, matched_regions)``. Performs zero network requests.
     """
@@ -597,10 +610,17 @@ def resolve_avalanche_coverage(
     if preferred_source == "euregio":
         return ("euregio_avalanche", eur_regions) if eur_regions else (None, [])
 
+    bra_regions = (bra_index or get_bra_index()).matches(lat, lon)
+
+    if preferred_source == "meteofrance":
+        return ("meteofrance_bra", bra_regions) if bra_regions else (None, [])
+
     if any(c in SLF_COUNTRIES for c in country_codes):
         return "slf_avalanche", []
     if eur_regions:
         return "euregio_avalanche", eur_regions
+    if bra_regions:
+        return "meteofrance_bra", bra_regions
     return None, []
 
 
@@ -613,8 +633,7 @@ def summarize_point_avalanche(
     region_name: Optional[str] = None,
 ) -> AvalancheStatus:
     """Build the compact ``PointResponse.avalanche`` summary from matched active bulletins."""
-    bulletin_url = SLF_BULLETIN_WEB_URL if source == "slf_avalanche" else EUREGIO_BULLETIN_WEB_URL
-    attribution = SLF_ATTRIBUTION if source == "slf_avalanche" else EUREGIO_ATTRIBUTION
+    bulletin_url, attribution = SOURCE_LINKS[source]
     if not active_bulletins:
         return AvalancheStatus(
             status="confirmed_none",

@@ -328,6 +328,13 @@ CREDITS: dict[str, Credit] = {
             "Source: Avalanche.report — Avalanche Warning Service Tirol, Südtirol, Trentino (https://avalanche.report). CC BY 4.0 DEED",
             "ours",
         ),
+        Credit(
+            "meteofrance_bra",
+            "Météo-France (DPBRA), avalanche-risk bulletins",
+            "Source: Météo-France, bulletin d'estimation du risque d'avalanche (BRA, https://meteofrance.com/meteo-montagne). "
+            "Licence Ouverte 2.0 (Etalab)",
+            "ours",
+        ),
         # The travel advice of the foreign ministries (SOURCES.md, "Travel advice").
         Credit(
             "travel_gb",
@@ -426,6 +433,7 @@ GASPAR_CATNAT = ("gaspar_catnat",)
 PREALERT = ("ecmwf_opendata",)
 AVALANCHE_SLF = ("slf_avalanche",)
 AVALANCHE_EUREGIO = ("euregio_avalanche",)
+AVALANCHE_BRA = ("meteofrance_bra",)
 TIDES = ("eot20",)
 TIDES_CALIBRATED = ("eot20", "refmar_tides")
 TIDE_CORRECTION = ("shom_refmar",)
