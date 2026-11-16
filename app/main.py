@@ -145,6 +145,7 @@ from app.models.schemas import (
     SimulationResponse,
     SnapshotResponse,
 )
+from app.models.sea_buoys import SeaBuoys
 from app.models.sea_places import PlaceAnswer, PlaceList, PlaceType
 from app.models.sky import AuroraOvalCollection, AuroraResponse, EclipseDetail, EclipseList, EclipseMapCollection
 from app.models.stations import SpotStationReading, SpotStations
@@ -164,7 +165,17 @@ from app.models.vigilance import (
 from app.models.watch import WatchedPointsStatus
 from app.routers.dashboard import router as dashboard_router
 from app.security import AdminTokenMiddleware, admin_token, document_admin_token
-from app.services import activities, buoys, sea_places, stations, surf, surf_correction, tide_correction, tides
+from app.services import (
+    activities,
+    buoys,
+    sea_buoys,
+    sea_places,
+    stations,
+    surf,
+    surf_correction,
+    tide_correction,
+    tides,
+)
 from app.services import activities_overview as activities_summary
 from app.services import earthquakes as quakes
 from app.services.aggregator import AggregatorService
@@ -1083,6 +1094,45 @@ async def get_sea_place(response: Response, place_id: str) -> PlaceAnswer:
     except sea_places.UnknownPlace:
         raise HTTPException(status_code=404, detail=f"no place {place_id!r}") from None
     response.headers["Cache-Control"] = PLACES_CACHE
+    return answer
+
+
+SEA_BUOYS_CACHE = "public, max-age=600"  # hourly records, read every 30 minutes
+
+
+@app.get(
+    "/v1/sea/buoys",
+    response_model=SeaBuoys,
+    tags=["Sea"],
+    responses={422: {"description": "`near_lat` without `near_lon` (or the other way round), or `radius_km` without them."}},
+    description=(
+        "The latest hourly record of the moored buoys of Météo-France (`DPObs/v2/bouees`), out at sea: in the Mediterranean (the Gulf of "
+        "Lion, Provence, around Corsica), in the Bay of Biscay and off the Antilles. The significant wave height, the mean period and "
+        "the direction of the waves, the sea and air temperatures, the wind and the gust, the sea-level pressure, with the date of the "
+        "record (UTC) and its age. Only buoys with a record of the last `max_age_hours` hours are listed; with `near_lat`, `near_lon` "
+        "they are sorted nearest first with `distance_km` (and kept within `radius_km` when it is given). What the open sea does, not "
+        "what a beach gets: the buoy of a surf spot is `GET /v1/surf/spots/{id}/buoy`. Météo-France is read at most every 30 minutes "
+        "for every client (a key is needed: without `VIGIE_METEOFRANCE_API_KEY` on this instance `status` is `not_configured`). "
+        "**Not for safety.**"
+    ),
+)
+async def get_sea_buoys(
+    response: Response,
+    near_lat: Optional[float] = Query(default=None, ge=-90.0, le=90.0, description="Latitude of the point the buoys are sorted from"),
+    near_lon: Optional[float] = Query(default=None, ge=-180.0, le=180.0, description="Longitude of that point"),
+    radius_km: Optional[float] = Query(
+        default=None, gt=0.0, le=2000.0, description="Only buoys within this distance (needs `near_lat`, `near_lon`)"
+    ),
+    limit: int = Query(default=50, ge=1, le=100, description="Most buoys returned"),
+) -> SeaBuoys:
+    """The offshore buoys of Météo-France and their latest record."""
+    if (near_lat is None) != (near_lon is None):
+        raise HTTPException(status_code=422, detail="near_lat and near_lon go together")
+    if radius_km is not None and near_lat is None:
+        raise HTTPException(status_code=422, detail="radius_km needs near_lat and near_lon")
+    near = (near_lat, near_lon) if near_lat is not None and near_lon is not None else None
+    answer = await sea_buoys.sea_buoys(aggregator.meteofrance_buoys, clock.wall(), near, radius_km, limit)
+    response.headers["Cache-Control"] = SEA_BUOYS_CACHE
     return answer
 
 

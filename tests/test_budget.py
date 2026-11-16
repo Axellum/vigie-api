@@ -133,6 +133,7 @@ def test_quotas_are_declared_in_one_place_with_their_source() -> None:
         "travel_gb",  # GOV.UK Content API: 10 requests a second per client
         "candhis_tr",  # 150 requests a day, as the e-mail that gives the key says (see budget.py)
         "meteofrance_vigilance",  # Météo-France API portal (DPVigilance v1): 50 requests a minute on the free plan
+        "meteofrance_buoys",  # Météo-France API portal (DPObs v2 buoys): 50 requests a minute, one request every 30 minutes
         "meteofrance_obs",  # Météo-France API portal (DPPaquetObs v1): 50 requests a minute on the free plan
         "meteofrance_bra",  # Météo-France API portal (DPBRA v1): 50 requests a minute (stated by the owner for this key)
         "vigieau",  # VigiEau public API: 300 requests per 15 minutes per IP (ThrottlerModule)

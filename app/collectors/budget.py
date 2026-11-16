@@ -122,6 +122,13 @@ QUOTAS: dict[str, Quota] = {
         (Limit(60, 50),),
         "https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesBRA",
     ),
+    # Météo-France Portail API (DPObs v2, buoys): 50 requests a minute, the plan of the portal's public data (not re-read on the
+    # page of this API, rendered by script). This API sends at most one request every 30 minutes (48 a day).
+    "meteofrance_buoys": Quota(
+        "meteofrance-buoys",
+        (Limit(60, 50),),
+        "https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesObservation",
+    ),
     # Météo-France PIAF, read through a vigie-meteo gateway (``app/collectors/meteo_gateway.py``): the gateway sends about 18 PIAF
     # requests per point and per run, and Météo-France's free plan allows 50 a minute (the plan stated for DPVigilance; not re-read
     # on the PIAF entry of the portal). A ceiling of our own, per instance: 8 points every 5 minutes (held to 90 %: 7, about 25 PIAF
