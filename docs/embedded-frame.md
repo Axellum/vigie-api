@@ -129,14 +129,22 @@ Rules:
 `RAIN5M` has 3 fields: `RAIN5M|zone_id|v0,v1,...,v11`.
 
 Twelve rain rates in mm/h, one per 5 minutes over the next hour, 2 decimals. The short-term
-rain of the frame (this line and `ZONE` fields 16 to 18) comes **only from Open-Meteo's
-`minutely_15` precipitation**, never from the RainViewer radar (the free RainViewer API has had
-no nowcast since 2026-01-01). Open-Meteo documents that its 15-minute data is native only in
-Central Europe and North America; elsewhere it is interpolated by Open-Meteo from hourly data,
-so outside those regions the four values are not a true nowcast. The provider supplies only
-four 15-minute amounts, so each amount is converted to a rate (amount x 4) and repeated for
-its three 5-minute steps; nothing is interpolated or extrapolated by this API. The field is
-empty when the nowcast is unknown (same condition as `ZONE` field 16).
+rain of the frame (this line and `ZONE` fields 16 to 18) never comes from the RainViewer radar
+(the free RainViewer API has had no nowcast since 2026-01-01). It comes from one of two sources:
+
+- **Météo-France PIAF**, in France, when the instance has a vigie-meteo gateway
+  (`VIGIE_METEO_GATEWAY_URL`) and the gateway gives the twelve 5-minute steps from the current
+  5-minute boundary on: the twelve values are PIAF's own rates, and `ZONE` field 18 holds their
+  sums by quarter of an hour (fields 16 and 17 are computed from those sums, as below).
+- Otherwise **Open-Meteo's `minutely_15` precipitation**. Open-Meteo documents that its
+  15-minute data is native only in Central Europe and North America; elsewhere it is
+  interpolated by Open-Meteo from hourly data, so outside those regions the four values are not
+  a true nowcast. The provider supplies only four 15-minute amounts, so each amount is converted
+  to a rate (amount x 4) and repeated for its three 5-minute steps; nothing is interpolated or
+  extrapolated by this API.
+
+The format is the same with both sources. The field is empty when the nowcast is unknown (same
+condition as `ZONE` field 16).
 
 ## `DAY`
 

@@ -167,12 +167,18 @@ class DailyForecast(BaseModel):
 
 
 class RainNowcast(BaseModel):
-    """Precipitation over the next 60 minutes (Open-Meteo 15-minute steps) and the latest observed radar frame."""
+    """Precipitation over the next 60 minutes (Open-Meteo 15-minute steps, or in France, when a vigie-meteo gateway is
+    configured, Météo-France PIAF 5-minute steps summed by quarter of an hour) and the latest observed radar frame."""
 
     interval_minutes: int = Field(default=15, description="Time step (minutes)")
     mm_per_step: Optional[list[float]] = Field(
         default=None,
         description="Precipitation (mm) per 15-minute step over the next hour; null when unknown",
+    )
+    rate_5m_mm_h: Optional[list[float]] = Field(
+        default=None,
+        description="Rain rate (mm/h) of each 5-minute step over the next hour (twelve values), from Météo-France PIAF; "
+        "null when the rain comes from a provider without 5-minute steps",
     )
     rain_expected_60m: Optional[bool] = Field(default=None, description="Rain expected within 60 minutes")
     max_mm_h: Optional[float] = Field(default=None, ge=0.0, description="Peak equivalent intensity (mm/h)")
@@ -184,7 +190,8 @@ class RainNowcast(BaseModel):
     )
     attribution: Optional[str] = Field(
         default=None,
-        description="Credit for the rain steps (Open-Meteo) and, when the radar fields are filled, for the radar "
+        description="Credit for the rain steps (the weather provider, and Météo-France PIAF when it gave the rain) and, "
+        "when the radar fields are filled, for the radar "
         "(RainViewer); null when the block holds no data",
     )
 
@@ -350,6 +357,10 @@ class ZoneWeather(BaseModel):
     )
     rain_next_60m: Optional[list[float]] = Field(
         default=None, description="Precipitation per 15-minute step over the next hour (mm); null when unknown"
+    )
+    rain_rate_5m_mm_h: Optional[list[float]] = Field(
+        default=None,
+        description="Rain rate (mm/h) of each 5-minute step over the next hour, from Météo-France PIAF; null otherwise",
     )
     daily_10d: list[DailyForecast] = Field(default_factory=list, description="Daily forecasts")
     attribution: Optional[str] = Field(
