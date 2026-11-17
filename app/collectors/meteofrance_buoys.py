@@ -45,6 +45,8 @@ WINDOW_HOURS = 6
 MAX_BYTES = 2 * 1024 * 1024
 _KEY_SHAPE = re.compile(r"^[A-Za-z0-9._\-+/=]{16,}$")
 _ACRONYMS = {"PACA"}  # kept in capitals by ``display_name`` (Provence-Alpes-Côte d'Azur)
+# Short names of Météo-France spelled out: BOUEE_VECCHIO is the buoy off Porto-Vecchio (Corsica).
+_FULL_NAMES = {"VECCHIO": "Porto-Vecchio"}
 
 
 @dataclass(frozen=True)
@@ -106,6 +108,8 @@ def display_name(raw: str) -> str:
         text = text[6:]
     if text in _ACRONYMS:
         return text
+    if text in _FULL_NAMES:
+        return _FULL_NAMES[text]
     return text.replace("_", " ").title() if text.isupper() else text
 
 

@@ -51,6 +51,7 @@ def test_key_shape_and_redaction() -> None:
 def test_names() -> None:
     assert display_name("BOUEE_GASCOGNE") == "Gascogne"
     assert display_name("BOUEE_PACA") == "PACA"
+    assert display_name("BOUEE_VECCHIO") == "Porto-Vecchio"
     assert display_name("Some buoy") == "Some buoy"
 
 
