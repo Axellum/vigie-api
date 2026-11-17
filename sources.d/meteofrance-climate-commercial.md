@@ -1,0 +1,2 @@
+<!-- section: Commercial use (for the paid app to come) -->
+| `meteofrance_climate` | Météo-France (Fiches climatologiques), normals 1991-2020 and records of the stations | **allowed** | Licence Ouverte 2.0 (Etalab): any use, commercial included, with the source and the date of the data named. | [1](https://www.data.gouv.fr/datasets/fiches-climatologiques), [2](https://www.etalab.gouv.fr/licence-ouverte-open-licence/) | 2026-11-17 |

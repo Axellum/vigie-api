@@ -19,6 +19,7 @@ Endpoints:
                                      every hazard source answered and has been read without a gap.
 - ``GET    /v1/history``           : Hazard history from SQLite, with filters.
 - ``GET    /v1/history/catnat``    : Historical French natural disaster decrees (GASPAR CatNat, 1982-2025) by position or INSEE commune code.
+- ``GET    /v1/climate/normals``   : Normals 1991-2020 and records of the nearest Météo-France station, and a given value set against them.
 - ``GET    /v1/point``             : Weather at a GPS position (``lat, lon``): 15-minute rain, radar,
                                      marine (``marine=true``), river discharge, air quality / ash,
                                      space weather and nearby hazards.
@@ -116,6 +117,7 @@ from app.models.activities import ActivitiesForecast, ActivitiesOverview, BoatCa
 from app.models.avalanches import AvalancheResponse
 from app.models.buoys import SpotBuoyReading, SpotBuoys
 from app.models.catnat import CatNatHazardType, CatNatHistoryResponse
+from app.models.climate import ClimateNormalsResponse
 from app.models.drought import (
     DroughtDepartmentsResponse,
     DroughtLevel,
@@ -180,6 +182,7 @@ from app.services import activities_overview as activities_summary
 from app.services import earthquakes as quakes
 from app.services.aggregator import AggregatorService
 from app.services.catnat import UnknownCommuneError, query_catnat_history
+from app.services.climate import DEFAULT_MAX_DISTANCE_KM, query_climate_normals
 from app.services.events import FAMILIES, FAMILIES_NOTE, FAMILY_IDS, WORLD_MIN_IMPACT
 from app.services.fires import (
     CELL_SIZES,
@@ -603,6 +606,46 @@ async def get_catnat_history(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
 
+    response.headers["Cache-Control"] = "public, max-age=86400"
+    return result
+
+
+CLIMATE_NORMALS_DESCRIPTION = (
+    "The normals (1991-2020, or the shorter period the sheet names) and the records of one month at the Météo-France station "
+    "nearest to a position, as its climate sheet (Fiches climatologiques, Licence Ouverte 2.0) gives them: mean maximum, minimum "
+    "and mean temperature, rain of the month, average days of rain, frost and heat, sunshine, and the records of heat, cold, "
+    "rain in one day and gust with their day. The sheets are bundled (refreshed monthly by Météo-France, rebuilt with "
+    "`tools/build_climate_normals.py`): this route asks no provider. The station is the nearest that still measures within "
+    "`max_distance_km`, else the nearest there (`station.active` false: its records stopped and are not set against a value); "
+    "farther, `status` is `outside_coverage` and nothing is estimated. Give `tmax`, `tmin` (°C) or `rain_mm` (one day) to get "
+    "`comparison`: the difference with the normal of the month and whether the value goes past the record of the month. A normal "
+    "is the mean of the whole month, not of one day, and a station at another altitude than the position can differ by several "
+    "degrees: `station` says where it is. ADR 0027."
+)
+
+
+@app.get(
+    "/v1/climate/normals",
+    response_model=ClimateNormalsResponse,
+    tags=["History"],
+    description=CLIMATE_NORMALS_DESCRIPTION,
+)
+async def get_climate_normals(
+    response: Response,
+    lat: float = Query(..., ge=-90.0, le=90.0, description="WGS84 latitude"),
+    lon: float = Query(..., ge=-180.0, le=180.0, description="WGS84 longitude"),
+    month: Optional[int] = Query(default=None, ge=1, le=12, description="Month (1-12); the month of the UTC date when not given"),
+    max_distance_km: float = Query(
+        default=DEFAULT_MAX_DISTANCE_KM, gt=0.0, le=300.0, description="Farthest station accepted (km)"
+    ),
+    tmax: Optional[float] = Query(default=None, ge=-90.0, le=70.0, description="A maximum temperature (°C) to set against the month"),
+    tmin: Optional[float] = Query(default=None, ge=-90.0, le=70.0, description="A minimum temperature (°C) to set against the month"),
+    rain_mm: Optional[float] = Query(default=None, ge=0.0, le=2000.0, description="Rain of one day (mm) to set against the record"),
+) -> ClimateNormalsResponse:
+    """Normals and records of the month at the nearest Météo-France station, and the values given set against them."""
+    result = query_climate_normals(
+        lat=lat, lon=lon, month=month, max_distance_km=max_distance_km, tmax=tmax, tmin=tmin, rain_mm=rain_mm
+    )
     response.headers["Cache-Control"] = "public, max-age=86400"
     return result
 
