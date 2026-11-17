@@ -318,6 +318,14 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "meteofrance_climate",
+            "Météo-France (Fiches climatologiques), normals 1991-2020 and records of the stations",
+            "Source: Météo-France, Fiches climatologiques (https://www.data.gouv.fr/datasets/fiches-climatologiques, Licence Ouverte 2.0), "
+            "dated as in the answer (sheet_edited); the choice of the station, its distance and the comparison with a given value are "
+            "calculated by Vigie",
+            "ours",
+        ),
+        Credit(
             "vigieau",
             "VigiEau (Ministère de la Transition écologique)",
             "Source: VigiEau, Ministère de la Transition écologique (https://vigieau.gouv.fr). Licence Ouverte 2.0",
@@ -449,6 +457,7 @@ AVALANCHE_SLF = ("slf_avalanche",)
 AVALANCHE_EUREGIO = ("euregio_avalanche",)
 AVALANCHE_BRA = ("meteofrance_bra",)
 RAIN_PIAF = ("meteofrance_piaf",)
+METEOFRANCE_CLIMATE = ("meteofrance_climate",)
 TIDES = ("eot20",)
 TIDES_CALIBRATED = ("eot20", "refmar_tides")
 TIDE_CORRECTION = ("shom_refmar",)
