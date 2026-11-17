@@ -22,6 +22,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Awaitable, Literal, Optional, TypeVar
@@ -203,6 +204,46 @@ from app.services.watch import SourceReads, build_status, candidate_ids, parse_w
 T = TypeVar("T")
 
 log = logging.getLogger(__name__)
+
+# How often a hazard set served again from memory is written to the history again, to keep its "last seen active" time
+# (``updated_utc``) current for the windows of ``recent_hazard_points``.
+HAZARD_RECORD_REFRESH_S = 60.0
+
+
+def _hazard_inputs(
+    source_lists: list[Optional[list[Any]]],
+    simulated: Optional[list[Any]],
+    zones: list[Any],
+    fires: Any,
+    place_settings: Any,
+    storage: Any,
+) -> tuple[Any, ...]:
+    """What the fused hazards are made from, as the objects themselves (compared by identity, never by value)."""
+    return (
+        *source_lists,
+        simulated,
+        len(simulated) if simulated is not None else 0,
+        zones,
+        len(zones),
+        fires,
+        place_settings,
+        storage,
+    )
+
+
+@dataclass
+class _HazardMemo:
+    """The fused, annotated hazards of the last reading, with the inputs they were made from."""
+
+    inputs: tuple[Any, ...]
+    hazards: tuple[Any, ...]
+    recorded_at: float
+
+    def matches(self, inputs: tuple[Any, ...]) -> bool:
+        """True when every input is the same object (or the same length) as last time."""
+        return len(inputs) == len(self.inputs) and all(
+            a is b or (isinstance(a, int) and a == b) for a, b in zip(inputs, self.inputs, strict=True)
+        )
 
 EVENTS_NOTE = (
     "The events are Vigie's own grouping (ADR 0012): `title`, `level`, `areas_count`, the period and `bbox` are worked out (listed in "
@@ -426,6 +467,8 @@ class AggregatorService:
         self.monitored_zones: list[dict[str, Any]] = [
             z.model_dump() for z in self.storage.list_zones()
         ]
+        # The fused hazards of the last reading and what they were made from (see ``collect_hazards_with_status``).
+        self._hazard_memo: Optional[_HazardMemo] = None
         # The watched points and the runs of readings are read from the database once per storage (see the properties below).
         self._watched: list[WatchedPoint] = []
         self._watched_storage: Optional[SQLiteWALStorage] = None
@@ -796,18 +839,47 @@ class AggregatorService:
         if self.simulation_active and self.simulated_hazards:
             raw_hazards.extend(self.simulated_hazards)
 
+        try:
+            recent_fires = self.fires.recent_cached_set()
+        except Exception:
+            log.warning("the recent fires could not be read", exc_info=True)
+            recent_fires = None
+        # Fusing, annotating and recording every hazard of the world costs most of a ``GET /v1/point`` (about 80 %, profiled on
+        # 2026-11-17), yet its inputs change only when a source is read again: the collectors hand back the very same cached lists
+        # until then. While every input is the same object as last time, the last result is served again.
+        inputs = _hazard_inputs(
+            [res if isinstance(res, list) else None for res in results],
+            self.simulated_hazards if self.simulation_active else None,
+            self.monitored_zones,
+            recent_fires,
+            self.places.settings,
+            self.storage,
+        )
+        memo = self._hazard_memo
+        now = clock.wall()
+        if memo is not None and memo.matches(inputs):
+            if now - memo.recorded_at >= HAZARD_RECORD_REFRESH_S:
+                # The history keeps "last seen active" (``updated_utc``) for the lasting hazards: refresh it now and then.
+                memo.recorded_at = now
+                self._record_hazards(memo.hazards)
+            return list(memo.hazards), sources_ok, len(results)
+
         fused = deduplicate_hazards(raw_hazards)
         enriched = [self._attach_nearest_monitored_zone(h) for h in fused]
         try:  # the places near each hazard; they never change a severity, and a failure of theirs never stops the hazards
-            recent_fires = self.fires.recent_cached_set()
             enriched = self.places.annotate(enriched, fires=recent_fires)
         except Exception:
             log.warning("near_places could not be worked out", exc_info=True)
+        self._record_hazards(enriched)
+        self._hazard_memo = _HazardMemo(inputs=inputs, hazards=tuple(enriched), recorded_at=now)
+        return enriched, sources_ok, len(results)
+
+    def _record_hazards(self, hazards: Any) -> None:
+        """Write the hazards to the history; a failure of the storage never stops the hazards."""
         try:
-            self.storage.record_hazards(enriched)
+            self.storage.record_hazards(hazards)
         except Exception:
             pass
-        return enriched, sources_ok, len(results)
 
     async def collect_and_fuse_hazards(self) -> list[HazardAlert]:
         """Collect USGS, EMSC, GDACS, NOAA NWS, USGS Volcano, the NHC storms and the tsunami centres in parallel, de-duplicate and record them."""
