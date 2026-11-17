@@ -129,12 +129,12 @@ QUOTAS: dict[str, Quota] = {
         (Limit(60, 50),),
         "https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesObservation",
     ),
-    # Météo-France PIAF, read through a vigie-meteo gateway (``app/collectors/meteo_gateway.py``): the gateway sends about 18 PIAF
-    # requests per point and per run, and Météo-France's free plan allows 50 a minute (the plan stated for DPVigilance; not re-read
-    # on the PIAF entry of the portal). A ceiling of our own, per instance: 8 points every 5 minutes (held to 90 %: 7, about 25 PIAF
-    # requests a minute). A point over the ceiling keeps Open-Meteo's rain. The page it points to is the one of this project that
-    # states it (SOURCES.md).
-    "meteofrance_piaf": Quota("vigie-meteo-piaf", (Limit(300, 8),), "https://github.com/Axellum/vigie-api/blob/main/SOURCES.md"),
+    # Météo-France PIAF, read through a vigie-meteo gateway (``app/collectors/meteo_gateway.py``). Since vigie-meteo #3 the gateway
+    # downloads one map of France per run (about 18 PIAF requests every 5 minutes, whatever the number of points; Météo-France's
+    # free plan allows 50 a minute) and reads each point from it, so a point costs a gateway call, not a Météo-France request.
+    # A ceiling of our own, per instance, that protects the gateway: 3,000 points every 5 minutes (held to 90 %: 2,700). A point
+    # over the ceiling keeps Open-Meteo's rain. The page it points to is the one of this project that states it (SOURCES.md).
+    "meteofrance_piaf": Quota("vigie-meteo-piaf", (Limit(300, 3000),), "https://github.com/Axellum/vigie-api/blob/main/SOURCES.md"),
     # VigiEau (https://api.vigieau.gouv.fr): MTES-MCT/vigieau-api configures ThrottlerModule at 300 requests per 15 minutes
     # per IP (``x-ratelimit-limit: 300`` observed on 2026-11-15, alongside a 1s reset header from throttler v6 ms units).
     # Enforcing 300 / 900s (held to 90% = 270 / 15 min) protects the upstream and is backed by 1-hour grid/commune caching.
