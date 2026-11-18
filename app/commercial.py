@@ -325,6 +325,15 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-11-18",
         ),
         CommercialUse(
+            "meteofrance_shortterm",
+            "not_verified",
+            "AROME-PI is Météo-France's model, offered free of charge on its API portal. The Open Data page that explains its precipitation "
+            "types (the only page of the model read) names no licence, and the portal's description page of the API was not read: no licence "
+            "is claimed. The levels (strong gusts, reduced visibility) and the kinds of precipitation are worked out by Vigie.",
+            ("https://confluence-meteofrance.atlassian.net/wiki/spaces/OpenDataMeteoFrance/pages/1674051588",),
+            "2026-11-18",
+        ),
+        CommercialUse(
             "meteofrance_uv",
             "not_verified",
             "Free of charge on the Météo-France portal; the API's own description names the source ('Source : Météo-France') and no "

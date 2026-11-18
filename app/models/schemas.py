@@ -32,6 +32,7 @@ from app.models.avalanches import AvalancheStatus
 from app.models.drought import DroughtStatus
 from app.models.places import NearPlace
 from app.models.pollens import PollenStatus
+from app.models.shortterm import ShortTerm
 
 
 def cap_sender() -> str:
@@ -609,6 +610,13 @@ class PointResponse(BaseModel):
         description="CAAML v6 avalanche bulletin summary (SLF CC BY 4.0 for `CH`/`LI`, Avalanche.report CC BY 4.0 DEED for Euregio "
         "`AT-07`/`IT-32-BZ`/`IT-32-TN`); null outside verified coverage or when upstream is unavailable. Informative only: never "
         "part of `local_alert_level`",
+    )
+    short_term: Optional[ShortTerm] = Field(
+        default=None,
+        description="The next hours (up to 6, steps of 15 minutes) at the position from Météo-France's AROME-PI model: hail, gusts, reduced "
+        "visibility and type of precipitation, with levels worked out by this API. Only in metropolitan France and Corsica and only on an "
+        "instance with a vigie-meteo gateway; null elsewhere, when the gateway has no recent run, or when the source is off "
+        "(`GET /v1/health`, `disabled_sources`). A model forecast: informative only, never part of `local_alert_level`, never an official warning",
     )
 
 
