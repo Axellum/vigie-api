@@ -326,6 +326,13 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "meteofrance_overseas",
+            "Météo-France (AROME Outre-mer), weather of the overseas territories",
+            "Source: Météo-France, modèle AROME Outre-mer (https://portail-api.meteofrance.fr, Licence Ouverte 2.0), read by a vigie-meteo gateway, "
+            "dated by its run; the weather code is worked out by Vigie from the rain and the cloud cover, not a Météo-France product",
+            "ours",
+        ),
+        Credit(
             "meteofrance_radar",
             "Météo-France (DPRadar), radar mosaic of metropolitan France",
             "Source: Météo-France, mosaïque radar lame d'eau (https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesRadar, "

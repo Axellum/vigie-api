@@ -325,6 +325,18 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-11-18",
         ),
         CommercialUse(
+            "meteofrance_overseas",
+            "allowed",
+            "Licence Ouverte 2.0 (Etalab), as the licence document of the PaquetAROME-OM API on Météo-France's portal states it (read on 2026-11-18): "
+            "reuse, commercial included, with the source named, the date of the last update given (the run) and the data not altered. The weather code "
+            "is worked out by Vigie from the rain and the cloud cover, and says so in the credit.",
+            (
+                "https://portail-api.meteofrance.fr/api/am/devportal/v3/apis/a048fffe-3c6f-41f6-97c8-35e8fb0cea2b/documents/c887eb90-20fa-44fb-93c1-7d8b42439b86/content",
+                "https://www.etalab.gouv.fr/licence-ouverte-open-licence/",
+            ),
+            "2026-11-18",
+        ),
+        CommercialUse(
             "meteofrance_shortterm",
             "allowed",
             "Licence Ouverte 2.0 (Etalab), as the licence document of the AROME-PI API on Météo-France's portal states it (read on 2026-11-18): "
