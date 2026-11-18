@@ -78,6 +78,8 @@ from app.collectors.meteoalarm import MeteoAlarmCapCollector, MeteoAlarmCollecto
 from app.collectors.meteofrance import MeteoFranceVigilanceCollector, meteofrance_key_from_env
 from app.collectors.meteofrance_bra import KEY_ENV, MeteoFranceBRACollector, massif_code, meteofrance_bra_key_from_env
 from app.collectors.meteofrance_buoys import MeteoFranceBuoysCollector, meteofrance_buoys_key_from_env
+from app.collectors.meteofrance_ensemble import MeteoFranceEnsembleCollector
+from app.collectors.meteofrance_ensemble import compact as compact_probabilities
 from app.collectors.meteofrance_obs import MeteoFranceObsCollector, meteofrance_obs_key_from_env
 from app.collectors.meteofrance_radar import TILE_PATH as RADAR_TILE_PATH
 from app.collectors.meteofrance_radar import MeteoFranceRadarCollector
@@ -146,6 +148,7 @@ from app.models.drought import (
     worst_drought_level,
 )
 from app.models.earthquakes import EarthquakesQuery, EarthquakesResponse
+from app.models.ensemble import Probabilities
 from app.models.events import EventsQuery, EventsResponse
 from app.models.forecast import HazardForecast
 from app.models.places import WatchedPoint, WatchedPointUpsertRequest
@@ -326,6 +329,7 @@ class AggregatorService:
         meteofrance_uv: Optional[MeteoFranceUvCollector] = None,
         meteofrance_radar: Optional[MeteoFranceRadarCollector] = None,
         meteofrance_shortterm: Optional[MeteoFranceShortTermCollector] = None,
+        meteofrance_ensemble: Optional[MeteoFranceEnsembleCollector] = None,
         vigicrues: Optional[VigicruesCollector] = None,
         vigieau: Optional[VigiEauCollector] = None,
         slf_avalanche: Optional[SLFAvalancheCollector] = None,
@@ -472,6 +476,11 @@ class AggregatorService:
         if meteofrance_shortterm is None and gateway_url is not None:
             meteofrance_shortterm = MeteoFranceShortTermCollector(gateway_url)
         self.meteofrance_shortterm = meteofrance_shortterm
+        # Probabilities of rain, snow, gusts, hail and storm (Météo-France PE-AROME and PE-ARPEGE ensembles), from the same gateway.
+        self.meteofrance_ensemble_off_reason = "no vigie-meteo gateway: set VIGIE_METEO_GATEWAY_URL (Météo-France ensemble probabilities over France)"
+        if meteofrance_ensemble is None and gateway_url is not None:
+            meteofrance_ensemble = MeteoFranceEnsembleCollector(gateway_url)
+        self.meteofrance_ensemble = meteofrance_ensemble
         self.vigicrues = vigicrues or VigicruesCollector()
         self.vigieau = vigieau or VigiEauCollector()
         self.slf_avalanche = slf_avalanche or SLFAvalancheCollector()
@@ -720,6 +729,8 @@ class AggregatorService:
             collectors.append(self.meteofrance_radar)
         if self.meteofrance_shortterm is not None:
             collectors.append(self.meteofrance_shortterm)
+        if self.meteofrance_ensemble is not None:
+            collectors.append(self.meteofrance_ensemble)
         return [c for c in collectors if c not in off]
 
     def disabled_sources(self) -> list[dict[str, str]]:
@@ -822,6 +833,15 @@ class AggregatorService:
                     "name": "Météo-France AROME-PI short-term forecast (vigie-meteo gateway)",
                     "domain": "weather",
                     "reason": self.meteofrance_shortterm_off_reason,
+                }
+            )
+        if self.meteofrance_ensemble is None:
+            off.append(
+                {
+                    "provider_id": "meteofrance_ensemble",
+                    "name": "Météo-France ensemble forecasts PE-AROME and PE-ARPEGE (vigie-meteo gateway)",
+                    "domain": "weather",
+                    "reason": self.meteofrance_ensemble_off_reason,
                 }
             )
         return off
@@ -1081,6 +1101,12 @@ class AggregatorService:
         if self.meteofrance_shortterm is None or not in_france_box(lat, lon):
             return None
         return await self.meteofrance_shortterm.short_term(lat, lon)
+
+    async def get_probabilities_safe(self, lat: float, lon: float) -> Optional[Probabilities]:
+        """The Météo-France ensemble probabilities at ``lat, lon`` in the France box; ``None`` outside it or when the gateway gives none."""
+        if self.meteofrance_ensemble is None or not in_france_box(lat, lon):
+            return None
+        return await self.meteofrance_ensemble.probabilities(lat, lon)
 
     def is_in_avalanche_coverage(self, lat: float, lon: float) -> bool:
         """Return ``True`` offline when ``(lat, lon)`` lies inside SLF (CH/LI), Euregio (AT-07/IT-32-BZ/IT-32-TN) or Météo-France BRA coverage."""
@@ -1565,6 +1591,7 @@ class AggregatorService:
             avalanche_status,
             france_radar_frames,
             short_term,
+            probabilities,
         ) = await asyncio.gather(
             self.fetch_weather_with_fallback(lat, lon),
             self.collect_and_fuse_hazards(),
@@ -1578,6 +1605,7 @@ class AggregatorService:
             self.get_avalanche_safe(lat, lon),
             self.meteofrance_radar.frames() if self.meteofrance_radar is not None and in_france_box(lat, lon) else _none_coro(),
             self.get_short_term_safe(lat, lon),
+            self.get_probabilities_safe(lat, lon),
         )
         radar_meta = radar_meta or {}
         # In France the radar is Météo-France's, relayed by this API (``GET /v1/radar/france``); elsewhere, or when the gateway has no
@@ -1704,6 +1732,9 @@ class AggregatorService:
             # Informative only: the AROME-PI forecast of the next hours never enters ``local_alert_level`` (a model forecast, not a warning).
             # The compact profile (16 KiB) keeps the levels and leaves out the 24 steps (about 2.5 KB): ask ``compact=false`` for them.
             short_term=short_term.model_copy(update={"steps": []}) if short_term is not None and compact else short_term,
+            # Informative only: the ensemble probabilities never enter ``local_alert_level`` (a model forecast, not a warning). The compact
+            # profile keeps the windows of the next 24 hours of PE-AROME; ``compact=false`` gives all of them (up to 51 hours).
+            probabilities=compact_probabilities(probabilities, clock.wall()) if probabilities is not None and compact else probabilities,
         )
 
     async def build_snapshot(

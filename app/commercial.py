@@ -337,6 +337,20 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-11-18",
         ),
         CommercialUse(
+            "meteofrance_ensemble",
+            "allowed",
+            "Licence Ouverte 2.0 (Etalab): the licence document of each of the two APIs on Météo-France's portal (PE-AROME and PE-ARPEGE, "
+            "read on 2026-11-18) says the data are under it and that the reuse, commercial included, needs the source named, the date of the last "
+            "update given (the run) and the data not altered or their meaning distorted. The PE-ARPEGE probabilities are counted by Vigie among "
+            "the 35 members; the credit says so.",
+            (
+                "https://portail-api.meteofrance.fr/api/am/devportal/v3/apis/435d98d5-173c-4e0f-ba75-6fa28c7de868/documents/e35741d2-177e-4cc5-84cb-c9326e81815a/content",
+                "https://portail-api.meteofrance.fr/api/am/devportal/v3/apis/b3f3f4c9-5289-4c02-97d0-29c7570e83b1/documents/eb0fc7a2-4a86-4583-ae93-1bc27e5f343f/content",
+                "https://www.etalab.gouv.fr/licence-ouverte-open-licence/",
+            ),
+            "2026-11-18",
+        ),
+        CommercialUse(
             "meteofrance_uv",
             "not_verified",
             "Free of charge on the Météo-France portal; the API's own description names the source ('Source : Météo-France') and no "

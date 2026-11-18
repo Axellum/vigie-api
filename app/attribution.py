@@ -340,6 +340,14 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "meteofrance_ensemble",
+            "Météo-France (PE-AROME, PE-ARPEGE), probabilities of rain, snow, gusts, hail and storm",
+            "Source: Météo-France, prévisions d'ensemble PE-AROME and PE-ARPEGE (https://portail-api.meteofrance.fr, Licence Ouverte 2.0), read by a "
+            "vigie-meteo gateway; the PE-AROME probabilities are Météo-France's, the PE-ARPEGE ones are counted by Vigie among the 35 members; "
+            "a model forecast, not an official warning",
+            "ours",
+        ),
+        Credit(
             "meteofrance_uv",
             "Météo-France (PHEALTH), daily UV index",
             "Source: Météo-France, indice UV quotidien du modèle PHEALTH (https://portail-api.meteofrance.fr); "

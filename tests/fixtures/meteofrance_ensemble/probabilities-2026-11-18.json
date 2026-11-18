@@ -1,0 +1,253 @@
+{
+  "arome": {
+    "source_model": "meteofrance-pe-arome",
+    "attribution": "Source : Météo-France, prévision d'ensemble PE-AROME",
+    "run": "2026-11-18T03:00:00Z",
+    "members": 35,
+    "windows": [
+      {
+        "time": "2026-11-18T12:00:00Z",
+        "window_hours": 3,
+        "probability_pct": {
+          "rain_1mm": 97,
+          "rain_5mm": 67,
+          "snow_1mm": 0,
+          "gust_30kt": 95,
+          "gust_50kt": 1,
+          "hail": 8,
+          "storm": 20
+        }
+      },
+      {
+        "time": "2026-11-18T15:00:00Z",
+        "window_hours": 3,
+        "probability_pct": {
+          "rain_1mm": 95,
+          "rain_5mm": 58,
+          "snow_1mm": 0,
+          "gust_30kt": 96,
+          "gust_50kt": 0,
+          "hail": 8,
+          "storm": 13
+        }
+      },
+      {
+        "time": "2026-11-18T18:00:00Z",
+        "window_hours": 3,
+        "probability_pct": {
+          "rain_1mm": 83,
+          "rain_5mm": 33,
+          "snow_1mm": 0,
+          "gust_30kt": 74,
+          "gust_50kt": 0,
+          "hail": 3,
+          "storm": 5
+        }
+      },
+      {
+        "time": "2026-11-18T21:00:00Z",
+        "window_hours": 3,
+        "probability_pct": {
+          "rain_1mm": 62,
+          "rain_5mm": 11,
+          "snow_1mm": 0,
+          "gust_30kt": 4,
+          "gust_50kt": 0,
+          "hail": 0,
+          "storm": 0
+        }
+      },
+      {
+        "time": "2026-11-19T00:00:00Z",
+        "window_hours": 3,
+        "probability_pct": {
+          "rain_1mm": 42,
+          "rain_5mm": 0,
+          "snow_1mm": 0,
+          "gust_30kt": 14,
+          "gust_50kt": 0,
+          "hail": 0,
+          "storm": 0
+        }
+      },
+      {
+        "time": "2026-11-19T03:00:00Z",
+        "window_hours": 3,
+        "probability_pct": {
+          "rain_1mm": 87,
+          "rain_5mm": 41,
+          "snow_1mm": 0,
+          "gust_30kt": 69,
+          "gust_50kt": 1,
+          "hail": 0,
+          "storm": 2
+        }
+      },
+      {
+        "time": "2026-11-19T06:00:00Z",
+        "window_hours": 3,
+        "probability_pct": {
+          "rain_1mm": 93,
+          "rain_5mm": 31,
+          "snow_1mm": 0,
+          "gust_30kt": 62,
+          "gust_50kt": 0,
+          "hail": 0,
+          "storm": 0
+        }
+      },
+      {
+        "time": "2026-11-19T09:00:00Z",
+        "window_hours": 3,
+        "probability_pct": {
+          "rain_1mm": 76,
+          "rain_5mm": 14,
+          "snow_1mm": 0,
+          "gust_30kt": 73,
+          "gust_50kt": 0,
+          "hail": 1,
+          "storm": 4
+        }
+      },
+      {
+        "time": "2026-11-19T12:00:00Z",
+        "window_hours": 3,
+        "probability_pct": {
+          "rain_1mm": 83,
+          "rain_5mm": 27,
+          "snow_1mm": 0,
+          "gust_30kt": 82,
+          "gust_50kt": 0,
+          "hail": 0,
+          "storm": 5
+        }
+      },
+      {
+        "time": "2026-11-19T15:00:00Z",
+        "window_hours": 3,
+        "probability_pct": {
+          "rain_1mm": 69,
+          "rain_5mm": 40,
+          "snow_1mm": 0,
+          "gust_30kt": 58,
+          "gust_50kt": 0,
+          "hail": 0,
+          "storm": 11
+        }
+      },
+      {
+        "time": "2026-11-19T18:00:00Z",
+        "window_hours": 3,
+        "probability_pct": {
+          "rain_1mm": 70,
+          "rain_5mm": 25,
+          "snow_1mm": 0,
+          "gust_30kt": 18,
+          "gust_50kt": 0,
+          "hail": 0,
+          "storm": 3
+        }
+      },
+      {
+        "time": "2026-11-19T21:00:00Z",
+        "window_hours": 3,
+        "probability_pct": {
+          "rain_1mm": 77,
+          "rain_5mm": 19,
+          "snow_1mm": 0,
+          "gust_30kt": 14,
+          "gust_50kt": 0,
+          "hail": 0,
+          "storm": 1
+        }
+      },
+      {
+        "time": "2026-11-20T00:00:00Z",
+        "window_hours": 3,
+        "probability_pct": {
+          "rain_1mm": 70,
+          "rain_5mm": 29,
+          "snow_1mm": 0,
+          "gust_30kt": 18,
+          "gust_50kt": 0,
+          "hail": 0,
+          "storm": 1
+        }
+      },
+      {
+        "time": "2026-11-20T03:00:00Z",
+        "window_hours": 3,
+        "probability_pct": {
+          "rain_1mm": 70,
+          "rain_5mm": 34,
+          "snow_1mm": 0,
+          "gust_30kt": 8,
+          "gust_50kt": 0,
+          "hail": 0,
+          "storm": 1
+        }
+      },
+      {
+        "time": "2026-11-20T06:00:00Z",
+        "window_hours": 3,
+        "probability_pct": {
+          "rain_1mm": 69,
+          "rain_5mm": 13,
+          "snow_1mm": 0,
+          "gust_30kt": 0,
+          "gust_50kt": 0,
+          "hail": 0,
+          "storm": 0
+        }
+      }
+    ]
+  },
+  "arpege": {
+    "source_model": "meteofrance-pe-arpege",
+    "attribution": "Source : Météo-France, prévision d'ensemble PE-ARPEGE",
+    "run": "2026-11-18T06:00:00Z",
+    "members": 35,
+    "windows": [
+      {
+        "time": "2026-11-19T06:00:00Z",
+        "window_hours": 24,
+        "probability_pct": {
+          "rain_1mm": 100,
+          "rain_5mm": 77,
+          "rain_10mm": 20,
+          "rain_20mm": 0
+        }
+      },
+      {
+        "time": "2026-11-20T06:00:00Z",
+        "window_hours": 24,
+        "probability_pct": {
+          "rain_1mm": 69,
+          "rain_5mm": 17,
+          "rain_10mm": 3,
+          "rain_20mm": 0
+        }
+      },
+      {
+        "time": "2026-11-21T06:00:00Z",
+        "window_hours": 24,
+        "probability_pct": {
+          "rain_1mm": 100,
+          "rain_5mm": 49,
+          "rain_10mm": 14,
+          "rain_20mm": 0
+        }
+      },
+      {
+        "time": "2026-11-22T06:00:00Z",
+        "window_hours": 24,
+        "probability_pct": {
+          "rain_1mm": 20,
+          "rain_5mm": 3,
+          "rain_10mm": 3,
+          "rain_20mm": 0
+        }
+      }
+    ]
+  }
+}

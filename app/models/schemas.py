@@ -30,6 +30,7 @@ from pydantic import BaseModel, Field, PrivateAttr, computed_field
 from app.attribution import hazard_credit, merge_credits, place_credit
 from app.models.avalanches import AvalancheStatus
 from app.models.drought import DroughtStatus
+from app.models.ensemble import Probabilities
 from app.models.places import NearPlace
 from app.models.pollens import PollenStatus
 from app.models.shortterm import ShortTerm
@@ -617,6 +618,14 @@ class PointResponse(BaseModel):
         "visibility and type of precipitation, with levels worked out by this API. Only in metropolitan France and Corsica and only on an "
         "instance with a vigie-meteo gateway; null elsewhere, when the gateway has no recent run, or when the source is off "
         "(`GET /v1/health`, `disabled_sources`). A model forecast: informative only, never part of `local_alert_level`, never an official warning",
+    )
+    probabilities: Optional[Probabilities] = Field(
+        default=None,
+        description="Probabilities from Météo-France's ensemble forecasts at the position: rain (1 and 5 mm in three hours, up to 51 hours; 1, 5, 10 "
+        "and 20 mm in 24 hours, up to 96 hours), snow, gusts, hail and storm. Only in metropolitan France and Corsica and only on an instance with a "
+        "vigie-meteo gateway; null elsewhere, when the gateway has no recent run, or when the source is off (`GET /v1/health`, `disabled_sources`). "
+        "It does not replace `daily[].rain_probability_pct` (Open-Meteo's, the highest hourly probability of the day, any amount): the two stay "
+        "separate. A model forecast: informative only, never part of `local_alert_level`, never an official warning",
     )
 
 
