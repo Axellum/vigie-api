@@ -355,6 +355,22 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "meteofrance_station_daily",
+            "Météo-France (données climatologiques de base), daily measures of the stations",
+            "Source: Météo-France, données climatologiques de base quotidiennes (https://portail-api.meteofrance.fr, Licence Ouverte 2.0), "
+            "read by a vigie-meteo gateway and dated as in the answer (fetched_at_utc); a measure Météo-France marks doubtful is left out; "
+            "the choice of the station and its distance are calculated by Vigie",
+            "ours",
+        ),
+        Credit(
+            "meteofrance_forests",
+            "Météo-France (Météo des forêts), forest fire danger of the departments",
+            "Source: Météo-France, Météo des forêts (https://portail-api.meteofrance.fr, Licence Ouverte 2.0), read by a vigie-meteo gateway and "
+            "dated as in the answer (reference_time); a danger for a whole department, not a warning and not a fire detected; the department of "
+            "a position is found by Vigie",
+            "ours",
+        ),
+        Credit(
             "meteofrance_uv",
             "Météo-France (PHEALTH), daily UV index",
             "Source: Météo-France, indice UV quotidien du modèle PHEALTH (https://portail-api.meteofrance.fr); "

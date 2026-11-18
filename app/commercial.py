@@ -349,6 +349,30 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-11-18",
         ),
         CommercialUse(
+            "meteofrance_station_daily",
+            "allowed",
+            "Licence Ouverte 2.0 (Etalab), as the licence document of the daily climatological data API (DPClim) on Météo-France's portal states it "
+            "(read on 2026-11-18): reuse, commercial included, with the source named, the date of the data given and the data not altered. A measure "
+            "Météo-France marks doubtful is left out, never altered.",
+            (
+                "https://portail-api.meteofrance.fr/api/am/devportal/v3/apis/a5935def-80ae-4e7e-83bc-3ef622f0438d/documents/791f6e6d-8aea-4880-ae5c-8147e8a32402/content",
+                "https://www.etalab.gouv.fr/licence-ouverte-open-licence/",
+            ),
+            "2026-11-18",
+        ),
+        CommercialUse(
+            "meteofrance_forests",
+            "allowed",
+            "Licence Ouverte 2.0 (Etalab), as the licence document of the Météo des forêts API (DPMeteoForets) on Météo-France's portal states it "
+            "(read on 2026-11-18): reuse, commercial included, with the source named, the date of the data given and the data not altered. The "
+            "department of a position is found by Vigie.",
+            (
+                "https://portail-api.meteofrance.fr/api/am/devportal/v3/apis/1cf1b13b-19e5-4d02-830b-4fe99c2758bb/documents/0abc6c75-567c-4b22-b387-c723405e423d/content",
+                "https://www.etalab.gouv.fr/licence-ouverte-open-licence/",
+            ),
+            "2026-11-18",
+        ),
+        CommercialUse(
             "meteofrance_ensemble",
             "allowed",
             "Licence Ouverte 2.0 (Etalab): the licence document of each of the two APIs on Météo-France's portal (PE-AROME and PE-ARPEGE, "
