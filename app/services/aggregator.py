@@ -81,6 +81,7 @@ from app.collectors.meteofrance_buoys import MeteoFranceBuoysCollector, meteofra
 from app.collectors.meteofrance_obs import MeteoFranceObsCollector, meteofrance_obs_key_from_env
 from app.collectors.meteofrance_radar import TILE_PATH as RADAR_TILE_PATH
 from app.collectors.meteofrance_radar import MeteoFranceRadarCollector
+from app.collectors.meteofrance_shortterm import MeteoFranceShortTermCollector
 from app.collectors.meteofrance_uv import MeteoFranceUvCollector, meteofrance_uv_key_from_env
 from app.collectors.meteofrance_weather import (
     MeteoFranceWeatherCollector,
@@ -182,6 +183,7 @@ from app.models.schemas import (
     SpaceWeatherStatus,
     ZoneWeather,
 )
+from app.models.shortterm import ShortTerm
 from app.models.watch import WatchedPointsStatus, WatchedSource
 from app.services import activities as activities_service
 from app.services import surf as surf_service
@@ -323,6 +325,7 @@ class AggregatorService:
         meteofrance_weather: Optional[MeteoFranceWeatherCollector] = None,
         meteofrance_uv: Optional[MeteoFranceUvCollector] = None,
         meteofrance_radar: Optional[MeteoFranceRadarCollector] = None,
+        meteofrance_shortterm: Optional[MeteoFranceShortTermCollector] = None,
         vigicrues: Optional[VigicruesCollector] = None,
         vigieau: Optional[VigiEauCollector] = None,
         slf_avalanche: Optional[SLFAvalancheCollector] = None,
@@ -464,6 +467,11 @@ class AggregatorService:
         if meteofrance_radar is None and gateway_url is not None:
             meteofrance_radar = MeteoFranceRadarCollector(gateway_url)
         self.meteofrance_radar = meteofrance_radar
+        # Hail, gusts, reduced visibility and type of precipitation of the next hours (Météo-France AROME-PI), from the same gateway.
+        self.meteofrance_shortterm_off_reason = "no vigie-meteo gateway: set VIGIE_METEO_GATEWAY_URL (Météo-France AROME-PI short-term forecast over France)"
+        if meteofrance_shortterm is None and gateway_url is not None:
+            meteofrance_shortterm = MeteoFranceShortTermCollector(gateway_url)
+        self.meteofrance_shortterm = meteofrance_shortterm
         self.vigicrues = vigicrues or VigicruesCollector()
         self.vigieau = vigieau or VigiEauCollector()
         self.slf_avalanche = slf_avalanche or SLFAvalancheCollector()
@@ -710,6 +718,8 @@ class AggregatorService:
             collectors.append(self.meteofrance_uv)
         if self.meteofrance_radar is not None:
             collectors.append(self.meteofrance_radar)
+        if self.meteofrance_shortterm is not None:
+            collectors.append(self.meteofrance_shortterm)
         return [c for c in collectors if c not in off]
 
     def disabled_sources(self) -> list[dict[str, str]]:
@@ -803,6 +813,15 @@ class AggregatorService:
                     "name": "Météo-France radar mosaic (vigie-meteo gateway)",
                     "domain": "weather",
                     "reason": self.meteofrance_radar_off_reason,
+                }
+            )
+        if self.meteofrance_shortterm is None:
+            off.append(
+                {
+                    "provider_id": "meteofrance_shortterm",
+                    "name": "Météo-France AROME-PI short-term forecast (vigie-meteo gateway)",
+                    "domain": "weather",
+                    "reason": self.meteofrance_shortterm_off_reason,
                 }
             )
         return off
@@ -1056,6 +1075,12 @@ class AggregatorService:
         if not self.is_in_vigieau_coverage(lat, lon):
             return None
         return await _or_none(self.vigieau.fetch_point_status(lat, lon))
+
+    async def get_short_term_safe(self, lat: float, lon: float) -> Optional[ShortTerm]:
+        """The AROME-PI forecast of the next hours at ``lat, lon`` in the France box; ``None`` outside it or when the gateway gives none."""
+        if self.meteofrance_shortterm is None or not in_france_box(lat, lon):
+            return None
+        return await self.meteofrance_shortterm.short_term(lat, lon)
 
     def is_in_avalanche_coverage(self, lat: float, lon: float) -> bool:
         """Return ``True`` offline when ``(lat, lon)`` lies inside SLF (CH/LI), Euregio (AT-07/IT-32-BZ/IT-32-TN) or Météo-France BRA coverage."""
@@ -1539,6 +1564,7 @@ class AggregatorService:
             drought_status,
             avalanche_status,
             france_radar_frames,
+            short_term,
         ) = await asyncio.gather(
             self.fetch_weather_with_fallback(lat, lon),
             self.collect_and_fuse_hazards(),
@@ -1551,6 +1577,7 @@ class AggregatorService:
             self.get_drought_safe(lat, lon),
             self.get_avalanche_safe(lat, lon),
             self.meteofrance_radar.frames() if self.meteofrance_radar is not None and in_france_box(lat, lon) else _none_coro(),
+            self.get_short_term_safe(lat, lon),
         )
         radar_meta = radar_meta or {}
         # In France the radar is Météo-France's, relayed by this API (``GET /v1/radar/france``); elsewhere, or when the gateway has no
@@ -1674,6 +1701,9 @@ class AggregatorService:
             drought=drought_status,
             # Informative only: CAAML avalanche danger ratings never enter ``local_alert_level``.
             avalanche=avalanche_status,
+            # Informative only: the AROME-PI forecast of the next hours never enters ``local_alert_level`` (a model forecast, not a warning).
+            # The compact profile (16 KiB) keeps the levels and leaves out the 24 steps (about 2.5 KB): ask ``compact=false`` for them.
+            short_term=short_term.model_copy(update={"steps": []}) if short_term is not None and compact else short_term,
         )
 
     async def build_snapshot(
