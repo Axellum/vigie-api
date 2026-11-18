@@ -318,6 +318,8 @@ def test_the_fires_never_raise_the_alert_level_of_the_point(fires: Fires, monkey
     assert without["fires_nearby"] is None
     assert with_fires["local_alert_level"] == without["local_alert_level"]
     with_fires["fires_nearby"] = None
+    # The server stamps each answer with the wall clock (a second can pass between the two calls): not what is compared.
+    assert isinstance(with_fires.pop("server_utc"), int) and isinstance(without.pop("server_utc"), int)
     assert with_fires == without  # the block is the only difference
 
 

@@ -1,0 +1,1 @@
+- **Tests**: the test that compares the point answered with and without fire data no longer compares the server clock stamp (`server_utc`), which made it fail once in a while when a second passed between the two calls.
