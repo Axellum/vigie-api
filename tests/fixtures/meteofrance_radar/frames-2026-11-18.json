@@ -1,0 +1,71 @@
+{
+ "source_model": "meteofrance-lame-d-eau",
+ "attribution": "Source : Météo-France, mosaïque radar lame d'eau (Licence Ouverte 2.0)",
+ "interval_minutes": 5,
+ "bounds": [
+  -9.97,
+  37.45,
+  17.57,
+  53.67
+ ],
+ "min_zoom": 3,
+ "max_zoom": 10,
+ "tile_path": "/v1/radar/tiles/{epoch}/{z}/{x}/{y}.png",
+ "legend": [
+  {
+   "min_mm_h": 0.1,
+   "color": "#a6cee3",
+   "alpha": 0.67
+  },
+  {
+   "min_mm_h": 0.5,
+   "color": "#60a5fa",
+   "alpha": 0.78
+  },
+  {
+   "min_mm_h": 1.0,
+   "color": "#2563eb",
+   "alpha": 0.84
+  },
+  {
+   "min_mm_h": 2.0,
+   "color": "#22c55e",
+   "alpha": 0.88
+  },
+  {
+   "min_mm_h": 4.0,
+   "color": "#facc15",
+   "alpha": 0.92
+  },
+  {
+   "min_mm_h": 8.0,
+   "color": "#f97316",
+   "alpha": 0.94
+  },
+  {
+   "min_mm_h": 16.0,
+   "color": "#dc2626",
+   "alpha": 0.96
+  },
+  {
+   "min_mm_h": 32.0,
+   "color": "#a21caf",
+   "alpha": 0.98
+  },
+  {
+   "min_mm_h": 64.0,
+   "color": "#581c87",
+   "alpha": 1.0
+  }
+ ],
+ "frames": [
+  {
+   "time": "2026-11-18T08:35:00Z",
+   "epoch": 1794990900
+  },
+  {
+   "time": "2026-11-18T08:40:00Z",
+   "epoch": 1794991200
+  }
+ ]
+}

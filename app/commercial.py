@@ -312,6 +312,19 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-10-20",
         ),
         CommercialUse(
+            "meteofrance_radar",
+            "allowed",
+            "Licence Ouverte 2.0 (Etalab), as the 'Package Radar' dataset of Météo-France on data.gouv.fr states it (the radar mosaics are "
+            "the content of that package): any use, commercial included, with the source named. The page of the API itself "
+            "(DonneesPubliquesRadar) names no licence, only 'Source : Météo-France', and was not read beyond its catalogue entry.",
+            (
+                "https://www.data.gouv.fr/datasets/package-radar/informations",
+                "https://portail-api.meteofrance.fr/api/am/devportal/v3/apis/fd7d27d0-9f8e-491a-94ce-8d281edb201d",
+                "https://www.etalab.gouv.fr/licence-ouverte-open-licence/",
+            ),
+            "2026-11-18",
+        ),
+        CommercialUse(
             "meteofrance_uv",
             "not_verified",
             "Free of charge on the Météo-France portal; the API's own description names the source ('Source : Météo-France') and no "

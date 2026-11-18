@@ -113,6 +113,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app import __version__, clock
 from app.collectors.base import CollectorUnavailableError
+from app.collectors.meteofrance_radar import TRANSPARENT_PNG, tile_touches
 from app.models.activities import ActivitiesForecast, ActivitiesOverview, BoatCategory
 from app.models.avalanches import AvalancheResponse
 from app.models.buoys import SpotBuoyReading, SpotBuoys
@@ -132,6 +133,7 @@ from app.models.forecast import HazardForecast
 from app.models.places import WatchedPoint, WatchedPointUpsertRequest
 from app.models.pollens import PollensResponse
 from app.models.prealert import PrealertResponse
+from app.models.radar import RadarFrance
 from app.models.schemas import (
     CAPFeedResponse,
     DeviceType,
@@ -170,6 +172,7 @@ from app.security import AdminTokenMiddleware, admin_token, document_admin_token
 from app.services import (
     activities,
     buoys,
+    radar_france,
     sea_buoys,
     sea_places,
     stations,
@@ -1177,6 +1180,67 @@ async def get_sea_buoys(
     answer = await sea_buoys.sea_buoys(aggregator.meteofrance_buoys, clock.wall(), near, radius_km, limit)
     response.headers["Cache-Control"] = SEA_BUOYS_CACHE
     return answer
+
+
+RADAR_FRANCE_CACHE = "public, max-age=60"
+RADAR_TILE_CACHE = "public, max-age=86400, immutable"  # the address holds the date of the image: the tile never changes
+
+
+@app.get(
+    "/v1/radar/france",
+    response_model=RadarFrance,
+    tags=["Weather"],
+    description=(
+        "The radar mosaic of Météo-France over metropolitan France: the rain the radars measured, one image every 5 minutes, the last "
+        "three hours kept. Returns the dates of the images (`frames`), the path of their tiles (`tile_url_template`, "
+        "`GET /v1/radar/france/tiles/{epoch}/{z}/{x}/{y}.png`: 256 px Web Mercator tiles to put on a map as a raster layer), the "
+        "area they cover and the intensity classes with their colours (`legend`). The same newest image is the one `GET /v1/point` "
+        "points to in `rain_nowcast.radar_tile_url_template` for a point in France. The gateway that draws the tiles must be configured "
+        "(`VIGIE_METEO_GATEWAY_URL`): without it `status` is `not_configured`. **Not for safety.**"
+    ),
+)
+async def get_radar_france(response: Response) -> RadarFrance:
+    """The images of the radar of Météo-France and how to ask for their tiles."""
+    answer = await radar_france.radar_france(aggregator.meteofrance_radar)
+    response.headers["Cache-Control"] = RADAR_FRANCE_CACHE
+    return answer
+
+
+@app.get(
+    "/v1/radar/france/tiles/{epoch}/{z}/{x}/{y}.png",
+    tags=["Weather"],
+    response_class=Response,
+    responses={
+        200: {"content": {"image/png": {}}, "description": "A 256 px Web Mercator tile; transparent where it does not rain."},
+        404: {"description": "No such image (not in `GET /v1/radar/france`), no radar here, or a tile outside the map."},
+        503: {"description": "The gateway that draws the tiles does not answer."},
+    },
+    description="One tile of an image of the radar mosaic of Météo-France (see `GET /v1/radar/france`). Immutable: cached for a day.",
+)
+async def get_radar_france_tile(
+    epoch: int = Path(ge=1, le=4_102_444_800, description="`epoch` of an image listed by `GET /v1/radar/france`"),
+    z: int = Path(ge=0, le=22),
+    x: int = Path(ge=0),
+    y: int = Path(ge=0),
+) -> Response:
+    """A tile of the radar mosaic, relayed from the gateway."""
+    collector = aggregator.meteofrance_radar
+    if collector is None:
+        raise HTTPException(status_code=404, detail="the radar of Météo-France is not configured on this instance")
+    frames = await collector.frames()
+    if frames is None:
+        raise HTTPException(status_code=503, detail="the radar gateway does not answer")
+    if epoch not in frames.epochs or not frames.min_zoom <= z <= frames.max_zoom or x >= 2**z or y >= 2**z:
+        raise HTTPException(status_code=404, detail="no such radar tile")
+    if not tile_touches(frames, z, x, y):
+        return Response(content=TRANSPARENT_PNG, media_type="image/png", headers={"Cache-Control": RADAR_TILE_CACHE})
+    try:
+        png = await collector.tile(epoch, z, x, y)
+    except Exception:
+        raise HTTPException(status_code=503, detail="the radar gateway does not answer") from None
+    if png is None:
+        raise HTTPException(status_code=404, detail="no such radar image")
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": RADAR_TILE_CACHE})
 
 
 ACTIVITIES_ERRORS: dict[int | str, dict[str, Any]] = {
