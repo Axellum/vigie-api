@@ -79,6 +79,8 @@ from app.collectors.meteofrance import MeteoFranceVigilanceCollector, meteofranc
 from app.collectors.meteofrance_bra import KEY_ENV, MeteoFranceBRACollector, massif_code, meteofrance_bra_key_from_env
 from app.collectors.meteofrance_buoys import MeteoFranceBuoysCollector, meteofrance_buoys_key_from_env
 from app.collectors.meteofrance_obs import MeteoFranceObsCollector, meteofrance_obs_key_from_env
+from app.collectors.meteofrance_radar import TILE_PATH as RADAR_TILE_PATH
+from app.collectors.meteofrance_radar import MeteoFranceRadarCollector
 from app.collectors.meteofrance_uv import MeteoFranceUvCollector, meteofrance_uv_key_from_env
 from app.collectors.meteofrance_weather import (
     MeteoFranceWeatherCollector,
@@ -320,6 +322,7 @@ class AggregatorService:
         meteo_gateway: Optional[MeteoGatewayRainCollector] = None,
         meteofrance_weather: Optional[MeteoFranceWeatherCollector] = None,
         meteofrance_uv: Optional[MeteoFranceUvCollector] = None,
+        meteofrance_radar: Optional[MeteoFranceRadarCollector] = None,
         vigicrues: Optional[VigicruesCollector] = None,
         vigieau: Optional[VigiEauCollector] = None,
         slf_avalanche: Optional[SLFAvalancheCollector] = None,
@@ -456,6 +459,11 @@ class AggregatorService:
         if meteofrance_uv is None and uv_key is not None:
             meteofrance_uv = MeteoFranceUvCollector(uv_key)
         self.meteofrance_uv = meteofrance_uv
+        # The radar mosaic of Météo-France (rain measured over metropolitan France), tiles drawn by the same gateway.
+        self.meteofrance_radar_off_reason = "no vigie-meteo gateway: set VIGIE_METEO_GATEWAY_URL (Météo-France radar mosaic over France)"
+        if meteofrance_radar is None and gateway_url is not None:
+            meteofrance_radar = MeteoFranceRadarCollector(gateway_url)
+        self.meteofrance_radar = meteofrance_radar
         self.vigicrues = vigicrues or VigicruesCollector()
         self.vigieau = vigieau or VigiEauCollector()
         self.slf_avalanche = slf_avalanche or SLFAvalancheCollector()
@@ -700,6 +708,8 @@ class AggregatorService:
             collectors.append(self.meteofrance_weather)
         if self.meteofrance_uv is not None:
             collectors.append(self.meteofrance_uv)
+        if self.meteofrance_radar is not None:
+            collectors.append(self.meteofrance_radar)
         return [c for c in collectors if c not in off]
 
     def disabled_sources(self) -> list[dict[str, str]]:
@@ -784,6 +794,15 @@ class AggregatorService:
                     "name": "Météo-France daily UV index (PHEALTH, DPPaquetENVIRONNEMENT)",
                     "domain": "weather",
                     "reason": self.meteofrance_uv_off_reason,
+                }
+            )
+        if self.meteofrance_radar is None:
+            off.append(
+                {
+                    "provider_id": "meteofrance_radar",
+                    "name": "Météo-France radar mosaic (vigie-meteo gateway)",
+                    "domain": "weather",
+                    "reason": self.meteofrance_radar_off_reason,
                 }
             )
         return off
@@ -1519,6 +1538,7 @@ class AggregatorService:
             fires_nearby,
             drought_status,
             avalanche_status,
+            france_radar_frames,
         ) = await asyncio.gather(
             self.fetch_weather_with_fallback(lat, lon),
             self.collect_and_fuse_hazards(),
@@ -1530,8 +1550,17 @@ class AggregatorService:
             _or_none(self.fires.nearby(lat, lon, fire_radius_km)),
             self.get_drought_safe(lat, lon),
             self.get_avalanche_safe(lat, lon),
+            self.meteofrance_radar.frames() if self.meteofrance_radar is not None and in_france_box(lat, lon) else _none_coro(),
         )
         radar_meta = radar_meta or {}
+        # In France the radar is Météo-France's, relayed by this API (``GET /v1/radar/france``); elsewhere, or when the gateway has no
+        # image, RainViewer's when it is on.
+        if france_radar_frames is not None:
+            radar_meta = {
+                "radar_tile_url_template": RADAR_TILE_PATH.replace("{epoch}", str(france_radar_frames.epochs[-1])),
+                "radar_timestamp_utc": france_radar_frames.epochs[-1],
+                "credit": ("meteofrance_radar",),
+            }
 
         if include_marine and self.simulation_active and self.active_scenario == SimulationScenario.SEVERE_SQUALL_MARINE:
             marine_conditions = MarineConditions(
@@ -1590,7 +1619,7 @@ class AggregatorService:
             # the rain steps come from the weather provider (Open-Meteo, and PIAF when it gave the rain), the radar fields from RainViewer
             attribution=merge_credits(
                 weather_bundle.get("attribution") if weather_bundle and rain_steps is not None else None,
-                credit_text(*RADAR)
+                credit_text(*radar_meta.get("credit", RADAR))
                 if radar_meta.get("radar_tile_url_template") or radar_meta.get("radar_timestamp_utc") is not None
                 else None,
             ),

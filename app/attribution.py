@@ -326,6 +326,13 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "meteofrance_radar",
+            "Météo-France (DPRadar), radar mosaic of metropolitan France",
+            "Source: Météo-France, mosaïque radar lame d'eau (https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesRadar, "
+            "Licence Ouverte 2.0), drawn as tiles by a vigie-meteo gateway: the intensity classes and their colours are ours",
+            "ours",
+        ),
+        Credit(
             "meteofrance_uv",
             "Météo-France (PHEALTH), daily UV index",
             "Source: Météo-France, indice UV quotidien du modèle PHEALTH (https://portail-api.meteofrance.fr); "

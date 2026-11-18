@@ -142,6 +142,11 @@ QUOTAS: dict[str, Quota] = {
         (Limit(60, 50),),
         "https://portail-api.meteofrance.fr/web/fr/api/PaquetENVIRONNEMENT",
     ),
+    # Météo-France radar mosaic, read through a vigie-meteo gateway (``app/collectors/meteofrance_radar.py``): this API sends the
+    # gateway one request for the list of images every two minutes and one per tile not in its memory; the gateway alone reads
+    # DPRadar (850 requests every 5 minutes on the portal; it makes two). A ceiling of our own that protects the gateway: 3,000
+    # requests a minute (held to 90 %), well above a few hundred clients, each asking a dozen tiles when an image is new.
+    "meteofrance_radar": Quota("vigie-meteo-radar", (Limit(60, 3000),), "https://github.com/Axellum/vigie-api/blob/main/SOURCES.md"),
     # VigiEau (https://api.vigieau.gouv.fr): MTES-MCT/vigieau-api configures ThrottlerModule at 300 requests per 15 minutes
     # per IP (``x-ratelimit-limit: 300`` observed on 2026-11-15, alongside a 1s reset header from throttler v6 ms units).
     # Enforcing 300 / 900s (held to 90% = 270 / 15 min) protects the upstream and is backed by 1-hour grid/commune caching.
