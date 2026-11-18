@@ -47,5 +47,5 @@ What the API gives (`aromepi/1.0`, a WCS 2.0.1 on `public-api.meteofrance.fr`, r
 - One morning of one day: the figures above say nothing of a thunderstorm or a fog night; they are repeated when the next stormy day comes.
 - The type of precipitation other than rain (snow, freezing): the sample had none.
 - The gateway's memory and disk on the production machine over several days, and the load of the 96 requests an hour on the key's quota shared with PIAF, the radar and the UV index (the pacing keeps the total under the 50 a minute; one run measured, not a day).
-- The licence of the API (its description page is rendered by script and was not read): `commercial.py` says "not verified".
+- The licence of the API: verified afterwards, on 2026-11-18 (lot E). The licence document of the API on the portal (`licence_en`) names the Licence Ouverte Etalab 2.0: reuse, commercial included, with the source and the date of the last update named and the data not altered. `commercial.py` says "allowed" with that document as proof.
 - The model against a point away from a station, and in the mountains, where a block of 4 x 3 km mixes valley and ridge.
