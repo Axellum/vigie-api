@@ -119,6 +119,7 @@ from app.models.avalanches import AvalancheResponse
 from app.models.buoys import SpotBuoyReading, SpotBuoys
 from app.models.catnat import CatNatHazardType, CatNatHistoryResponse
 from app.models.climate import ClimateNormalsResponse
+from app.models.climate_recent import ClimateRecentResponse
 from app.models.drought import (
     DroughtDepartmentsResponse,
     DroughtLevel,
@@ -130,6 +131,7 @@ from app.models.earthquakes import EarthquakesQuery, EarthquakesResponse
 from app.models.events import EventsResponse, FamiliesResponse
 from app.models.fires import FiresCollection, FiresGrid
 from app.models.forecast import HazardForecast
+from app.models.forest_fire import ForestFireResponse
 from app.models.places import WatchedPoint, WatchedPointUpsertRequest
 from app.models.pollens import PollensResponse
 from app.models.prealert import PrealertResponse
@@ -186,6 +188,7 @@ from app.services import earthquakes as quakes
 from app.services.aggregator import AggregatorService
 from app.services.catnat import UnknownCommuneError, query_catnat_history
 from app.services.climate import DEFAULT_MAX_DISTANCE_KM, query_climate_normals
+from app.services.climate_recent import query_climate_recent
 from app.services.events import FAMILIES, FAMILIES_NOTE, FAMILY_IDS, WORLD_MIN_IMPACT
 from app.services.fires import (
     CELL_SIZES,
@@ -202,6 +205,7 @@ from app.services.fires import (
     FiresWindowTooLong,
     parse_bbox,
 )
+from app.services.forest_fire import query_forest_fire
 from app.services.geoindex import DEFAULT_RIVER_RADIUS_KM, MAX_RIVER_RADIUS_KM
 from app.services.scheduler import BackgroundAlertScheduler
 from app.services.storage_wal import WatchedPointsLimitError
@@ -650,6 +654,66 @@ async def get_climate_normals(
         lat=lat, lon=lon, month=month, max_distance_km=max_distance_km, tmax=tmax, tmin=tmin, rain_mm=rain_mm
     )
     response.headers["Cache-Control"] = "public, max-age=86400"
+    return result
+
+
+CLIMATE_RECENT_DESCRIPTION = (
+    "The last days a Météo-France station near a position measured: minimum, maximum and mean temperature, rain of the day, mean wind and "
+    "highest gust, from Météo-France's daily climatological data (Licence Ouverte 2.0), the complement of `GET /v1/climate/normals` (same "
+    "stations: the nearest that still measures within `max_distance_km`, then the next two nearest when it has no daily data). `days` "
+    "gives the most recent days (yesterday is published from 11:30 UTC; before that the last day is the day before). A measure that "
+    "Météo-France marks doubtful is left out (`null`) and named in `doubtful`. `normals_month` is the mean of the whole month at the "
+    "station, not the normal of a day. Read through a vigie-meteo gateway (`VIGIE_METEO_GATEWAY_URL`): without it `status` is "
+    "`not_configured`. ADR 0034."
+)
+
+
+@app.get(
+    "/v1/climate/recent",
+    response_model=ClimateRecentResponse,
+    tags=["History"],
+    description=CLIMATE_RECENT_DESCRIPTION,
+)
+async def get_climate_recent(
+    response: Response,
+    lat: float = Query(..., ge=-90.0, le=90.0, description="WGS84 latitude"),
+    lon: float = Query(..., ge=-180.0, le=180.0, description="WGS84 longitude"),
+    days: int = Query(default=3, ge=1, le=14, description="How many of the most recent days to give"),
+    max_distance_km: float = Query(
+        default=DEFAULT_MAX_DISTANCE_KM, gt=0.0, le=300.0, description="Farthest station accepted (km)"
+    ),
+) -> ClimateRecentResponse:
+    """The last days measured at the nearest Météo-France station that has them."""
+    result = await query_climate_recent(
+        aggregator.meteofrance_station_daily, lat=lat, lon=lon, days=days, max_distance_km=max_distance_km
+    )
+    response.headers["Cache-Control"] = "public, max-age=3600" if result.status == "available" else "public, max-age=300"
+    return result
+
+
+FOREST_FIRE_DESCRIPTION = (
+    "The forest fire danger of the department of a position, from Météo-France's \"Météo des forêts\" (Licence Ouverte 2.0): four levels "
+    "(1 low, 2 moderate, 3 high, 4 very high) for the two days after the publication (`day1`, `day2`). Metropolitan France and Corsica only. "
+    "The flux is seasonal, June to September: out of season `status` is `out_of_season` and no level is given. A danger for the whole "
+    "department, not a warning (see `nearby_hazards` of `GET /v1/point`) and not a fire detected (`fires_nearby`). Read through a "
+    "vigie-meteo gateway (`VIGIE_METEO_GATEWAY_URL`): without it `status` is `not_configured`. ADR 0035."
+)
+
+
+@app.get(
+    "/v1/forest-fire",
+    response_model=ForestFireResponse,
+    tags=["Weather"],
+    description=FOREST_FIRE_DESCRIPTION,
+)
+async def get_forest_fire(
+    response: Response,
+    lat: float = Query(..., ge=-90.0, le=90.0, description="WGS84 latitude"),
+    lon: float = Query(..., ge=-180.0, le=180.0, description="WGS84 longitude"),
+) -> ForestFireResponse:
+    """The forest fire danger of the department of a position."""
+    result = await query_forest_fire(aggregator.meteofrance_forests, lat=lat, lon=lon)
+    response.headers["Cache-Control"] = "public, max-age=600" if result.status in ("available", "out_of_season") else "public, max-age=60"
     return result
 
 

@@ -161,6 +161,11 @@ QUOTAS: dict[str, Quota] = {
     # 50 a minute), this API asks it for a point. A ceiling of our own, per instance, that protects the gateway: 3,000 points every 5 minutes
     # (held to 90 %). A point over the ceiling has no ``probabilities``.
     "meteofrance_ensemble": Quota("vigie-meteo-ensemble", (Limit(300, 3000),), "https://github.com/Axellum/vigie-api/blob/main/SOURCES.md"),
+    # Météo-France daily climatological data (DPClim) and Météo des forêts, read through the same gateway: the gateway alone calls the portal (one order
+    # per station and per day, spread out; one file every 30 minutes at most), this API asks it for a station or a department. A ceiling of our own
+    # that protects the gateway (held to 90 %).
+    "meteofrance_station_daily": Quota("vigie-meteo-station-daily", (Limit(300, 3000),), "https://github.com/Axellum/vigie-api/blob/main/SOURCES.md"),
+    "meteofrance_forests": Quota("vigie-meteo-forests", (Limit(300, 3000),), "https://github.com/Axellum/vigie-api/blob/main/SOURCES.md"),
     # VigiEau (https://api.vigieau.gouv.fr): MTES-MCT/vigieau-api configures ThrottlerModule at 300 requests per 15 minutes
     # per IP (``x-ratelimit-limit: 300`` observed on 2026-11-15, alongside a 1s reset header from throttler v6 ms units).
     # Enforcing 300 / 900s (held to 90% = 270 / 15 min) protects the upstream and is backed by 1-hour grid/commune caching.

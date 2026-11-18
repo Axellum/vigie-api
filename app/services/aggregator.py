@@ -80,6 +80,7 @@ from app.collectors.meteofrance_bra import KEY_ENV, MeteoFranceBRACollector, mas
 from app.collectors.meteofrance_buoys import MeteoFranceBuoysCollector, meteofrance_buoys_key_from_env
 from app.collectors.meteofrance_ensemble import MeteoFranceEnsembleCollector
 from app.collectors.meteofrance_ensemble import compact as compact_probabilities
+from app.collectors.meteofrance_forests import MeteoFranceForestsCollector
 from app.collectors.meteofrance_obs import MeteoFranceObsCollector, meteofrance_obs_key_from_env
 from app.collectors.meteofrance_overseas import (
     MeteoFranceOverseasCollector,
@@ -90,6 +91,7 @@ from app.collectors.meteofrance_overseas import (
 from app.collectors.meteofrance_radar import TILE_PATH as RADAR_TILE_PATH
 from app.collectors.meteofrance_radar import MeteoFranceRadarCollector
 from app.collectors.meteofrance_shortterm import MeteoFranceShortTermCollector
+from app.collectors.meteofrance_station_daily import MeteoFranceStationDailyCollector
 from app.collectors.meteofrance_uv import MeteoFranceUvCollector, meteofrance_uv_key_from_env
 from app.collectors.meteofrance_weather import (
     MeteoFranceWeatherCollector,
@@ -337,6 +339,8 @@ class AggregatorService:
         meteofrance_shortterm: Optional[MeteoFranceShortTermCollector] = None,
         meteofrance_overseas: Optional[MeteoFranceOverseasCollector] = None,
         meteofrance_ensemble: Optional[MeteoFranceEnsembleCollector] = None,
+        meteofrance_station_daily: Optional[MeteoFranceStationDailyCollector] = None,
+        meteofrance_forests: Optional[MeteoFranceForestsCollector] = None,
         vigicrues: Optional[VigicruesCollector] = None,
         vigieau: Optional[VigiEauCollector] = None,
         slf_avalanche: Optional[SLFAvalancheCollector] = None,
@@ -496,6 +500,16 @@ class AggregatorService:
         if meteofrance_ensemble is None and gateway_url is not None:
             meteofrance_ensemble = MeteoFranceEnsembleCollector(gateway_url)
         self.meteofrance_ensemble = meteofrance_ensemble
+        # The days a station measured (DPClim) and the forest fire danger (Météo des forêts), from the same gateway: they feed
+        # `GET /v1/climate/recent` and `GET /v1/forest-fire`, not `GET /v1/point`.
+        self.meteofrance_station_daily_off_reason = "no vigie-meteo gateway: set VIGIE_METEO_GATEWAY_URL (Météo-France daily measures of the stations)"
+        if meteofrance_station_daily is None and gateway_url is not None:
+            meteofrance_station_daily = MeteoFranceStationDailyCollector(gateway_url)
+        self.meteofrance_station_daily = meteofrance_station_daily
+        self.meteofrance_forests_off_reason = "no vigie-meteo gateway: set VIGIE_METEO_GATEWAY_URL (Météo-France forest fire danger)"
+        if meteofrance_forests is None and gateway_url is not None:
+            meteofrance_forests = MeteoFranceForestsCollector(gateway_url)
+        self.meteofrance_forests = meteofrance_forests
         self.vigicrues = vigicrues or VigicruesCollector()
         self.vigieau = vigieau or VigiEauCollector()
         self.slf_avalanche = slf_avalanche or SLFAvalancheCollector()
@@ -748,6 +762,10 @@ class AggregatorService:
             collectors.append(self.meteofrance_overseas)
         if self.meteofrance_ensemble is not None:
             collectors.append(self.meteofrance_ensemble)
+        if self.meteofrance_station_daily is not None:
+            collectors.append(self.meteofrance_station_daily)
+        if self.meteofrance_forests is not None:
+            collectors.append(self.meteofrance_forests)
         return [c for c in collectors if c not in off]
 
     def disabled_sources(self) -> list[dict[str, str]]:
@@ -868,6 +886,24 @@ class AggregatorService:
                     "name": "Météo-France ensemble forecasts PE-AROME and PE-ARPEGE (vigie-meteo gateway)",
                     "domain": "weather",
                     "reason": self.meteofrance_ensemble_off_reason,
+                }
+            )
+        if self.meteofrance_station_daily is None:
+            off.append(
+                {
+                    "provider_id": "meteofrance_station_daily",
+                    "name": "Météo-France daily climatological data of the stations (vigie-meteo gateway)",
+                    "domain": "weather",
+                    "reason": self.meteofrance_station_daily_off_reason,
+                }
+            )
+        if self.meteofrance_forests is None:
+            off.append(
+                {
+                    "provider_id": "meteofrance_forests",
+                    "name": "Météo-France forest fire danger, Météo des forêts (vigie-meteo gateway)",
+                    "domain": "weather",
+                    "reason": self.meteofrance_forests_off_reason,
                 }
             )
         return off
