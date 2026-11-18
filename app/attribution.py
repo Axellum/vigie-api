@@ -318,6 +318,21 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "meteofrance_weather",
+            "Météo-France (AROME, ARPEGE), weather over France",
+            "Source: Météo-France, modèles AROME et ARPEGE (https://portail-api.meteofrance.fr), "
+            "through an Open-Meteo server (https://open-meteo.com/) synchronised with the Météo-France models "
+            "and a vigie-meteo gateway; the weather code is calculated by Open-Meteo",
+            "ours",
+        ),
+        Credit(
+            "meteofrance_uv",
+            "Météo-France (PHEALTH), daily UV index",
+            "Source: Météo-France, indice UV quotidien du modèle PHEALTH (https://portail-api.meteofrance.fr); "
+            "the UV index of the current hour is calculated by Vigie from the maximum of the day",
+            "ours",
+        ),
+        Credit(
             "meteofrance_climate",
             "Météo-France (Fiches climatologiques), normals 1991-2020 and records of the stations",
             "Source: Météo-France, Fiches climatologiques (https://www.data.gouv.fr/datasets/fiches-climatologiques, Licence Ouverte 2.0), "

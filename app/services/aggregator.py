@@ -79,6 +79,13 @@ from app.collectors.meteofrance import MeteoFranceVigilanceCollector, meteofranc
 from app.collectors.meteofrance_bra import KEY_ENV, MeteoFranceBRACollector, massif_code, meteofrance_bra_key_from_env
 from app.collectors.meteofrance_buoys import MeteoFranceBuoysCollector, meteofrance_buoys_key_from_env
 from app.collectors.meteofrance_obs import MeteoFranceObsCollector, meteofrance_obs_key_from_env
+from app.collectors.meteofrance_uv import MeteoFranceUvCollector, meteofrance_uv_key_from_env
+from app.collectors.meteofrance_weather import (
+    MeteoFranceWeatherCollector,
+    in_france_box,
+    merge_france_bundle,
+    meteo_weather_enabled_from_env,
+)
 from app.collectors.metservice import MetServiceCollector, metservice_enabled_from_env
 from app.collectors.ndbc import NdbcCollector
 from app.collectors.nhc import NHCCollector
@@ -311,6 +318,8 @@ class AggregatorService:
         meteofrance_bra: Optional[MeteoFranceBRACollector] = None,
         meteofrance_buoys: Optional[MeteoFranceBuoysCollector] = None,
         meteo_gateway: Optional[MeteoGatewayRainCollector] = None,
+        meteofrance_weather: Optional[MeteoFranceWeatherCollector] = None,
+        meteofrance_uv: Optional[MeteoFranceUvCollector] = None,
         vigicrues: Optional[VigicruesCollector] = None,
         vigieau: Optional[VigiEauCollector] = None,
         slf_avalanche: Optional[SLFAvalancheCollector] = None,
@@ -430,6 +439,23 @@ class AggregatorService:
         if meteo_gateway is None and gateway_url is not None:
             meteo_gateway = MeteoGatewayRainCollector(gateway_url, grid_deg=self.open_meteo.grid_deg)
         self.meteo_gateway = meteo_gateway
+        # The weather of France (current conditions, rain, 4 days) from the Météo-France models behind the same gateway, with
+        # the UV index of Météo-France's PHEALTH model: without the gateway, or switched off by ``VIGIE_METEO_GATEWAY_WEATHER=0``,
+        # Open-Meteo's public API gives it, as before.
+        self.meteofrance_weather_off_reason = (
+            "no vigie-meteo gateway: set VIGIE_METEO_GATEWAY_URL (Météo-France AROME / ARPEGE weather over France), "
+            "and not VIGIE_METEO_GATEWAY_WEATHER=0"
+        )
+        if meteofrance_weather is None and gateway_url is not None and meteo_weather_enabled_from_env():
+            meteofrance_weather = MeteoFranceWeatherCollector(gateway_url, grid_deg=self.open_meteo.grid_deg)
+        self.meteofrance_weather = meteofrance_weather
+        uv_key, uv_problem = meteofrance_uv_key_from_env()
+        if uv_problem is not None:
+            log.warning(uv_problem)
+        self.meteofrance_uv_off_reason = "no Météo-France API key: set VIGIE_METEOFRANCE_API_KEY (portail-api.meteofrance.fr, PaquetENVIRONNEMENT)"
+        if meteofrance_uv is None and uv_key is not None:
+            meteofrance_uv = MeteoFranceUvCollector(uv_key)
+        self.meteofrance_uv = meteofrance_uv
         self.vigicrues = vigicrues or VigicruesCollector()
         self.vigieau = vigieau or VigiEauCollector()
         self.slf_avalanche = slf_avalanche or SLFAvalancheCollector()
@@ -670,6 +696,10 @@ class AggregatorService:
             collectors.append(self.meteofrance_buoys)
         if self.meteo_gateway is not None:
             collectors.append(self.meteo_gateway)
+        if self.meteofrance_weather is not None:
+            collectors.append(self.meteofrance_weather)
+        if self.meteofrance_uv is not None:
+            collectors.append(self.meteofrance_uv)
         return [c for c in collectors if c not in off]
 
     def disabled_sources(self) -> list[dict[str, str]]:
@@ -738,6 +768,24 @@ class AggregatorService:
                     "reason": self.meteo_gateway_off_reason,
                 }
             )
+        if self.meteofrance_weather is None:
+            off.append(
+                {
+                    "provider_id": "meteofrance_weather",
+                    "name": "Météo-France AROME / ARPEGE weather (vigie-meteo gateway)",
+                    "domain": "weather",
+                    "reason": self.meteofrance_weather_off_reason,
+                }
+            )
+        if self.meteofrance_uv is None:
+            off.append(
+                {
+                    "provider_id": "meteofrance_uv",
+                    "name": "Météo-France daily UV index (PHEALTH, DPPaquetENVIRONNEMENT)",
+                    "domain": "weather",
+                    "reason": self.meteofrance_uv_off_reason,
+                }
+            )
         return off
 
     def get_providers_health(self) -> list[ProviderHealth]:
@@ -769,6 +817,33 @@ class AggregatorService:
         out["attribution"] = merge_credits(bundle.get("attribution"), credit_text(*RAIN_PIAF))
         return out
 
+    async def _france_bundle(self, lat: float, lon: float) -> Optional[dict[str, Any]]:
+        """The weather of a point in France from the Météo-France models (``merge_france_bundle``); ``None`` when this is not
+        configured, the point is outside the box, or the gateway cannot give it: Open-Meteo's public API then gives the weather.
+
+        Open-Meteo's daily part (rain probability, the days after the fourth, the hourly cloud cover) and Météo-France's UV grid
+        complete it; when either fails the bundle is still returned, without what it would have given."""
+        if self.meteofrance_weather is None or not in_france_box(lat, lon):
+            return None
+        # The three are asked together: a cold point costs the slowest of them, not their sum. Open-Meteo's daily part is the one
+        # the public fallback below would ask for anyway (same cache entry), so nothing is wasted when the gateway fails.
+        france, public_daily, uv = await asyncio.gather(
+            self.meteofrance_weather.fetch_point(lat, lon),
+            _or_none(self.open_meteo.fetch_daily(lat, lon)),
+            self._uv_grids(),
+            return_exceptions=True,
+        )
+        if isinstance(france, BaseException):
+            return None
+        if isinstance(public_daily, BaseException):
+            public_daily = None
+        if isinstance(uv, BaseException):
+            uv = None
+        return merge_france_bundle(france, public_daily, uv, lat, lon, clock.wall())
+
+    async def _uv_grids(self) -> Any:
+        return await self.meteofrance_uv.uv_grids() if self.meteofrance_uv is not None else None
+
     async def _fetch_weather_sources(
         self, lat: float, lon: float, utc_offset_s: Optional[int] = None
     ) -> tuple[Optional[dict[str, Any]], bool]:
@@ -783,6 +858,11 @@ class AggregatorService:
         is asked first, and that expired entry (marked stale) is served only when MET Norway has no
         fresh answer either.
         """
+        france = await self._france_bundle(lat, lon)
+        if france is not None:
+            self.last_weather_fallback_used = False
+            return france, False
+
         try:
             bundle = await self.open_meteo.fetch_point(lat, lon, allow_stale_on_error=False)
         except Exception:
