@@ -138,6 +138,7 @@ def test_quotas_are_declared_in_one_place_with_their_source() -> None:
         "meteofrance_bra",  # Météo-France API portal (DPBRA v1): 50 requests a minute (stated by the owner for this key)
         "vigieau",  # VigiEau public API: 300 requests per 15 minutes per IP (ThrottlerModule)
         "meteofrance_piaf",  # PIAF through the vigie-meteo gateway: a ceiling of our own per instance (see budget.py)
+        "meteofrance_uv",  # Météo-France API portal (PaquetENVIRONNEMENT, PHEALTH UV): 50 requests a minute, three an hour
     }
     assert all(quota.source_url.startswith("https://") for quota in QUOTAS.values())
     assert len({id(QUOTAS[name]) for name in QUOTAS if name.startswith("open_meteo")}) == 1  # one shared quota

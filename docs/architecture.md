@@ -222,6 +222,11 @@ The number of calls to the providers must not grow with the number of clients. W
   variables, refreshed every 15 minutes) and the daily forecast (7 variables, every hour) are now
   separate requests with their own cache entries; the weight of each request is computed from the
   published rule in `app/collectors/weights.py` (see `data-sources.md`).
+- **The weather of France from the Météo-France models** (optional, [ADR 0028](decisions/0028-weather-of-france-from-the-meteo-france-models.md)).
+  For a point in the box around metropolitan France and Corsica, `AggregatorService._france_bundle` asks the vigie-meteo gateway
+  (current conditions, 15-minute rain, four days), Open-Meteo's daily part (rain probability, later days, cloud cover) and the UV grid
+  of Météo-France together, and `merge_france_bundle` joins them field by field. Any failure of the gateway returns to the Open-Meteo
+  path below; a failure of the two others only leaves out what they would have given.
 - **A call budget per source.** Every request goes through `BaseCollector._get`, which counts it
   (and its weight) over a sliding window of 24 hours. A provider with a published quota (Open-Meteo,
   MET Norway, RainViewer; `app/collectors/budget.py`) never gets a request that would exceed it:

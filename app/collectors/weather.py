@@ -263,6 +263,17 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
         )
         return list(daily.get("hourly_cloud_cover", [])), daily.get("utc_offset_s")
 
+    async def fetch_daily(self, lat: float, lon: float) -> dict[str, Any]:
+        """The "daily" part alone: ``utc_offset_s``, ``daily_10d`` (10 days) and ``hourly_cloud_cover`` (48 hours).
+
+        For the points whose current conditions come from another provider (Météo-France in France): the rain probability, the
+        days that provider does not cover and the cloud cover stay Open-Meteo's. An expired entry is served when the provider
+        fails; with nothing cached the error is raised."""
+        s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
+        return await self.fetch(
+            self.cache_keys_for(lat, lon)[1], lat=s_lat, lon=s_lon, part="daily", ttl_seconds=self.DAILY_TTL_SECONDS
+        )
+
     @staticmethod
     def request_params(part: str, lat: float, lon: float) -> dict[str, str]:
         """Query parameters of the "now" or the "daily" request at ``lat, lon``."""

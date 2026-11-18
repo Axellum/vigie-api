@@ -135,6 +135,13 @@ QUOTAS: dict[str, Quota] = {
     # A ceiling of our own, per instance, that protects the gateway: 3,000 points every 5 minutes (held to 90 %: 2,700). A point
     # over the ceiling keeps Open-Meteo's rain. The page it points to is the one of this project that states it (SOURCES.md).
     "meteofrance_piaf": Quota("vigie-meteo-piaf", (Limit(300, 3000),), "https://github.com/Axellum/vigie-api/blob/main/SOURCES.md"),
+    # Météo-France Portail API (PaquetENVIRONNEMENT, PHEALTH daily UV index): 50 requests a minute, as the key of the application says
+    # for this API (the portal's free plan). This API sends three requests an hour (the runs, the newest run, its file when new).
+    "meteofrance_uv": Quota(
+        "meteofrance-uv",
+        (Limit(60, 50),),
+        "https://portail-api.meteofrance.fr/web/fr/api/PaquetENVIRONNEMENT",
+    ),
     # VigiEau (https://api.vigieau.gouv.fr): MTES-MCT/vigieau-api configures ThrottlerModule at 300 requests per 15 minutes
     # per IP (``x-ratelimit-limit: 300`` observed on 2026-11-15, alongside a 1s reset header from throttler v6 ms units).
     # Enforcing 300 / 900s (held to 90% = 270 / 15 min) protects the upstream and is backed by 1-hour grid/commune caching.

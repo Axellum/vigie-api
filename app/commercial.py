@@ -302,6 +302,24 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-11-16",
         ),
         CommercialUse(
+            "meteofrance_weather",
+            "not_verified",
+            "The models (AROME, ARPEGE) are Météo-France's, published as open data; the files this API reads are the ones an Open-Meteo "
+            "server synchronises from Open-Meteo's own bucket (processed by Open-Meteo, whose terms for those files were not read for "
+            "this source), and the weather code is Open-Meteo's calculation from ARPEGE. Open-Meteo's terms for its free API are in "
+            "the `open_meteo` entry; self-hosting the server is said to allow commercial use there.",
+            ("https://open-meteo.com/en/terms",),
+            "2026-10-20",
+        ),
+        CommercialUse(
+            "meteofrance_uv",
+            "not_verified",
+            "Free of charge on the Météo-France portal; the API's own description names the source ('Source : Météo-France') and no "
+            "licence, and its terms were not read. The UV index of the current hour is calculated by Vigie.",
+            ("https://portail-api.meteofrance.fr/api/am/devportal/v3/apis/274043ad-73a8-4713-9cba-cb34fce8b746/swagger",),
+            "2026-11-18",
+        ),
+        CommercialUse(
             "meteofrance_buoys",
             "not_verified",
             "Free of charge on the Météo-France portal (catalogue: PAYANT: Non, tags 'données publiques' and 'open data', the family of "
