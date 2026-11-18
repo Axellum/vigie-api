@@ -81,6 +81,12 @@ from app.collectors.meteofrance_buoys import MeteoFranceBuoysCollector, meteofra
 from app.collectors.meteofrance_ensemble import MeteoFranceEnsembleCollector
 from app.collectors.meteofrance_ensemble import compact as compact_probabilities
 from app.collectors.meteofrance_obs import MeteoFranceObsCollector, meteofrance_obs_key_from_env
+from app.collectors.meteofrance_overseas import (
+    MeteoFranceOverseasCollector,
+    in_overseas_box,
+    merge_overseas_bundle,
+    meteo_overseas_enabled_from_env,
+)
 from app.collectors.meteofrance_radar import TILE_PATH as RADAR_TILE_PATH
 from app.collectors.meteofrance_radar import MeteoFranceRadarCollector
 from app.collectors.meteofrance_shortterm import MeteoFranceShortTermCollector
@@ -329,6 +335,7 @@ class AggregatorService:
         meteofrance_uv: Optional[MeteoFranceUvCollector] = None,
         meteofrance_radar: Optional[MeteoFranceRadarCollector] = None,
         meteofrance_shortterm: Optional[MeteoFranceShortTermCollector] = None,
+        meteofrance_overseas: Optional[MeteoFranceOverseasCollector] = None,
         meteofrance_ensemble: Optional[MeteoFranceEnsembleCollector] = None,
         vigicrues: Optional[VigicruesCollector] = None,
         vigieau: Optional[VigiEauCollector] = None,
@@ -466,6 +473,14 @@ class AggregatorService:
         if meteofrance_uv is None and uv_key is not None:
             meteofrance_uv = MeteoFranceUvCollector(uv_key)
         self.meteofrance_uv = meteofrance_uv
+        # The weather of the overseas territories from AROME-OM, read by the same gateway (windows around the islands).
+        self.meteofrance_overseas_off_reason = (
+            "no vigie-meteo gateway: set VIGIE_METEO_GATEWAY_URL (Météo-France AROME-OM weather of the overseas territories), "
+            "and not VIGIE_METEO_GATEWAY_OVERSEAS=0"
+        )
+        if meteofrance_overseas is None and gateway_url is not None and meteo_overseas_enabled_from_env():
+            meteofrance_overseas = MeteoFranceOverseasCollector(gateway_url, grid_deg=self.open_meteo.grid_deg)
+        self.meteofrance_overseas = meteofrance_overseas
         # The radar mosaic of Météo-France (rain measured over metropolitan France), tiles drawn by the same gateway.
         self.meteofrance_radar_off_reason = "no vigie-meteo gateway: set VIGIE_METEO_GATEWAY_URL (Météo-France radar mosaic over France)"
         if meteofrance_radar is None and gateway_url is not None:
@@ -729,6 +744,8 @@ class AggregatorService:
             collectors.append(self.meteofrance_radar)
         if self.meteofrance_shortterm is not None:
             collectors.append(self.meteofrance_shortterm)
+        if self.meteofrance_overseas is not None:
+            collectors.append(self.meteofrance_overseas)
         if self.meteofrance_ensemble is not None:
             collectors.append(self.meteofrance_ensemble)
         return [c for c in collectors if c not in off]
@@ -826,6 +843,15 @@ class AggregatorService:
                     "reason": self.meteofrance_radar_off_reason,
                 }
             )
+        if self.meteofrance_overseas is None:
+            off.append(
+                {
+                    "provider_id": "meteofrance_overseas",
+                    "name": "Météo-France AROME-OM weather of the overseas territories (vigie-meteo gateway)",
+                    "domain": "weather",
+                    "reason": self.meteofrance_overseas_off_reason,
+                }
+            )
         if self.meteofrance_shortterm is None:
             off.append(
                 {
@@ -899,6 +925,24 @@ class AggregatorService:
             uv = None
         return merge_france_bundle(france, public_daily, uv, lat, lon, clock.wall())
 
+    async def _overseas_bundle(self, lat: float, lon: float) -> Optional[dict[str, Any]]:
+        """The weather of a point of the overseas territories from AROME-OM (``merge_overseas_bundle``); ``None`` when this is not configured,
+        the point is outside the boxes or the windows of the gateway, or the gateway cannot give it: Open-Meteo's public API then gives the weather.
+
+        Open-Meteo's daily part (rain probability, UV, the days the model does not cover) completes it; when it fails the bundle is still returned."""
+        if self.meteofrance_overseas is None or not in_overseas_box(lat, lon):
+            return None
+        overseas, public_daily = await asyncio.gather(
+            self.meteofrance_overseas.fetch_point(lat, lon),
+            _or_none(self.open_meteo.fetch_daily(lat, lon)),
+            return_exceptions=True,
+        )
+        if isinstance(overseas, BaseException):
+            return None
+        if isinstance(public_daily, BaseException):
+            public_daily = None
+        return merge_overseas_bundle(overseas, public_daily, clock.wall())
+
     async def _uv_grids(self) -> Any:
         return await self.meteofrance_uv.uv_grids() if self.meteofrance_uv is not None else None
 
@@ -917,6 +961,8 @@ class AggregatorService:
         fresh answer either.
         """
         france = await self._france_bundle(lat, lon)
+        if france is None:
+            france = await self._overseas_bundle(lat, lon)
         if france is not None:
             self.last_weather_fallback_used = False
             return france, False

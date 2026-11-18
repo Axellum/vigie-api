@@ -152,6 +152,10 @@ QUOTAS: dict[str, Quota] = {
     # 50 a minute), this API asks it for a point. A ceiling of our own, per instance, that protects the gateway: 3,000 points every 5
     # minutes (held to 90 %). A point over the ceiling has no ``short_term``.
     "meteofrance_shortterm": Quota("vigie-meteo-shortterm", (Limit(300, 3000),), "https://github.com/Axellum/vigie-api/blob/main/SOURCES.md"),
+    # Météo-France AROME-OM weather of the overseas territories, read through a vigie-meteo gateway (``app/collectors/meteofrance_overseas.py``): the
+    # gateway alone reads the Météo-France files (245 requests per run, spaced out, out of 50 a minute), this API asks it for a point. A ceiling of
+    # our own, per instance, that protects the gateway: 3,000 points every 5 minutes (held to 90 %). A point over the ceiling has Open-Meteo's weather.
+    "meteofrance_overseas": Quota("vigie-meteo-overseas", (Limit(300, 3000),), "https://github.com/Axellum/vigie-api/blob/main/SOURCES.md"),
     # Météo-France ensemble forecasts (PE-AROME, PE-ARPEGE: probabilities), read through a vigie-meteo gateway
     # (``app/collectors/meteofrance_ensemble.py``): the gateway alone reads the Météo-France WCS (119 + 140 requests per 6 hours, spaced out, out of
     # 50 a minute), this API asks it for a point. A ceiling of our own, per instance, that protects the gateway: 3,000 points every 5 minutes
