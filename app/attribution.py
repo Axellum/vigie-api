@@ -335,8 +335,16 @@ CREDITS: dict[str, Credit] = {
         Credit(
             "meteofrance_shortterm",
             "Météo-France (AROME-PI), hail, gusts, visibility and type of precipitation of the next hours",
-            "Source: Météo-France, modèle AROME-PI (https://portail-api.meteofrance.fr), read by a vigie-meteo gateway; "
+            "Source: Météo-France, modèle AROME-PI (https://portail-api.meteofrance.fr, Licence Ouverte 2.0), read by a vigie-meteo gateway; "
             "the levels (strong gusts, reduced visibility) and the kinds of precipitation are worked out by Vigie, not an official warning",
+            "ours",
+        ),
+        Credit(
+            "meteofrance_ensemble",
+            "Météo-France (PE-AROME, PE-ARPEGE), probabilities of rain, snow, gusts, hail and storm",
+            "Source: Météo-France, prévisions d'ensemble PE-AROME and PE-ARPEGE (https://portail-api.meteofrance.fr, Licence Ouverte 2.0), read by a "
+            "vigie-meteo gateway; the PE-AROME probabilities are Météo-France's, the PE-ARPEGE ones are counted by Vigie among the 35 members; "
+            "a model forecast, not an official warning",
             "ours",
         ),
         Credit(

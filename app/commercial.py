@@ -326,11 +326,28 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
         ),
         CommercialUse(
             "meteofrance_shortterm",
-            "not_verified",
-            "AROME-PI is Météo-France's model, offered free of charge on its API portal. The Open Data page that explains its precipitation "
-            "types (the only page of the model read) names no licence, and the portal's description page of the API was not read: no licence "
-            "is claimed. The levels (strong gusts, reduced visibility) and the kinds of precipitation are worked out by Vigie.",
-            ("https://confluence-meteofrance.atlassian.net/wiki/spaces/OpenDataMeteoFrance/pages/1674051588",),
+            "allowed",
+            "Licence Ouverte 2.0 (Etalab), as the licence document of the AROME-PI API on Météo-France's portal states it (read on 2026-11-18): "
+            "reuse, commercial included, with the source named, the date of the last update given (the run) and the data not altered. The levels "
+            "(strong gusts, reduced visibility) and the kinds of precipitation are worked out by Vigie.",
+            (
+                "https://portail-api.meteofrance.fr/api/am/devportal/v3/apis/5b715300-4f8e-46a0-9e45-feceece08280/documents/ee8ea595-7308-4f4f-9033-009a7ca2193e/content",
+                "https://www.etalab.gouv.fr/licence-ouverte-open-licence/",
+            ),
+            "2026-11-18",
+        ),
+        CommercialUse(
+            "meteofrance_ensemble",
+            "allowed",
+            "Licence Ouverte 2.0 (Etalab): the licence document of each of the two APIs on Météo-France's portal (PE-AROME and PE-ARPEGE, "
+            "read on 2026-11-18) says the data are under it and that the reuse, commercial included, needs the source named, the date of the last "
+            "update given (the run) and the data not altered or their meaning distorted. The PE-ARPEGE probabilities are counted by Vigie among "
+            "the 35 members; the credit says so.",
+            (
+                "https://portail-api.meteofrance.fr/api/am/devportal/v3/apis/435d98d5-173c-4e0f-ba75-6fa28c7de868/documents/e35741d2-177e-4cc5-84cb-c9326e81815a/content",
+                "https://portail-api.meteofrance.fr/api/am/devportal/v3/apis/b3f3f4c9-5289-4c02-97d0-29c7570e83b1/documents/eb0fc7a2-4a86-4583-ae93-1bc27e5f343f/content",
+                "https://www.etalab.gouv.fr/licence-ouverte-open-licence/",
+            ),
             "2026-11-18",
         ),
         CommercialUse(
