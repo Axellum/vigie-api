@@ -650,7 +650,8 @@ with the evidence; the spot then keeps OpenStreetMap's name in `osm_name` (one t
 is not edited from here.
 
 **Per hour**, as the providers give them: the sea state (`waves`), the primary and secondary swell (height, period, where it comes from)
-and the wind waves of MFWAM; the wind at 10 m, its gusts and where it comes from (Open-Meteo); the sunrise and sunset. A value the provider
+and the wind waves of MFWAM (the global model, through Open-Meteo: Météo-France's regional model of 0.025 degrees, coupled with AROME, was measured
+against buoys and is not used, [ADR 0029](decisions/0029-mfwam-france-measured-against-buoys.md)); the wind at 10 m, its gusts and where it comes from (Open-Meteo); the sunrise and sunset. A value the provider
 leaves out is `null`. **Worked out by Vigie** (`derived`): `daylight` (between the sunrise and the sunset Open-Meteo gives), the swell's
 `swell_angle_deg` to the facing, its power `swell_power_kw_m` (deep water, 1025 kg/m3 x g² x height² x period / 64 pi, about 0.49 x
 height² x period in kW per metre of crest, with the swell period standing for the energy period), the wind `relative` to the coast
