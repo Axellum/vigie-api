@@ -136,6 +136,7 @@ def test_quotas_are_declared_in_one_place_with_their_source() -> None:
         "meteofrance_buoys",  # Météo-France API portal (DPObs v2 buoys): 50 requests a minute, one request every 30 minutes
         "meteofrance_obs",  # Météo-France API portal (DPPaquetObs v1): 50 requests a minute on the free plan
         "meteofrance_bra",  # Météo-France API portal (DPBRA v1): 50 requests a minute (stated by the owner for this key)
+        "meteofrance_vigilance_overseas",  # Météo-France API portal (DPVigilance v1, overseas feeds): 50 requests a minute, three every 5 minutes
         "vigieau",  # VigiEau public API: 300 requests per 15 minutes per IP (ThrottlerModule)
         "meteofrance_piaf",  # PIAF through the vigie-meteo gateway: a ceiling of our own per instance (see budget.py)
         "meteofrance_uv",  # Météo-France API portal (PaquetENVIRONNEMENT, PHEALTH UV): 50 requests a minute, three an hour

@@ -106,6 +106,13 @@ QUOTAS: dict[str, Quota] = {
         (Limit(60, 50),),
         "https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesVigilance",
     ),
+    # The overseas entry points of the same API (ADR 0036): the same plan; this API sends at most three requests (the ZIP of the Antilles,
+    # Guyane, La Réunion, Mayotte and Saint-Pierre-et-Miquelon, and the maps of French Polynesia and New Caledonia) every 5 minutes.
+    "meteofrance_vigilance_overseas": Quota(
+        "meteofrance-vigilance",
+        (Limit(60, 50),),
+        "https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesVigilance",
+    ),
     # Météo-France Portail API (DPPaquetObs v2): the free plan allows at least 50 requests per minute
     # (https://portail-api.meteofrance.fr/web/fr/api/PaquetObs, read 2026-11-15). This API sends at most one request
     # every 6 minutes (10 an hour).

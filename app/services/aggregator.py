@@ -88,6 +88,10 @@ from app.collectors.meteofrance_overseas import (
     merge_overseas_bundle,
     meteo_overseas_enabled_from_env,
 )
+from app.collectors.meteofrance_overseas_vigilance import (
+    MeteoFranceOverseasVigilanceCollector,
+    overseas_vigilance_enabled_from_env,
+)
 from app.collectors.meteofrance_radar import TILE_PATH as RADAR_TILE_PATH
 from app.collectors.meteofrance_radar import MeteoFranceRadarCollector
 from app.collectors.meteofrance_shortterm import MeteoFranceShortTermCollector
@@ -329,6 +333,7 @@ class AggregatorService:
         eccc: Optional[ECCCCollector] = None,
         metservice: Optional[MetServiceCollector] = None,
         meteofrance: Optional[MeteoFranceVigilanceCollector] = None,
+        meteofrance_overseas_vigilance: Optional[MeteoFranceOverseasVigilanceCollector] = None,
         meteofrance_obs: Optional[MeteoFranceObsCollector] = None,
         meteofrance_bra: Optional[MeteoFranceBRACollector] = None,
         meteofrance_buoys: Optional[MeteoFranceBuoysCollector] = None,
@@ -425,6 +430,16 @@ class AggregatorService:
         if meteofrance is None and mf_key is not None:
             meteofrance = MeteoFranceVigilanceCollector(mf_key)
         self.meteofrance = meteofrance
+        # The same key and the other entry points of DPVigilance: the overseas territories (ADR 0036). Off with
+        # ``VIGIE_METEOFRANCE_VIGILANCE_OVERSEAS=0``.
+        self.meteofrance_overseas_vigilance_off_reason = (
+            "no Météo-France API key: set VIGIE_METEOFRANCE_API_KEY (portail-api.meteofrance.fr, DPVigilance v1, overseas feeds)"
+            if mf_key is None
+            else "switched off with VIGIE_METEOFRANCE_VIGILANCE_OVERSEAS=0"
+        )
+        if meteofrance_overseas_vigilance is None and mf_key is not None and overseas_vigilance_enabled_from_env():
+            meteofrance_overseas_vigilance = MeteoFranceOverseasVigilanceCollector(mf_key)
+        self.meteofrance_overseas_vigilance = meteofrance_overseas_vigilance
         mf_obs_key, mf_obs_problem = meteofrance_obs_key_from_env()
         if mf_obs_problem is not None:
             log.warning(mf_obs_problem)
@@ -576,6 +591,7 @@ class AggregatorService:
             eccc=self.eccc,
             metservice=self.metservice if self.metservice_enabled else None,
             meteofrance=self.meteofrance,
+            meteofrance_overseas=self.meteofrance_overseas_vigilance,
             vigicrues=self.vigicrues,
             tsunami=self.tsunami,
             swic=self.swic if self.wmo_sources != "off" else None,
@@ -742,6 +758,8 @@ class AggregatorService:
         collectors.append(self.ndbc)
         if self.meteofrance is not None:
             collectors.append(self.meteofrance)
+        if self.meteofrance_overseas_vigilance is not None:
+            collectors.append(self.meteofrance_overseas_vigilance)
         if self.meteofrance_obs is not None:
             collectors.append(self.meteofrance_obs)
         if self.meteofrance_bra is not None:
@@ -796,6 +814,15 @@ class AggregatorService:
                     "name": "Météo-France Vigilance (DPVigilance v1)",
                     "domain": "vigilance",
                     "reason": self.meteofrance_off_reason,
+                }
+            )
+        if self.meteofrance_overseas_vigilance is None:
+            off.append(
+                {
+                    "provider_id": "meteofrance_vigilance_overseas",
+                    "name": "Météo-France Vigilance outre-mer (DPVigilance v1)",
+                    "domain": "vigilance",
+                    "reason": self.meteofrance_overseas_vigilance_off_reason,
                 }
             )
         if self.meteofrance_obs is None:
