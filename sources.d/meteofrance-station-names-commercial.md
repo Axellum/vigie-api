@@ -1,0 +1,2 @@
+<!-- section: Commercial use (for the paid app to come) -->
+| `meteofrance_station_names` | Météo-France (POSTES_MF.csv), names and altitudes of the ground stations | **allowed** | Licence Ouverte 2.0 (Etalab): any use, commercial included, with the source and the date of the data named. | <https://www.data.gouv.fr/datasets/66ebf2cb9dd6916802ae90a1>, <https://www.etalab.gouv.fr/licence-ouverte-open-licence/> (2026-11-21) |

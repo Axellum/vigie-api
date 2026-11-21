@@ -68,6 +68,8 @@ class StationReading:
     humidity_pct: Optional[int]
     pressure_hpa: Optional[float]
     precip_6m_mm: Optional[float]
+    lat: Optional[float] = None
+    lon: Optional[float] = None
 
 
 Readings = dict[str, StationReading]
@@ -119,8 +121,23 @@ def _extract_rows(payload: Any) -> list[dict[str, Any]]:
         if not isinstance(item, dict):
             continue
         props = item.get("properties")
-        rows.append(props if isinstance(props, dict) else item)
+        if not isinstance(props, dict):
+            rows.append(item)
+            continue
+        row = dict(props)
+        coords = (item.get("geometry") or {}).get("coordinates") if isinstance(item.get("geometry"), dict) else None
+        if isinstance(coords, list) and len(coords) >= 2 and row.get("lat") is None and row.get("lon") is None:
+            row["lon"], row["lat"] = coords[0], coords[1]
+        rows.append(row)
     return rows
+
+
+def _position(row: dict[str, Any]) -> tuple[Optional[float], Optional[float]]:
+    """The station's position as the package gives it (``lat``/``lon`` in degrees), or ``(None, None)`` when it is not a place."""
+    lat, lon = optional_float(row.get("lat")), optional_float(row.get("lon"))
+    if lat is None or lon is None or not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+        return None, None
+    return round(lat, 5), round(lon, 5)
 
 
 def parse_latest(payload: Any) -> Readings:
@@ -164,6 +181,7 @@ def parse_latest(payload: Any) -> Readings:
         prev = readings.get(station_id)
         if prev is not None and prev.measured_utc >= measured_utc:
             continue
+        lat, lon = _position(row)
         readings[station_id] = StationReading(
             station_id=station_id,
             measured_utc=measured_utc,
@@ -174,6 +192,8 @@ def parse_latest(payload: Any) -> Readings:
             humidity_pct=humidity_pct,
             pressure_hpa=pressure_hpa,
             precip_6m_mm=precip_6m_mm,
+            lat=lat,
+            lon=lon,
         )
     return readings
 
