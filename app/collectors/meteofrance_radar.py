@@ -1,4 +1,4 @@
-"""Météo-France radar mosaic of metropolitan France (rain actually measured), relayed from a vigie-meteo gateway (optional).
+"""Météo-France radar mosaics (rain actually measured: metropolitan France, the Antilles, La Réunion and New Caledonia), relayed from a vigie-meteo gateway (optional).
 
 Météo-France's ``DPRadar`` publishes one mosaic of the radars of metropolitan France every 5 minutes (the ``LAME_D_EAU`` product:
 the rain accumulated over the 5 minutes before the date of the image, 500 m pixels, a file of HDF5 in a polar stereographic grid).
@@ -7,6 +7,10 @@ This API does not read it itself: the gateway (``Axellum/vigie-meteo``, ``GET /v
 hours and draws Web Mercator PNG tiles on demand. This collector reads the list of its images (a few hundred bytes, cached two
 minutes) and relays its tiles: a tile of an image the gateway no longer lists is refused, so a client cannot make this API ask the
 gateway for anything else.
+
+The three overseas mosaics (``ANTILLES``, ``REUNION``, ``NOUVELLE-CALEDONIE``, ADR 0037) are the same product on their own grids; the gateway
+serves each under ``/v1/radar/{area}/...`` (the metropolitan one keeps its first routes, ``/v1/radar/frames`` and ``/v1/radar/tiles/...``)
+and this collector asks for each area on its own, with its own list of images and its own tiles in memory.
 
 Nothing is drawn or invented here: the tiles are the gateway's, the credit is Météo-France's. The image that ends at a given time is
 published about two minutes after it; a tile is immutable (its address holds the date), so it is cached for a day by the client and
@@ -39,6 +43,30 @@ PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 # What the gateway tiles show: a Web Mercator slippy map of 256 px tiles, zoom 3 to 10 (read from the gateway's answer).
 TILE_PATH = "/v1/radar/france/tiles/{epoch}/{z}/{x}/{y}.png"
 MAX_LEGEND_CLASSES = 20
+
+FRANCE = "france"
+# The areas of the radar, by the name this API and the gateway give them in an address, with the box of their grid (west, south, east,
+# north; the boxes of the files of 2026-11-21, widened by at most 0.02 degree): a point inside one is given that radar. The box is not
+# the range of the radars (a point of the box may be beyond them: its tiles are transparent there, as in France).
+AREA_BOXES: dict[str, tuple[float, float, float, float]] = {
+    "antilles": (-66.0, 10.59, -57.0, 21.0),
+    "reunion": (51.0, -25.02, 62.02, -16.0),
+    "new-caledonia": (159.7, -27.27, 171.58, -16.2),
+}
+AREAS: tuple[str, ...] = (FRANCE, *AREA_BOXES)
+
+
+def tile_path(area: str = FRANCE) -> str:
+    """The path of the tiles of an area, relative to the root of this API."""
+    return f"/v1/radar/{area}/tiles/{{epoch}}/{{z}}/{{x}}/{{y}}.png"
+
+
+def overseas_area_of(lat: float, lon: float) -> Optional[str]:
+    """The overseas radar area whose grid holds a point (``antilles``, ``reunion``, ``new-caledonia``), else ``None``."""
+    for area, (west, south, east, north) in AREA_BOXES.items():
+        if west <= lon <= east and south <= lat <= north:
+            return area
+    return None
 
 
 
@@ -163,27 +191,31 @@ class MeteoFranceRadarCollector(BaseCollector[RadarFrames]):
             http_client=http_client,
         )
         self.base_url = base_url.rstrip("/")
-        self._tiles: OrderedDict[tuple[int, int, int, int], bytes] = OrderedDict()
-        self._tiles_inflight: dict[tuple[int, int, int, int], asyncio.Task[Optional[bytes]]] = {}
+        self._tiles: OrderedDict[tuple[str, int, int, int, int], bytes] = OrderedDict()
+        self._tiles_inflight: dict[tuple[str, int, int, int, int], asyncio.Task[Optional[bytes]]] = {}
         self._tile_client: Optional[httpx.AsyncClient] = None
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> RadarFrames:
         kwargs.pop("previous", None)
-        response = await self._get(client, f"{self.base_url}/v1/radar/frames")
+        area = kwargs.pop("area", FRANCE)
+        path = "/v1/radar/frames" if area == FRANCE else f"/v1/radar/{area}/frames"
+        response = await self._get(client, f"{self.base_url}{path}")
         response.raise_for_status()
         return parse_frames(response.json())
 
-    async def frames(self) -> Optional[RadarFrames]:
-        """The images the gateway lists, or ``None`` when it does not answer or lists none (an expired list is not served: a tile
-        of an image the gateway has purged would be a 404)."""
+    async def frames(self, area: str = FRANCE) -> Optional[RadarFrames]:
+        """The images the gateway lists for an area, or ``None`` when it does not answer or lists none (an expired list is not served:
+        a tile of an image the gateway has purged would be a 404)."""
+        if area not in AREAS:
+            return None
         try:
-            return await self.fetch("global", allow_stale_on_error=False)
+            return await self.fetch("global" if area == FRANCE else f"area:{area}", allow_stale_on_error=False, area=area)
         except Exception:
             return None
 
-    async def tile(self, epoch: int, z: int, x: int, y: int) -> Optional[bytes]:
-        """The PNG of a tile of the image ending at ``epoch``: ``None`` when the gateway has no such image; raises when it fails."""
-        key = (epoch, z, x, y)
+    async def tile(self, epoch: int, z: int, x: int, y: int, area: str = FRANCE) -> Optional[bytes]:
+        """The PNG of a tile of the image of an area ending at ``epoch``: ``None`` when the gateway has no such image; raises when it fails."""
+        key = (area, epoch, z, x, y)
         cached = self._tiles.get(key)
         if cached is not None:
             self._tiles.move_to_end(key)
@@ -195,8 +227,8 @@ class MeteoFranceRadarCollector(BaseCollector[RadarFrames]):
             task.add_done_callback(lambda _t, k=key: self._tiles_inflight.pop(k, None))
         return await asyncio.shield(task)
 
-    async def _fetch_tile(self, key: tuple[int, int, int, int]) -> Optional[bytes]:
-        epoch, z, x, y = key
+    async def _fetch_tile(self, key: tuple[str, int, int, int, int]) -> Optional[bytes]:
+        area, epoch, z, x, y = key
         client = self._external_client
         if client is None:
             if self._tile_client is None:
@@ -204,7 +236,8 @@ class MeteoFranceRadarCollector(BaseCollector[RadarFrames]):
                     timeout=TILE_TIMEOUT_S, headers={"User-Agent": build_user_agent(), "Accept": "image/png"}, follow_redirects=False
                 )
             client = self._tile_client
-        response = await self._get(client, f"{self.base_url}/v1/radar/tiles/{epoch}/{z}/{x}/{y}.png")
+        path = f"/v1/radar/tiles/{epoch}/{z}/{x}/{y}.png" if area == FRANCE else f"/v1/radar/{area}/tiles/{epoch}/{z}/{x}/{y}.png"
+        response = await self._get(client, f"{self.base_url}{path}")
         if response.status_code == 404:
             return None
         response.raise_for_status()

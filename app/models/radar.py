@@ -1,4 +1,4 @@
-"""The rain measured by the radar of Météo-France over metropolitan France (``GET /v1/radar/france``)."""
+"""The rain measured by the radars of Météo-France over metropolitan France and the overseas areas (``GET /v1/radar/{area}``)."""
 
 from __future__ import annotations
 
@@ -23,6 +23,11 @@ class RadarLegendClass(BaseModel):
 
 
 class RadarFrance(BaseModel):
+    area: str = Field(
+        "france",
+        description="the radar mosaic: `france` (metropolitan), `antilles` (Guadeloupe, Martinique, Saint-Barthélemy, Saint-Martin's south), "
+        "`reunion` (La Réunion and Mauritius) or `new-caledonia`",
+    )
     status: Literal["ok", "not_configured", "unavailable"] = Field(
         description="`ok`: the images are listed; `not_configured`: no radar gateway on this instance; `unavailable`: the gateway has no image to give"
     )

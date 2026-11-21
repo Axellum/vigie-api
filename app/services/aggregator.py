@@ -92,8 +92,9 @@ from app.collectors.meteofrance_overseas_vigilance import (
     MeteoFranceOverseasVigilanceCollector,
     overseas_vigilance_enabled_from_env,
 )
-from app.collectors.meteofrance_radar import TILE_PATH as RADAR_TILE_PATH
-from app.collectors.meteofrance_radar import MeteoFranceRadarCollector
+from app.collectors.meteofrance_radar import FRANCE as RADAR_FRANCE
+from app.collectors.meteofrance_radar import MeteoFranceRadarCollector, overseas_area_of
+from app.collectors.meteofrance_radar import tile_path as radar_tile_path
 from app.collectors.meteofrance_shortterm import MeteoFranceShortTermCollector
 from app.collectors.meteofrance_station_daily import MeteoFranceStationDailyCollector
 from app.collectors.meteofrance_uv import MeteoFranceUvCollector, meteofrance_uv_key_from_env
@@ -1684,6 +1685,8 @@ class AggregatorService:
     ) -> PointResponse:
         """Build the ``/v1/point`` response for a GPS device (boat, M5Stack Tab5, vehicle)."""
         include_marine = bool(marine or device_type == DeviceType.MARINE)
+        # The radar of the area the point lies in: metropolitan France, or an overseas mosaic (ADR 0037); none elsewhere.
+        radar_area = RADAR_FRANCE if in_france_box(lat, lon) else overseas_area_of(lat, lon)
         days_count = 5 if compact else 10
         limit_hazards = max_hazards or DEVICE_DEFAULT_MAX_HAZARDS.get(device_type, 15)
 
@@ -1712,16 +1715,16 @@ class AggregatorService:
             _or_none(self.fires.nearby(lat, lon, fire_radius_km)),
             self.get_drought_safe(lat, lon),
             self.get_avalanche_safe(lat, lon),
-            self.meteofrance_radar.frames() if self.meteofrance_radar is not None and in_france_box(lat, lon) else _none_coro(),
+            self.meteofrance_radar.frames(radar_area) if self.meteofrance_radar is not None and radar_area is not None else _none_coro(),
             self.get_short_term_safe(lat, lon),
             self.get_probabilities_safe(lat, lon),
         )
         radar_meta = radar_meta or {}
-        # In France the radar is Météo-France's, relayed by this API (``GET /v1/radar/france``); elsewhere, or when the gateway has no
+        # In France and in the overseas areas of its radars the radar is Météo-France's, relayed by this API (``GET /v1/radar/{area}``); elsewhere, or when the gateway has no
         # image, RainViewer's when it is on.
         if france_radar_frames is not None:
             radar_meta = {
-                "radar_tile_url_template": RADAR_TILE_PATH.replace("{epoch}", str(france_radar_frames.epochs[-1])),
+                "radar_tile_url_template": radar_tile_path(radar_area).replace("{epoch}", str(france_radar_frames.epochs[-1])),
                 "radar_timestamp_utc": france_radar_frames.epochs[-1],
                 "credit": ("meteofrance_radar",),
             }
