@@ -46,6 +46,7 @@ Endpoints:
 - ``GET    /v1/surf/buoys``        : The nearest CANDHIS wave buoy of each surf spot and its distance (the list only).
 - ``GET    /v1/surf/spots/{id}/buoy`` : The latest record (height, period, direction, sea temperature) of the nearest buoy of a spot that has a current one.
 - ``GET    /v1/surf/stations``     : The nearest Météo-France coastal weather station of each surf spot and its distance (the list only).
+- ``GET    /v1/stations/wind``     : The wind measured now (6-minute observations) by every Météo-France ground station of a ``bbox``, strongest first.
 - ``GET    /v1/surf/spots/{id}/station`` : The latest 6-minute observation (wind speed, gusts, direction, relative regime, air temperature, pressure) of the nearest coastal station of a spot, with optional live comparison against the wind forecast (`compare=true`).
 - ``GET    /v1/sea/places``        : The ports, slipways, anchorages, dive sites and bathing sites of the French coast (OpenStreetMap, Sandre, QSB).
 - ``GET    /v1/sea/places/{id}``   : One of them.
@@ -156,7 +157,7 @@ from app.models.schemas import (
 from app.models.sea_buoys import SeaBuoys
 from app.models.sea_places import PlaceAnswer, PlaceList, PlaceType
 from app.models.sky import AuroraOvalCollection, AuroraResponse, EclipseDetail, EclipseList, EclipseMapCollection
-from app.models.stations import SpotStationReading, SpotStations
+from app.models.stations import SpotStationReading, SpotStations, StationWindMap
 from app.models.surf import SurfForecast, SurfOverview, SurfSpots, TidePreference
 from app.models.tides import CoastalTides, TidesResponse
 from app.models.travel import TravelCountryDetail, TravelHealth, TravelOverview
@@ -179,6 +180,7 @@ from app.services import (
     radar_france,
     sea_buoys,
     sea_places,
+    station_wind,
     stations,
     surf,
     surf_correction,
@@ -1148,6 +1150,37 @@ async def get_spot_station(
         raise HTTPException(status_code=404, detail=f"no surf spot {spot_id!r}") from None
     response.headers["Cache-Control"] = SURF_CACHE
     return answer
+
+
+STATION_WIND_CACHE = "public, max-age=180"  # a new package every 6 minutes
+
+
+@app.get(
+    "/v1/stations/wind",
+    response_model=StationWindMap,
+    tags=["Weather"],
+    responses={422: {"description": "A `bbox` that is not a box."}},
+    description=(
+        "The wind measured now by every Météo-France ground station of a box, for a map: the latest 6-minute observation "
+        "(`DPPaquetObs/v2/paquet/stations/infrahoraire-6m`, Météo-France, Licence Ouverte 2.0) of each station whose anemometer "
+        "reported within `max_age_hours`: 10 m mean wind, gust and direction, the station's position (as the package gives it), its "
+        "name and altitude (`POSTES_MF.csv`). Strongest mean wind first, at most `limit`. The package is read at most once every "
+        "6 minutes for every client (a key is needed: without `VIGIE_METEOFRANCE_OBS_API_KEY` or `VIGIE_METEOFRANCE_API_KEY` on this "
+        "instance `status` is `not_configured`). France and its overseas territories only. **Not for safety.**"
+    ),
+)
+async def get_station_wind(
+    response: Response,
+    bbox: str = Query(..., description="`west,south,east,north` in degrees, e.g. `-6,41,10,52`"),
+    limit: int = Query(default=station_wind.DEFAULT_LIMIT, ge=1, le=5000, description="at most this many stations, the strongest"),
+) -> StationWindMap:
+    """The latest wind of every station of a box."""
+    try:
+        box = parse_bbox(bbox)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    response.headers["Cache-Control"] = STATION_WIND_CACHE
+    return await station_wind.wind_map(aggregator.meteofrance_obs, box, clock.wall(), limit)
 
 
 PLACES_CACHE = "public, max-age=86400"  # the file changes with a release, not by the hour

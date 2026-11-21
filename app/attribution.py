@@ -297,6 +297,12 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "meteofrance_station_names",
+            "Météo-France (POSTES_MF.csv), names and altitudes of the ground stations",
+            "Source: Météo-France, file 'POSTES_MF.csv' (Licence Ouverte 2.0), names and altitudes of the open ground stations",
+            "ours",
+        ),
+        Credit(
             "meteofrance_obs",
             "Météo-France (DPPaquetObs), latest 6-minute observations",
             "Source: Météo-France, observations infrahoraires 6 min (https://portail-api.meteofrance.fr/web/fr/api/PaquetObs, Licence Ouverte 2.0), "

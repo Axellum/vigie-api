@@ -1,4 +1,5 @@
-"""The coastal weather stations near the surf spots (``GET /v1/surf/stations``) and their latest 6-minute observation (``GET /v1/surf/spots/{id}/station``)."""
+"""The coastal weather stations near the surf spots (``GET /v1/surf/stations``), their latest 6-minute observation
+(``GET /v1/surf/spots/{id}/station``) and the wind of every station of a box (``GET /v1/stations/wind``)."""
 
 from __future__ import annotations
 
@@ -106,6 +107,41 @@ class SpotStations(BaseModel):
     within_15_km: int
     within_25_km: int
     spots: list[SpotStation]
+    note: str
+    derived: list[str]
+    licence: str
+    attribution: str
+
+
+class WindStation(BaseModel):
+    """One Météo-France ground station and the wind its anemometer measured last (a 6-minute observation)."""
+
+    id: str = Field(description="Météo-France 8-digit station code (`geo_id_insee`)")
+    name: Optional[str] = Field(None, description="usual name in `POSTES_MF.csv`; null for a station the bundled list does not name")
+    alt_m: Optional[int] = Field(None, description="altitude of the station in `POSTES_MF.csv`: a summit station measures the wind of the crest")
+    lat: float = Field(description="as the 6-minute package gives it")
+    lon: float = Field(description="as the 6-minute package gives it")
+    measured_utc: int = Field(description="validity timestamp of the observation, UTC")
+    age_minutes: int = Field(description="minutes since the observation, never below 0")
+    wind_speed_kmh: float = Field(description="10-minute mean wind speed at 10 m (`ff` converted from m/s)")
+    wind_gust_kmh: Optional[float] = Field(None, description="10-minute maximum wind gust at 10 m (`raf10`, else `fxi10` or `fxy`, from m/s)")
+    wind_from_deg: Optional[int] = Field(None, description="degrees the wind blows from (0..359); null when calm or not measured")
+
+
+class StationWindMap(BaseModel):
+    """The wind measured now by every Météo-France ground station of a box, strongest first."""
+
+    status: Literal["ok", "not_configured", "unavailable"] = Field(
+        description="`ok`: the list (it may be empty: no station of the box measured the wind within `max_age_hours`); `not_configured`: this "
+        "instance has no Météo-France observation key; `unavailable`: `DPPaquetObs` gave nothing and nothing is cached"
+    )
+    bbox: list[float] = Field(description="the box asked, `west,south,east,north`")
+    count: int
+    truncated: bool = Field(False, description="more stations than `limit` measured the wind in the box: the weakest were left out")
+    measured_utc: Optional[int] = Field(None, description="the newest observation of the list, UTC")
+    stale: bool = Field(False, description="the observations come from a cache that could not be refreshed")
+    max_age_hours: float
+    stations: list[WindStation] = Field(description="strongest mean wind first")
     note: str
     derived: list[str]
     licence: str

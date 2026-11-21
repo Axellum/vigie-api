@@ -294,6 +294,16 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-11-15",
         ),
         CommercialUse(
+            "meteofrance_station_names",
+            "allowed",
+            "Licence Ouverte 2.0 (Etalab): any use, commercial included, with the source and the date of the data named.",
+            (
+                "https://www.data.gouv.fr/datasets/66ebf2cb9dd6916802ae90a1",
+                "https://www.etalab.gouv.fr/licence-ouverte-open-licence/",
+            ),
+            "2026-11-21",
+        ),
+        CommercialUse(
             "meteofrance_piaf",
             "not_verified",
             "Free of charge on the Météo-France portal (its catalogue says PAYANT: Non); the catalogue entry names no licence, "
