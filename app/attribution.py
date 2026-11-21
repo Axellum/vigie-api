@@ -334,7 +334,7 @@ CREDITS: dict[str, Credit] = {
         ),
         Credit(
             "meteofrance_radar",
-            "Météo-France (DPRadar), radar mosaic of metropolitan France",
+            "Météo-France (DPRadar), radar mosaics of metropolitan France and of the overseas areas",
             "Source: Météo-France, mosaïque radar lame d'eau (https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesRadar, "
             "Licence Ouverte 2.0), drawn as tiles by a vigie-meteo gateway: the intensity classes and their colours are ours",
             "ours",
