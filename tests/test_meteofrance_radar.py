@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 from pathlib import Path
 from typing import Any, Optional
 
@@ -287,3 +288,131 @@ def test_the_source_is_listed_as_off_without_a_gateway(tmp_path: Path) -> None:
     on = _service(tmp_path, collector(gateway()))
     assert "meteofrance_radar" in {c.provider_id for c in on.get_all_collectors()}
     assert "meteofrance_radar" not in {item["provider_id"] for item in on.disabled_sources()}
+
+
+# ------------------------------------------------------------------------------------------------ the overseas areas (ADR 0037)
+
+OVERSEAS_POINTS = {
+    "antilles": (14.65, -61.0),  # Martinique
+    "reunion": (-21.1, 55.5),  # La Réunion
+    "new-caledonia": (-22.27, 166.45),  # Nouméa
+}
+
+
+def overseas_payload(area: str) -> dict[str, Any]:
+    """What the gateway answers for an overseas area: the recorded answer of France with the box of the area's grid (read in the
+    files of ``DPRadar`` on 2026-11-21) and the area's own tile path."""
+    payload = frames_payload()
+    payload["area"] = area
+    payload["bounds"] = list(meteofrance_radar.AREA_BOXES[area])
+    payload["tile_path"] = f"/v1/radar/{area}/tiles/{{epoch}}/{{z}}/{{x}}/{{y}}.png"
+    return payload
+
+
+def area_gateway(tile_status: int = 200) -> Provider:
+    """A gateway that has an image for the three overseas areas and for France, and refuses any other address."""
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/v1/radar/frames":
+            return httpx.Response(200, json=frames_payload())
+        for area in meteofrance_radar.AREA_BOXES:
+            if path == f"/v1/radar/{area}/frames":
+                return httpx.Response(200, json=overseas_payload(area))
+            if path.startswith(f"/v1/radar/{area}/tiles/"):
+                return httpx.Response(tile_status, content=FAKE_PNG, headers={"content-type": "image/png"})
+        if path.startswith("/v1/radar/tiles/"):
+            return httpx.Response(tile_status, content=FAKE_PNG, headers={"content-type": "image/png"})
+        raise AssertionError(f"unexpected request to the gateway: {path}")
+
+    return Provider(answer=answer)
+
+
+def test_the_overseas_boxes_are_the_grids_of_the_files() -> None:
+    assert meteofrance_radar.AREAS == ("france", "antilles", "reunion", "new-caledonia")
+    for name, point in OVERSEAS_POINTS.items():
+        assert meteofrance_radar.overseas_area_of(*point) == name
+    # La Réunion's mosaic reaches Mauritius; neither Mayotte, Guyane, Tahiti, Saint-Pierre nor Paris has a radar of its own
+    assert meteofrance_radar.overseas_area_of(-20.3, 57.55) == "reunion"
+    for name, point in {"Mayotte": (-12.8, 45.2), "Cayenne": (4.94, -52.33), "Tahiti": (-17.55, -149.57), "Saint-Pierre": (46.78, -56.18), "Paris": (48.85, 2.35)}.items():
+        assert meteofrance_radar.overseas_area_of(*point) is None, name
+    assert meteofrance_radar.tile_path("antilles") == "/v1/radar/antilles/tiles/{epoch}/{z}/{x}/{y}.png"
+    assert meteofrance_radar.tile_path() == TILE_PATH
+
+
+async def test_each_area_asks_its_own_list_and_its_own_tiles(sim_clock: SimClock) -> None:
+    provider = area_gateway()
+    radar = collector(provider)
+    france = await radar.frames()
+    antilles = await radar.frames("antilles")
+    assert france is not None and antilles is not None and france.bounds != antilles.bounds
+    assert antilles.bounds == meteofrance_radar.AREA_BOXES["antilles"]
+    assert await radar.frames("antilles") is antilles and provider.count == 2  # the list of an area is kept two minutes, per area
+    assert await radar.frames("atlantis") is None and provider.count == 2  # an unknown area costs nothing
+    assert await radar.tile(LAST, 9, 150, 230, "antilles") == FAKE_PNG
+    assert await radar.tile(LAST, 9, 150, 230) == FAKE_PNG  # the same tile address of France is another tile
+    assert [r.url.path for r in provider.requests[-2:]] == [f"/v1/radar/antilles/tiles/{LAST}/9/150/230.png", f"/v1/radar/tiles/{LAST}/9/150/230.png"]
+
+
+@pytest.mark.parametrize("area", list(OVERSEAS_POINTS))
+def test_the_overseas_list_and_tile_routes(world: World, sim_clock: SimClock, area: str) -> None:
+    provider = area_gateway()
+    world.aggregator.meteofrance_radar = collector(provider)
+    body = world.client.get(f"/v1/radar/{area}").json()
+    assert body["status"] == "ok" and body["area"] == area and body["latest_utc"] == LAST
+    assert body["tile_url_template"] == f"/v1/radar/{area}/tiles/{{epoch}}/{{z}}/{{x}}/{{y}}.png"
+    assert body["bounds"] == list(meteofrance_radar.AREA_BOXES[area]) and body["attribution"] == credit_text("meteofrance_radar")
+    assert world.client.get("/v1/radar/france").json()["area"] == "france"
+    # a tile on the area: relayed from the area's route of the gateway
+    lat, lon = OVERSEAS_POINTS[area]
+    z = 9
+    x = int((lon + 180.0) / 360.0 * 2**z)
+    y = int((1.0 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2.0 * 2**z)
+    r = world.client.get(f"/v1/radar/{area}/tiles/{LAST}/{z}/{x}/{y}.png")
+    assert r.status_code == 200 and r.content == FAKE_PNG
+    assert provider.requests[-1].url.path == f"/v1/radar/{area}/tiles/{LAST}/{z}/{x}/{y}.png"
+    # a tile of Paris is outside the Antilles' grid: transparent without a request
+    count = provider.count
+    paris = world.client.get(f"/v1/radar/{area}/tiles/{LAST}/{PARIS_TILE[0]}/{PARIS_TILE[1]}/{PARIS_TILE[2]}.png")
+    assert paris.status_code == 200 and paris.content == TRANSPARENT_PNG and provider.count == count
+    # an image the area does not list
+    assert world.client.get(f"/v1/radar/{area}/tiles/{LAST + 300}/{z}/{x}/{y}.png").status_code == 404
+
+
+def test_an_unknown_area_is_refused(world: World, sim_clock: SimClock) -> None:
+    world.aggregator.meteofrance_radar = collector(area_gateway())
+    assert world.client.get("/v1/radar/atlantis").status_code == 422
+    assert world.client.get(f"/v1/radar/atlantis/tiles/{LAST}/8/1/1.png").status_code == 422
+    world.aggregator.meteofrance_radar = None
+    assert world.client.get("/v1/radar/antilles").json()["status"] == "not_configured"
+
+
+async def test_an_overseas_gateway_without_the_area_leaves_it_unavailable(sim_clock: SimClock) -> None:
+    """An older gateway (France only) answers 404 for an overseas route: the area is unavailable, France is not touched."""
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/radar/frames":
+            return httpx.Response(200, json=frames_payload())
+        return httpx.Response(404, json={"detail": "Not Found"})
+
+    radar = collector(Provider(answer=answer))
+    assert await radar.frames("antilles") is None and await radar.frames() is not None
+
+
+@pytest.mark.parametrize(("area", "place"), list(OVERSEAS_POINTS.items()))
+async def test_an_overseas_point_points_to_the_radar_of_its_area(sim_clock: SimClock, tmp_path: Path, area: str, place: tuple[float, float]) -> None:
+    provider = area_gateway()
+    service = _service(tmp_path, collector(provider))
+    point = await service.build_point_response(*place)
+    rain = point.rain_nowcast
+    assert rain.radar_timestamp_utc == LAST
+    assert rain.radar_tile_url_template == f"/v1/radar/{area}/tiles/{LAST}/{{z}}/{{x}}/{{y}}.png"
+    assert rain.attribution is not None and credit_text("meteofrance_radar") in rain.attribution
+    assert [r.url.path for r in provider.requests] == [f"/v1/radar/{area}/frames"]  # only the area's list, never France's
+
+
+async def test_a_point_without_a_radar_of_its_own_asks_nothing(sim_clock: SimClock, tmp_path: Path) -> None:
+    provider = area_gateway()
+    service = _service(tmp_path, collector(provider))
+    mayotte = await service.build_point_response(-12.8, 45.2)
+    assert mayotte.rain_nowcast.radar_tile_url_template is None and provider.count == 0
