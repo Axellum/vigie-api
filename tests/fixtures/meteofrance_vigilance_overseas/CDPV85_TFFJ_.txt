@@ -1,0 +1,146 @@
+{
+ "warning_type": "vigilance",
+ "update_time": "2026-11-21T10:04:00Z",
+ "timelaps": {
+  "domain_ids": [
+   {
+    "domain_id": "VIGI978-977-51",
+    "max_color_id": 1,
+    "phenomenon_items": [
+     {
+      "phenomenon_id": 2,
+      "phenomenon_max_color_id": 0,
+      "timelaps_items": [
+       {
+        "color_id": 0,
+        "begin_time": "2026-11-21T10:04:00Z"
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 1,
+      "phenomenon_max_color_id": 0,
+      "timelaps_items": [
+       {
+        "color_id": 0,
+        "begin_time": "2026-11-21T10:04:00Z"
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 9,
+      "phenomenon_max_color_id": -1,
+      "timelaps_items": [
+       {
+        "color_id": -1,
+        "begin_time": "2026-11-21T10:04:00Z"
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 10,
+      "phenomenon_max_color_id": 0,
+      "timelaps_items": [
+       {
+        "color_id": 0,
+        "begin_time": "2026-11-21T10:04:00Z"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "domain_id": "VIGI978-977-01",
+    "max_color_id": 1,
+    "phenomenon_items": [
+     {
+      "phenomenon_id": 2,
+      "phenomenon_max_color_id": 1,
+      "timelaps_items": [
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T10:04:00Z"
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 1,
+      "phenomenon_max_color_id": 1,
+      "timelaps_items": [
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T10:04:00Z"
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 9,
+      "phenomenon_max_color_id": 0,
+      "timelaps_items": [
+       {
+        "color_id": 0,
+        "begin_time": "2026-11-21T10:04:00Z"
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 10,
+      "phenomenon_max_color_id": 1,
+      "timelaps_items": [
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T10:04:00Z"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "domain_id": "VIGI978-977",
+    "max_color_id": 1,
+    "phenomenon_items": [
+     {
+      "phenomenon_id": 2,
+      "phenomenon_max_color_id": 1,
+      "timelaps_items": [
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T10:04:00Z"
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 1,
+      "phenomenon_max_color_id": 1,
+      "timelaps_items": [
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T10:04:00Z"
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 9,
+      "phenomenon_max_color_id": -1,
+      "timelaps_items": [
+       {
+        "color_id": -1,
+        "begin_time": "2026-11-21T10:04:00Z"
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 10,
+      "phenomenon_max_color_id": 1,
+      "timelaps_items": [
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T10:04:00Z"
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ }
+}

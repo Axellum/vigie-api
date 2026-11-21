@@ -53,6 +53,8 @@ from app.collectors.meteoalarm import (
     with_cap,
 )
 from app.collectors.meteofrance import MeteoFranceVigilanceCollector
+from app.collectors.meteofrance_overseas_vigilance import COUNTRY_FEEDS as OVERSEAS_FEEDS
+from app.collectors.meteofrance_overseas_vigilance import MeteoFranceOverseasVigilanceCollector
 from app.collectors.metservice import MetServiceCollector
 from app.collectors.swic import SwicCollector, notes_of
 from app.collectors.swic_registry import SwicRegistryCollector, SwicSource, bundled_registry
@@ -261,6 +263,7 @@ class VigilanceService:
         eccc: Optional[ECCCCollector] = None,
         metservice: Optional[MetServiceCollector] = None,
         meteofrance: Optional[MeteoFranceVigilanceCollector] = None,
+        meteofrance_overseas: Optional[MeteoFranceOverseasVigilanceCollector] = None,
         vigicrues: Optional[VigicruesCollector] = None,
         tsunami: Optional[TsunamiCollector] = None,
         swic: Optional[SwicCollector] = None,
@@ -276,6 +279,7 @@ class VigilanceService:
         self.eccc = eccc
         self.metservice = metservice
         self.meteofrance = meteofrance
+        self.meteofrance_overseas = meteofrance_overseas
         self.vigicrues = vigicrues
         self.tsunami = tsunami
         self.swic = swic
@@ -336,9 +340,14 @@ class VigilanceService:
         except (CollectorUnavailableError, ValueError):
             self._registry_failed = True  # the bundled snapshot (or the last registry) stays
 
+    def _overseas(self, country: str) -> bool:
+        """A French overseas territory read from Météo-France's overseas feeds (``DPVigilance``, ADR 0036)."""
+        return self.meteofrance_overseas is not None and country in OVERSEAS_FEEDS
+
     def _covered(self, country: str) -> bool:
-        """A country that has a collector of its own (MeteoAlarm's 39, the United States, Germany, Canada, New Zealand)."""
-        return country in COUNTRY_FEEDS or country == NWS_COUNTRY or country in NATIONAL_SOURCES
+        """A country that has a collector of its own (MeteoAlarm's 39, the United States, Germany, Canada, New Zealand, the French
+        overseas territories when their feeds are read)."""
+        return country in COUNTRY_FEEDS or country == NWS_COUNTRY or country in NATIONAL_SOURCES or self._overseas(country)
 
     def _swic_index(self) -> tuple[dict[str, list[SwicSource]], dict[str, list[SwicSource]]]:
         """The registry services by country: the ones this instance reads, and (for a note) all the ones it could read.
@@ -369,7 +378,8 @@ class VigilanceService:
 
     def supported_countries(self) -> list[str]:
         """The countries this instance has a source for: the collectors' (``SUPPORTED_COUNTRIES``) and the registry services it reads."""
-        return sorted({*SUPPORTED_COUNTRIES, *self._swic_index()[0]})
+        overseas = OVERSEAS_FEEDS if self.meteofrance_overseas is not None else ()
+        return sorted({*SUPPORTED_COUNTRIES, *overseas, *self._swic_index()[0]})
 
     def _has_source(self, country: str) -> bool:
         """Whether something is asked for a country (the NWS for the United States, else its plan)."""
@@ -418,6 +428,8 @@ class VigilanceService:
         national = self._national(country)
         if national is not None:
             return [national]
+        if self._overseas(country):
+            return ["meteofrance"]  # the overseas feeds of Météo-France; no MeteoAlarm, no registry service stands in
         if country == FRANCE and self.meteofrance is not None:
             plan = ["meteofrance"]
             if self.vigicrues is not None:
@@ -584,7 +596,21 @@ class VigilanceService:
         status = fetched.value
         return self._national_data("dwd", "DE", self.dwd, "status", fetched, list(status.vigilances), status.updated_utc)
 
-    async def _meteofrance(self) -> SourceData:
+    async def _meteofrance_overseas(self, country: str) -> SourceData:
+        """What the overseas feeds of Météo-France say for one territory (one cached read per feed, shared by its territories)."""
+        assert self.meteofrance_overseas is not None
+        feed = OVERSEAS_FEEDS[country]
+        try:
+            fetched = await self.meteofrance_overseas.fetch_feed(feed)
+        except (CollectorUnavailableError, ValueError) as exc:
+            return self._unavailable("meteofrance", country, exc)
+        status = fetched.value
+        mine = [v for v in status.vigilances if v.country == country]
+        return self._national_data("meteofrance", country, self.meteofrance_overseas, feed, fetched, mine, status.updated_utc)
+
+    async def _meteofrance(self, country: str = FRANCE) -> SourceData:
+        if country != FRANCE:
+            return await self._meteofrance_overseas(country)
         assert self.meteofrance is not None
         try:
             fetched = await self.meteofrance.fetch_status()
@@ -676,6 +702,8 @@ class VigilanceService:
             return await self._swic(service)
         if entry == "meteoalarm":
             return await self._meteoalarm(country)
+        if entry == "meteofrance":
+            return await self._meteofrance(country)
         return await getattr(self, f"_{entry}")()
 
     @staticmethod
@@ -719,6 +747,8 @@ class VigilanceService:
                 )
                 sources.append(fallback)
             return sources
+        if self._overseas(country):
+            return [await self._meteofrance_overseas(country)]
         if country == FRANCE and self.meteofrance is not None:
             data = await self._meteofrance()
             sources = [data]

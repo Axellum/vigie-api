@@ -1,0 +1,110 @@
+{
+ "warning_type": "vigilance",
+ "update_time": "2026-11-21T19:00:00Z",
+ "end_validity_time": "2026-11-22T19:00:00Z",
+ "timelaps": {
+  "domain_ids": [
+   {
+    "domain_id": "VIGI988-901",
+    "max_color_id": 1,
+    "phenomenon_items": [
+     {
+      "phenomenon_id": 9,
+      "phenomenon_max_color_id": 1,
+      "timelaps_items": [
+       {
+        "begin_time": "2026-11-21T19:00:00Z",
+        "end_time": "2026-11-22T19:00:00Z",
+        "color_id": 1
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "domain_id": "VIGI988",
+    "max_color_id": 1,
+    "phenomenon_items": [
+     {
+      "phenomenon_id": 1,
+      "phenomenon_max_color_id": 1,
+      "timelaps_items": [
+       {
+        "begin_time": "2026-11-21T19:00:00Z",
+        "end_time": "2026-11-22T19:00:00Z",
+        "color_id": 1
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 12,
+      "phenomenon_max_color_id": 1,
+      "timelaps_items": [
+       {
+        "begin_time": "2026-11-21T19:00:00Z",
+        "end_time": "2026-11-22T19:00:00Z",
+        "color_id": 1
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 9,
+      "phenomenon_max_color_id": 1,
+      "timelaps_items": [
+       {
+        "begin_time": "2026-11-21T19:00:00Z",
+        "end_time": "2026-11-22T19:00:00Z",
+        "color_id": 1
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "domain_id": "VIGI988-01",
+    "max_color_id": 1,
+    "phenomenon_items": [
+     {
+      "phenomenon_id": 1,
+      "phenomenon_max_color_id": 1,
+      "timelaps_items": [
+       {
+        "begin_time": "2026-11-21T19:00:00Z",
+        "end_time": "2026-11-22T19:00:00Z",
+        "color_id": 1
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 12,
+      "phenomenon_max_color_id": 1,
+      "timelaps_items": [
+       {
+        "begin_time": "2026-11-21T19:00:00Z",
+        "end_time": "2026-11-22T19:00:00Z",
+        "color_id": 1
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 9,
+      "phenomenon_max_color_id": 1,
+      "timelaps_items": [
+       {
+        "begin_time": "2026-11-21T19:00:00Z",
+        "end_time": "2026-11-22T19:00:00Z",
+        "color_id": 1
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "text_items": {
+  "title": "Commentaire carte Nouvelle Calédonie",
+  "text": [
+   "Pas de vigilance particulière."
+  ]
+ }
+}

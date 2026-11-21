@@ -1,0 +1,116 @@
+{
+ "warning_type": "vigilance",
+ "update_time": "2026-11-21T10:04:00Z",
+ "timelaps": {
+  "domain_ids": [
+   {
+    "domain_id": "VIGI973-1",
+    "max_color_id": 1,
+    "phenomenon_items": [
+     {
+      "phenomenon_id": 2,
+      "phenomenon_max_color_id": 1,
+      "timelaps_items": [
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T10:04:00Z"
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 1,
+      "phenomenon_max_color_id": 1,
+      "timelaps_items": [
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T10:04:00Z"
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 9,
+      "phenomenon_max_color_id": 0,
+      "timelaps_items": [
+       {
+        "color_id": 0,
+        "begin_time": "2026-11-21T10:04:00Z"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "domain_id": "VIGI973-51",
+    "max_color_id": 1,
+    "phenomenon_items": [
+     {
+      "phenomenon_id": 2,
+      "phenomenon_max_color_id": 0,
+      "timelaps_items": [
+       {
+        "color_id": 0,
+        "begin_time": "2026-11-21T10:04:00Z"
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 1,
+      "phenomenon_max_color_id": 0,
+      "timelaps_items": [
+       {
+        "color_id": 0,
+        "begin_time": "2026-11-21T10:04:00Z"
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 9,
+      "phenomenon_max_color_id": -1,
+      "timelaps_items": [
+       {
+        "color_id": -1,
+        "begin_time": "2026-11-21T10:04:00Z"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "domain_id": "VIGI973",
+    "max_color_id": 1,
+    "phenomenon_items": [
+     {
+      "phenomenon_id": 2,
+      "phenomenon_max_color_id": 1,
+      "timelaps_items": [
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T10:04:00Z"
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 1,
+      "phenomenon_max_color_id": 1,
+      "timelaps_items": [
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T10:04:00Z"
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 9,
+      "phenomenon_max_color_id": -1,
+      "timelaps_items": [
+       {
+        "color_id": -1,
+        "begin_time": "2026-11-21T10:04:00Z"
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ }
+}
