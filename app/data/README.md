@@ -6,6 +6,7 @@ folder is fetched at run time. **The code of this repository is under the MIT li
 | File | What it is | Built by | Licence of the data |
 | --- | --- | --- | --- |
 | `countries.geojson.gz` | Borders of every country of Natural Earth, 244 (to find the country of a point without a request, and to name it when no source is read for it) | `tools/build_geometries.py` | Natural Earth: public domain |
+| `geocodes-meteofrance-om.geojson.gz` | Outline of each French overseas territory Météo-France publishes a vigilance for (scheme `MF_OM`, codes 971 to 978, 987, 988): the country border widened by 0.25 degree | `tools/build_overseas_geocodes.py` | Natural Earth: public domain |
 | `geocodes-nuts.geojson.gz` | Shapes of the NUTS regions MeteoAlarm uses as geocodes (the French departments, the Belgian provinces) | `tools/build_geometries.py` | Natural Earth: public domain; codes from Wikidata: CC0 |
 | `provinces-tr.geojson.gz` | The 81 provinces of Turkey, keyed by ISO 3166-2 code, with their Turkish names (the unofficial pre-alert pilot, ADR 0011) | `tools/build_geometries.py --provinces-tr` | Natural Earth: public domain; names from Wikidata: CC0 |
 | `prealert-tr-thresholds.json` | The frozen thresholds per province of the unofficial pre-alert for Turkey (ours, learned on the ECMWF forecasts of 2024-2025; ADR 0011 and its amendment) | `tools/backtest_prealert_tr.py freeze` | Ours (MIT); computed from ECMWF open data, CC BY 4.0 |

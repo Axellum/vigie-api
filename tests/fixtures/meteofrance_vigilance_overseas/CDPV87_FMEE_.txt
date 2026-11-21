@@ -1,0 +1,30 @@
+ {
+"report_type": "vigilance",
+"report_subtype": "Bulletin de suivi",
+"domain_id" : "VIGI976",
+"update_time" : "2026-11-21T12:07:36Z",
+"end_validity_time": null,
+"text_bloc_items": [{
+"domain_id":"VIGI976",
+"begin_time":"2026-11-21T12:07:36Z",
+"end_time":null,
+"bloc_title":"",
+"text_items":[
+
+{
+"title" : "Vagues-submersion",
+"text" : ["Pas de vigilance particulière."]
+},
+{
+"title" : "Vents forts",
+"text" : ["Pas de vigilance particulière."]
+},
+{
+"title" : "Fortes pluies/Orages",
+"text" : ["Pas de vigilance particulière."]
+}
+]
+}
+]
+}
+

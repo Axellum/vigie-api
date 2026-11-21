@@ -1,0 +1,188 @@
+{
+ "warning_type": "vigilance",
+ "update_time": "2026-11-21T12:07:36Z",
+ "timelaps": {
+  "domain_ids": [
+   {
+    "domain_id": "VIGI976-01",
+    "max_color_id": 1,
+    "phenomenon_items": [
+     {
+      "phenomenon_id": 10,
+      "phenomenon_max_color_id": -1,
+      "timelaps_items": [
+       {
+        "color_id": -1,
+        "begin_time": "2026-11-21T12:07:36Z",
+        "end_time": "2026-11-21T13:00:00Z"
+       },
+       {
+        "color_id": -1,
+        "begin_time": "2026-11-21T13:00:00Z",
+        "end_time": "2026-11-21T14:00:00Z"
+       },
+       {
+        "color_id": -1,
+        "begin_time": "2026-11-21T14:00:00Z",
+        "end_time": "2026-11-21T15:00:00Z"
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 1,
+      "phenomenon_max_color_id": 1,
+      "timelaps_items": [
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T12:07:36Z",
+        "end_time": "2026-11-21T13:00:00Z"
+       },
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T13:00:00Z",
+        "end_time": "2026-11-21T14:00:00Z"
+       },
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T14:00:00Z",
+        "end_time": "2026-11-21T15:00:00Z"
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 12,
+      "phenomenon_max_color_id": 1,
+      "timelaps_items": [
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T12:07:36Z",
+        "end_time": "2026-11-21T13:00:00Z"
+       },
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T13:00:00Z",
+        "end_time": "2026-11-21T14:00:00Z"
+       },
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T14:00:00Z",
+        "end_time": "2026-11-21T15:00:00Z"
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 9,
+      "phenomenon_max_color_id": -1,
+      "timelaps_items": [
+       {
+        "color_id": -1,
+        "begin_time": "2026-11-21T12:07:36Z",
+        "end_time": "2026-11-21T13:00:00Z"
+       },
+       {
+        "color_id": -1,
+        "begin_time": "2026-11-21T13:00:00Z",
+        "end_time": "2026-11-21T14:00:00Z"
+       },
+       {
+        "color_id": -1,
+        "begin_time": "2026-11-21T14:00:00Z",
+        "end_time": "2026-11-21T15:00:00Z"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "domain_id": "VIGI976",
+    "max_color_id": 1,
+    "phenomenon_items": [
+     {
+      "phenomenon_id": 10,
+      "phenomenon_max_color_id": -1,
+      "timelaps_items": [
+       {
+        "color_id": -1,
+        "begin_time": "2026-11-21T12:07:36Z",
+        "end_time": "2026-11-21T13:00:00Z"
+       },
+       {
+        "color_id": -1,
+        "begin_time": "2026-11-21T13:00:00Z",
+        "end_time": "2026-11-21T14:00:00Z"
+       },
+       {
+        "color_id": -1,
+        "begin_time": "2026-11-21T14:00:00Z",
+        "end_time": "2026-11-21T15:00:00Z"
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 1,
+      "phenomenon_max_color_id": 1,
+      "timelaps_items": [
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T12:07:36Z",
+        "end_time": "2026-11-21T13:00:00Z"
+       },
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T13:00:00Z",
+        "end_time": "2026-11-21T14:00:00Z"
+       },
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T14:00:00Z",
+        "end_time": "2026-11-21T15:00:00Z"
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 12,
+      "phenomenon_max_color_id": 1,
+      "timelaps_items": [
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T12:07:36Z",
+        "end_time": "2026-11-21T13:00:00Z"
+       },
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T13:00:00Z",
+        "end_time": "2026-11-21T14:00:00Z"
+       },
+       {
+        "color_id": 1,
+        "begin_time": "2026-11-21T14:00:00Z",
+        "end_time": "2026-11-21T15:00:00Z"
+       }
+      ]
+     },
+     {
+      "phenomenon_id": 9,
+      "phenomenon_max_color_id": -1,
+      "timelaps_items": [
+       {
+        "color_id": -1,
+        "begin_time": "2026-11-21T12:07:36Z",
+        "end_time": "2026-11-21T13:00:00Z"
+       },
+       {
+        "color_id": -1,
+        "begin_time": "2026-11-21T13:00:00Z",
+        "end_time": "2026-11-21T14:00:00Z"
+       },
+       {
+        "color_id": -1,
+        "begin_time": "2026-11-21T14:00:00Z",
+        "end_time": "2026-11-21T15:00:00Z"
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ }
+}

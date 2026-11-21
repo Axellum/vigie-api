@@ -135,6 +135,7 @@ def test_the_shapes_are_small_enough_to_live_in_the_repository() -> None:
     assert set(sizes) == {
         "countries.geojson.gz",
         "eaws-euregio-regions.geojson.gz",
+        "geocodes-meteofrance-om.geojson.gz",
         "geocodes-nuts.geojson.gz",
         "gem-active-faults.geojson.gz",
         "meteofrance-bra-massifs.geojson.gz",
