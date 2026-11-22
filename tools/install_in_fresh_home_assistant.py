@@ -162,7 +162,8 @@ def add_the_card(page: Page, ha: str, steps: Steps) -> list[str]:
         picker.locator("input").first.fill("Vigie", timeout=30_000)
         page.wait_for_timeout(1500)
         steps.shot("carte_cherchee")
-        picker.get_by_text("Vigie", exact=True).first.click(timeout=30_000)
+        # a layer covers each card of the picker and takes the click for it: the card itself is clicked
+        picker.locator("div.card").filter(has_text=re.compile(r"^\s*Vigie")).first.click(timeout=30_000)
     except PlaywrightTimeout as err:
         raise Stuck(f'"Vigie" is not offered by the card picker ({err.message.splitlines()[0]})') from err
     try:
