@@ -261,7 +261,13 @@ def test_there_is_a_check_for_each_collector() -> None:
     # NASA FIRMS has a check although the application of the tests has no collector for it (it is turned off there): the check says "skipped" then.
     # ECMWF open data is the pre-alert pilot (ADR 0011), not a collector of the aggregator: it has its check too.
     # CANDHIS needs a key: the application of the tests has none, so no collector (the check says "skipped" without a key).
-    assert set(tool.CHECKS) == {c.provider_id for c in aggregator.get_all_collectors()} | {"nasa_firms", "ecmwf_opendata", "candhis_tr"}
+    # Smartraveller is off unless VIGIE_ENABLE_SMARTRAVELLER turns it on: its check stays, to see when it answers again.
+    assert set(tool.CHECKS) == {c.provider_id for c in aggregator.get_all_collectors()} | {
+        "nasa_firms",
+        "ecmwf_opendata",
+        "candhis_tr",
+        "travel_au",
+    }
 
 
 @pytest.mark.asyncio
