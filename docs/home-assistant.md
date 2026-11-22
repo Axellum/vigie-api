@@ -293,7 +293,8 @@ not of Météo-France. A value the data do not give is not drawn.
 
 ## Push and poll
 
-The integration is declared `local_push`. `WS /v1/stream` of the API tells a client that follows a place when a warning
+The integration is declared `cloud_polling`: by default it reads the public instance over the Internet, and polls it. A
+push comes on top only from an instance that runs its scheduler. `WS /v1/stream` of the API tells a client that follows a place when a warning
 for it appeared, went up or ended, **but only when the instance runs its scheduler** (`VIGIE_SCHEDULER=1`, see the
 README). So:
 
