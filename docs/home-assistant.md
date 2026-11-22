@@ -32,10 +32,20 @@ what the tests do and do not cover.
 
 ## Install
 
-**With HACS** (the repository is public): HACS, the three dots, *Custom repositories*, the address of this repository
+**From the Marketplace** (Home Assistant 2026.11 and later, where it took over HACS; the repository is public): Settings,
+Marketplace, **Add from link** (upper-right corner), the address of this repository (`https://github.com/Axellum/vigie-api`),
+**Add**, and the type *Integration* if it is asked. Adding a repository from a link asks once for a GitHub connection (a
+device sign-in: Home Assistant never sees your password). Then open "Vigie" in the Marketplace and **Install**: its dialog
+shows the version it installs (another can be picked; pre-releases only when you allow them). A new integration needs no
+restart there; an update does
+([Marketplace documentation](https://www.home-assistant.io/integrations/marketplace/),
+[release notes of 2026.11](https://www.home-assistant.io/blog/2026/11/04/release-202611/)).
+
+**With HACS** (Home Assistant 2026.10): HACS, the three dots, *Custom repositories*, the address of this repository
 (`https://github.com/Axellum/vigie-api`), category *Integration*. Then find "Vigie" in HACS, download it, and **restart
-Home Assistant**. HACS installs and updates the folder `custom_components/vigie`; `hacs.json` at the root of the
-repository is for that.
+Home Assistant**.
+
+Both install and update the folder `custom_components/vigie`; `hacs.json` at the root of the repository is for that.
 
 **By hand**:
 

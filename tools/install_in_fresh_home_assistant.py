@@ -76,7 +76,7 @@ class Steps:
 
 
 def button(page: Page, scope: str, name: str) -> Any:
-    """The button named ``name`` (the whole label, any case) inside the element ``scope``."""
+    """The button named ``name`` (the whole label, any case) inside the element ``scope`` (a dialog: its buttons are in its footer)."""
     return page.locator(scope).get_by_role("button", name=re.compile(rf"^\s*{name}\s*$", re.I)).first
 
 
@@ -108,14 +108,14 @@ def add_the_integration(page: Page, ha: str, instance: str, steps: Steps) -> lis
     address.fill(instance)
     page.wait_for_timeout(500)
     steps.shot("formulaire")
-    button(page, "step-flow-form", "submit").click(timeout=30_000)
+    button(page, "dialog-data-entry-flow", "submit").click(timeout=30_000)
     try:
         page.locator("step-flow-create-entry").wait_for(timeout=60_000)
     except PlaywrightTimeout as err:
         raise Stuck("the form did not create the entry") from err
     page.wait_for_timeout(500)
     steps.shot("entree_creee")
-    button(page, "step-flow-create-entry", "finish").click(timeout=30_000)
+    button(page, "dialog-data-entry-flow", "finish").click(timeout=30_000)
     page.locator("dialog-data-entry-flow").wait_for(state="detached", timeout=30_000)
     return problems
 
