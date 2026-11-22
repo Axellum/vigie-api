@@ -13,13 +13,16 @@ API (`GET /v1/vigilances`, see [the README](../README.md#official-weather-warnin
 - a **vigilance** event entity that fires `new`, `upgraded` or `ended`, to start automations;
 - and, as a layer of their own, the **earthquakes** near the place (`GET /v1/earthquakes`, USGS and EMSC): a **strongest
   earthquake** sensor and an **earthquake** event entity that fires `new_earthquake` once per earthquake. They are not
-  official warnings and never change the three entities above.
+  official warnings and never change the three entities above;
+- and, with the option **Weather of the place and dashboard card** (on by default), the **weather** of the place
+  (`GET /v1/point`, a weather entity) and three sensors: **rain in the next hour**, **strongest gust of the next hours** and
+  **next high tide**. The same option feeds the dashboard card ([ADR 0042](decisions/0042-home-assistant-weather-of-the-place-and-card.md)).
 
 It needs no screen, no key and no package beyond what Home Assistant ships. It does not issue anything: it reads the public
 instance, or one you run yourself ([README, "Run"](../README.md#run)).
 
-It creates no weather entity: keep the weather integration you already use in Home Assistant (Open-Meteo, Met.no); Vigie
-brings the warnings.
+If you prefer the weather integration you already use in Home Assistant (Météo-France, Open-Meteo, Met.no), untick the option:
+the entry then keeps the warnings and the earthquakes only.
 
 Its tests run against Home Assistant 2026.10.2. The warnings were tried on one running Home Assistant installation on
 2026-10-20; see "Develop" for what the tests do and do not cover.
@@ -59,6 +62,7 @@ own. The same address and the same place (to about 11 m) is refused as already c
 | River radius | 5 km (1 to 50) | In France, how far from the place a river section (Vigicrues) still counts. The API's own default is 5 and its maximum 50. |
 | Earthquake radius | 300 km (10 to 3000) | How far from the place an earthquake counts. This value is a setting, not a measure of danger: a strong earthquake far away can be felt, a small one nearby may not be. |
 | Earthquake minimum magnitude | 4.5 (4.5 to 9) | The smallest magnitude shown and announced. The feeds the API reads list nothing below 4.5. |
+| Weather of the place and dashboard card | on | Adds the weather entity and the three sensors of "Weather of the place" below, and the data of the dashboard card. Untick it to keep the warnings and the earthquakes only: the weather routes are then not read at all. |
 | Experimental pre-alert for Turkey (unofficial) | off | **A test, being improved, not an official warning.** Adds the sensor below for a place in Turkey, read from an instance that runs the pre-alert (`VIGIE_PREALERT_TR=1`; the public instance may or may not). |
 
 Changing an option reloads the entry. **Reconfigure** (the three dots of the entry) changes the address, the place or
@@ -68,7 +72,9 @@ The screens are in English and French (`translations/`), following the language 
 built from the translated names: with an entry named "Vigie Home" and English, `sensor.vigie_home_maximum_level`,
 `binary_sensor.vigie_home_warning_active`, `event.vigie_home_vigilance`, `sensor.vigie_home_strongest_earthquake` and
 `event.vigie_home_earthquake` (in French: `..._niveau_maximal`, `..._vigilance_active`, `..._vigilance`,
-`..._seisme_le_plus_fort`, `..._seisme`).
+`..._seisme_le_plus_fort`, `..._seisme`). With the weather option: `weather.vigie_home` (named after the entry),
+`sensor.vigie_home_rain_in_the_next_hour`, `sensor.vigie_home_strongest_gust_next_hours` and `sensor.vigie_home_next_high_tide`
+(in French: `..._pluie_dans_l_heure`, `..._rafale_la_plus_forte_prochaines_heures`, `..._prochaine_pleine_mer`).
 
 ## Entities
 
@@ -214,6 +220,34 @@ attributes: `experimental` (true), `official` (false), `notice`, `province`, `pr
 instance does not run the pre-alert (404) or the place is not in Turkey (422). It reads the instance every 30 minutes (two
 runs a day) and never changes the warning entities. Its entity id ends in `_pre_alert_experimental_unofficial`.
 
+### Weather of the place (weather entity and three sensors, only when its option is ticked)
+
+The values are those of `GET /v1/point` as the instance gives them: in France the models of Météo-France (AROME, ARPEGE, AROME
+Outre-mer), elsewhere Open-Meteo, said by the standard `attribution` attribute. A value the answer does not give is unknown,
+never filled in. The entry reads `/v1/point` every 10 minutes, the tides every 6 hours and the normals of the month every 12
+hours (`/v1/tides` and `/v1/climate/normals`; their 404, inland or outside France, is kept as "nothing there" for the same time).
+
+- **Weather** (`weather`): the current weather (condition, temperature, apparent temperature, humidity, pressure, wind, gust,
+  bearing, UV index) and the **days** of the answer, dated at midnight of the place's own day. The **hours** are offered only when
+  the instance gives them (`hourly`, ADR 0040); an instance without them offers the days only. The condition comes from the WMO
+  code of the answer; "clear night" is decided by the sun at the place, not at the home of Home Assistant.
+- **Rain in the next hour** (mm): the sum of the four 15-minute steps of the answer's nowcast (`rain_nowcast`), with the steps,
+  `rain_expected_60m` and `max_mm_h` in the attributes. **Unknown when one step is unknown**, never 0.
+- **Strongest gust of the next hours** (km/h): the strongest gust of the next 6 hours of `hourly` when the instance gives them,
+  else of the short-term forecast (`short_term`, AROME-PI in France, its own horizon); attributes `at`, `forecast` (`hourly` or
+  `short_term`) and `horizon_minutes`. Unknown when neither gives a gust: it is never made from the mean wind.
+- **Next high tide** (a time): the next high water of `/v1/tides`, its `height_m`, the next low water and its height, and the
+  credit of the tide model. Unknown inland.
+
+In France and its overseas territories (where the normals answer), the entry also reads the wind measured now by the nearest
+Météo-France station (`/v1/stations/wind`, in a box of 0.3° on each side of the place, some 30 km). That measure, the normals and the verdicts of a
+spot (`/v1/activities/{spot_id}`, read only when a card asks for a spot within 60 km, and kept 30 minutes) go to the dashboard
+card, not to entities: they are too large for the attributes of a state.
+
+**For the card**, the integration answers three commands on Home Assistant's own WebSocket: `vigie/card/entries` and
+`vigie/card/spots` (for the card's editor) and `vigie/card/data` (what the card shows for one entry, with the verdicts of
+`spot`, an identifier or `auto` for the nearest spot within 20 km). The card never calls the instance itself.
+
 ## Push and poll
 
 The integration is declared `local_push`. `WS /v1/stream` of the API tells a client that follows a place when a warning
@@ -231,6 +265,10 @@ README). So:
 
 The cost for the instance is one cached read per entry and interval; the sources are asked as rarely as their own
 rhythm allows (see "Calls to the providers" in the README).
+
+The weather of the place has no push: it is read every 10 minutes. With its option ticked, one place costs the instance about
+144 reads of `/v1/point` a day, 144 of `/v1/stations/wind` in France, 4 of `/v1/tides`, 2 of `/v1/climate/normals`, 1 of
+`/v1/surf/spots`, and at most 48 of `/v1/activities` per spot a card shows (ADR 0042). These answers are cached by the instance too.
 
 ## Try it without waiting for a warning
 
@@ -255,7 +293,8 @@ Invoke-RestMethod -Method Post "http://<PC address>:8099/fake/remove?phenomenon=
 At the next poll (up to the interval; lower it to 1 minute in the options) the sensor goes to yellow and the event entity
 fires `new`, then `upgraded` (with `previous_level`), then `ended`. (`tests_ha/test_fake_instance.py` plays exactly this
 over real HTTP.) Delete the entry when done. The fake instance has no
-authentication: run it on a trusted network.
+authentication: run it on a trusted network. It does not serve the weather: for its entry, the weather entity and its three
+sensors stay unavailable (or untick the option), and the warnings work as described.
 
 ## Limits
 
@@ -282,6 +321,9 @@ authentication: run it on a trusted network.
   comes from the history the instance kept, so an instance started recently knows less. They are read at the poll
   interval: there is no push for them.
 - **An older instance** without `/v1/earthquakes` leaves the two earthquake entities unavailable; the warnings work as before.
+- **The weather is a forecast, not a warning.** The weather entity and its sensors never change the warning entities, and the
+  rain of the next hour or a gust are not official thresholds. When `/v1/point` cannot be read, the weather entity and its
+  sensors are unavailable and the warnings are read as usual.
 
 ## Develop
 
