@@ -215,9 +215,17 @@ def main(argv: list[str] | None = None) -> int:
                     problems.append(f"{name}/{theme}: the card shows no page\n  {explain(page, args.out, f'{name}_{theme}', errors)}")
                     context.close()
                     continue
-                # Home Assistant settles its theme a moment after the first drawing (`darkMode` undefined until then)
+                # Home Assistant applies the theme when its list of themes arrives, and skips it when its configuration has not
+                # arrived yet (`_applyTheme` of the frontend's themes-mixin.ts): `darkMode` then stays unset until the next change
+                # of theme or of the browser's colour scheme. A change of the colour scheme makes it apply the theme asked (the
+                # stored `selectedTheme`, whose `dark` is explicit) once more; the scheme ends as the theme asked.
+                dark_mode = "() => document.querySelector('home-assistant')?.hass?.themes?.darkMode"
+                if page.evaluate(dark_mode) is None:
+                    print(f"({name}/{theme}: Home Assistant had not applied its theme; it is applied again)")
+                for scheme in ("light", "dark") if dark else ("dark", "light"):
+                    page.emulate_media(color_scheme=scheme)
                 try:
-                    page.wait_for_function("(d) => document.querySelector('home-assistant')?.hass?.themes?.darkMode === d", arg=dark, timeout=30_000)
+                    page.wait_for_function(f"(d) => ({dark_mode})() === d", arg=dark, timeout=30_000)
                 except PlaywrightTimeout:
                     pass  # said just below
                 dark_seen = page.evaluate("() => document.querySelector('home-assistant').hass.themes.darkMode")
