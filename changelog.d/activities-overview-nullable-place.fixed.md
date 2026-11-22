@@ -1,1 +1,0 @@
-- **Activities overview (`GET /v1/activities/overview`)**: allow `SpotActivities.place` to be `None`, matching `SurfSpot.place`, so spots without a matched locality are kept instead of failing Pydantic validation.

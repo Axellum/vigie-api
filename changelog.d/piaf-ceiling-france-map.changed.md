@@ -1,1 +1,0 @@
-- **More points get PIAF rain**: the vigie-meteo gateway now reads one map of France per PIAF run instead of one series of requests per point, so the ceiling of points sent to it goes from 8 to 3,000 every 5 minutes per instance (`app/collectors/budget.py`).

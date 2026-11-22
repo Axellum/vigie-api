@@ -1,1 +1,0 @@
-- **Global observed satellite rain**: `GET /v1/rain/observed` and `GET /v1/rain/observed/tiles/{stamp}/{z}/{x}/{y}.png` proxy keyless NASA GIBS GPM IMERG 30-minute observed precipitation tiles (zooms 0–6, CC0 / U.S. Government public domain, bounded in-memory LRU cache, strict frame allowlist, switch `VIGIE_OBSERVED_RAIN`; ADR 0043).

@@ -1,2 +1,0 @@
-<!-- section: Commercial use (for the paid app to come) -->
-| `gip_littoral_plages` | GIP Littoral (beaches of Nouvelle-Aquitaine) | **allowed** | Licence Ouverte 2.0 (`lov2` on data.gouv.fr, read on 2026-11-15): any use, commercial included, naming the source and the date. | [1](https://www.data.gouv.fr/datasets/plages-de-nouvelle-aquitaine-1), [2](https://www.pigma.org/fr/dataset/datasets/6870/resource/13842/download/) | 2026-11-15 |

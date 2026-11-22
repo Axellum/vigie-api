@@ -1,1 +1,0 @@
-- Added NOAA NDBC (`app/collectors/ndbc.py`, `noaa_ndbc`) keyless marine buoy collector reading `latest_obs.txt` (10-minute conditional cache with `ETag`/`Last-Modified` `304`) and `activestations.xml` (daily conditional refresh) alongside CANDHIS in `GET /v1/surf/spots/{id}/buoy`.
