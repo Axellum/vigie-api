@@ -1,1 +1,0 @@
-- **Forest fire danger** (`GET /v1/forest-fire`, optional, with `VIGIE_METEO_GATEWAY_URL`): Météo-France's "Météo des forêts", four levels for the two days after the publication, for the department of a position in metropolitan France and Corsica. Seasonal (June to September): the rest of the year `status` is `out_of_season`, a normal state with no error. ADR 0035.

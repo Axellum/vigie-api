@@ -1,3 +1,0 @@
-- **Official Météo-France vigilance collector (`DPVigilance/v1`) and configurable Open-Meteo URLs**:
-  - When `VIGIE_METEOFRANCE_API_KEY` is set (`portail-api.meteofrance.fr`, Licence Ouverte 2.0), `GET /v1/vigilances` reads France's departmental and coastal warnings (`Vagues-submersion` included, with sub-daily `timelaps` slots and follow-up bulletins) directly from Météo-France (`meteofrance_vigilance`), deduplicating `Crues` against finer Vigicrues river sections and falling back automatically to MeteoAlarm if Météo-France is unreachable.
-  - `VIGIE_OPEN_METEO_FORECAST_URL` and `VIGIE_OPEN_METEO_MARINE_URL` let `OpenMeteoCollector`, `OpenMeteoMarineCollector` and `SurfForecastCollector` query a self-hosted Open-Meteo instance instead of the public endpoints.

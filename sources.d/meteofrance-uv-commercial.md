@@ -1,2 +1,0 @@
-<!-- section: Commercial use (for the paid app to come) -->
-| `meteofrance_uv` | Météo-France (PHEALTH), daily UV index | not verified | Free of charge on the Météo-France portal; the API's own description names the source ('Source : Météo-France') and no licence, and its terms were not read. The UV index of the current hour is calculated by Vigie. | [1](https://portail-api.meteofrance.fr/api/am/devportal/v3/apis/274043ad-73a8-4713-9cba-cb34fce8b746/swagger) | 2026-11-18 |

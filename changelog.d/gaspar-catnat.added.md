@@ -1,4 +1,0 @@
-- **Historical French natural disaster decrees from GASPAR (`GET /v1/history/catnat`, Licence Ouverte 2.0)**:
-  - Bundles the offline TACCT GASPAR extraction (`app/data/gaspar-catnat.json.gz`, built by `tools/build_catnat.py`) covering 34,875 communes across all 101 French metropolitan and overseas departments (`FR`, `GP`, `MQ`, `GF`, `RE`, `YT`) and 260,601 decrees (`1982-08-15` to `2025-07-09`) with zero runtime network requests.
-  - Supports querying by WGS84 coordinates (`lat`, `lon`, matched to nearest commune centroid) or 5-character French INSEE `commune` code, filtering locally by `hazard_type`, `since_year`, and `until_year`, and paginating with `limit` (`0` for summary only) and `offset`.
-  - Queries outside covered French territories or in uncovered overseas collectivities (`975`, `977`–`989`) return `status: "outside_coverage"` with `null` counts rather than fabricated zeros.
