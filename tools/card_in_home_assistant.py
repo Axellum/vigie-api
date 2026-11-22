@@ -215,6 +215,11 @@ def main(argv: list[str] | None = None) -> int:
                     problems.append(f"{name}/{theme}: the card shows no page\n  {explain(page, args.out, f'{name}_{theme}', errors)}")
                     context.close()
                     continue
+                # Home Assistant settles its theme a moment after the first drawing (`darkMode` undefined until then)
+                try:
+                    page.wait_for_function("(d) => document.querySelector('home-assistant')?.hass?.themes?.darkMode === d", arg=dark, timeout=30_000)
+                except PlaywrightTimeout:
+                    pass  # said just below
                 dark_seen = page.evaluate("() => document.querySelector('home-assistant').hass.themes.darkMode")
                 if dark_seen is not dark:
                     problems.append(f"{name}: dark mode is {dark_seen}, {dark} was asked")
