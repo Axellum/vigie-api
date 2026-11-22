@@ -14,12 +14,16 @@ on:
       - "custom_components/**"
       - "tests_ha/**"
       - "hacs.json"
+      - "tools/fake_instance.py"
+      - "tools/card_in_home_assistant.py"
       - ".github/workflows/home-assistant.yml"
   pull_request:
     paths:
       - "custom_components/**"
       - "tests_ha/**"
       - "hacs.json"
+      - "tools/fake_instance.py"
+      - "tools/card_in_home_assistant.py"
       - ".github/workflows/home-assistant.yml"
   schedule:
     - cron: "41 5 * * 3" # Wednesdays, 05:41 UTC
@@ -50,6 +54,52 @@ jobs:
 
       - name: Tests (pytest, no network)
         run: python -m pytest tests_ha -q
+
+  card:
+    name: Card in a real Home Assistant
+    # The dashboard card in Home Assistant's own frontend: its official container, the integration mounted, the fake
+    # instance replaying the answers recorded for Biarritz. Captures of every page at two widths and in both themes are
+    # kept as an artifact, to be looked at: a green run says the card loads and shows its pages, not that it looks right.
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Playwright and its Chromium (pinned)
+        run: |
+          pip install playwright==1.63.0
+          python -m playwright install --with-deps chromium
+
+      - name: The fake instance, replaying the recorded answers (tools/fake_instance.py --replay)
+        run: nohup python tools/fake_instance.py --host 127.0.0.1 --port 8099 --replay tests_ha/fixtures > fake_instance.log 2>&1 &
+
+      # The stable release read on 2026-11-22 (same digest as `stable` that day); bump it by hand.
+      - name: Home Assistant in its official container, the integration mounted
+        run: |
+          mkdir -p ha_config/custom_components
+          cp -r custom_components/vigie ha_config/custom_components/
+          printf 'default_config:\n' > ha_config/configuration.yaml
+          docker run -d --name ha --network host -e TZ=Europe/Paris -v "$PWD/ha_config:/config" ghcr.io/home-assistant/home-assistant:2026.11.2
+
+      - name: The card, every page, both widths, both themes
+        run: python tools/card_in_home_assistant.py --ha http://127.0.0.1:8123 --instance http://127.0.0.1:8099 --out captures
+
+      - name: What Home Assistant and the fake instance said
+        if: always()
+        run: |
+          docker logs ha 2>&1 | grep -i -E "vigie|custom_components|error" | tail -n 80 || true
+          tail -n 40 fake_instance.log || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: card-captures
+          path: captures/
+          retention-days: 14
 
   hassfest:
     name: hassfest

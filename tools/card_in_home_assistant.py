@@ -1,0 +1,203 @@
+"""Try the dashboard card in a real Home Assistant, and take captures of it (the `card` job of the Home Assistant workflow).
+
+A throwaway Home Assistant runs in its official container with `custom_components/vigie` mounted, and the fake instance
+replays the answers recorded for Biarritz (``python tools/fake_instance.py --replay tests_ha/fixtures``). This script:
+
+1. finishes the onboarding with a throwaway user, in French, the place in Biarritz;
+2. adds the Vigie entry through its config flow, pointed at the fake instance;
+3. puts the card on the dashboard, under a banner that says the data are a replay;
+4. opens the dashboard in Chromium (Playwright) at a phone width and a wall width, in the dark and the light themes, goes
+   through every page of the card by its bar, and saves a capture of each; then opens the card's editor.
+
+It fails when the frontend did not load the card, when the card shows no page or an error, when a page of the card is
+missing, or when the browser logs an error. Standard library and Playwright only; it never talks to anything but the
+Home Assistant and the fake instance on this machine.
+
+    python tools/card_in_home_assistant.py --ha http://127.0.0.1:8123 --instance http://127.0.0.1:8099 --out captures
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from pathlib import Path
+from typing import Any
+
+from playwright.sync_api import Page, sync_playwright
+
+PLACE = {"latitude": 43.48, "longitude": -1.56}  # Biarritz, a public place: the place of the recorded answers
+WIDTHS = {"phone": (390, 1100), "wall": (1280, 900)}
+PAGES = ("home", "details", "alerts", "sea", "normal")
+BANNER = (
+    "**SIMULATION** — réponses de l'API enregistrées le 22/11/2026 et rejouées à l'heure du test "
+    "(`tools/fake_instance.py --replay`) : ce n'est pas la météo du jour."
+)
+
+
+def call(url: str, data: Any = None, token: str | None = None, form: bool = False) -> Any:
+    """A request to Home Assistant; JSON in, JSON out."""
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    body = None
+    if data is not None:
+        if form:
+            body = urllib.parse.urlencode(data).encode()
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
+        else:
+            body = json.dumps(data).encode()
+            headers["Content-Type"] = "application/json"
+    request = urllib.request.Request(url, data=body, headers=headers, method="POST" if data is not None else "GET")
+    with urllib.request.urlopen(request, timeout=30) as reply:
+        text = reply.read().decode()
+    return json.loads(text) if text else None
+
+
+def wait_for(url: str, seconds: int = 300) -> None:
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        try:
+            with urllib.request.urlopen(url, timeout=5):
+                return
+        except (urllib.error.URLError, ConnectionError, TimeoutError):
+            time.sleep(2)
+    raise SystemExit(f"{url} did not answer within {seconds} s")
+
+
+def onboard(ha: str) -> dict[str, Any]:
+    """The onboarding of a fresh Home Assistant, with a throwaway user; the tokens of that user."""
+    client_id = f"{ha}/"
+    code = call(f"{ha}/api/onboarding/users", {"client_id": client_id, "name": "Test", "username": "test", "password": "test-only-in-ci", "language": "fr"})
+    tokens = call(f"{ha}/auth/token", {"grant_type": "authorization_code", "code": code["auth_code"], "client_id": client_id}, form=True)
+    for step in ("core_config", "analytics"):
+        call(f"{ha}/api/onboarding/{step}", {}, tokens["access_token"])
+    call(f"{ha}/api/onboarding/integration", {"client_id": client_id, "redirect_uri": f"{ha}/?auth_callback=1"}, tokens["access_token"])
+    return tokens
+
+
+def add_entry(ha: str, instance: str, token: str) -> None:
+    """The Vigie entry, through its config flow (the steps a person clicks)."""
+    flow = call(f"{ha}/api/config/config_entries/flow", {"handler": "vigie", "show_advanced_options": False}, token)
+    result = call(f"{ha}/api/config/config_entries/flow/{flow['flow_id']}", {"name": "Vigie Biarritz", "url": instance, "location": PLACE}, token)
+    if result.get("type") != "create_entry":
+        raise SystemExit(f"the config flow did not create the entry: {result}")
+
+
+def ws(page: Page, message: dict[str, Any]) -> Any:
+    return page.evaluate("(m) => document.querySelector('home-assistant').hass.callWS(m)", message)
+
+
+def login(page: Page, ha: str, tokens: dict[str, Any], dark: bool) -> None:
+    stored = {
+        "access_token": tokens["access_token"],
+        "token_type": "Bearer",
+        "expires_in": tokens["expires_in"],
+        "hassUrl": ha,
+        "clientId": f"{ha}/",
+        "expires": int(time.time() * 1000) + tokens["expires_in"] * 1000,
+        "refresh_token": tokens["refresh_token"],
+    }
+    theme = {"theme": "default", "dark": dark}
+    page.add_init_script(f"localStorage.setItem('hassTokens', {json.dumps(json.dumps(stored))});"
+                         f"localStorage.setItem('selectedTheme', {json.dumps(json.dumps(theme))});")
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
+    parser.add_argument("--ha", default="http://127.0.0.1:8123")
+    parser.add_argument("--instance", default="http://127.0.0.1:8099")
+    parser.add_argument("--out", type=Path, default=Path("captures"))
+    args = parser.parse_args(argv)
+    args.out.mkdir(parents=True, exist_ok=True)
+
+    wait_for(f"{args.ha}/api/onboarding")  # answers without a user while the onboarding is not done
+    tokens = onboard(args.ha)
+    token = tokens["access_token"]
+    add_entry(args.ha, args.instance, token)
+    problems: list[str] = []
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        for dark in (True, False):
+            for name, (width, height) in WIDTHS.items():
+                context = browser.new_context(viewport={"width": width, "height": height}, locale="fr-FR", timezone_id="Europe/Paris")
+                page = context.new_page()
+                errors: list[str] = []
+                # the stack names the file an uncaught error came from (`/vigie/vigie-card.js` for the card)
+                page.on("pageerror", lambda err, errors=errors: errors.append(f"page error: {err.message} {err.stack or ''}"))
+                page.on("console", lambda msg, errors=errors: errors.append(f"console: {msg.text}") if msg.type == "error" else None)
+                login(page, args.ha, tokens, dark)
+                page.goto(f"{args.ha}/lovelace/0")
+                page.wait_for_function("() => document.querySelector('home-assistant')?.hass?.connected", timeout=60_000)
+                if dark and name == "phone":  # once: the place, the language, and the dashboard
+                    ws(page, {"type": "config/core/update", **PLACE, "time_zone": "Europe/Paris", "country": "FR", "language": "fr",
+                              "unit_system": "metric", "currency": "EUR", "location_name": "Biarritz"})
+                    ws(page, {"type": "frontend/set_user_data", "key": "language", "value": {
+                        "language": "fr", "number_format": "language", "time_format": "language", "date_format": "language",
+                        "first_weekday": "language", "time_zone": "local"}})
+                    ws(page, {"type": "lovelace/config/save", "config": {"title": "Vigie", "views": [{
+                        "title": "Vigie", "path": "vigie", "panel": True,
+                        "cards": [{"type": "vertical-stack", "cards": [{"type": "markdown", "content": BANNER}, {"type": "custom:vigie-card", "spot": "auto"}]}],
+                    }]}})
+                    page.goto(f"{args.ha}/lovelace/vigie")
+                    page.wait_for_function("() => document.querySelector('home-assistant')?.hass?.connected", timeout=60_000)
+                else:
+                    page.goto(f"{args.ha}/lovelace/vigie")
+                served = page.evaluate("() => !!customElements.get('vigie-card') && (window.customCards || []).some((c) => c.type === 'vigie-card')")
+                if not served:
+                    problems.append(f"{name}: the frontend did not load the card")
+                    context.close()
+                    continue
+                card = page.locator("vigie-card")
+                card.locator(".page").wait_for(timeout=60_000)
+                dark_seen = page.evaluate("() => document.querySelector('home-assistant').hass.themes.darkMode")
+                if dark_seen is not dark:
+                    problems.append(f"{name}: dark mode is {dark_seen}, {dark} was asked")
+                theme = "sombre" if dark else "clair"
+                page.screenshot(path=str(args.out / f"{name}_{theme}_tableau.png"))
+                shown = card.locator(".nav button").evaluate_all("(buttons) => buttons.map((b) => b.dataset.go)")
+                missing = [p for p in PAGES if p not in shown]
+                if missing:
+                    problems.append(f"{name}: pages missing from the bar: {missing}")
+                for page_id in shown:
+                    card.locator(f'.nav button[data-go="{page_id}"]').click()
+                    card.locator(f'.nav button[data-go="{page_id}"][aria-selected="true"]').wait_for()
+                    text = card.locator(".page").inner_text()
+                    if not text.strip() or "ne répondent pas" in text:
+                        problems.append(f"{name}/{page_id}: empty or in error: {text[:120]!r}")
+                    card.screenshot(path=str(args.out / f"{name}_{theme}_{page_id}.png"))
+                if dark and name == "wall":  # the editor of the card, in Home Assistant's own form
+                    page.evaluate("""async () => {
+                        const holder = document.createElement('div');
+                        holder.id = 'editeur';
+                        holder.style.cssText = 'position:fixed;inset:20px auto auto 20px;width:520px;padding:16px;z-index:9999;' +
+                          'background:var(--card-background-color,#1c1c1c);border-radius:12px';
+                        const editor = document.createElement('vigie-card-editor');
+                        editor.setConfig({ type: 'custom:vigie-card', spot: 'auto' });
+                        editor.hass = document.querySelector('home-assistant').hass;
+                        holder.appendChild(editor);
+                        document.body.appendChild(holder);
+                    }""")
+                    page.locator("vigie-card-editor ha-form").wait_for(timeout=30_000)
+                    page.wait_for_timeout(1500)
+                    page.locator("#editeur").screenshot(path=str(args.out / "wall_sombre_editeur.png"))
+                # Home Assistant logs errors of its own in a container without hardware (Bluetooth, USB...): only the
+                # card's fail the run, the others are printed.
+                problems.extend(f"{name}/{theme}: {error}" for error in errors if "vigie" in error.lower())
+                for error in errors:
+                    if "vigie" not in error.lower():
+                        print(f"(not the card) {name}/{theme}: {error}")
+                context.close()
+        browser.close()
+    print("\n".join(sorted(path.name for path in args.out.glob("*.png"))))
+    if problems:
+        print("PROBLEMS:\n" + "\n".join(problems), file=sys.stderr)
+        return 1
+    print("The card loads, shows its five pages and logs no error, at both widths and in both themes.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

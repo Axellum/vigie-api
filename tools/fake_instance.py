@@ -19,15 +19,24 @@ Usage (from the repository root, standard library only)::
 
 Point a second entry of the integration at it (another name, any place), watch its ``event`` entity, then delete that
 entry. The real instance and the real warnings are not touched. It has no authentication: run it on a trusted network.
+
+With ``--replay tests_ha/fixtures`` it also serves the routes of the option "Weather and card" (ADR 0042): the real answers
+recorded for Biarritz on 2026-11-22 (the weather, the tide, the normals, the wind measured, the spots and the verdicts of one
+spot, the warnings in force then), every time in them moved by as much as the clock moved since the read, so "now" falls
+where it fell. This is how the dashboard card is tried in a real Home Assistant (the ``card`` job of the workflow). What it
+serves is a replay of an old read, not today's weather: say so wherever it is shown.
 """
 
 from __future__ import annotations
 
 import argparse
+import copy
+import datetime
 import json
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import parse_qs, urlsplit
 
@@ -150,8 +159,69 @@ def vigilances(scenario: Scenario, lat: float, lon: float, river_radius_km: floa
     }
 
 
-def make_handler(scenario: Scenario) -> type[BaseHTTPRequestHandler]:
-    """The request handler of a server that serves ``scenario``."""
+# The recorded answers of a replay (the files of ``tests_ha/fixtures``, see its README), by route.
+REPLAY_ROUTES = {
+    "/v1/point": "point_biarritz_2026-11-22.json",
+    "/v1/tides": "tides_biarritz_2026-11-22.json",
+    "/v1/climate/normals": "normals_biarritz_2026-11-22.json",
+    "/v1/stations/wind": "stationwind_biarritz_2026-11-22.json",
+    "/v1/surf/spots": "spots_2026-11-22.json",
+    "/v1/activities/biarritz-plage-des-corsaires": "activities_biarritz-plage-des-corsaires_2026-11-22.json",
+}
+REPLAY_VIGILANCES = "vigilances_biarritz_2026-11-22.json"
+
+
+def _moved(value: Any, seconds: int, days: int, dated: bool = False) -> Any:
+    """``value`` with every epoch (a key ending in ``_utc``) moved by ``seconds``, and the dates of the days of the weather
+    (``date`` under ``daily``) by ``days``; the other dates (a record, a sheet) are left as they were."""
+    if isinstance(value, dict):
+        moved: dict[str, Any] = {}
+        for key, item in value.items():
+            if key.endswith("_utc") and isinstance(item, int) and not isinstance(item, bool):
+                moved[key] = item + seconds
+            elif dated and key == "date" and isinstance(item, str):
+                moved[key] = (datetime.date.fromisoformat(item) + datetime.timedelta(days=days)).isoformat()
+            else:
+                moved[key] = _moved(item, seconds, days, dated or key == "daily")
+        return moved
+    if isinstance(value, list):
+        return [_moved(item, seconds, days, dated) for item in value]
+    return value
+
+
+class Replay:
+    """Recorded answers served again, their times moved to now (``--replay``)."""
+
+    def __init__(self, folder: Path) -> None:
+        def read(name: str) -> Any:
+            return json.loads((folder / name).read_text(encoding="utf-8"))
+
+        self._answers = {route: read(name) for route, name in REPLAY_ROUTES.items()}
+        self._vigilances = read(REPLAY_VIGILANCES)
+        point = self._answers["/v1/point"]
+        self.read_utc: int = point["server_utc"]
+        self._offset: int = point.get("utc_offset_s") or 0
+
+    def _shift(self, now: int) -> tuple[int, int]:
+        seconds = now - self.read_utc
+        local = lambda t: datetime.datetime.fromtimestamp(t + self._offset, tz=datetime.timezone.utc).date()  # noqa: E731
+        return seconds, (local(now) - local(self.read_utc)).days
+
+    def answer(self, route: str, now: Optional[int] = None) -> Optional[Any]:
+        """The recorded answer of ``route`` moved to ``now``; None when nothing was recorded for it."""
+        if route not in self._answers:
+            return None
+        return _moved(copy.deepcopy(self._answers[route]), *self._shift(int(time.time()) if now is None else now))
+
+    def vigilances(self, scenario: Scenario, now: Optional[int] = None) -> dict[str, Any]:
+        """The warnings recorded then, moved to ``now``, and the simulated ones of ``scenario`` after them."""
+        answer = _moved(copy.deepcopy(self._vigilances), *self._shift(int(time.time()) if now is None else now))
+        answer["vigilances"] = answer["vigilances"] + scenario.warnings()
+        return answer
+
+
+def make_handler(scenario: Scenario, replay: Optional[Replay] = None) -> type[BaseHTTPRequestHandler]:
+    """The request handler of a server that serves ``scenario`` (and the recorded answers of ``replay``, when given)."""
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "FakeVigie"
@@ -175,7 +245,11 @@ def make_handler(scenario: Scenario) -> type[BaseHTTPRequestHandler]:
                     return self._send(200, health())
                 if method == "GET" and url.path == "/v1/vigilances":
                     lat, lon = float(query["lat"]), float(query["lon"])
+                    if replay is not None:
+                        return self._send(200, replay.vigilances(scenario))
                     return self._send(200, vigilances(scenario, lat, lon, float(query.get("river_radius_km", 5.0))))
+                if method == "GET" and replay is not None and (recorded := replay.answer(url.path)) is not None:
+                    return self._send(200, recorded)
                 if method == "GET" and url.path == "/fake":
                     return self._send(200, {"warnings": [{key: w[key] for key in ("id", "level", "phenomenon", "event")} for w in scenario.warnings()]})
                 if method == "POST" and url.path == "/fake/set":
@@ -202,9 +276,13 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Serve a fake Vigie API instance whose warnings you add and remove by hand.")
     parser.add_argument("--host", default="0.0.0.0", help="address to listen on (default: all interfaces)")
     parser.add_argument("--port", type=int, default=8099, help="port (default: 8099)")
+    parser.add_argument("--replay", type=Path, help="folder of recorded answers (tests_ha/fixtures): also serve the weather routes")
     args = parser.parse_args(argv)
-    server = ThreadingHTTPServer((args.host, args.port), make_handler(Scenario()))
+    replay = Replay(args.replay) if args.replay else None
+    server = ThreadingHTTPServer((args.host, args.port), make_handler(Scenario(), replay))
     print(f"Fake Vigie instance on http://{args.host}:{args.port} (every warning is labelled {SIMULATION}). Ctrl+C stops it.")
+    if replay is not None:
+        print(f"Replaying the answers recorded at {replay.read_utc} (UTC epoch), their times moved to now.")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
