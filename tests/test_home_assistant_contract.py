@@ -1,5 +1,7 @@
-"""The Home Assistant integration (``custom_components/vigie``) reads ``GET /v1/vigilances``, ``GET /v1/earthquakes`` and, when its
-experimental option is ticked, ``GET /v1/experimental/prealert``: keep what it reads true.
+"""The Home Assistant integration (``custom_components/vigie``) reads ``GET /v1/vigilances``, ``GET /v1/earthquakes``, when its
+experimental option is ticked ``GET /v1/experimental/prealert``, and when its option "Weather and card" is ticked (ADR 0042)
+``GET /v1/point``, ``/v1/tides``, ``/v1/climate/normals``, ``/v1/stations/wind``, ``/v1/surf/spots`` and
+``/v1/activities/{spot_id}``: keep what it reads true.
 
 The integration is tested in its own environment (``tests_ha/``, Python and Home Assistant of their own, see
 ``docs/home-assistant.md``). Here, in the API's own CI, the answers its tests use are checked against the API's
@@ -18,10 +20,16 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
+from pydantic import BaseModel
 
+from app.models.activities import ActivitiesForecast
+from app.models.climate import ClimateNormalsResponse
 from app.models.earthquakes import EarthquakesResponse
 from app.models.prealert import PrealertResponse
-from app.models.schemas import SeverityLevel
+from app.models.schemas import PointResponse, SeverityLevel
+from app.models.stations import StationWindMap
+from app.models.surf import SurfSpots
+from app.models.tides import TidesResponse
 from app.models.vigilance import VigilanceCoverage, VigilancePhenomenon, VigilancesResponse
 from tests_ha import payloads
 from tools import fake_instance
@@ -30,11 +38,40 @@ ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = sorted((ROOT / "tests_ha" / "fixtures").glob("vigilances_*.json"))
 QUAKE_FIXTURES = sorted((ROOT / "tests_ha" / "fixtures").glob("earthquakes_*.json"))
 PREALERT_FIXTURES = sorted((ROOT / "tests_ha" / "fixtures").glob("prealert_*.json"))
+# The answers the option "Weather and card" reads, by the model of their route.
+WEATHER_MODELS: dict[str, type[BaseModel]] = {
+    "point_": PointResponse,
+    "tides_": TidesResponse,
+    "normals_": ClimateNormalsResponse,
+    "stationwind_": StationWindMap,
+    "spots_": SurfSpots,
+    "activities_": ActivitiesForecast,
+}
+WEATHER_FIXTURES = sorted(path for prefix in WEATHER_MODELS for path in (ROOT / "tests_ha" / "fixtures").glob(f"{prefix}*.json"))
 
 
 def test_every_recorded_answer_is_checked() -> None:
     assert FIXTURES and QUAKE_FIXTURES and PREALERT_FIXTURES
-    assert sorted((ROOT / "tests_ha" / "fixtures").glob("*.json")) == sorted(FIXTURES + QUAKE_FIXTURES + PREALERT_FIXTURES)
+    assert all(any(path.name.startswith(prefix) for path in WEATHER_FIXTURES) for prefix in WEATHER_MODELS)
+    every = FIXTURES + QUAKE_FIXTURES + PREALERT_FIXTURES + WEATHER_FIXTURES
+    assert sorted((ROOT / "tests_ha" / "fixtures").glob("*.json")) == sorted(every)
+
+
+@pytest.mark.parametrize("path", WEATHER_FIXTURES, ids=lambda p: p.name)
+def test_the_recorded_weather_answers_are_answers_of_the_api(path: Path) -> None:
+    model = next(model for prefix, model in WEATHER_MODELS.items() if path.name.startswith(prefix))
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    model.model_validate(raw)
+
+
+def test_the_hours_builder_makes_hours_of_the_api() -> None:
+    """``hourly`` of ``/v1/point`` comes with API ADR 0040; until the model has it, the integration reads none."""
+    if "hourly" not in PointResponse.model_fields:
+        pytest.skip("PointResponse has no hourly field yet (API ADR 0040 not merged): the builder is checked once it is")
+    raw = json.loads((ROOT / "tests_ha" / "fixtures" / "point_biarritz_2026-11-22.json").read_text(encoding="utf-8"))
+    raw["hourly"] = payloads.hourly(raw["server_utc"], [(14.9, 70.0, 0.4, 61, True), (12.0, None, None, 3, False)])
+    response = PointResponse.model_validate(raw)
+    assert raw["hourly"] == [json.loads(hour.model_dump_json()) for hour in response.hourly or []]  # every field, and none more
 
 
 @pytest.mark.parametrize("path", PREALERT_FIXTURES, ids=lambda p: p.name)

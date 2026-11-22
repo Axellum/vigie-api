@@ -22,6 +22,7 @@ from custom_components.vigie.const import (
     CONF_QUAKE_RADIUS_KM,
     CONF_RIVER_RADIUS_KM,
     CONF_SCAN_INTERVAL_MIN,
+    CONF_WEATHER_AND_CARD,
     DOMAIN,
     PUBLIC_INSTANCE_URL,
 )
@@ -144,6 +145,7 @@ async def test_the_options_set_the_poll_the_river_radius_and_the_earthquakes_and
     assert suggested(form, CONF_SCAN_INTERVAL_MIN) == 5 and suggested(form, CONF_RIVER_RADIUS_KM) == 5
     assert suggested(form, CONF_QUAKE_RADIUS_KM) == 300 and suggested(form, CONF_QUAKE_MIN_MAGNITUDE) == 4.5
     assert suggested(form, CONF_EXPERIMENTAL_PREALERT) is False
+    assert suggested(form, CONF_WEATHER_AND_CARD) is True  # on by default
     result = await hass.config_entries.options.async_configure(
         form["flow_id"], {CONF_SCAN_INTERVAL_MIN: 2, CONF_RIVER_RADIUS_KM: 12, CONF_QUAKE_RADIUS_KM: 800, CONF_QUAKE_MIN_MAGNITUDE: 5.04}
     )
@@ -156,6 +158,7 @@ async def test_the_options_set_the_poll_the_river_radius_and_the_earthquakes_and
         CONF_QUAKE_RADIUS_KM: 800,
         CONF_QUAKE_MIN_MAGNITUDE: 5.0,
         CONF_EXPERIMENTAL_PREALERT: False,  # off unless ticked
+        CONF_WEATHER_AND_CARD: True,  # on unless unticked
     }
     assert mock_entry.state is ConfigEntryState.LOADED
     assert mock_entry.runtime_data.coordinator.update_interval.total_seconds() == 120

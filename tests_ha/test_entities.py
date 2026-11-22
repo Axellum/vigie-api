@@ -124,7 +124,8 @@ async def test_the_device_and_the_unique_ids(
     registry = er.async_get(hass)
     unique_ids = {entry.unique_id for entry in er.async_entries_for_config_entry(registry, mock_entry.entry_id)}
     keys = ("max_level", "warning_active", "vigilance", "strongest_earthquake", "earthquake")
-    assert unique_ids == {f"{mock_entry.entry_id}_{key}" for key in keys}
+    weather = ("weather", "rain_next_hour", "strongest_gust_next_hours", "next_high_tide")  # the option "Weather and card", on by default
+    assert unique_ids == {f"{mock_entry.entry_id}_{key}" for key in keys + weather}
 
 
 async def test_two_places_are_two_devices(

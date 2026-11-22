@@ -32,7 +32,8 @@ def test_the_manifest() -> None:
     assert manifest["domain"] == "vigie" == COMPONENT.name
     assert list(manifest)[:2] == ["domain", "name"] and list(manifest)[2:] == sorted(list(manifest)[2:])  # hassfest: sorted keys
     assert manifest["config_flow"] is True and manifest["iot_class"] == "local_push"
-    assert manifest["requirements"] == [] and manifest["dependencies"] == []  # what Home Assistant ships (aiohttp, yarl, voluptuous)
+    assert manifest["requirements"] == []  # what Home Assistant ships (aiohttp, yarl, voluptuous, astral)
+    assert manifest["dependencies"] == ["websocket_api"]  # the commands of the dashboard card (ADR 0042)
     assert re.fullmatch(r"\d+\.\d+\.\d+", manifest["version"])
     assert manifest["documentation"].startswith("https://github.com/Axellum/vigie-api")
     assert manifest["issue_tracker"] == "https://github.com/Axellum/vigie-api/issues"

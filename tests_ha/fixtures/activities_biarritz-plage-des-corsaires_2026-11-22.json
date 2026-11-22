@@ -1,0 +1,1563 @@
+{
+ "generated_utc": 1795353075,
+ "spot": {
+  "id": "biarritz-plage-des-corsaires",
+  "name": "Plage des Corsaires",
+  "osm_name": null,
+  "place": "Biarritz",
+  "lat": 43.5074,
+  "lon": -1.5375,
+  "facing_deg": 296,
+  "open_water_sectors": [
+   [
+    230,
+    5
+   ]
+  ],
+  "open_water_width_deg": 140,
+  "beach_surface": "sand",
+  "bottom": "sand",
+  "seafloor_shom": [
+   "NFSF"
+  ],
+  "lifeguarded": true,
+  "best_tide": null,
+  "best_swell_from_deg": null,
+  "osm": "way/741058701",
+  "evidence": [
+   {
+    "osm": null,
+    "source": "gip_littoral",
+    "id": "LOIAQU064FS000C0",
+    "name": "Plage des Corsaires",
+    "kind": "beach"
+   },
+   {
+    "osm": "node/6605238110",
+    "source": null,
+    "id": null,
+    "name": "École de surf Uhaina",
+    "kind": "school"
+   }
+  ]
+ },
+ "days": 2,
+ "wind_range": {
+  "min_kn": 12.0,
+  "max_kn": 25.0
+ },
+ "boat_category": null,
+ "activities": [
+  {
+   "id": "surf",
+   "available": true,
+   "verdict": "good",
+   "reason": null,
+   "best_slot": {
+    "start_utc": 1795428000,
+    "end_utc": 1795438800
+   },
+   "hours": [
+    {
+     "time_utc": 1795352400,
+     "daylight": true,
+     "verdict": "possible",
+     "reason": "wind.onshore"
+    },
+    {
+     "time_utc": 1795356000,
+     "daylight": true,
+     "verdict": "possible",
+     "reason": "wind.onshore"
+    },
+    {
+     "time_utc": 1795359600,
+     "daylight": true,
+     "verdict": "possible",
+     "reason": "wind.onshore"
+    },
+    {
+     "time_utc": 1795363200,
+     "daylight": true,
+     "verdict": "possible",
+     "reason": "wind.onshore"
+    },
+    {
+     "time_utc": 1795366800,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "wind.onshore"
+    },
+    {
+     "time_utc": 1795370400,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "wind.onshore"
+    },
+    {
+     "time_utc": 1795374000,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "wind.onshore"
+    },
+    {
+     "time_utc": 1795377600,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "wind.onshore"
+    },
+    {
+     "time_utc": 1795381200,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "wind.onshore"
+    },
+    {
+     "time_utc": 1795384800,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "wind.onshore"
+    },
+    {
+     "time_utc": 1795388400,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "wind.onshore"
+    },
+    {
+     "time_utc": 1795392000,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "wind.onshore"
+    },
+    {
+     "time_utc": 1795395600,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "wind.onshore"
+    },
+    {
+     "time_utc": 1795399200,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "wind.onshore"
+    },
+    {
+     "time_utc": 1795402800,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "wind.onshore"
+    },
+    {
+     "time_utc": 1795406400,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "wind.onshore"
+    },
+    {
+     "time_utc": 1795410000,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "swell_period.short"
+    },
+    {
+     "time_utc": 1795413600,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "swell_period.short"
+    },
+    {
+     "time_utc": 1795417200,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "swell_period.short"
+    },
+    {
+     "time_utc": 1795420800,
+     "daylight": true,
+     "verdict": "possible",
+     "reason": "swell_period.short"
+    },
+    {
+     "time_utc": 1795424400,
+     "daylight": true,
+     "verdict": "possible",
+     "reason": "swell_period.short"
+    },
+    {
+     "time_utc": 1795428000,
+     "daylight": true,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795431600,
+     "daylight": true,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795435200,
+     "daylight": true,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795438800,
+     "daylight": true,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795442400,
+     "daylight": true,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795446000,
+     "daylight": true,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795449600,
+     "daylight": true,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795453200,
+     "daylight": false,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795456800,
+     "daylight": false,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795460400,
+     "daylight": false,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795464000,
+     "daylight": false,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795467600,
+     "daylight": false,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795471200,
+     "daylight": false,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795474800,
+     "daylight": false,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795478400,
+     "daylight": false,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795482000,
+     "daylight": false,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795485600,
+     "daylight": false,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795489200,
+     "daylight": false,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795492800,
+     "daylight": false,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795496400,
+     "daylight": false,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795500000,
+     "daylight": false,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795503600,
+     "daylight": false,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795507200,
+     "daylight": true,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795510800,
+     "daylight": true,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795514400,
+     "daylight": true,
+     "verdict": "good",
+     "reason": null
+    },
+    {
+     "time_utc": 1795518000,
+     "daylight": true,
+     "verdict": "possible",
+     "reason": "wind.strong"
+    },
+    {
+     "time_utc": 1795521600,
+     "daylight": true,
+     "verdict": "possible",
+     "reason": "wind.strong"
+    }
+   ],
+   "detail": {
+    "time_utc": 1795428000,
+    "verdict": "good",
+    "reason": null,
+    "criteria": [
+     {
+      "name": "swell_height",
+      "value": 2.4,
+      "unit": "m",
+      "state": "right",
+      "verdict": "good",
+      "points": 2,
+      "max_points": 2
+     },
+     {
+      "name": "swell_period",
+      "value": 8.0,
+      "unit": "s",
+      "state": "medium",
+      "verdict": "possible",
+      "points": 1,
+      "max_points": 2
+     },
+     {
+      "name": "swell_direction",
+      "value": 6.0,
+      "unit": "deg",
+      "state": "facing",
+      "verdict": "good",
+      "points": 2,
+      "max_points": 2
+     },
+     {
+      "name": "wind",
+      "value": 11.3,
+      "unit": "km/h",
+      "state": "cross_shore",
+      "verdict": "possible",
+      "points": 1,
+      "max_points": 2
+     },
+     {
+      "name": "tide",
+      "value": -0.8,
+      "unit": "m",
+      "state": null,
+      "verdict": null,
+      "points": null,
+      "max_points": 2
+     }
+    ],
+    "points": 6,
+    "out_of": 8
+   },
+   "note": null
+  },
+  {
+   "id": "kite",
+   "available": true,
+   "verdict": "poor",
+   "reason": "gust_gap.very_gusty",
+   "best_slot": null,
+   "hours": [
+    {
+     "time_utc": 1795352400,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "gust_gap.very_gusty"
+    },
+    {
+     "time_utc": 1795356000,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "gust_gap.very_gusty"
+    },
+    {
+     "time_utc": 1795359600,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "gust_gap.very_gusty"
+    },
+    {
+     "time_utc": 1795363200,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "gust_gap.very_gusty"
+    },
+    {
+     "time_utc": 1795366800,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "gust_gap.very_gusty"
+    },
+    {
+     "time_utc": 1795370400,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "gust_gap.very_gusty"
+    },
+    {
+     "time_utc": 1795374000,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "gust_gap.very_gusty"
+    },
+    {
+     "time_utc": 1795377600,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "gust_gap.very_gusty"
+    },
+    {
+     "time_utc": 1795381200,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "gust_gap.very_gusty"
+    },
+    {
+     "time_utc": 1795384800,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "gust_gap.very_gusty"
+    },
+    {
+     "time_utc": 1795388400,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "gust_gap.very_gusty"
+    },
+    {
+     "time_utc": 1795392000,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "gust_gap.very_gusty"
+    },
+    {
+     "time_utc": 1795395600,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "gust_gap.very_gusty"
+    },
+    {
+     "time_utc": 1795399200,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "gust_gap.very_gusty"
+    },
+    {
+     "time_utc": 1795402800,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "gust_gap.very_gusty"
+    },
+    {
+     "time_utc": 1795406400,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795410000,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795413600,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795417200,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795420800,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795424400,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795428000,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795431600,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795435200,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795438800,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795442400,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795446000,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795449600,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795453200,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795456800,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795460400,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795464000,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795467600,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795471200,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795474800,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795478400,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795482000,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795485600,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795489200,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795492800,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795496400,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795500000,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795503600,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795507200,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795510800,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795514400,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "wind.too_light"
+    },
+    {
+     "time_utc": 1795518000,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "gust_gap.very_gusty"
+    },
+    {
+     "time_utc": 1795521600,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "gust_gap.very_gusty"
+    }
+   ],
+   "detail": {
+    "time_utc": 1795352400,
+    "verdict": "poor",
+    "reason": "gust_gap.very_gusty",
+    "criteria": [
+     {
+      "name": "wind",
+      "value": 20.6,
+      "unit": "kn",
+      "state": "in_range",
+      "verdict": "good",
+      "points": null,
+      "max_points": null
+     },
+     {
+      "name": "gust_gap",
+      "value": 24.7,
+      "unit": "kn",
+      "state": "very_gusty",
+      "verdict": "poor",
+      "points": null,
+      "max_points": null
+     },
+     {
+      "name": "wind_direction",
+      "value": 274.0,
+      "unit": "deg",
+      "state": "onshore",
+      "verdict": "good",
+      "points": null,
+      "max_points": null
+     }
+    ],
+    "points": null,
+    "out_of": null
+   },
+   "note": null
+  },
+  {
+   "id": "boat",
+   "available": true,
+   "verdict": "possible",
+   "reason": "sea_height.moderate",
+   "best_slot": {
+    "start_utc": 1795428000,
+    "end_utc": 1795438800
+   },
+   "hours": [
+    {
+     "time_utc": 1795352400,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "gust_force.gale_or_more"
+    },
+    {
+     "time_utc": 1795356000,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "gust_force.gale_or_more"
+    },
+    {
+     "time_utc": 1795359600,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "gust_force.gale_or_more"
+    },
+    {
+     "time_utc": 1795363200,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "gust_force.gale_or_more"
+    },
+    {
+     "time_utc": 1795366800,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "sea_height.high"
+    },
+    {
+     "time_utc": 1795370400,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "sea_height.high"
+    },
+    {
+     "time_utc": 1795374000,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "sea_height.high"
+    },
+    {
+     "time_utc": 1795377600,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "sea_height.high"
+    },
+    {
+     "time_utc": 1795381200,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "sea_height.high"
+    },
+    {
+     "time_utc": 1795384800,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "sea_height.high"
+    },
+    {
+     "time_utc": 1795388400,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "sea_height.high"
+    },
+    {
+     "time_utc": 1795392000,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "sea_height.high"
+    },
+    {
+     "time_utc": 1795395600,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "sea_height.high"
+    },
+    {
+     "time_utc": 1795399200,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "sea_height.high"
+    },
+    {
+     "time_utc": 1795402800,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "sea_height.high"
+    },
+    {
+     "time_utc": 1795406400,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "sea_height.high"
+    },
+    {
+     "time_utc": 1795410000,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "sea_height.high"
+    },
+    {
+     "time_utc": 1795413600,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "sea_height.high"
+    },
+    {
+     "time_utc": 1795417200,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "sea_height.high"
+    },
+    {
+     "time_utc": 1795420800,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "sea_height.high"
+    },
+    {
+     "time_utc": 1795424400,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "sea_height.high"
+    },
+    {
+     "time_utc": 1795428000,
+     "daylight": true,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795431600,
+     "daylight": true,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795435200,
+     "daylight": true,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795438800,
+     "daylight": true,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795442400,
+     "daylight": true,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795446000,
+     "daylight": true,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795449600,
+     "daylight": true,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795453200,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795456800,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795460400,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795464000,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795467600,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795471200,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795474800,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795478400,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795482000,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795485600,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795489200,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795492800,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795496400,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795500000,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795503600,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795507200,
+     "daylight": true,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795510800,
+     "daylight": true,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795514400,
+     "daylight": true,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795518000,
+     "daylight": true,
+     "verdict": "possible",
+     "reason": "gust_force.strong"
+    },
+    {
+     "time_utc": 1795521600,
+     "daylight": true,
+     "verdict": "possible",
+     "reason": "gust_force.strong"
+    }
+   ],
+   "detail": {
+    "time_utc": 1795428000,
+    "verdict": "possible",
+    "reason": "sea_height.moderate",
+    "criteria": [
+     {
+      "name": "wind_force",
+      "value": 2.0,
+      "unit": "Beaufort",
+      "state": "up_to_moderate",
+      "verdict": "good",
+      "points": null,
+      "max_points": null
+     },
+     {
+      "name": "gust_force",
+      "value": 4.0,
+      "unit": "Beaufort",
+      "state": "up_to_fresh",
+      "verdict": "good",
+      "points": null,
+      "max_points": null
+     },
+     {
+      "name": "sea_height",
+      "value": 2.4,
+      "unit": "m",
+      "state": "moderate",
+      "verdict": "possible",
+      "points": null,
+      "max_points": null
+     }
+    ],
+    "points": null,
+    "out_of": null
+   },
+   "note": null
+  },
+  {
+   "id": "shore_fishing",
+   "available": true,
+   "verdict": "poor",
+   "reason": "low_water.outside_window",
+   "best_slot": null,
+   "hours": [
+    {
+     "time_utc": 1795352400,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795356000,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795359600,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795363200,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795366800,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795370400,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "sea_height.high"
+    },
+    {
+     "time_utc": 1795374000,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "sea_height.high"
+    },
+    {
+     "time_utc": 1795377600,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795381200,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795384800,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795388400,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795392000,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795395600,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795399200,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795402800,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795406400,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795410000,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795413600,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "sea_height.high"
+    },
+    {
+     "time_utc": 1795417200,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "sea_height.high"
+    },
+    {
+     "time_utc": 1795420800,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795424400,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795428000,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795431600,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795435200,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795438800,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795442400,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795446000,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795449600,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795453200,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795456800,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795460400,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795464000,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795467600,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795471200,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795474800,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795478400,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795482000,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795485600,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795489200,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795492800,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795496400,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795500000,
+     "daylight": false,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795503600,
+     "daylight": false,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795507200,
+     "daylight": true,
+     "verdict": "possible",
+     "reason": "sea_height.moderate"
+    },
+    {
+     "time_utc": 1795510800,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795514400,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795518000,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    },
+    {
+     "time_utc": 1795521600,
+     "daylight": true,
+     "verdict": "poor",
+     "reason": "low_water.outside_window"
+    }
+   ],
+   "detail": {
+    "time_utc": 1795352400,
+    "verdict": "poor",
+    "reason": "low_water.outside_window",
+    "criteria": [
+     {
+      "name": "low_water",
+      "value": 362.0,
+      "unit": "min",
+      "state": "outside_window",
+      "verdict": "poor",
+      "points": null,
+      "max_points": null
+     },
+     {
+      "name": "coefficient",
+      "value": 73.0,
+      "unit": "",
+      "state": "large",
+      "verdict": "good",
+      "points": null,
+      "max_points": null
+     },
+     {
+      "name": "wind_force",
+      "value": 5.0,
+      "unit": "Beaufort",
+      "state": "up_to_fresh",
+      "verdict": "good",
+      "points": null,
+      "max_points": null
+     },
+     {
+      "name": "sea_height",
+      "value": 3.9,
+      "unit": "m",
+      "state": "high",
+      "verdict": "poor",
+      "points": null,
+      "max_points": null
+     }
+    ],
+    "points": null,
+    "out_of": null
+   },
+   "note": null
+  }
+ ],
+ "tide": {
+  "extremes": [
+   {
+    "time_utc": 1795331280,
+    "kind": "low",
+    "height_m": -1.38,
+    "range_m": 2.72
+   },
+   {
+    "time_utc": 1795353840,
+    "kind": "high",
+    "height_m": 1.5,
+    "range_m": 2.88
+   },
+   {
+    "time_utc": 1795375920,
+    "kind": "low",
+    "height_m": -1.58,
+    "range_m": 3.09
+   },
+   {
+    "time_utc": 1795398540,
+    "kind": "high",
+    "height_m": 1.58,
+    "range_m": 3.17
+   },
+   {
+    "time_utc": 1795420440,
+    "kind": "low",
+    "height_m": -1.63,
+    "range_m": 3.21
+   },
+   {
+    "time_utc": 1795443000,
+    "kind": "high",
+    "height_m": 1.69,
+    "range_m": 3.32
+   },
+   {
+    "time_utc": 1795464960,
+    "kind": "low",
+    "height_m": -1.74,
+    "range_m": 3.44
+   },
+   {
+    "time_utc": 1795487520,
+    "kind": "high",
+    "height_m": 1.78,
+    "range_m": 3.52
+   },
+   {
+    "time_utc": 1795509600,
+    "kind": "low",
+    "height_m": -1.84,
+    "range_m": 3.62
+   },
+   {
+    "time_utc": 1795532160,
+    "kind": "high",
+    "height_m": 1.83,
+    "range_m": 3.66
+   },
+   {
+    "time_utc": 1795554120,
+    "kind": "low",
+    "height_m": -1.83,
+    "range_m": 3.65
+   }
+  ],
+  "coefficients_estimated": [
+   {
+    "brest_high_water_utc": 1795355520,
+    "value": 73
+   },
+   {
+    "brest_high_water_utc": 1795400160,
+    "value": 78
+   },
+   {
+    "brest_high_water_utc": 1795444620,
+    "value": 83
+   },
+   {
+    "brest_high_water_utc": 1795489140,
+    "value": 87
+   },
+   {
+    "brest_high_water_utc": 1795533780,
+    "value": 90
+   }
+  ],
+  "note": "Tide computed by Vigie from a global ocean tide model: not for navigation, and not an official tide table. Heights are relative to the mean sea level of the model, not to the chart datum of a port. Estimated by Vigie from the model's tide at Brest: 100 times the range of each semi-diurnal tide at Brest divided by 6.10 m. Not the official coefficient, which is SHOM's. In France the coefficient is used for the Atlantic, Channel and North Sea coasts, with the value of the high water at Brest; it says nothing of the Mediterranean or of other countries. SHOM's own definition (height of the high water above the mid-tide level, over a unit, times 100) was measured against this one on the tide observed at Brest and did not come closer (ADR 0018); the model's tide is not corrected, so the coefficient inherits the model's error."
+ },
+ "sun": [
+  {
+   "sunrise_utc": 1795331309,
+   "sunset_utc": 1795365342
+  },
+  {
+   "sunrise_utc": 1795417783,
+   "sunset_utc": 1795451702
+  },
+  {
+   "sunrise_utc": 1795504256,
+   "sunset_utc": 1795538065
+  }
+ ],
+ "vigilance": {
+  "status": "ok",
+  "alerts": [
+   {
+    "id": "meteofrance:64:9:2026-11-22T09:04:31Z",
+    "source": "meteofrance",
+    "attribution": "Source: Météo-France, Vigilance météorologique (https://vigilance.meteofrance.fr). Licence Ouverte 2.0. Last update: 2026-11-22T09:04:31Z",
+    "level": "YELLOW",
+    "onset_utc": 1795338000,
+    "expires_utc": 1795366800,
+    "ends_utc": null
+   }
+  ]
+ },
+ "rules": {
+  "verdict": "good, possible or poor, hour by hour: the verdict of an hour is the lowest of its criteria; a criterion whose value is unknown counts for nothing, except the one an activity cannot be judged without (kite: the wind; boat: the wind; shore fishing: the low water and the wind), which makes the verdict null; with none known the verdict is null",
+  "headline": "the best verdict among the daylight hours of the next 24 hours; best_slot: the longest run of consecutive daylight hours at that verdict, the first on a tie, and none when that verdict is poor",
+  "surf": "the rating of GET /v1/surf/spots/{id} (its rules are there), by its share of points: 75 % and over good, 50 % and over possible, less poor; with fewer than three criteria known, null. A primary swell worth 0 points (under 0.5 m, or 4 m and over) makes it poor whatever the other criteria give",
+  "kite": "wind within the range asked for (default 12 to 25 knots): good; within 3 knots of it: possible; else poor. Gusts above the mean wind by 5 knots or less: good; 6 to 8: possible; more: poor. Wind from the land side (offshore): possible at best",
+  "boat": "mean wind in Beaufort force (knots rounded): 4 or less good, 5 possible, 6 and over poor. Gusts: force 5 or less good, 6 to 7 possible, 8 and over poor. Sea (significant wave height): under 1.25 m good, under 2.5 m possible, else poor. With `boat_category` (EU Directive 2013/53/EU design categories): D (sheltered waters, up to force 4 and 0.5 m): wind 3 or less good, 4 possible; gusts 4 or less good, 5 possible; sea under 0.3 m good, under 0.5 m possible. C (inshore, up to force 6 and 2.0 m): wind 4 or less good, 5 to 6 possible; gusts 5 or less good, 6 to 7 possible; sea under 1.0 m good, under 2.0 m possible. B (offshore, up to force 8 and 4.0 m): wind 5 or less good, 6 to 8 possible; gusts 6 or less good, 7 to 9 possible; sea under 2.0 m good, under 4.0 m possible. A (ocean, over force 8 and 4.0 m): wind 6 or less good, 7 to 9 possible; gusts 7 or less good, 8 to 10 possible; sea under 3.0 m good, under 6.0 m possible",
+  "shore_fishing": "only in the 2 hours before a low water, judged at the middle of the hour; outside, poor. Coefficient estimated by Vigie (not SHOM's) of the Brest high water nearest in time to that low water: 70 to 99 good, 50 to 69 possible, 100 and over possible (the SNSM says 100 and over is a danger), under 50 poor. Wind force 5 or less good, 6 possible, 7 and over poor. Sea under 1.25 m good, under 2.5 m possible, else poor. Without the low water, null",
+  "vigilance": "an official coastal warning (phenomenon coastal; in France the wave-submersion vigilance) in force at the spot: red makes every verdict poor; orange keeps the boat and the shore fishing at possible at best; yellow changes nothing. Where the warnings could not be read, nothing is capped and vigilance.status says unknown"
+ },
+ "derived": [
+  "activities",
+  "activities.hours",
+  "activities.verdict",
+  "activities.best_slot",
+  "activities.detail",
+  "tide.coefficients_estimated"
+ ],
+ "limits": "The verdicts are rules of Vigie, written in `rules`: a few thresholds on the swell, the wind, the tide and the official coastal warnings. They do not know the beach, the bottom, the shelter of a bay or the person who goes: a beginner and an expert do not have the same limits (the wind range of the kite is the one asked for). The swell is Météo-France's MFWAM model on a grid of about 8 km; the wind is a forecast at 10 m; the tide is computed from a global model and can be an hour late or more inside a bay. Hours are whole hours.",
+ "disclaimer": "Not for safety and not for navigation: look at the sea on the spot, the flags and the lifeguards, read the tide tables and the official warnings, and follow the instructions of the authorities.",
+ "stale": false,
+ "attribution": "Weather data by Open-Meteo.com (https://open-meteo.com/) | Generated using E.U. Copernicus Marine Service Information; https://doi.org/10.48670/moi-00017 | Surf spots: © OpenStreetMap contributors, ODbL 1.0 (https://www.openstreetmap.org/copyright); chosen and their facing worked out by Vigie | Beaches of Nouvelle-Aquitaine: GIP Littoral, \"Plages de Nouvelle-Aquitaine\" (PIGMA / data.gouv.fr, read on 2026-11-15), Licence Ouverte 2.0 | Shom, 2025. Natures de fond au 1/50 000, https://dx.doi.org/10.17183/HOM_GEOL_NATURES_FOND_50 (not for navigation) | Tides computed by Vigie from the EOT20 ocean tide model (Hart-Davis et al. 2021, DGFI-TUM, SEANOE, https://doi.org/10.17882/79489), CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); constants kept near the coasts and rounded by Vigie. Not for navigation"
+}
