@@ -47,7 +47,12 @@ from app.collectors.grid import (
 )
 from app.collectors.open_meteo_hosts import get_open_meteo
 from app.collectors.weights import open_meteo_weight
-from app.models.schemas import CurrentWeather, DailyForecast
+from app.models.schemas import (
+    CurrentWeather,
+    DailyForecast,
+    HourlyWeatherPoint,
+    PressureHistoryPoint,
+)
 
 # The longest forecast any route returns (non-compact ``/v1/snapshot`` and ``/v1/point``: 10 days).
 # Every forecast is asked for this length and cached once per position; the shorter profiles (the
@@ -109,6 +114,88 @@ def _wmo_from_metno_symbol(symbol: Any) -> Optional[int]:
     if not isinstance(symbol, str) or not symbol:
         return None
     return _METNO_SYMBOL_TO_WMO.get(symbol.split("_")[0].lower())
+
+
+def _metno_is_day(symbol: Any) -> Optional[bool]:
+    """Infer daylight only when MET Norway's ``symbol_code`` explicitly ends with ``_day`` or ``_night``."""
+    if not isinstance(symbol, str) or not symbol:
+        return None
+    lower = symbol.lower()
+    if lower.endswith("_day"):
+        return True
+    if lower.endswith("_night"):
+        return False
+    return None
+
+
+def _optional_bool(value: Any) -> Optional[bool]:
+    """Convert an Open-Meteo 0/1 flag or boolean into ``bool``, or ``None`` when missing."""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    number = optional_float(value)
+    if number is None:
+        return None
+    return bool(int(round(number)))
+
+
+def _parse_local_or_utc_epoch(stamp: Any, utc_offset_s: Optional[float]) -> Optional[int]:
+    """Convert an ISO 8601 timestamp (local with ``utc_offset_s``, or timezone-aware) to UTC epoch seconds."""
+    if not isinstance(stamp, str) or not stamp.strip():
+        return None
+    text = stamp.strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if dt.tzinfo is not None:
+        return int(dt.timestamp())
+    if utc_offset_s is None:
+        return None
+    return int(dt.replace(tzinfo=timezone.utc).timestamp() - utc_offset_s)
+
+
+def split_hourly_series(
+    points: list[HourlyWeatherPoint],
+    reference_utc: Optional[int] = None,
+    max_forecast_hours: int = 72,
+    max_past_hours: int = 24,
+) -> tuple[Optional[list[HourlyWeatherPoint]], Optional[list[PressureHistoryPoint]]]:
+    """Split a chronological hourly list into upcoming forecast hours and past 24h sea-level pressure history.
+
+    When ``reference_utc`` falls inside the series span, the split is anchored at the start of the current UTC hour
+    so cached series stay aligned with "now" and never duplicate the boundary hour between history and forecast.
+    When ``reference_utc`` is omitted or outside the series span (e.g. a recorded historical fixture), any leading
+    hours beyond ``max_forecast_hours`` (up to ``max_past_hours``) form the past pressure history.
+    """
+    if not points:
+        return None, None
+    by_time: dict[int, HourlyWeatherPoint] = {p.time_utc: p for p in points}
+    ordered = [by_time[t] for t in sorted(by_time)]
+    if reference_utc is not None and ordered[0].time_utc <= reference_utc <= ordered[-1].time_utc:
+        now_hour = (reference_utc // 3600) * 3600
+        past_start = now_hour - max_past_hours * 3600
+        past = [
+            PressureHistoryPoint(time_utc=p.time_utc, pressure_hpa=p.pressure_hpa)
+            for p in ordered
+            if past_start <= p.time_utc < now_hour and p.pressure_hpa is not None
+        ]
+        forecast = [p for p in ordered if p.time_utc >= now_hour][:max_forecast_hours]
+    elif len(ordered) > max_forecast_hours:
+        split_idx = min(max_past_hours, len(ordered) - max_forecast_hours)
+        past = [
+            PressureHistoryPoint(time_utc=p.time_utc, pressure_hpa=p.pressure_hpa)
+            for p in ordered[:split_idx]
+            if p.pressure_hpa is not None
+        ]
+        forecast = ordered[split_idx : split_idx + max_forecast_hours]
+    else:
+        past = []
+        forecast = ordered[:max_forecast_hours]
+    return (forecast or None), (past or None)
 
 
 def _clamped_int(value: Any, low: int, high: int) -> Optional[int]:
@@ -180,6 +267,18 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
     # The hourly cloud cover of the next hours, asked with the daily forecast: 8 variables in all, the weight stays 1.0.
     HOURLY_VARIABLES = "cloud_cover"
     HOURLY_FORECAST_HOURS = 48
+    # Full hourly series for non-compact ``/v1/point`` charts (17 variables, weight 1.7; 72 forecast + 24 past hours).
+    # Kept as its own 6-hour cache (global NWP runs are 6-hourly) so compact displays and snapshots never pay for it.
+    HOURLY_DETAIL_VARIABLES = (
+        "temperature_2m,apparent_temperature,dew_point_2m,"
+        "precipitation,precipitation_probability,"
+        "wind_speed_10m,wind_gusts_10m,wind_direction_10m,"
+        "cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high,"
+        "pressure_msl,uv_index,shortwave_radiation,weather_code,is_day"
+    )
+    HOURLY_DETAIL_HOURS = 72
+    HOURLY_PAST_HOURS = 24
+    HOURLY_TTL_SECONDS = 21600
     # The daily forecast is refreshed every hour: the models are updated hourly at best
     # (https://open-meteo.com/en/docs, table "Update frequency"). The "now" part uses ``ttl_seconds``.
     DAILY_TTL_SECONDS = 3600
@@ -209,6 +308,11 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
         s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
         cell = f"{coord_str(s_lat)},{coord_str(s_lon)}"
         return f"om-now:{cell}", f"om-daily:{cell}"
+
+    def hourly_cache_key_for(self, lat: float, lon: float) -> str:
+        """Cache key of the detailed hourly series (72h forecast + 24h past pressure) for non-compact ``/v1/point``."""
+        s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
+        return f"om-hourly:{coord_str(s_lat)},{coord_str(s_lon)}"
 
     def get_stale_point(self, lat: float, lon: float) -> Optional[dict[str, Any]]:
         """Return the last cached forecast of a point, even if its TTL has expired.
@@ -275,15 +379,31 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
             self.cache_keys_for(lat, lon)[1], lat=s_lat, lon=s_lon, part="daily", ttl_seconds=self.DAILY_TTL_SECONDS
         )
 
+    async def fetch_hourly(self, lat: float, lon: float, allow_stale_on_error: bool = True) -> dict[str, Any]:
+        """Detailed hourly weather series (24h past + 72h forecast) for non-compact ``/v1/point``, cached 6 hours."""
+        s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
+        return await self.fetch(
+            self.hourly_cache_key_for(lat, lon),
+            lat=s_lat,
+            lon=s_lon,
+            part="hourly",
+            ttl_seconds=self.HOURLY_TTL_SECONDS,
+            allow_stale_on_error=allow_stale_on_error,
+        )
+
     @staticmethod
     def request_params(part: str, lat: float, lon: float) -> dict[str, str]:
-        """Query parameters of the "now" or the "daily" request at ``lat, lon``."""
+        """Query parameters of the "now", "daily", or "hourly" request at ``lat, lon``."""
         params = {"latitude": coord_str(lat), "longitude": coord_str(lon), "timezone": "auto"}
         if part == "daily":
             params["daily"] = OpenMeteoCollector.DAILY_VARIABLES
             params["forecast_days"] = str(MAX_FORECAST_DAYS)
             params["hourly"] = OpenMeteoCollector.HOURLY_VARIABLES
             params["forecast_hours"] = str(OpenMeteoCollector.HOURLY_FORECAST_HOURS)
+        elif part == "hourly":
+            params["hourly"] = OpenMeteoCollector.HOURLY_DETAIL_VARIABLES
+            params["forecast_hours"] = str(OpenMeteoCollector.HOURLY_DETAIL_HOURS)
+            params["past_hours"] = str(OpenMeteoCollector.HOURLY_PAST_HOURS)
         else:
             params["current"] = OpenMeteoCollector.CURRENT_VARIABLES
             params["minutely_15"] = OpenMeteoCollector.NOWCAST_VARIABLES
@@ -300,7 +420,11 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
         resp = await get_open_meteo(self, client, self.BASE_URL, DEFAULT_OPEN_METEO_FORECAST_URL, params)
         resp.raise_for_status()
         payload = resp.json()
-        return self.parse_daily(payload) if part == "daily" else self.parse_now(payload)
+        if part == "daily":
+            return self.parse_daily(payload)
+        if part == "hourly":
+            return self.parse_hourly(payload)
+        return self.parse_now(payload)
 
     @staticmethod
     def _merge_parts(now: dict[str, Any], daily: dict[str, Any]) -> dict[str, Any]:
@@ -428,6 +552,103 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
             cover = optional_float(value)
             hours.append((epoch, None if cover is None else max(0.0, min(100.0, cover))))
         return hours
+
+    @staticmethod
+    def parse_hourly(payload: dict[str, Any]) -> dict[str, Any]:
+        """Normalize an Open-Meteo ``hourly`` block into ``HourlyWeatherPoint`` objects.
+
+        Missing variables stay ``None``; rows with an unparseable timestamp or where every weather variable is ``None``
+        (e.g. past a regional model's horizon) are skipped.
+        """
+        hourly = payload.get("hourly")
+        offset = optional_float(payload.get("utc_offset_seconds"))
+        if not isinstance(hourly, dict):
+            return {"utc_offset_s": None if offset is None else int(offset), "hourly_all": []}
+
+        times = hourly.get("time")
+        if not isinstance(times, list):
+            return {"utc_offset_s": None if offset is None else int(offset), "hourly_all": []}
+
+        def col(name: str) -> list[Any]:
+            raw = hourly.get(name)
+            return raw if isinstance(raw, list) else []
+
+        def at(values: list[Any], idx: int) -> Any:
+            return values[idx] if idx < len(values) else None
+
+        temps = col("temperature_2m")
+        feels = col("apparent_temperature")
+        dews = col("dew_point_2m")
+        precips = col("precipitation")
+        precip_probs = col("precipitation_probability")
+        winds = col("wind_speed_10m")
+        gusts = col("wind_gusts_10m")
+        wind_dirs = col("wind_direction_10m")
+        clouds = col("cloud_cover")
+        clouds_low = col("cloud_cover_low")
+        clouds_mid = col("cloud_cover_mid")
+        clouds_high = col("cloud_cover_high")
+        pressures = col("pressure_msl")
+        uvs = col("uv_index")
+        shortwaves = col("shortwave_radiation")
+        codes = col("weather_code")
+        is_days = col("is_day")
+
+        points: list[HourlyWeatherPoint] = []
+        for idx, stamp in enumerate(times):
+            epoch = _parse_local_or_utc_epoch(stamp, offset)
+            if epoch is None:
+                continue
+            wd = optional_float(at(wind_dirs, idx))
+            point = HourlyWeatherPoint(
+                time_utc=epoch,
+                temp_c=_rounded(at(temps, idx)),
+                feels_like_c=_rounded(at(feels, idx)),
+                dew_point_c=_rounded(at(dews, idx)),
+                precipitation_mm=_non_negative(at(precips, idx), 2),
+                precipitation_probability_pct=_clamped_int(at(precip_probs, idx), 0, 100),
+                wind_kmh=_non_negative(at(winds, idx)),
+                wind_gust_kmh=_non_negative(at(gusts, idx)),
+                wind_deg=None if wd is None else int(round(wd)) % 360,
+                cloud_cover_pct=_clamped_int(at(clouds, idx), 0, 100),
+                cloud_low_pct=_clamped_int(at(clouds_low, idx), 0, 100),
+                cloud_mid_pct=_clamped_int(at(clouds_mid, idx), 0, 100),
+                cloud_high_pct=_clamped_int(at(clouds_high, idx), 0, 100),
+                pressure_hpa=_non_negative(at(pressures, idx)),
+                uv_index=_non_negative(at(uvs, idx)),
+                shortwave_wm2=_non_negative(at(shortwaves, idx)),
+                weather_code=_clamped_int(at(codes, idx), 0, 99),
+                is_day=_optional_bool(at(is_days, idx)),
+            )
+            if all(
+                v is None
+                for v in (
+                    point.temp_c,
+                    point.feels_like_c,
+                    point.dew_point_c,
+                    point.precipitation_mm,
+                    point.precipitation_probability_pct,
+                    point.wind_kmh,
+                    point.wind_gust_kmh,
+                    point.wind_deg,
+                    point.cloud_cover_pct,
+                    point.cloud_low_pct,
+                    point.cloud_mid_pct,
+                    point.cloud_high_pct,
+                    point.pressure_hpa,
+                    point.uv_index,
+                    point.shortwave_wm2,
+                    point.weather_code,
+                    point.is_day,
+                )
+            ):
+                continue
+            points.append(point)
+
+        return {
+            "utc_offset_s": None if offset is None else int(offset),
+            "hourly_all": points,
+        }
 
 
 class MetNorwayCollector(BaseCollector[dict[str, Any]]):
@@ -559,6 +780,8 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
         offset = timedelta(seconds=utc_offset_s or 0)
         by_day: dict[str, dict[str, Any]] = {}
         clouds: list[tuple[int, Optional[float]]] = []
+        hourly_points: list[HourlyWeatherPoint] = []
+        first_epoch: Optional[int] = None
         for item in timeseries:
             try:
                 stamp = datetime.fromisoformat(str(item.get("time") or "").replace("Z", "+00:00"))
@@ -567,11 +790,36 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
             day_key = (stamp + offset).date().isoformat()
             data = item.get("data") or {}
             inst = (data.get("instant") or {}).get("details") or {}
-            if stamp.tzinfo is not None and len(clouds) < OpenMeteoCollector.HOURLY_FORECAST_HOURS:
-                cover = optional_float(inst.get("cloud_area_fraction"))
-                clouds.append((int(stamp.timestamp()), None if cover is None else max(0.0, min(100.0, cover))))
             n1 = data.get("next_1_hours") or {}
             n6 = data.get("next_6_hours") or {}
+            if stamp.tzinfo is not None:
+                epoch = int(stamp.timestamp())
+                if first_epoch is None:
+                    first_epoch = epoch
+                if len(clouds) < OpenMeteoCollector.HOURLY_FORECAST_HOURS:
+                    cover = optional_float(inst.get("cloud_area_fraction"))
+                    clouds.append((epoch, None if cover is None else max(0.0, min(100.0, cover))))
+                if (
+                    len(hourly_points) < OpenMeteoCollector.HOURLY_DETAIL_HOURS
+                    and epoch - first_epoch < OpenMeteoCollector.HOURLY_DETAIL_HOURS * 3600
+                ):
+                    h_wind_ms = optional_float(inst.get("wind_speed"))
+                    h_wind_deg = optional_float(inst.get("wind_from_direction"))
+                    h_sym = (n1.get("summary") or {}).get("symbol_code")
+                    # MET Norway compact provides only these instant + next_1_hours fields; every other field stays None.
+                    hourly_points.append(
+                        HourlyWeatherPoint(
+                            time_utc=epoch,
+                            temp_c=_rounded(inst.get("air_temperature")),
+                            precipitation_mm=_non_negative((n1.get("details") or {}).get("precipitation_amount"), 2),
+                            wind_kmh=None if h_wind_ms is None else round(max(0.0, h_wind_ms) * 3.6, 1),
+                            wind_deg=None if h_wind_deg is None else int(round(h_wind_deg)) % 360,
+                            cloud_cover_pct=_clamped_int(inst.get("cloud_area_fraction"), 0, 100),
+                            pressure_hpa=_non_negative(inst.get("air_pressure_at_sea_level")),
+                            weather_code=_wmo_from_metno_symbol(h_sym),
+                            is_day=_metno_is_day(h_sym),
+                        )
+                    )
 
             entry = by_day.setdefault(
                 day_key, {"temps": [], "winds": [], "rain": None, "codes": []}
@@ -617,6 +865,7 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
             "rain_next_60m": None,
             "daily_10d": daily_forecasts,
             "hourly_cloud_cover": clouds,
+            "hourly_all": hourly_points,
         }
 
 

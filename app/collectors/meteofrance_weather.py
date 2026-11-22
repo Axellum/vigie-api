@@ -53,6 +53,16 @@ CURRENT_VARIABLES = (
     "precipitation,weather_code"
 )
 DAILY_VARIABLES = "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max"
+# Hourly variables synced in AROME HD / ARPEGE Europe behind the gateway (no uv_index or precipitation_probability).
+HOURLY_VARIABLES = (
+    "temperature_2m,apparent_temperature,dew_point_2m,"
+    "precipitation,"
+    "wind_speed_10m,wind_gusts_10m,wind_direction_10m,"
+    "cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high,"
+    "pressure_msl,shortwave_radiation,weather_code,is_day"
+)
+HOURLY_FORECAST_HOURS = 72
+HOURLY_PAST_HOURS = 24
 
 
 def meteo_weather_enabled_from_env(env: Optional[Mapping[str, str]] = None) -> bool:
@@ -95,6 +105,9 @@ class MeteoFranceWeatherCollector(BaseCollector[dict[str, Any]]):
         if part == "daily":
             params["daily"] = DAILY_VARIABLES
             params["forecast_days"] = str(MAX_FORECAST_DAYS)
+            params["hourly"] = HOURLY_VARIABLES
+            params["forecast_hours"] = str(HOURLY_FORECAST_HOURS)
+            params["past_hours"] = str(HOURLY_PAST_HOURS)
         else:
             params["current"] = CURRENT_VARIABLES
             params["minutely_15"] = "precipitation"
@@ -127,6 +140,7 @@ class MeteoFranceWeatherCollector(BaseCollector[dict[str, Any]]):
             "current": now["current"],
             "rain_next_60m": now["rain_next_60m"],
             "daily": daily["daily_10d"],
+            "hourly_all": daily.get("hourly_all", []),
         }
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> dict[str, Any]:
@@ -147,7 +161,12 @@ class MeteoFranceWeatherCollector(BaseCollector[dict[str, Any]]):
             days = [day for day in parsed["daily_10d"] if day.tmax is not None and day.tmin is not None]
             if not days:
                 raise ValueError("gateway answer has no complete day")
-            return {"utc_offset_s": parsed["utc_offset_s"], "daily_10d": days}
+            hourly_parsed = OpenMeteoCollector.parse_hourly(payload)
+            return {
+                "utc_offset_s": parsed["utc_offset_s"],
+                "daily_10d": days,
+                "hourly_all": hourly_parsed["hourly_all"],
+            }
         return OpenMeteoCollector.parse_now(payload)  # ValueError without a current temperature
 
 
@@ -216,5 +235,6 @@ def merge_france_bundle(
         "rain_next_60m": france["rain_next_60m"],
         "daily_10d": [days[date] for date in sorted(days)],
         "hourly_cloud_cover": list((public_daily or {}).get("hourly_cloud_cover", [])),
+        "hourly_all": list(france.get("hourly_all") or []),
     }
 
