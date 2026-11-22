@@ -250,6 +250,21 @@ def test_head_and_options_never_need_it_and_a_browser_can_read_the_refusal(world
     assert refused.status_code == 401 and refused.headers.get("access-control-allow-origin")  # the CORS middleware wraps the check
 
 
+def test_any_page_reads_the_api_but_never_with_the_browser_cookies(world: World) -> None:
+    """The site's account cookie lives on the same host as the API: the API must never let another page read with it. A
+    wildcard origin without `Access-Control-Allow-Credentials` makes a browser refuse to send cookies along a cross-site read."""
+    page = {"Origin": "https://example.org"}
+    read = world.client.get("/v1/health", headers={**page, "Cookie": "vigie_session=a-value-for-tests"})
+    assert read.headers["access-control-allow-origin"] == "*"
+    assert "access-control-allow-credentials" not in read.headers
+    preflight = world.client.options(
+        "/v1/zones", headers={**page, "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "authorization"}
+    )
+    assert preflight.headers["access-control-allow-origin"] == "*"
+    assert "access-control-allow-credentials" not in preflight.headers
+    assert "authorization" in preflight.headers["access-control-allow-headers"].lower()  # the admin token still goes through
+
+
 def test_the_websocket_is_not_a_write_route_and_stays_open(world: World, token_on: None) -> None:
     assert any(isinstance(route, WebSocketRoute) and path == "/v1/stream" for route, path in walk(list(app.routes)))
     with world.client.websocket_connect("/v1/stream") as socket:
