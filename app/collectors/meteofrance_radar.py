@@ -31,10 +31,12 @@ from typing import Any, Optional
 
 import httpx
 
-from app.collectors.base import BaseCollector, build_user_agent
+from app import clock
+from app.collectors.base import BaseCollector, build_user_agent, parse_iso_utc
 
 PROVIDER_ID = "meteofrance_radar"
 SOURCE_MODEL = "meteofrance-lame-d-eau"
+NOWCAST_SOURCE_MODEL = "meteofrance-piaf"
 TTL_SECONDS = 120  # an image every 5 minutes, published about 2 minutes late
 TILE_TIMEOUT_S = 8.0
 TILE_CACHE_ENTRIES = 600  # about 5 kB each at most
@@ -42,6 +44,8 @@ MAX_TILE_BYTES = 200_000
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 # What the gateway tiles show: a Web Mercator slippy map of 256 px tiles, zoom 3 to 10 (read from the gateway's answer).
 TILE_PATH = "/v1/radar/france/tiles/{epoch}/{z}/{x}/{y}.png"
+NOWCAST_TILE_PATH = "/v1/radar/france/nowcast/tiles/{epoch}/{z}/{x}/{y}.png"
+NOWCAST_KEY = "nowcast"
 MAX_LEGEND_CLASSES = 20
 
 FRANCE = "france"
@@ -107,10 +111,63 @@ class RadarFrames:
     legend: tuple[LegendClass, ...]
 
 
+@dataclass(frozen=True)
+class NowcastFrame:
+    """One 5-minute forecast frame of a PIAF nowcast run."""
+
+    epoch: int
+    lead_minutes: int
+
+
+@dataclass(frozen=True)
+class NowcastFrames:
+    """The PIAF +1h forecast frames the gateway serves, earliest lead first."""
+
+    run_utc: int
+    frames: tuple[NowcastFrame, ...]
+    bounds: tuple[float, float, float, float]  # west, south, east, north (degrees)
+    min_zoom: int
+    max_zoom: int
+    step_seconds: int
+    legend: tuple[LegendClass, ...]
+
+    @property
+    def epochs(self) -> tuple[int, ...]:
+        return tuple(f.epoch for f in self.frames)
+
+
 def _number(value: Any, what: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
         raise ValueError(f"radar frames: {what} is not a number")
     return float(value)
+
+
+def _parse_bounds_and_zoom(payload: dict[str, Any], label: str) -> tuple[tuple[float, float, float, float], int, int, tuple[LegendClass, ...]]:
+    bounds = payload.get("bounds")
+    if not isinstance(bounds, list) or len(bounds) != 4:
+        raise ValueError(f"{label}: the bounds are not four numbers")
+    west, south, east, north = (_number(v, "a bound") for v in bounds)
+    if not (-180.0 <= west < east <= 180.0 and -90.0 <= south < north <= 90.0):
+        raise ValueError(f"{label}: the bounds are not a box")
+    min_zoom, max_zoom = payload.get("min_zoom"), payload.get("max_zoom")
+    if (
+        not isinstance(min_zoom, int)
+        or not isinstance(max_zoom, int)
+        or isinstance(min_zoom, bool)
+        or isinstance(max_zoom, bool)
+        or not 0 <= min_zoom <= max_zoom <= 22
+    ):
+        raise ValueError(f"{label}: the zoom range is not valid")
+    legend: list[LegendClass] = []
+    raw_legend = payload.get("legend")
+    if isinstance(raw_legend, list):
+        for entry in raw_legend[:MAX_LEGEND_CLASSES]:
+            if not isinstance(entry, dict) or not isinstance(entry.get("color"), str) or len(entry["color"]) != 7:
+                raise ValueError(f"{label}: a legend class cannot be read")
+            legend.append(
+                LegendClass(_number(entry.get("min_mm_h"), "a legend threshold"), entry["color"], _number(entry.get("alpha"), "an alpha"))
+            )
+    return (west, south, east, north), min_zoom, max_zoom, tuple(legend)
 
 
 def parse_frames(payload: Any) -> RadarFrames:
@@ -130,41 +187,62 @@ def parse_frames(payload: Any) -> RadarFrames:
         if isinstance(epoch, bool) or not isinstance(epoch, int) or epoch <= 0:
             raise ValueError("radar frames: a frame without a valid epoch")
         epochs.append(epoch)
-    bounds = payload.get("bounds")
-    if not isinstance(bounds, list) or len(bounds) != 4:
-        raise ValueError("radar frames: the bounds are not four numbers")
-    west, south, east, north = (_number(v, "a bound") for v in bounds)
-    if not (-180.0 <= west < east <= 180.0 and -90.0 <= south < north <= 90.0):
-        raise ValueError("radar frames: the bounds are not a box")
-    min_zoom, max_zoom = payload.get("min_zoom"), payload.get("max_zoom")
-    if (
-        not isinstance(min_zoom, int)
-        or not isinstance(max_zoom, int)
-        or isinstance(min_zoom, bool)
-        or isinstance(max_zoom, bool)
-        or not 0 <= min_zoom <= max_zoom <= 22
-    ):
-        raise ValueError("radar frames: the zoom range is not valid")
-    legend: list[LegendClass] = []
-    raw_legend = payload.get("legend")
-    if isinstance(raw_legend, list):
-        for entry in raw_legend[:MAX_LEGEND_CLASSES]:
-            if not isinstance(entry, dict) or not isinstance(entry.get("color"), str) or len(entry["color"]) != 7:
-                raise ValueError("radar frames: a legend class cannot be read")
-            legend.append(
-                LegendClass(_number(entry.get("min_mm_h"), "a legend threshold"), entry["color"], _number(entry.get("alpha"), "an alpha"))
-            )
+    bounds, min_zoom, max_zoom, legend = _parse_bounds_and_zoom(payload, "radar frames")
     return RadarFrames(
         epochs=tuple(sorted(set(epochs))),
-        bounds=(west, south, east, north),
+        bounds=bounds,
         min_zoom=min_zoom,
         max_zoom=max_zoom,
-        legend=tuple(legend),
+        legend=legend,
     )
 
 
-def tile_touches(frames: RadarFrames, z: int, x: int, y: int) -> bool:
-    """Whether the Web Mercator tile ``z/x/y`` overlaps the box of the radar (else its tile is transparent, no request needed)."""
+def parse_nowcast_frames(payload: Any) -> NowcastFrames:
+    """Parse ``GET /v1/rain-nowcast/frames`` from the vigie-meteo gateway; ``ValueError`` when invalid."""
+    if not isinstance(payload, dict):
+        raise ValueError("nowcast frames: the answer is not an object")
+    if payload.get("source_model") != NOWCAST_SOURCE_MODEL:
+        raise ValueError(f"nowcast frames: unexpected source_model {str(payload.get('source_model'))[:40]!r}")
+    raw_run = payload.get("run_utc")
+    if isinstance(raw_run, int) and not isinstance(raw_run, bool) and raw_run > 0:
+        run_utc = raw_run
+    else:
+        parsed_run = parse_iso_utc(raw_run)
+        if parsed_run is None or parsed_run <= 0:
+            raise ValueError("nowcast frames: missing or invalid run_utc")
+        run_utc = parsed_run
+    raw_frames = payload.get("frames")
+    if not isinstance(raw_frames, list) or not raw_frames:
+        raise ValueError("nowcast frames: no frame")
+    by_epoch: dict[int, NowcastFrame] = {}
+    for item in raw_frames:
+        if not isinstance(item, dict):
+            raise ValueError("nowcast frames: a frame is not an object")
+        epoch = item.get("epoch")
+        if isinstance(epoch, bool) or not isinstance(epoch, int) or epoch <= 0:
+            raise ValueError("nowcast frames: a frame without a valid epoch")
+        lead = item.get("lead_minutes")
+        if isinstance(lead, bool) or not isinstance(lead, int) or lead <= 0:
+            raise ValueError("nowcast frames: a frame without a valid lead_minutes")
+        by_epoch[epoch] = NowcastFrame(epoch=epoch, lead_minutes=lead)
+    raw_step = payload.get("step_seconds", 300)
+    if isinstance(raw_step, bool) or not isinstance(raw_step, int) or raw_step <= 0:
+        raise ValueError("nowcast frames: step_seconds is not a positive integer")
+    bounds, min_zoom, max_zoom, legend = _parse_bounds_and_zoom(payload, "nowcast frames")
+    ordered = tuple(by_epoch[e] for e in sorted(by_epoch))
+    return NowcastFrames(
+        run_utc=run_utc,
+        frames=ordered,
+        bounds=bounds,
+        min_zoom=min_zoom,
+        max_zoom=max_zoom,
+        step_seconds=raw_step,
+        legend=legend,
+    )
+
+
+def tile_touches(frames: RadarFrames | NowcastFrames, z: int, x: int, y: int) -> bool:
+    """Whether the Web Mercator tile ``z/x/y`` overlaps the box of the radar/nowcast (else its tile is transparent, no request needed)."""
     n = 2**z
     west = x / n * 360.0 - 180.0
     east = (x + 1) / n * 360.0 - 180.0
@@ -177,7 +255,7 @@ def tile_touches(frames: RadarFrames, z: int, x: int, y: int) -> bool:
 
 
 class MeteoFranceRadarCollector(BaseCollector[RadarFrames]):
-    """The list of the radar images of the gateway, and the relay of their tiles."""
+    """The list of the radar images (and PIAF +1h nowcast frames) of the gateway, and the relay of their tiles."""
 
     def __init__(self, base_url: str, http_client: Optional[httpx.AsyncClient] = None) -> None:
         super().__init__(
@@ -194,6 +272,8 @@ class MeteoFranceRadarCollector(BaseCollector[RadarFrames]):
         self._tiles: OrderedDict[tuple[str, int, int, int, int], bytes] = OrderedDict()
         self._tiles_inflight: dict[tuple[str, int, int, int, int], asyncio.Task[Optional[bytes]]] = {}
         self._tile_client: Optional[httpx.AsyncClient] = None
+        self._nowcast_cache: Optional[tuple[float, NowcastFrames]] = None
+        self._nowcast_inflight: Optional[asyncio.Task[Optional[NowcastFrames]]] = None
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> RadarFrames:
         kwargs.pop("previous", None)
@@ -213,6 +293,41 @@ class MeteoFranceRadarCollector(BaseCollector[RadarFrames]):
         except Exception:
             return None
 
+    async def nowcast_frames(self) -> Optional[NowcastFrames]:
+        """The PIAF +1h forecast frames the gateway lists, or ``None`` when unavailable (expired lists are not served)."""
+        now = clock.monotonic()
+        if self._nowcast_cache is not None and now < self._nowcast_cache[0]:
+            return self._nowcast_cache[1]
+        task = self._nowcast_inflight
+        if task is None:
+            task = asyncio.ensure_future(self._fetch_nowcast_frames())
+            self._nowcast_inflight = task
+
+            def _clear(_t: asyncio.Task[Optional[NowcastFrames]]) -> None:
+                if self._nowcast_inflight is _t:
+                    self._nowcast_inflight = None
+
+            task.add_done_callback(_clear)
+        return await asyncio.shield(task)
+
+    async def _fetch_nowcast_frames(self) -> Optional[NowcastFrames]:
+        try:
+            if self._external_client is not None:
+                response = await self._get(self._external_client, f"{self.base_url}/v1/rain-nowcast/frames")
+            else:
+                async with httpx.AsyncClient(
+                    timeout=self.timeout_seconds,
+                    headers={"User-Agent": build_user_agent(), "Accept": "application/json"},
+                    follow_redirects=False,
+                ) as client:
+                    response = await self._get(client, f"{self.base_url}/v1/rain-nowcast/frames")
+            response.raise_for_status()
+            parsed = parse_nowcast_frames(response.json())
+        except Exception:
+            return None
+        self._nowcast_cache = (clock.monotonic() + TTL_SECONDS, parsed)
+        return parsed
+
     async def tile(self, epoch: int, z: int, x: int, y: int, area: str = FRANCE) -> Optional[bytes]:
         """The PNG of a tile of the image of an area ending at ``epoch``: ``None`` when the gateway has no such image; raises when it fails."""
         key = (area, epoch, z, x, y)
@@ -227,6 +342,10 @@ class MeteoFranceRadarCollector(BaseCollector[RadarFrames]):
             task.add_done_callback(lambda _t, k=key: self._tiles_inflight.pop(k, None))
         return await asyncio.shield(task)
 
+    async def nowcast_tile(self, epoch: int, z: int, x: int, y: int) -> Optional[bytes]:
+        """The PNG of a PIAF +1h forecast tile ending at ``epoch``: ``None`` when the gateway has no such frame; raises on error."""
+        return await self.tile(epoch, z, x, y, area=NOWCAST_KEY)
+
     async def _fetch_tile(self, key: tuple[str, int, int, int, int]) -> Optional[bytes]:
         area, epoch, z, x, y = key
         client = self._external_client
@@ -236,7 +355,12 @@ class MeteoFranceRadarCollector(BaseCollector[RadarFrames]):
                     timeout=TILE_TIMEOUT_S, headers={"User-Agent": build_user_agent(), "Accept": "image/png"}, follow_redirects=False
                 )
             client = self._tile_client
-        path = f"/v1/radar/tiles/{epoch}/{z}/{x}/{y}.png" if area == FRANCE else f"/v1/radar/{area}/tiles/{epoch}/{z}/{x}/{y}.png"
+        if area == NOWCAST_KEY:
+            path = f"/v1/rain-nowcast/tiles/{epoch}/{z}/{x}/{y}.png"
+        elif area == FRANCE:
+            path = f"/v1/radar/tiles/{epoch}/{z}/{x}/{y}.png"
+        else:
+            path = f"/v1/radar/{area}/tiles/{epoch}/{z}/{x}/{y}.png"
         response = await self._get(client, f"{self.base_url}{path}")
         if response.status_code == 404:
             return None

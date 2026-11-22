@@ -49,6 +49,10 @@ Endpoints:
 - ``GET    /v1/stations/wind``     : The wind measured now (6-minute observations) by every Météo-France ground station of a ``bbox``, strongest first.
 - ``GET    /v1/wind/field``        : The wind forecast for the hour by AROME and ARPEGE (Météo-France), three grids as PNG images for an animated map.
 - ``GET    /v1/wind/field/{level}/{stamp}.png`` : One of those images (immutable).
+- ``GET    /v1/rain/field``        : The forecast precipitation (1-hour totals) by AROME and ARPEGE (Météo-France), three grids across lead steps as RGBA PNG overlays.
+- ``GET    /v1/rain/field/{level}/{stamp}.png`` : One of those precipitation overlays (immutable).
+- ``GET    /v1/radar/france/nowcast`` : Météo-France PIAF +1h rain nowcast frames over France, relayed from a vigie-meteo gateway.
+- ``GET    /v1/radar/france/nowcast/tiles/{epoch}/{z}/{x}/{y}.png`` : One 256 px Web Mercator PIAF nowcast tile (immutable).
 - ``GET    /v1/surf/spots/{id}/station`` : The latest 6-minute observation (wind speed, gusts, direction, relative regime, air temperature, pressure) of the nearest coastal station of a spot, with optional live comparison against the wind forecast (`compare=true`).
 - ``GET    /v1/sea/places``        : The ports, slipways, anchorages, dive sites and bathing sites of the French coast (OpenStreetMap, Sandre, QSB).
 - ``GET    /v1/sea/places/{id}``   : One of them.
@@ -120,6 +124,7 @@ from app import __version__, clock
 from app.collectors.base import CollectorUnavailableError
 from app.collectors.meteofrance_radar import AREAS as RADAR_AREAS
 from app.collectors.meteofrance_radar import TRANSPARENT_PNG, tile_touches
+from app.collectors.meteofrance_rain_field import LEVEL_IDS as RAIN_FIELD_LEVELS
 from app.collectors.meteofrance_wind_field import LEVEL_IDS as WIND_FIELD_LEVELS
 from app.models.activities import ActivitiesForecast, ActivitiesOverview, BoatCategory
 from app.models.avalanches import AvalancheResponse
@@ -142,7 +147,8 @@ from app.models.forest_fire import ForestFireResponse
 from app.models.places import WatchedPoint, WatchedPointUpsertRequest
 from app.models.pollens import PollensResponse
 from app.models.prealert import PrealertResponse
-from app.models.radar import RadarFrance
+from app.models.radar import RadarFrance, RadarNowcastFrance
+from app.models.rain_field import RainFieldMap
 from app.models.schemas import (
     CAPFeedResponse,
     DeviceType,
@@ -183,6 +189,7 @@ from app.services import (
     activities,
     buoys,
     radar_france,
+    rain_field,
     sea_buoys,
     sea_places,
     station_wind,
@@ -1231,6 +1238,48 @@ async def get_wind_field_image(level: str, stamp: str) -> Response:
     return Response(content=png, media_type="image/png", headers={"Cache-Control": WIND_FIELD_IMAGE_CACHE})
 
 
+RAIN_FIELD_CACHE = "public, max-age=300"
+RAIN_FIELD_IMAGE_CACHE = "public, max-age=86400, immutable"
+_RAIN_STAMP = re.compile(r"^\d{10}-\d{10}$")
+
+
+@app.get(
+    "/v1/rain/field",
+    response_model=RainFieldMap,
+    tags=["Weather"],
+    description=(
+        "Forecast 1-hour total precipitation overlays for a map: Météo-France's ARPEGE over the world (0.25 degree, served at 0.5) "
+        "and Europe (0.1, served at 0.2) and AROME over France (0.025, served at 0.05), read from the portal's WCS (`_PT1H`, Licence "
+        "Ouverte 2.0) once an hour across multiple forecast lead steps (+1h, +2h, +3h, +6h, +12h, +24h). Each frame is an RGBA PNG "
+        "whose rows are linearly spaced in Web Mercator Y over `bounds`, transparent below 0.1 mm/h and outside the model domain. "
+        "A forecast, not a radar measure. Without a key (`VIGIE_METEOFRANCE_API_KEY`) or with `VIGIE_RAIN_FIELD=0`, `status` is "
+        "`not_configured`. **Not for safety.**"
+    ),
+)
+async def get_rain_field(response: Response) -> RainFieldMap:
+    """Forecast precipitation overlays across world, Europe and France."""
+    response.headers["Cache-Control"] = RAIN_FIELD_CACHE
+    return await rain_field.rain_field_map(aggregator.meteofrance_rain_field, clock.wall())
+
+
+@app.get(
+    "/v1/rain/field/{level}/{stamp}.png",
+    tags=["Weather"],
+    response_class=Response,
+    responses={200: {"content": {"image/png": {}}, "description": "the RGBA PNG overlay"}, 404: {"description": "no such image (any more)"}},
+    description="One RGBA PNG overlay of `GET /v1/rain/field`, at the address that answer gives (immutable, cached for a day).",
+)
+async def get_rain_field_image(level: str, stamp: str) -> Response:
+    """An RGBA PNG overlay of the forecast precipitation."""
+    collector = aggregator.meteofrance_rain_field
+    if collector is None or level not in RAIN_FIELD_LEVELS or not _RAIN_STAMP.match(stamp):
+        raise HTTPException(status_code=404, detail="no such image")
+    png = collector.image(level, stamp)
+    if png is None:
+        raise HTTPException(status_code=404, detail="no such image (any more)")
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": RAIN_FIELD_IMAGE_CACHE})
+
+
 PLACES_CACHE = "public, max-age=86400"  # the file changes with a release, not by the hour
 
 
@@ -1331,10 +1380,67 @@ async def get_sea_buoys(
 
 RADAR_FRANCE_CACHE = "public, max-age=60"
 RADAR_TILE_CACHE = "public, max-age=86400, immutable"  # the address holds the date of the image: the tile never changes
+RADAR_NOWCAST_TILE_CACHE = "public, max-age=3600, immutable"
 
 
 RadarAreaName = Enum("RadarAreaName", {name.replace("-", "_"): name for name in RADAR_AREAS}, type=str)
 RADAR_AREA_DOC = "`france` (metropolitan France and Corsica), `antilles`, `reunion` or `new-caledonia`"
+
+
+@app.get(
+    "/v1/radar/france/nowcast",
+    response_model=RadarNowcastFrance,
+    tags=["Weather"],
+    description=(
+        "Météo-France PIAF +1h rain nowcast over metropolitan France and Corsica: 5-minute forecast steps (+5 to +60 min), "
+        "relayed from a vigie-meteo gateway (`VIGIE_METEO_GATEWAY_URL`). Returns the forecast frames (`frames`), the tile template "
+        "(`tile_url_template`, `GET /v1/radar/france/nowcast/tiles/{epoch}/{z}/{x}/{y}.png`: 256 px Web Mercator PNG tiles using "
+        "the same intensity palette as observed radar), the coverage box and the legend. A forecast, not a radar measure. "
+        "Without a gateway `status` is `not_configured`. **Not for safety.**"
+    ),
+)
+async def get_radar_france_nowcast(response: Response) -> RadarNowcastFrance:
+    """PIAF +1h rain nowcast frames over France and how to ask for their tiles."""
+    answer = await radar_france.radar_nowcast_france(aggregator.meteofrance_radar)
+    response.headers["Cache-Control"] = RADAR_FRANCE_CACHE
+    return answer
+
+
+@app.get(
+    "/v1/radar/france/nowcast/tiles/{epoch}/{z}/{x}/{y}.png",
+    tags=["Weather"],
+    response_class=Response,
+    responses={
+        200: {"content": {"image/png": {}}, "description": "A 256 px Web Mercator tile; transparent where dry or outside coverage."},
+        404: {"description": "No such forecast frame (not in `GET /v1/radar/france/nowcast`), gateway not configured, or tile out of range."},
+        503: {"description": "The gateway that draws the tiles does not answer."},
+    },
+    description="One tile of a PIAF +1h forecast frame over France (see `GET /v1/radar/france/nowcast`). Immutable.",
+)
+async def get_radar_france_nowcast_tile(
+    epoch: int = Path(ge=1, le=4_102_444_800, description="`epoch` of a frame listed by `GET /v1/radar/france/nowcast`"),
+    z: int = Path(ge=0, le=22),
+    x: int = Path(ge=0),
+    y: int = Path(ge=0),
+) -> Response:
+    """A PIAF +1h forecast rain tile over France, relayed from the gateway."""
+    collector = aggregator.meteofrance_radar
+    if collector is None:
+        raise HTTPException(status_code=404, detail="the radar gateway is not configured on this instance")
+    frames = await collector.nowcast_frames()
+    if frames is None:
+        raise HTTPException(status_code=503, detail="the radar gateway does not answer")
+    if epoch not in frames.epochs or not frames.min_zoom <= z <= frames.max_zoom or x >= 2**z or y >= 2**z:
+        raise HTTPException(status_code=404, detail="no such nowcast tile")
+    if not tile_touches(frames, z, x, y):
+        return Response(content=TRANSPARENT_PNG, media_type="image/png", headers={"Cache-Control": RADAR_NOWCAST_TILE_CACHE})
+    try:
+        png = await collector.nowcast_tile(epoch, z, x, y)
+    except Exception:
+        raise HTTPException(status_code=503, detail="the radar gateway does not answer") from None
+    if png is None:
+        raise HTTPException(status_code=404, detail="no such nowcast frame")
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": RADAR_NOWCAST_TILE_CACHE})
 
 
 @app.get(

@@ -1,0 +1,2 @@
+<!-- section: Commercial use (for the paid app to come) -->
+| `meteofrance_piaf_tiles` | Météo-France (PIAF), rain nowcast tiles over France | not verified | Same PIAF API on the Météo-France portal (its catalogue says PAYANT: Non); the catalogue entry names no licence, and the terms of this API were not read. | [1](https://portail-api.meteofrance.fr/api/am/devportal/v3/apis/aa174208-b051-4c95-af8f-dd52241a4d06) | 2026-11-22 |

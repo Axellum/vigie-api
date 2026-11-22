@@ -324,6 +324,13 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "meteofrance_piaf_tiles",
+            "Météo-France (PIAF), rain nowcast tiles over France",
+            "Source: Météo-France, prévision immédiate des précipitations PIAF (https://portail-api.meteofrance.fr), "
+            "5-minute steps drawn as tiles by a vigie-meteo gateway: the intensity classes and their colours are ours",
+            "ours",
+        ),
+        Credit(
             "meteofrance_weather",
             "Météo-France (AROME, ARPEGE), weather over France",
             "Source: Météo-France, modèles AROME et ARPEGE (https://portail-api.meteofrance.fr), "
@@ -389,6 +396,14 @@ CREDITS: dict[str, Credit] = {
             "Source: Météo-France, forecast models AROME (France) and ARPEGE (Europe, world), wind at 10 m "
             "(https://portail-api.meteofrance.fr, Licence Ouverte 2.0), dated by the run in the answer (run_at); drawn by Vigie "
             "at a reduced resolution (every 2nd node, lightly smoothed)",
+            "ours",
+        ),
+        Credit(
+            "meteofrance_rain_field",
+            "Météo-France (AROME, ARPEGE), precipitation forecast for the map",
+            "Source: Météo-France, forecast models AROME (France) and ARPEGE (Europe, world), total precipitation "
+            "(https://portail-api.meteofrance.fr, Licence Ouverte 2.0), dated by the run in the answer (run_at); rendered by Vigie "
+            "at a reduced resolution",
             "ours",
         ),
         Credit(

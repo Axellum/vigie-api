@@ -416,3 +416,145 @@ async def test_a_point_without_a_radar_of_its_own_asks_nothing(sim_clock: SimClo
     service = _service(tmp_path, collector(provider))
     mayotte = await service.build_point_response(-12.8, 45.2)
     assert mayotte.rain_nowcast.radar_tile_url_template is None and provider.count == 0
+
+
+# ------------------------------------------------------------------------------------------------ PIAF +1h nowcast tiles (ADR 0041)
+
+NOWCAST_FIXTURE = Path(__file__).resolve().parent / "fixtures" / "meteofrance_radar" / "nowcast-frames-2026-11-22.json"
+NOWCAST_FIRST, NOWCAST_LAST = 1795349100, 1795352400
+
+
+def nowcast_payload() -> dict[str, Any]:
+    return json.loads(NOWCAST_FIXTURE.read_text(encoding="utf-8"))
+
+
+def nowcast_gateway(
+    frames_status: int = 200,
+    tile_status: int = 200,
+    payload: Optional[dict[str, Any]] = None,
+) -> Provider:
+    def answer(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/v1/rain-nowcast/frames":
+            return httpx.Response(frames_status, json=payload if payload is not None else nowcast_payload())
+        if path.startswith("/v1/rain-nowcast/tiles/"):
+            return httpx.Response(tile_status, content=FAKE_PNG, headers={"content-type": "image/png"})
+        if path == "/v1/radar/frames":
+            return httpx.Response(200, json=frames_payload())
+        raise AssertionError(f"unexpected request to gateway: {path}")
+
+    return Provider(answer=answer)
+
+
+def test_parse_nowcast_frames_reads_gateway_contract() -> None:
+    parsed = meteofrance_radar.parse_nowcast_frames(nowcast_payload())
+    assert parsed.run_utc == 1795348800
+    assert parsed.epochs == (NOWCAST_FIRST, 1795349400, NOWCAST_LAST)
+    assert [f.lead_minutes for f in parsed.frames] == [5, 10, 60]
+    assert parsed.bounds == (-6.0, 41.0, 10.5, 51.5)
+    assert (parsed.min_zoom, parsed.max_zoom, parsed.step_seconds) == (3, 10, 300)
+    assert len(parsed.legend) == 9
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda p: p.update(source_model="meteofrance-lame-d-eau"),
+        lambda p: p.update(run_utc="not-a-date"),
+        lambda p: p.pop("run_utc"),
+        lambda p: p.update(frames=[]),
+        lambda p: p.update(frames=[{"epoch": NOWCAST_FIRST}]),
+        lambda p: p.update(frames=[{"epoch": NOWCAST_FIRST, "lead_minutes": 0}]),
+        lambda p: p.update(step_seconds=0),
+        lambda p: p.update(bounds=[1, 2, 3]),
+    ],
+)
+def test_invalid_nowcast_payload_is_refused(mutate: Any) -> None:
+    data = nowcast_payload()
+    mutate(data)
+    with pytest.raises(ValueError):
+        meteofrance_radar.parse_nowcast_frames(data)
+
+
+async def test_nowcast_frames_cache_and_isolation_from_observed_radar(sim_clock: SimClock) -> None:
+    provider = nowcast_gateway()
+    radar = collector(provider)
+    a, b = await asyncio.gather(radar.nowcast_frames(), radar.nowcast_frames())
+    assert a is not None and a == b and provider.count == 1
+    sim_clock.advance(121)  # TTL expired -> refreshed
+    c = await radar.nowcast_frames()
+    assert c is not None and provider.count == 2
+
+    # Repeated 404 on an older gateway lacking nowcast routes does NOT trip observed radar's circuit breaker!
+    older = collector(nowcast_gateway(frames_status=404))
+    for _ in range(5):
+        assert await older.nowcast_frames() is None
+    assert await older.frames() is not None
+
+
+async def test_nowcast_tile_cache_and_coalescing(sim_clock: SimClock) -> None:
+    provider = nowcast_gateway()
+    radar = collector(provider)
+    got = await asyncio.gather(*(radar.nowcast_tile(NOWCAST_FIRST, *PARIS_TILE) for _ in range(10)))
+    assert set(got) == {FAKE_PNG} and provider.count == 1
+    assert provider.requests[0].url.path == f"/v1/rain-nowcast/tiles/{NOWCAST_FIRST}/8/129/88.png"
+
+
+def test_nowcast_routes_end_to_end(world: World, sim_clock: SimClock) -> None:
+    provider = nowcast_gateway()
+    world.aggregator.meteofrance_radar = collector(provider)
+
+    resp = world.client.get("/v1/radar/france/nowcast")
+    assert resp.status_code == 200 and resp.headers["Cache-Control"] == "public, max-age=60"
+    body = resp.json()
+    assert body["status"] == "ok" and body["area"] == "france" and body["source_model"] == "meteofrance-piaf"
+    assert body["run_utc"] == 1795348800 and body["run_at"] == "2026-11-22T12:00:00Z"
+    assert body["interval_minutes"] == 5
+    assert body["tile_url_template"] == "/v1/radar/france/nowcast/tiles/{epoch}/{z}/{x}/{y}.png"
+    assert body["bounds"] == [-6.0, 41.0, 10.5, 51.5] and (body["min_zoom"], body["max_zoom"]) == (3, 10)
+    assert [(f["epoch"], f["lead_minutes"]) for f in body["frames"]] == [
+        (NOWCAST_FIRST, 5),
+        (1795349400, 10),
+        (NOWCAST_LAST, 60),
+    ]
+    assert body["frames"][0]["time"] == "2026-11-22T12:05:00Z"
+    assert body["attribution"] == credit_text("meteofrance_piaf_tiles")
+    assert "not a radar measure" in body["note"].lower()
+
+    # Valid tile inside France
+    z, x, y = PARIS_TILE
+    tile = world.client.get(f"/v1/radar/france/nowcast/tiles/{NOWCAST_FIRST}/{z}/{x}/{y}.png")
+    assert tile.status_code == 200 and tile.content == FAKE_PNG and tile.headers["content-type"] == "image/png"
+    assert tile.headers["Cache-Control"] == "public, max-age=3600, immutable"
+
+    def nowcast_tile_reqs() -> list[httpx.Request]:
+        return [r for r in provider.requests if r.url.path.startswith("/v1/rain-nowcast/tiles/")]
+
+    assert len(nowcast_tile_reqs()) == 1
+
+    # Unlisted epoch, zoom out of range, x/y out of range -> 404 without calling gateway
+    for bad_path in (
+        f"/v1/radar/france/nowcast/tiles/{NOWCAST_LAST + 300}/{z}/{x}/{y}.png",
+        f"/v1/radar/france/nowcast/tiles/{NOWCAST_FIRST}/2/0/0.png",
+        f"/v1/radar/france/nowcast/tiles/{NOWCAST_FIRST}/11/0/0.png",
+        f"/v1/radar/france/nowcast/tiles/{NOWCAST_FIRST}/8/256/0.png",
+    ):
+        assert world.client.get(bad_path).status_code == 404, bad_path
+    assert len(nowcast_tile_reqs()) == 1
+
+    # Outside France bounds -> TRANSPARENT_PNG without calling gateway
+    far = world.client.get(f"/v1/radar/france/nowcast/tiles/{NOWCAST_FIRST}/8/0/0.png")
+    assert far.status_code == 200 and far.content == TRANSPARENT_PNG and far.headers["Cache-Control"].endswith("immutable")
+    assert len(nowcast_tile_reqs()) == 1
+
+    # Unavailable & not_configured states
+    world.aggregator.meteofrance_radar = collector(nowcast_gateway(frames_status=503))
+    assert world.client.get("/v1/radar/france/nowcast").json()["status"] == "unavailable"
+    assert world.client.get(f"/v1/radar/france/nowcast/tiles/{NOWCAST_FIRST}/{z}/{x}/{y}.png").status_code == 503
+
+    world.aggregator.meteofrance_radar = collector(nowcast_gateway(tile_status=502))
+    assert world.client.get(f"/v1/radar/france/nowcast/tiles/{NOWCAST_FIRST}/{z}/{x}/{y}.png").status_code == 503
+
+    world.aggregator.meteofrance_radar = None
+    assert world.client.get("/v1/radar/france/nowcast").json()["status"] == "not_configured"
+    assert world.client.get(f"/v1/radar/france/nowcast/tiles/{NOWCAST_FIRST}/{z}/{x}/{y}.png").status_code == 404

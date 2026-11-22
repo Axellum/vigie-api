@@ -46,3 +46,37 @@ class RadarFrance(BaseModel):
     note: str
     licence: str
     attribution: str
+
+
+class RadarNowcastFrame(BaseModel):
+    """One 5-minute forecast frame of the Météo-France PIAF rain nowcast."""
+
+    epoch: int = Field(description="end of the 5 minutes of forecast rain, UTC seconds: it addresses the tiles")
+    time: str = Field(description="`epoch` as an ISO 8601 date-time (UTC)")
+    lead_minutes: int = Field(description="forecast lead time in minutes after `run_utc` (e.g. 5 to 60)")
+
+
+class RadarNowcastFrance(BaseModel):
+    """Météo-France PIAF +1h rain nowcast Web Mercator tiles relayed from a vigie-meteo gateway."""
+
+    area: str = Field("france", description="metropolitan France and Corsica (Météo-France PIAF coverage)")
+    status: Literal["ok", "not_configured", "unavailable"] = Field(
+        description="`ok`: forecast frames are listed; `not_configured`: no gateway on this instance; `unavailable`: the gateway has no PIAF run"
+    )
+    source_model: str = Field("meteofrance-piaf", description="upstream nowcast model identifier")
+    run_utc: Optional[int] = Field(None, description="PIAF run timestamp, UTC epoch seconds")
+    run_at: Optional[str] = Field(None, description="`run_utc` as an ISO 8601 date-time (UTC)")
+    frames: list[RadarNowcastFrame] = Field(description="forecast frames, earliest first (+5 to +60 minutes)")
+    interval_minutes: int = 5
+    tile_url_template: Optional[str] = Field(
+        None,
+        description="path, relative to the root of this API, of a 256 px Web Mercator tile (`{epoch}` one of `frames`, `{z}`, `{x}`, `{y}`); "
+        "transparent where no rain is forecast or outside coverage; immutable",
+    )
+    bounds: Optional[list[float]] = Field(None, description="west, south, east, north (degrees) of the area the tiles can cover")
+    min_zoom: Optional[int] = None
+    max_zoom: Optional[int] = None
+    legend: list[RadarLegendClass] = Field(default_factory=list, description="the intensity classes, weakest first")
+    note: str
+    licence: str
+    attribution: str
