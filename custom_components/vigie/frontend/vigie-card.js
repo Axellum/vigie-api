@@ -52,7 +52,7 @@ const TEXT = {
     gust93: 'Rafales de 93&nbsp;km/h et plus : <b>{p}&nbsp;%</b> d’ici {t}',
     chances: 'Chances par {h}&nbsp;h', legend_rain: 'pluie', legend_gust: 'rafales ≥&nbsp;56&nbsp;km/h',
     precip_in: '{kind} dans <em>{n}&nbsp;min</em>, {how}jusqu’à&nbsp;{t}', precip_at: '{kind} à <em>{at}</em>, {how}jusqu’à&nbsp;{t}',
-    precip_now: '{kind} {how}jusqu’à&nbsp;<em>{t}</em>', precip_none: 'Pas de pluie d’ici&nbsp;{t}', on_and_off: 'par moments ',
+    precip_now: '{kind} {how}jusqu’à&nbsp;<em>{t}</em>', precip_none: 'Pas de pluie d’ici&nbsp;{t}', on_and_off: 'par&nbsp;moments ',
     gusts_at: 'Rafales à <em>{v}&nbsp;km/h</em> vers&nbsp;{t}',
     kind_rain: 'Pluie', kind_drizzle: 'Bruine', kind_freezing: 'Pluie verglaçante', kind_snow: 'Neige', kind_wet_snow: 'Neige mouillée',
     kind_rain_snow: 'Pluie et neige', kind_ice_pellets: 'Granules de glace', kind_snow_pellets: 'Neige roulée', kind_hail: 'Grêle',
@@ -99,7 +99,7 @@ const TEXT = {
     gust93: 'Gusts of 93&nbsp;km/h or more: <b>{p}&nbsp;%</b> until {t}',
     chances: 'Chances per {h}&nbsp;h', legend_rain: 'rain', legend_gust: 'gusts ≥&nbsp;56&nbsp;km/h',
     precip_in: '{kind} in <em>{n}&nbsp;min</em>, {how}until&nbsp;{t}', precip_at: '{kind} at <em>{at}</em>, {how}until&nbsp;{t}',
-    precip_now: '{kind} {how}until&nbsp;<em>{t}</em>', precip_none: 'No rain until&nbsp;{t}', on_and_off: 'on and off ',
+    precip_now: '{kind} {how}until&nbsp;<em>{t}</em>', precip_none: 'No rain until&nbsp;{t}', on_and_off: 'on&nbsp;and&nbsp;off ',
     gusts_at: 'Gusts of <em>{v}&nbsp;km/h</em> around&nbsp;{t}',
     kind_rain: 'Rain', kind_drizzle: 'Drizzle', kind_freezing: 'Freezing rain', kind_snow: 'Snow', kind_wet_snow: 'Wet snow',
     kind_rain_snow: 'Rain and snow', kind_ice_pellets: 'Ice pellets', kind_snow_pellets: 'Snow pellets', kind_hail: 'Hail',
@@ -479,20 +479,26 @@ function hoursCurve(c, w, h) {
 }
 
 // The rain of the next hour (radar nowcast, France) and the first warning: the two pills that open Details and Alerts.
+// The rain of the next hour by the nowcast of the place (PIAF in France: 5-minute rates, or 15-minute amounts): the minutes
+// to the first rain, 0 when it rains now, -1 for none in the hour, null without a nowcast. The home page and the sentence of
+// the Details page both read it, so that they never say two different things about the hour.
+function nowcastFirst(c) {
+  const rn = c.point?.rain_nowcast;
+  const rates = Array.isArray(rn?.rate_5m_mm_h) && rn.rate_5m_mm_h.length && rn.rate_5m_mm_h.every(num) ? rn.rate_5m_mm_h : null;
+  const steps = Array.isArray(rn?.mm_per_step) && rn.mm_per_step.length && rn.mm_per_step.every(num) ? rn.mm_per_step : null;
+  const series = rates || steps;
+  if (!series) return null;
+  const first = series.findIndex((v) => v > 0);
+  return first < 0 ? -1 : first * (rates ? 5 : rn.interval_minutes || 15);
+}
+
 function rainPill(c, fs, g, inline) {
   const rn = c.point?.rain_nowcast;
   if (!rn) return '';
-  const rates = Array.isArray(rn.rate_5m_mm_h) ? rn.rate_5m_mm_h : null;
   const steps = Array.isArray(rn.mm_per_step) ? rn.mm_per_step : null;
   const total = steps && steps.every(num) ? steps.reduce((a, b) => a + b, 0) : null;
-  let text = null;
-  if (rates && rates.every(num)) {
-    const first = rates.findIndex((v) => v > 0);
-    text = first < 0 ? c.t('rain_none') : first === 0 ? c.t('rain_now') : c.t('rain_in', { n: first * 5 });
-  } else if (steps && steps.every(num)) {
-    const first = steps.findIndex((v) => v > 0);
-    text = first < 0 ? c.t('rain_none') : first === 0 ? c.t('rain_now') : c.t('rain_in', { n: first * (rn.interval_minutes || 15) });
-  }
+  const first = nowcastFirst(c);
+  const text = first === null ? null : first < 0 ? c.t('rain_none') : first === 0 ? c.t('rain_now') : c.t('rain_in', { n: first });
   if (!text) return '';
   const detail = num(total) && total > 0 ? c.t('mm_hour', { mm: c.fmt(total, 1) }) : '';
   const det = detail ? (inline ? ` <span class="det" style="font-size:${fs - 1}px">· ${detail}</span>` : `<small>${detail}</small>`) : '';
@@ -606,17 +612,48 @@ function quakeWhen(c, q) {
   return `${word}, ${c.hm(ts)}`;
 }
 
+// The word of a kind of precipitation of AROME-PI ("rain", "snow"...); an unknown kind is said as such, never as its code.
+const kindWord = (c, kind) => c.t(`kind_${kind}` in TEXT.en ? `kind_${kind}` : 'kind_unknown');
+
+// The sentence of the rain on the Details page when there is a nowcast: within the hour it follows the nowcast (the home
+// page's), after the hour AROME-PI. Two Météo-France forecasts can disagree (PIAF dry for 40 minutes while AROME-PI has rain
+// from now on, read on 2026-11-22): the card then says what the home page says.
+function rainWithNowcast(c, st, first) {
+  const step = (st.interval_minutes || 15) * 60;
+  const steps = st.steps.filter((x) => num(x.time_utc));
+  const last = steps[steps.length - 1];
+  const wet = (x) => typeof x.precipitation === 'string' && x.precipitation !== 'none';
+  const from = first < 0 ? c.now + 3600 : c.now;
+  const rainy = steps.filter((x) => wet(x) && x.time_utc + step > from);
+  const kindOf = (x) => kindWord(c, x ? x.precipitation : 'rain');
+  if (first < 0) {
+    if (!rainy.length) return last ? c.t('precip_none', { t: c.hm(last.time_utc + step) }) : c.t('rain_none');
+    const start = rainy[0].time_utc, stop = rainy[rainy.length - 1].time_utc;
+    const how = steps.some((x) => x.time_utc > start && x.time_utc < stop && !wet(x)) ? c.t('on_and_off') : '';
+    return c.t('precip_at', { kind: kindOf(rainy[0]), at: c.hm(start), t: c.hm(stop + step), how });
+  }
+  const start = c.now + first * 60;
+  const stop = rainy.length ? rainy[rainy.length - 1].time_utc + step : null;
+  if (stop === null || stop <= start) return first === 0 ? c.t('rain_now') : c.t('rain_in', { n: first });
+  const how = steps.some((x) => x.time_utc + step > start && x.time_utc < stop - step && !wet(x)) ? c.t('on_and_off') : '';
+  const kind = kindOf(rainy[0]);
+  return first === 0 ? c.t('precip_now', { kind, t: c.hm(stop), how }) : c.t('precip_in', { kind, n: first, t: c.hm(stop), how });
+}
+
 function pageDetails(c) {
   const st = c.point?.short_term, pr = c.point?.probabilities;
   const big = c.wide ? Math.round(31 * c.k) : 23, g = c.wide ? Math.round(36 * c.k) : 28;
   const lines = [];
+  const nowcast = nowcastFirst(c);
   if (st && Array.isArray(st.steps) && st.steps.length) {
     const lastStep = st.steps[st.steps.length - 1];
     const end = num(lastStep?.time_utc) ? lastStep.time_utc + (st.interval_minutes || 15) * 60 : null;
     const span = Array.isArray(st.precipitation) ? st.precipitation[0] : null;
     let rain;
-    if (span && num(span.first_at_utc)) {
-      const kind = c.t(`kind_${span.kind}`) || c.t('kind_unknown');
+    if (nowcast !== null) {
+      rain = rainWithNowcast(c, st, nowcast);
+    } else if (span && num(span.first_at_utc)) {
+      const kind = kindWord(c, span.kind);
       const until = num(span.last_at_utc) ? c.hm(span.last_at_utc + (st.interval_minutes || 15) * 60) : '';
       const mins = Math.round((span.first_at_utc - c.now) / 300) * 5;
       // "until" is the last step of that kind: when dry steps come between, the rain is said to come and go.
@@ -639,7 +676,8 @@ function pageDetails(c) {
   const windows = Array.isArray(pr?.short_range?.windows) ? pr.short_range.windows : [];
   const legend = `<span style="color:${c.P.pluie}">■ ${c.t('legend_rain')}</span>&ensp;<span style="color:${c.P.vent}">■ ${c.t('legend_gust')}</span>`;
   const probaBlock = (w, n) => windows.length ? title(c, 'jauge', `${c.t('chances', { h: pr.short_range.window_hours || 3 })}&ensp;<span style="font-weight:500">${legend}</span>`, c.wide ? `PE-AROME, ${n} × ${pr.short_range.window_hours || 3} h` : '') + probabilities(c, windows, w, c.wide ? 178 : 150, n, pr.short_range.window_hours) : '';
-  const credit = foot(c, providers(st?.attribution, pr?.attribution), ' (AROME-PI, PE-AROME)');
+  // PIAF, the nowcast of the sentence, is Météo-France's too (its own credit also names the providers of the other parts).
+  const credit = foot(c, providers(st?.attribution, pr?.attribution), nowcast !== null ? ' (PIAF, AROME-PI, PE-AROME)' : ' (AROME-PI, PE-AROME)');
   if (c.wide) {
     const left = Math.round(Math.min(372, c.W * 0.4)), right = c.W - left - 28;
     return `<div class="grille" style="grid-template-columns:${left}px 1fr;align-items:start"><div>${answer}<div style="height:22px"></div>${chipsHtml}</div><div>${st?.steps?.length ? stepsTitle(right) : ''}</div></div>` +
