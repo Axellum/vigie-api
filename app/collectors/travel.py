@@ -17,7 +17,9 @@ file is). Licences, credits and what could not be verified: ``SOURCES.md``. Cach
   answered ``304`` to a conditional request); the text of one destination is in ``cta-cap-<code>.json`` (283 kB for Mexico, with
   the addresses of the embassies), read **only** when that destination is asked for (``fetch_detail``).
 - **Australia**, Smartraveller (Department of Foreign Affairs and Trade): ``destinations-export``, every destination with
-  its texts in one answer (298 kB, gzipped on the wire, regenerated every 15 minutes, with ``ETag``).
+  its texts in one answer (298 kB, gzipped on the wire, regenerated every 15 minutes, with ``ETag``). **Off unless
+  ``VIGIE_ENABLE_SMARTRAVELLER`` turns it on** (``smartraveller_enabled_from_env``): its CDN answers neither this image nor a
+  hosting provider's address.
 - **The Netherlands**, Ministerie van Buitenlandse Zaken (NederlandWereldwijd): ``/v2/.../infotypes/traveladvice``, 200
   destinations an answer (``rows=200``, two answers for the 226), each with its summary "In het kort". The feed has **no
   field for the colour** (``classification`` says "Dit veld wordt niet meer ondersteund"): the colour is read from the
@@ -34,9 +36,10 @@ import asyncio
 import html
 import json
 import logging
+import os
 import re
 from dataclasses import asdict, dataclass, field
-from typing import Any, Callable, Optional, Protocol
+from typing import Any, Callable, Mapping, Optional, Protocol
 
 import httpx
 
@@ -69,7 +72,31 @@ AU_URL = "https://www.smartraveller.gov.au/destinations-export"
 # The User-Agent is not all it looks at (measured on 2026-11-01, from one address, with this name): Python with OpenSSL 3.0 is
 # answered at once, Python with OpenSSL 3.5 (the container image) waits until it times out, and so does curl. Its protection
 # tells clients apart by how they open the connection; Vigie does not imitate another client to get through it.
+# Nor is it only the client (measured on 2026-11-22): from a hosting provider's address, Python with OpenSSL 3.0 gets a 403 at
+# once, where the same client at home gets the export in 0.3 s. Smartraveller calls the export a free public API; the source
+# is off unless ``VIGIE_ENABLE_SMARTRAVELLER`` turns it on, on an instance it answers.
 AU_USER_AGENT = "vigie-api"
+SMARTRAVELLER_ENV = "VIGIE_ENABLE_SMARTRAVELLER"
+SMARTRAVELLER_OFF_REASON = (
+    "off unless VIGIE_ENABLE_SMARTRAVELLER=1: Smartraveller's CDN answers neither the TLS client of this image nor the "
+    "addresses of hosting providers (measured on 2026-11-22)"
+)
+# What a visitor reads in the list of the ministries (``TravelMinistry.why_not_read``) when it is off.
+SMARTRAVELLER_NOT_READ = (
+    "Its server refuses this service (its protection blocks hosting providers); its pages are linked, not read."
+)
+
+
+def smartraveller_enabled_from_env(env: Optional[Mapping[str, str]] = None) -> bool:
+    """Whether Smartraveller is asked: **off** unless ``VIGIE_ENABLE_SMARTRAVELLER`` is ``1`` / ``true`` / ``yes`` / ``on``.
+
+    Off by default: its server answered the Docker image nowhere it was measured (see ``AU_USER_AGENT``), and asked anyway it
+    costs a wait until the timeout at every cycle and an unhealthy source in ``GET /v1/health``. Turn it on where it answers.
+    """
+    raw = (env if env is not None else os.environ).get(SMARTRAVELLER_ENV, "")
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
 NL_URL = "https://opendata.nederlandwereldwijd.nl/v2/sources/nederlandwereldwijd/infotypes/traveladvice"
 NL_PAGE_SIZE = 200  # the most the feed gives in one answer (rows=200)
 NL_MAX_PAGES = 5

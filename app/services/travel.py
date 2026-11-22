@@ -233,8 +233,11 @@ class TravelService:
         countries: CountryIndex,
         store: Optional[TravelStore],
         health: Optional[HealthService] = None,
+        off: Optional[dict[str, str]] = None,
     ) -> None:
         self.sources = sources
+        # The ministries this instance does not read although they could be (switched off), with what a visitor reads instead.
+        self.off = off or {}
         self.health = health
         self.countries = countries
         self.store = store
@@ -344,23 +347,25 @@ class TravelService:
             credit = CREDITS.get(f"travel_{info.id}")
             use = COMMERCIAL_USE.get(f"travel_{info.id}")
             feed = read.feed if read else None
+            off = self.off.get(info.id)
+            reads_it = info.read and off is None
             listed.append(
                 TravelMinistry(
                     id=info.id,
                     name=info.name,
                     country=info.country,
                     url=info.url,
-                    read=info.read,
-                    why_not_read=info.why_not_read,
+                    read=reads_it,
+                    why_not_read=off or info.why_not_read,
                     levels=[TravelScaleStep(level=step, words=words) for step, words in info.levels],
                     statuses=list(info.statuses),
                     licence=info.licence,
-                    commercial_use=use.status if use else None,
+                    commercial_use=use.status if use and reads_it else None,
                     state=read.state if read else None,
                     advices=len(feed.advices) if feed else (0 if read else None),
                     unplaced=list(feed.unplaced) if feed else [],
                     pending=list(feed.pending) if feed else [],
-                    attribution=credit.text if credit else None,
+                    attribution=credit.text if credit and reads_it else None,
                 )
             )
         return listed
