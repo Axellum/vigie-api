@@ -6,7 +6,8 @@ event loop and never makes the API fail. It keeps the last valid value in cache
 and reports its health through ``get_health()``.
 
 Every request a collector sends goes through ``BaseCollector._get``, which counts it (and its weight)
-and refuses it when the published quota of the provider is used up (see ``budget.py``).
+and refuses it when the published quota of the provider is used up (see ``budget.py``). The one exception is a
+self-hosted Open-Meteo instance, which is not a provider's quota (see ``open_meteo_hosts.py``).
 """
 
 from __future__ import annotations
@@ -197,6 +198,11 @@ class BaseCollector(ABC, Generic[T]):
         self.usage = UsageWindow()
         self.budget = CallBudget(QUOTAS.get(provider_id), budget_fraction_from_env())
         self.budget_refusals: int = 0
+        # A self-hosted Open-Meteo asked first (``open_meteo_hosts.py``): requests sent to it, requests that went to the
+        # public API instead, and until when (monotonic) an instance that could not be reached is left aside.
+        self.self_hosted_calls: int = 0
+        self.public_fallbacks: int = 0
+        self.self_hosted_paused_until: dict[str, float] = {}
 
     def redact(self, text: str) -> str:
         """``text`` with every secret of this collector replaced by ``REDACTED`` (it is applied to everything that is recorded)."""

@@ -29,8 +29,9 @@ import httpx
 from app import clock
 from app.collectors.base import BaseCollector, optional_float
 from app.collectors.grid import coord_str
-from app.collectors.marine import open_meteo_marine_url
-from app.collectors.weather import open_meteo_forecast_url
+from app.collectors.marine import DEFAULT_OPEN_METEO_MARINE_URL, open_meteo_marine_url
+from app.collectors.open_meteo_hosts import get_open_meteo
+from app.collectors.weather import DEFAULT_OPEN_METEO_FORECAST_URL, open_meteo_forecast_url
 from app.collectors.weights import open_meteo_weight
 
 SWELL_VARIABLES = (
@@ -237,10 +238,10 @@ class SurfForecastCollector(BaseCollector[dict[str, Any]]):
         }
         if swell:
             params = {**common, "hourly": ",".join(SWELL_VARIABLES), "models": MARINE_MODEL}
-            response = await self._get(client, self.MARINE_URL, params=params)
+            response = await get_open_meteo(self, client, self.MARINE_URL, DEFAULT_OPEN_METEO_MARINE_URL, params)
         else:
             params = {**common, "hourly": ",".join(WIND_VARIABLES), "daily": ",".join(DAYLIGHT_VARIABLES)}
-            response = await self._get(client, self.FORECAST_URL, params=params)
+            response = await get_open_meteo(self, client, self.FORECAST_URL, DEFAULT_OPEN_METEO_FORECAST_URL, params)
         response.raise_for_status()
         parse = parse_swell if swell else parse_wind
         if points is None:

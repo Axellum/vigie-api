@@ -24,6 +24,7 @@ import httpx
 from app.attribution import MARINE, MARINE_SEA_TEMPERATURE, credit_text
 from app.collectors.base import BaseCollector, optional_float
 from app.collectors.grid import DEFAULT_MARINE_GRID_DEG, coord_str, grid_step_from_env, snap_to_grid
+from app.collectors.open_meteo_hosts import get_open_meteo
 from app.collectors.weights import open_meteo_weight
 from app.models.schemas import MarineConditions
 
@@ -122,7 +123,7 @@ class OpenMeteoMarineCollector(BaseCollector[MarineConditions]):
                 "ocean_current_velocity,ocean_current_direction,sea_surface_temperature"
             ),
         }
-        resp = await self._get(client, self.BASE_URL, params=params)
+        resp = await get_open_meteo(self, client, self.BASE_URL, DEFAULT_OPEN_METEO_MARINE_URL, params)
         resp.raise_for_status()
         return self.parse_response(resp.json())
 
