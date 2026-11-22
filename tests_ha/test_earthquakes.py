@@ -177,7 +177,7 @@ def test_the_tracker_forgets_what_the_window_can_no_longer_bring_back() -> None:
 
 
 def test_the_recorded_answer_is_read() -> None:
-    [path] = sorted(FIXTURES.glob("earthquakes_*.json"))
+    path = FIXTURES / "earthquakes_istanbul_2026-10-25.json"  # the one that lists earthquakes (Biarritz had none that day)
     data = parse_earthquakes(json.loads(path.read_text(encoding="utf-8")), 4.5)
     assert data.quakes and data.skipped == 0 and data.any_source_answered and data.attribution
     assert all(q.magnitude >= 4.5 and q.distance_km is not None for q in data.quakes)

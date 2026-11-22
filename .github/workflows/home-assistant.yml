@@ -16,6 +16,7 @@ on:
       - "hacs.json"
       - "tools/fake_instance.py"
       - "tools/card_in_home_assistant.py"
+      - "tools/install_in_fresh_home_assistant.py"
       - ".github/workflows/home-assistant.yml"
   pull_request:
     paths:
@@ -24,6 +25,7 @@ on:
       - "hacs.json"
       - "tools/fake_instance.py"
       - "tools/card_in_home_assistant.py"
+      - "tools/install_in_fresh_home_assistant.py"
       - ".github/workflows/home-assistant.yml"
   schedule:
     - cron: "41 5 * * 3" # Wednesdays, 05:41 UTC
@@ -98,6 +100,59 @@ jobs:
         if: always()
         with:
           name: card-captures
+          path: captures/
+          retention-days: 14
+
+  install:
+    name: Install in a fresh Home Assistant (${{ matrix.ha }})
+    # What a person does, in Home Assistant's own screens: the folder copied from the commit's files (what HACS or a copy by
+    # hand puts there), a Home Assistant that never ran, the onboarding, Add integration and its form, then the card from the
+    # card picker. On the oldest Home Assistant hacs.json accepts and on the stable release read on 2026-11-22 (same digest
+    # as `stable` that day); bump them by hand. The captures of every step are kept, to be looked at.
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        ha: ["2026.10.0", "2026.11.2"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Playwright and its Chromium (pinned)
+        run: |
+          pip install playwright==1.63.0
+          python -m playwright install --with-deps chromium
+
+      - name: The fake instance, replaying the recorded answers (tools/fake_instance.py --replay)
+        run: nohup python -u tools/fake_instance.py --host 127.0.0.1 --port 8099 --replay tests_ha/fixtures > fake_instance.log 2>&1 &
+
+      - name: The oldest Home Assistant hacs.json accepts is the one of the matrix
+        run: test "$(python -c 'import json; print(json.load(open("hacs.json"))["homeassistant"])')" = "2026.10.0"
+
+      - name: A Home Assistant that never ran, the integration copied from the commit's files
+        run: |
+          mkdir -p ha_config/custom_components
+          git archive HEAD custom_components/vigie | tar -x -C ha_config
+          test -f ha_config/custom_components/vigie/manifest.json && test ! -e ha_config/configuration.yaml
+          docker run -d --name ha --network host -e TZ=Europe/Paris -v "$PWD/ha_config:/config" ghcr.io/home-assistant/home-assistant:${{ matrix.ha }}
+
+      - name: The steps of the documentation, in Home Assistant's screens
+        run: python tools/install_in_fresh_home_assistant.py --ha http://127.0.0.1:8123 --instance http://127.0.0.1:8099 --out captures
+
+      - name: What Home Assistant and the fake instance said
+        if: always()
+        run: |
+          docker logs ha 2>&1 | grep -i -E "vigie|custom_components|error" | tail -n 80 || true
+          tail -n 40 fake_instance.log || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: install-captures-${{ matrix.ha }}
           path: captures/
           retention-days: 14
 

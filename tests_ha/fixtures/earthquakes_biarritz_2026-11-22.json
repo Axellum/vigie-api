@@ -1,0 +1,34 @@
+{
+ "generated_utc": 1795372105,
+ "query": {
+  "lat": 43.48,
+  "lon": -1.56,
+  "radius_km": 300.0,
+  "min_magnitude": 4.5,
+  "hours": 24.0
+ },
+ "feeds_min_magnitude": 4.5,
+ "sources": [
+  {
+   "provider_id": "usgs_eq",
+   "name": "USGS Earthquake Hazards Program",
+   "answered": true,
+   "observed_since_utc": 1793125356
+  },
+  {
+   "provider_id": "emsc_seismic",
+   "name": "EMSC / SeismicPortal (Euro-Med & Global)",
+   "answered": true,
+   "observed_since_utc": 1793125356
+  }
+ ],
+ "count": 0,
+ "earthquakes": [],
+ "derived": [
+  "distance_km",
+  "bearing_deg",
+  "bearing_cardinal",
+  "listed_now"
+ ],
+ "attribution": "Credit: U.S. Geological Survey | Credit: EMSC-CSEM SeismicPortal, https://www.seismicportal.eu"
+}
