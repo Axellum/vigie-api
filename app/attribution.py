@@ -384,6 +384,14 @@ CREDITS: dict[str, Credit] = {
             "ours",
         ),
         Credit(
+            "meteofrance_wind_field",
+            "Météo-France (AROME, ARPEGE), wind forecast at 10 m for the map",
+            "Source: Météo-France, forecast models AROME (France) and ARPEGE (Europe, world), wind at 10 m "
+            "(https://portail-api.meteofrance.fr, Licence Ouverte 2.0), dated by the run in the answer (run_at); drawn by Vigie "
+            "at a reduced resolution (every 2nd node, lightly smoothed)",
+            "ours",
+        ),
+        Credit(
             "meteofrance_climate",
             "Météo-France (Fiches climatologiques), normals 1991-2020 and records of the stations",
             "Source: Météo-France, Fiches climatologiques (https://www.data.gouv.fr/datasets/fiches-climatologiques, Licence Ouverte 2.0), "

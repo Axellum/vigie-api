@@ -405,6 +405,19 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             "2026-11-18",
         ),
         CommercialUse(
+            "meteofrance_wind_field",
+            "allowed",
+            "Licence Ouverte 2.0 (Etalab): the licence documents of the AROME and ARPEGE APIs on Météo-France's portal (read on 2026-11-22) "
+            "grant a free, non-exclusive reuse, commercial included, with the source and the date of the last update (the run) named and "
+            "the data neither altered nor their meaning distorted. Vigie serves every 2nd node after a light smoothing and says so in the credit.",
+            (
+                "https://portail-api.meteofrance.fr/api/am/devportal/v3/apis/68b02250-382e-46b7-916d-87743b1c08cc/documents/e3ca367b-e3e6-4bf6-9e23-31b6bd837cf3/content",
+                "https://portail-api.meteofrance.fr/api/am/devportal/v3/apis/c1f60973-310f-4ec0-961d-f15fa66372c4/documents/8d176a36-6524-40cc-aebf-9c61e64c7674/content",
+                "https://www.etalab.gouv.fr/licence-ouverte-open-licence/",
+            ),
+            "2026-11-22",
+        ),
+        CommercialUse(
             "meteofrance_buoys",
             "not_verified",
             "Free of charge on the Météo-France portal (catalogue: PAYANT: Non, tags 'données publiques' and 'open data', the family of "
