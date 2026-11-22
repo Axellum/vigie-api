@@ -33,7 +33,7 @@ import httpx
 
 from app import clock
 from app.collectors.base import BaseCollector
-from app.collectors.grid import DEFAULT_FORECAST_GRID_DEG, coord_str, snap_to_grid
+from app.collectors.grid import DEFAULT_RAIN_NOWCAST_GRID_DEG, coord_str, snap_to_grid
 
 URL_ENV = "VIGIE_METEO_GATEWAY_URL"
 PIAF_SOURCE_MODEL = "meteofrance-piaf"
@@ -123,12 +123,12 @@ def quarter_hour_amounts(rates: list[float]) -> list[float]:
 
 
 class MeteoGatewayRainCollector(BaseCollector[RainSlices]):
-    """PIAF rain of a point through the gateway, cached per cell of the forecast grid."""
+    """PIAF rain of a point through the gateway, cached per cell of the PIAF grid (0.01 degree, ``VIGIE_GRID_RAIN_NOWCAST_DEG``)."""
 
     def __init__(
         self,
         base_url: str,
-        grid_deg: float = DEFAULT_FORECAST_GRID_DEG,
+        grid_deg: float = DEFAULT_RAIN_NOWCAST_GRID_DEG,
         http_client: Optional[httpx.AsyncClient] = None,
     ) -> None:
         super().__init__(

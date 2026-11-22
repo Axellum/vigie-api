@@ -16,7 +16,13 @@ Variable                           Default  Used for
 ``VIGIE_GRID_AIR_QUALITY_DEG``     0.1      Open-Meteo Air Quality
 ``VIGIE_GRID_FLOOD_DEG``           0.1      Open-Meteo Flood (GloFAS)
 ``VIGIE_GRID_MARINE_DEG``          0.1      Open-Meteo Marine
+``VIGIE_GRID_RAIN_NOWCAST_DEG``    0.01     Météo-France PIAF rain (vigie-meteo gateway)
 =================================  =======  =========================================
+
+PIAF is the exception: its grid is about 1 km (0.01 degree) and a shower is often smaller than the 5 km cell of the forecast
+grid, so the rain of the next hour is read at the client's own kilometre. A point costs a gateway call, never a Météo-France
+request (the gateway reads one map of France per run), within the PIAF budget of the instance (``app/collectors/budget.py``:
+3,000 points every 5 minutes).
 
 A value that is not a number between 0.0001 and 10 is ignored (the default is used).
 """
@@ -30,6 +36,7 @@ DEFAULT_FORECAST_GRID_DEG = 0.05
 DEFAULT_AIR_QUALITY_GRID_DEG = 0.1
 DEFAULT_FLOOD_GRID_DEG = 0.1
 DEFAULT_MARINE_GRID_DEG = 0.1
+DEFAULT_RAIN_NOWCAST_GRID_DEG = 0.01
 
 # 4 decimals is also the most MET Norway accepts (a request with more returns 403).
 MIN_GRID_DEG = 0.0001

@@ -70,7 +70,7 @@ from app.collectors.flood_air import (
     USGSVolcanoCollector,
     is_in_cams_europe,
 )
-from app.collectors.grid import snap_to_grid
+from app.collectors.grid import DEFAULT_RAIN_NOWCAST_GRID_DEG, grid_step_from_env, snap_to_grid
 from app.collectors.health import ECDCHealthCollector
 from app.collectors.marine import OpenMeteoMarineCollector
 from app.collectors.meteo_gateway import MeteoGatewayRainCollector, meteo_gateway_url_from_env, quarter_hour_amounts
@@ -485,7 +485,9 @@ class AggregatorService:
             log.warning(gateway_problem)
         self.meteo_gateway_off_reason = "no vigie-meteo gateway: set VIGIE_METEO_GATEWAY_URL (Météo-France PIAF rain over France)"
         if meteo_gateway is None and gateway_url is not None:
-            meteo_gateway = MeteoGatewayRainCollector(gateway_url, grid_deg=self.open_meteo.grid_deg)
+            meteo_gateway = MeteoGatewayRainCollector(
+                gateway_url, grid_deg=grid_step_from_env("VIGIE_GRID_RAIN_NOWCAST_DEG", DEFAULT_RAIN_NOWCAST_GRID_DEG)
+            )
         self.meteo_gateway = meteo_gateway
         # The weather of France (current conditions, rain, 4 days) from the Météo-France models behind the same gateway, with
         # the UV index of Météo-France's PHEALTH model: without the gateway, or switched off by ``VIGIE_METEO_GATEWAY_WEATHER=0``,

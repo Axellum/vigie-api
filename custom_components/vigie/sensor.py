@@ -18,7 +18,15 @@ from .entity import VigieEntity, VigiePrealertEntity, VigieQuakeEntity, VigieWea
 from .models import build_attributes
 from .prealert import build_prealert_attributes
 from .quakes import build_quake_attributes
-from .weather_data import Gust, VigieWeatherCoordinator, next_extreme, rain_next_hour, strongest_gust, utc_datetime
+from .weather_data import (
+    Gust,
+    VigieWeatherCoordinator,
+    next_extreme,
+    rain_next_hour,
+    rain_slots,
+    strongest_gust,
+    utc_datetime,
+)
 
 PARALLEL_UPDATES = 0
 
@@ -65,13 +73,18 @@ class VigieRainNextHourSensor(VigieWeatherDataEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """The steps as the API gives them, whether it expects rain within the hour, and the strongest rate."""
+        """The steps as the API gives them, whether it expects rain within the hour, and the strongest rate. In metropolitan
+        France also the twelve 5-minute rates of PIAF and the nine slots of the former Météo-France API (`slots`: 5 minutes
+        for the first half hour, then 10); `None` elsewhere."""
         nowcast = self._nowcast
+        point = self.coordinator.data.point if self.coordinator.data is not None else None
         return {
             "interval_minutes": nowcast.get("interval_minutes"),
             "mm_per_step": nowcast.get("mm_per_step"),
             "rain_expected_60m": nowcast.get("rain_expected_60m"),
             "max_mm_h": nowcast.get("max_mm_h"),
+            "rate_5m_mm_h": nowcast.get("rate_5m_mm_h"),
+            "slots": rain_slots(point),
         }
 
     @property

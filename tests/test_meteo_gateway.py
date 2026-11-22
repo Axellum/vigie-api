@@ -129,10 +129,13 @@ async def test_the_collector_snaps_the_point_and_caches_the_run(sim_clock: SimCl
     assert await collector.rain_next_hour(PARIS[0] + 0.001, PARIS[1]) == [0.6] * 12  # the same cell: from the cache
     assert gateway.count == 1
     assert gateway.requests[0].url.path == "/v1/rain-nowcast"
-    assert gateway.query(0) == {"lat": "48.85", "lon": "2.35"}
+    assert gateway.query(0) == {"lat": "48.86", "lon": "2.35"}  # the PIAF grid, 0.01 degree
+    # 2 km away is another PIAF cell (it was the same 5 km forecast cell before): asked of the gateway, not served from the cache
+    assert await collector.rain_next_hour(PARIS[0] + 0.02, PARIS[1]) == [0.6] * 12
+    assert gateway.count == 2 and gateway.query(1) == {"lat": "48.88", "lon": "2.35"}
 
     assert await collector.rain_next_hour(*OSLO) is None  # outside the box: not asked
-    assert gateway.count == 1
+    assert gateway.count == 2
 
 
 async def test_an_expired_run_still_serves_while_it_covers_the_hour_then_the_hour_is_unknown(sim_clock: SimClock) -> None:
