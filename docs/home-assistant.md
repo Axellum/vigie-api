@@ -272,7 +272,7 @@ weather_entity: weather.home # optional, outside France: the weather entity of t
 | Page | What it shows | Where |
 | --- | --- | --- |
 | Home | Now (icon, temperature in its colour, feels like, wind and gusts), the next 12 hours (a temperature curve with the rain of each hour, once the instance gives the hours, API ADR 0040), the rain of the next hour (radar nowcast) and the first warning (each opens its page), the days. | Everywhere; outside France see below |
-| Details | A sentence for the rain and one for the gusts, then the next hours by 15 minutes (AROME-PI: precipitation, gusts), hail and visibility, and the chances per 3 hours of rain and of gusts of 56 km/h or more (PE-AROME). | France |
+| Details | A sentence for the rain (within the hour the same nowcast as the home page, AROME-PI after it: the two can disagree, the card says one thing) and one for the gusts, then the next hours by 15 minutes (AROME-PI: precipitation, gusts), hail and visibility, and the chances per 3 hours of rain and of gusts of 56 km/h or more (PE-AROME). | France |
 | Alerts | The official level, one row per phenomenon with its end on a timeline, the headline of the issuer as it was issued, the link to its bulletin; in France the river sections under warning nearby (Vigicrues); the earthquakes nearby. | Everywhere |
 | Sea | The tide of the next 24 hours (high and low waters; in France the estimated coefficient), the waves, and the verdicts of the spot for surf, kite, boat and shore fishing, with the reason when it is not "good". | Near the coast |
 | Normal? | Today's highest and lowest against the normals of the month (nearest Météo-France station), the forecast gusts against the record of the month, the wind measured now nearby. | France |
