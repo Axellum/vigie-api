@@ -38,13 +38,14 @@ A value that is not in a file is not invented: a day misses a quantity when no f
 from __future__ import annotations
 
 import struct
-import threading
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 
 import numpy as np
+
+from app.collectors.grib import DECODE_LOCK
 
 # Turkey keeps UTC+3 all year (permanent summer time since 2016-09-07).
 LOCAL_OFFSET = timedelta(hours=3)
@@ -69,8 +70,8 @@ NOMADS_VARIABLES = ("APCP", "GUST", "TMAX", "TMIN", "TMP", "CSNOW")
 NOMADS_LEVELS = ("surface", "2_m_above_ground")
 
 # ecCodes crashed (no definitions found, then a segmentation fault) when two threads decoded at once on 2026-10-25 (eccodes 2.50,
-# Windows): one decoding at a time, whatever thread asks.
-_DECODE_LOCK = threading.Lock()
+# Windows): one decoding at a time, whatever thread asks, and the same lock as the other readers of GRIB2 (``app/collectors/grib.py``).
+_DECODE_LOCK = DECODE_LOCK
 
 
 @dataclass(frozen=True)

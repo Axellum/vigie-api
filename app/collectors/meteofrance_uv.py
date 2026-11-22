@@ -28,7 +28,6 @@ import math
 import os
 import re
 import struct
-import threading
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -40,6 +39,7 @@ import numpy as np
 
 from app import clock
 from app.collectors.base import BaseCollector
+from app.collectors.grib import DECODE_LOCK
 
 BASE_URL = "https://public-api.meteofrance.fr/previnum/DPPaquetENVIRONNEMENT/v1"
 PACKAGE_URL = f"{BASE_URL}/models/PHEALTH/grids/EURW1S40/packages/UVQ"
@@ -62,8 +62,8 @@ UV_EXPONENT = 1.2
 _KEY_SHAPE = re.compile(r"^[A-Za-z0-9._\-+/=]{16,}$")
 _LEAD_SHAPE = re.compile(r"^\d{3}H\d{3}H$")  # the range of lead times of a file, e.g. 001H051H
 
-# ecCodes crashed when two threads decoded at once (see ``app/prealert/gfs.py``): one decode at a time.
-_DECODE_LOCK = threading.Lock()
+# ecCodes crashed when two threads decoded at once (see ``app/collectors/grib.py``): one decode at a time, shared by every reader.
+_DECODE_LOCK = DECODE_LOCK
 
 
 def meteofrance_uv_key_from_env(env: Optional[Mapping[str, str]] = None) -> tuple[Optional[str], Optional[str]]:
