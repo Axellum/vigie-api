@@ -256,7 +256,8 @@ hours (`/v1/tides` and `/v1/climate/normals`; their 404, inland or outside Franc
   credit of the tide model. Unknown inland.
 
 In France and its overseas territories (where the normals answer), the entry also reads the wind measured now by the nearest
-Météo-France station (`/v1/stations/wind`, in a box of 0.3° on each side of the place, some 30 km). That measure, the normals and the verdicts of a
+Météo-France station (`/v1/stations/wind`, in a box of 0.3° on each side of the place, some 30 km) and, every hour, the forest fire
+danger of the department (`/v1/forest-fire`, Météo-France, June to September). That measure, that danger, the normals and the verdicts of a
 spot (`/v1/activities/{spot_id}`, read only when a card asks for a spot within 60 km, and kept 30 minutes) go to the dashboard
 card, not to entities: they are too large for the attributes of a state.
 
@@ -286,11 +287,23 @@ weather_entity: weather.home # optional, outside France: the weather entity of t
 
 | Page | What it shows | Where |
 | --- | --- | --- |
-| Home | Now (icon, temperature in its colour, feels like, wind and gusts), the next 12 hours (a temperature curve with the rain of each hour, once the instance gives the hours, API ADR 0040), the rain of the next hour (radar nowcast) and the first warning (each opens its page), the days. | Everywhere; outside France see below |
+| Home | Now (icon, temperature in its colour, feels like, wind and gusts), the next 12 hours (a temperature curve with the rain of each hour, once the instance gives the hours, API ADR 0040), the rain of the next hour (radar nowcast), the first warning and the strongest line of the season (each opens its page), the days. | Everywhere; outside France see below |
 | Details | A sentence for the rain (within the hour the same nowcast as the home page, AROME-PI after it: the two can disagree, the card says one thing) and one for the gusts, then the next hours by 15 minutes (AROME-PI: precipitation, gusts), hail and visibility, and the chances per 3 hours of rain and of gusts of 56 km/h or more (PE-AROME). | France |
-| Alerts | The official level, one row per phenomenon with its end on a timeline, the headline of the issuer as it was issued, the link to its bulletin; in France the river sections under warning nearby (Vigicrues); the earthquakes nearby. | Everywhere |
+| Alerts | The official level, one row per phenomenon with its end on a timeline, the headline of the issuer as it was issued, the link to its bulletin; in France the river sections under warning nearby (Vigicrues); the lines of the season (below); the earthquakes nearby. | Everywhere |
 | Sea | The tide of the next 24 hours (high and low waters; in France the estimated coefficient), the waves, and the verdicts of the spot for surf, kite, boat and shore fishing, with the reason when it is not "good". | Near the coast |
 | Normal? | Today's highest and lowest against the normals of the month (nearest Météo-France station), the forecast gusts against the record of the month, the wind measured now nearby. | France |
+
+**The lines of the season** are shown only when there is something to say, the strongest first, each with its source and
+official page:
+
+| Line | Shown when | Colour |
+| --- | --- | --- |
+| Avalanches | an avalanche bulletin is in force for the area (Météo-France BRA, SLF, Avalanche.report), whatever its level | the scale's: 1 green, 2 yellow, 3 orange, 4 and 5 red |
+| Drought | water restrictions are in force (VigiEau: alert, reinforced alert, crisis); a watch without restriction is not shown | alerts orange, crisis red |
+| Pollen | a species reaches 1 grain/m³ over the next days (CAMS model, Europe) | neutral: the model gives no health threshold |
+| Forest fires | the danger of the department is moderate (2 of 4) or more tomorrow or the day after (Météo-France, June to September) | 2 yellow, 3 orange, 4 red |
+
+The colours follow each source's own levels; none of them is an official warning level.
 
 **A page with nothing for the place is not shown**, even ticked: inland there is no Sea page, outside France no Details nor
 Normal?. Outside France, the home page shows the weather of the weather entity chosen in the editor (the weather integration you
@@ -326,8 +339,8 @@ The cost for the instance is one cached read per entry and interval; the sources
 rhythm allows (see "Calls to the providers" in the README).
 
 The weather of the place has no push: it is read every 10 minutes. With its option ticked, one place costs the instance about
-144 reads of `/v1/point` a day, 144 of `/v1/stations/wind` in France, 4 of `/v1/tides`, 2 of `/v1/climate/normals`, 1 of
-`/v1/surf/spots`, and at most 48 of `/v1/activities` per spot a card shows (ADR 0042). These answers are cached by the instance too.
+144 reads of `/v1/point` a day, 144 of `/v1/stations/wind` in France, 24 of `/v1/forest-fire` in France, 4 of `/v1/tides`, 2 of
+`/v1/climate/normals`, 1 of `/v1/surf/spots`, and at most 48 of `/v1/activities` per spot a card shows (ADR 0042). These answers are cached by the instance too.
 
 ## Try it without waiting for a warning
 

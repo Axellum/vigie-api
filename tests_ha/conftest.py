@@ -30,6 +30,7 @@ STATION_WIND = "stationwind_biarritz_2026-11-22.json"
 SPOTS = "spots_2026-11-22.json"
 SPOT = "biarritz-plage-des-corsaires"
 ACTIVITIES = f"activities_{SPOT}_2026-11-22.json"
+FOREST_FIRE = "forestfire_biarritz_2026-11-22.json"
 
 
 def recorded(name: str) -> Any:
@@ -92,6 +93,8 @@ def mock_instance(aioclient_mock: AiohttpClientMocker) -> Callable[..., None]:
         station_wind: Any = None,
         spots: Any = None,
         activities: Any = None,
+        forest_fire: Any = None,
+        forest_fire_status: int = 200,
     ) -> None:
         aioclient_mock.clear_requests()
         aioclient_mock.get(f"{URL}/v1/health", json=HEALTH_NO_PUSH if health is None else health)
@@ -105,6 +108,7 @@ def mock_instance(aioclient_mock: AiohttpClientMocker) -> Callable[..., None]:
         aioclient_mock.get(f"{URL}/v1/stations/wind", json=recorded(STATION_WIND) if station_wind is None else station_wind)
         aioclient_mock.get(f"{URL}/v1/surf/spots", json=recorded(SPOTS) if spots is None else spots)
         aioclient_mock.get(f"{URL}/v1/activities/{SPOT}", json=recorded(ACTIVITIES) if activities is None else activities)
+        aioclient_mock.get(f"{URL}/v1/forest-fire", json=recorded(FOREST_FIRE) if forest_fire is None else forest_fire, status=forest_fire_status)
 
     return mock
 

@@ -134,6 +134,7 @@ async def ws_card_data(hass: HomeAssistant, connection: websocket_api.ActiveConn
             "tides": data.tides if data is not None else None,
             "normals": data.normals if data is not None else None,
             "station_wind": data.station_wind if data is not None else None,
+            "forest_fire": data.forest_fire if data is not None else None,
             "warnings": None
             if warnings is None
             else {

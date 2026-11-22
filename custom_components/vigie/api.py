@@ -30,6 +30,7 @@ NORMALS_PATH = "/v1/climate/normals"
 STATION_WIND_PATH = "/v1/stations/wind"
 SPOTS_PATH = "/v1/surf/spots"
 ACTIVITIES_PATH = "/v1/activities"
+FOREST_FIRE_PATH = "/v1/forest-fire"
 
 # Decimals of the position sent to the API: about one metre. The stream rounds a followed point to four.
 POSITION_DECIMALS = 5
@@ -166,6 +167,12 @@ class VigieClient:
     async def activities(self, spot_id: str) -> Any:
         """``GET /v1/activities/{spot_id}``: the verdicts of a spot, hour by hour, with its tide and the coastal warnings."""
         return await self._get_json(f"{ACTIVITIES_PATH}/{quote(spot_id, safe='')}", None, WEATHER_TIMEOUT_S)
+
+    async def forest_fire(self, lat: float, lon: float) -> Any:
+        """``GET /v1/forest-fire``: the forest fire danger of the department of a point (Météo-France, June to September).
+
+        An instance older than this route answers 404 (``VigieNotFoundError``)."""
+        return await self._get_json(FOREST_FIRE_PATH, self._position(lat, lon), WEATHER_TIMEOUT_S)
 
     def stream_url(self) -> str:
         """The WebSocket address of the push stream."""

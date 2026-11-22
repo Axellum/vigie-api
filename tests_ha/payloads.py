@@ -228,3 +228,30 @@ def hourly(start_utc: int, rows: list[tuple[float | None, float | None, float | 
         }
         for index, (temp, gust, rain, code, is_day) in enumerate(rows)
     ]
+
+
+FOREST_FIRE_CREDIT = "Source: Météo-France, Météo des forêts (https://portail-api.meteofrance.fr, Licence Ouverte 2.0)"
+FOREST_FIRE_WORDS = {1: "low", 2: "moderate", 3: "high", 4: "very high"}
+
+
+def forest_fire(
+    day1: int | None = 2, day2: int | None = 1, *, reference_time: str | None = "2026-11-22T14:50:05Z", status: str = "available"
+) -> dict[str, Any]:
+    """An answer of ``/v1/forest-fire`` in season. The default levels are those of the sample Météo-France published for the Aude
+    on 22/05/2024 (2 then 1), the date moved to the day of the recorded answers; out of season use the recorded file."""
+
+    def level(value: int | None) -> dict[str, Any] | None:
+        return None if value is None else {"level": value, "label": FOREST_FIRE_WORDS[value]}
+
+    return {
+        "status": status,
+        "lat": 43.213,
+        "lon": 2.3491,
+        "department": {"code": "11", "name": "Aude"},
+        "reference_time": reference_time,
+        "day1": level(day1),
+        "day2": level(day2),
+        "checked_at_utc": SERVER_UTC,
+        "note": None,
+        "attribution": FOREST_FIRE_CREDIT,
+    }

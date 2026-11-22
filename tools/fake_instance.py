@@ -169,10 +169,11 @@ REPLAY_ROUTES = {
     "/v1/surf/spots": "spots_2026-11-22.json",
     "/v1/activities/biarritz-plage-des-corsaires": "activities_biarritz-plage-des-corsaires_2026-11-22.json",
     "/v1/earthquakes": "earthquakes_biarritz_2026-11-22.json",
+    "/v1/forest-fire": "forestfire_biarritz_2026-11-22.json",
 }
 REPLAY_VIGILANCES = "vigilances_biarritz_2026-11-22.json"
 # A route read apart from the others: moved from its own time of reading (the key that holds it), not from the point's.
-REPLAY_OWN_READ = {"/v1/earthquakes": "generated_utc"}
+REPLAY_OWN_READ = {"/v1/earthquakes": "generated_utc", "/v1/forest-fire": "checked_at_utc"}
 
 
 def _moved(value: Any, seconds: int, days: int, dated: bool = False) -> Any:
