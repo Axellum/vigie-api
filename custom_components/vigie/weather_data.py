@@ -3,7 +3,8 @@
 One coordinator reads ``/v1/point`` (the full answer, with the sea) every 10 minutes. At the same reads, and far less often, it
 reads the tide (``/v1/tides``; 404 inland, then nothing is asked again for hours), the normals of the month
 (``/v1/climate/normals``; France and its overseas territories only) and, where the normals exist, the wind measured by the
-nearest Météo-France station (``/v1/stations/wind``). The spots and their verdicts are read when the card asks for them
+nearest Météo-France station (``/v1/stations/wind``) and the forest fire danger of the department (``/v1/forest-fire``, every
+hour; Météo-France publishes it from June to September). The spots and their verdicts are read when the card asks for them
 (``/v1/surf/spots``, ``/v1/activities/{spot}``), and kept for a while.
 
 Nothing here makes up a weather value: what the API did not give stays unknown. The few numbers worked out here (a sum of the
@@ -32,6 +33,7 @@ from .api import VigieClient, VigieError, VigieNotFoundError
 from .const import (
     ACTIVITIES_REFRESH,
     DOMAIN,
+    FOREST_FIRE_REFRESH,
     MAX_LISTED_SPOTS,
     MAX_SPOT_DISTANCE_KM,
     NORMALS_REFRESH,
@@ -261,6 +263,7 @@ class WeatherData:
     normals: dict[str, Any] | None
     station_wind: dict[str, Any] | None
     read_utc: int
+    forest_fire: dict[str, Any] | None = None
 
 
 class _Slow:
@@ -297,6 +300,7 @@ class VigieWeatherCoordinator(DataUpdateCoordinator[WeatherData]):
         self._tides = _Slow(TIDES_REFRESH)
         self._normals = _Slow(NORMALS_REFRESH)
         self._spots = _Slow(SPOTS_REFRESH)
+        self._forest_fire = _Slow(FOREST_FIRE_REFRESH)
         self._activities: dict[str, _Slow] = {}
 
     async def _async_update_data(self) -> WeatherData:
@@ -310,7 +314,10 @@ class VigieWeatherCoordinator(DataUpdateCoordinator[WeatherData]):
         tides = await self._tides.get(lambda: self.client.tides(lat, lon))
         normals = await self._normals.get(lambda: self.client.climate_normals(lat, lon))
         station = None
+        forest_fire = None
         if isinstance(normals, dict) and normals.get("status") == "available":
+            # The forest fire danger: metropolitan France only (overseas the instance answers `outside_coverage`).
+            forest_fire = await self._forest_fire.get(lambda: self.client.forest_fire(lat, lon))
             # Météo-France stations: only where its climate sheets are (France and its overseas territories).
             try:
                 answer = await self.client.station_wind(lon - STATION_BOX_DEG, lat - STATION_BOX_DEG, lon + STATION_BOX_DEG, lat + STATION_BOX_DEG)
@@ -324,6 +331,7 @@ class VigieWeatherCoordinator(DataUpdateCoordinator[WeatherData]):
             normals=normals if isinstance(normals, dict) else None,
             station_wind=station,
             read_utc=int(time.time()),
+            forest_fire=forest_fire if isinstance(forest_fire, dict) else None,
         )
 
     async def async_spots(self) -> list[dict[str, Any]]:

@@ -15,7 +15,7 @@ from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 from custom_components.vigie.const import CONF_WEATHER_AND_CARD, DOMAIN
 
 from .conftest import SPOT, recorded, setup_entry
-from .payloads import URL, response, vigilance
+from .payloads import URL, forest_fire, response, vigilance
 
 
 @pytest.fixture(autouse=True)
@@ -63,6 +63,52 @@ async def test_the_data_of_the_card(
     # a second ask within 30 minutes does not read the verdicts again
     await ask(hass_ws_client, hass, {"type": "vigie/card/data", "spot": SPOT})
     assert len([call for call in aioclient_mock.mock_calls if call[1].path == f"/v1/activities/{SPOT}"]) == 1
+
+
+async def test_the_forest_fire_danger_goes_to_the_card_and_is_read_once_an_hour(
+    hass: HomeAssistant,
+    hass_ws_client: WebSocketGenerator,
+    mock_instance: Callable[..., None],
+    biarritz_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    no_stream: None,
+) -> None:
+    mock_instance()
+    await setup_entry(hass, biarritz_entry)
+    data = (await ask(hass_ws_client, hass, {"type": "vigie/card/data"}))["result"]
+    assert data["forest_fire"] == recorded("forestfire_biarritz_2026-11-22.json")  # November: out of season, as it came
+    assert data["forest_fire"]["status"] == "out_of_season"
+    # In season: the next reads of the weather keep the answer for an hour, then read it again.
+    mock_instance(forest_fire=forest_fire(2, 1))
+    weather = biarritz_entry.runtime_data.weather
+    for _ in range(5):
+        await weather.async_refresh()
+    assert not [call for call in aioclient_mock.mock_calls if call[1].path == "/v1/forest-fire"]
+    weather._forest_fire.read_at -= 3601  # an hour later
+    await weather.async_refresh()
+    assert len([call for call in aioclient_mock.mock_calls if call[1].path == "/v1/forest-fire"]) == 1
+    data = (await ask(hass_ws_client, hass, {"type": "vigie/card/data"}))["result"]
+    assert data["forest_fire"]["day1"] == {"level": 2, "label": "moderate"} and data["forest_fire"]["department"]["name"] == "Aude"
+
+
+async def test_an_instance_without_the_forest_fire_route_gives_none(
+    hass: HomeAssistant, hass_ws_client: WebSocketGenerator, mock_instance: Callable[..., None], biarritz_entry: MockConfigEntry, no_stream: None
+) -> None:
+    mock_instance(forest_fire={"detail": "Not Found"}, forest_fire_status=404)
+    await setup_entry(hass, biarritz_entry)
+    data = (await ask(hass_ws_client, hass, {"type": "vigie/card/data"}))["result"]
+    assert data["forest_fire"] is None and data["point"]["current"]["temp_c"] == 15.1  # the rest of the card is there
+
+
+async def test_no_forest_fire_is_asked_outside_france(
+    hass: HomeAssistant, hass_ws_client: WebSocketGenerator, mock_instance: Callable[..., None], biarritz_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker, no_stream: None,
+) -> None:
+    mock_instance(normals=recorded("normals_tokyo_2026-11-22.json"))
+    await setup_entry(hass, biarritz_entry)
+    data = (await ask(hass_ws_client, hass, {"type": "vigie/card/data"}))["result"]
+    assert data["forest_fire"] is None
+    assert not [call for call in aioclient_mock.mock_calls if call[1].path == "/v1/forest-fire"]
 
 
 async def test_auto_takes_the_nearest_spot_and_a_far_spot_is_refused(

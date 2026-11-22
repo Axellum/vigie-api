@@ -1,0 +1,15 @@
+{
+ "status": "out_of_season",
+ "lat": 43.48,
+ "lon": -1.56,
+ "department": {
+  "code": "64",
+  "name": "Pyrénées-Atlantiques"
+ },
+ "reference_time": null,
+ "day1": null,
+ "day2": null,
+ "checked_at_utc": 1795375503,
+ "note": "Météo-France publishes the forest fire danger from June to September (about 17:00 local time); out of this season there is no map and no level is given. It is a danger of the department as a whole, in four levels, for the two days after the publication: not a warning, not a fire detected (see `fires_nearby` of `GET /v1/point`), and the local conditions of a forest can differ.",
+ "attribution": "Source: Météo-France, Météo des forêts (https://portail-api.meteofrance.fr, Licence Ouverte 2.0), read by a vigie-meteo gateway and dated as in the answer (reference_time); a danger for a whole department, not a warning and not a fire detected; the department of a position is found by Vigie"
+}

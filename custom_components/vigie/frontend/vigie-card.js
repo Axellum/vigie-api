@@ -79,6 +79,23 @@ const TEXT = {
     forecast_src: 'prévu : {src}', measured_wind: 'Vent mesuré', ago: 'il y a {n}&nbsp;min', station: 'Station {n}',
     normal_foot: 'Données : Météo-France (fiches climatologiques, observations) · comparaison calculée par Vigie',
     weather_title: 'Météo', home_entity: 'entité météo de la maison, pas Vigie',
+    season: 'De saison', tomorrow: 'demain', day_after: 'après-demain',
+    aval: 'Avalanches', aval_word: ['', 'faible', 'limité', 'marqué', 'fort', 'très fort'], aval_pill: 'Avalanches · risque {l} ({w})',
+    aval_sector: 'Secteur : {n}', aval_until: 'Bulletin valable jusqu’à {t}', aval_note: 'Risque du bulletin de montagne (BRA), distinct de la vigilance',
+    aval_link: 'Le bulletin d’avalanche de {issuer}',
+    problem_new_snow: 'neige fraîche', problem_wind_slab: 'neige soufflée', problem_persistent_weak_layers: 'couches fragiles persistantes',
+    problem_wet_snow: 'neige mouillée', problem_gliding_snow: 'avalanches de glissement', problem_cornices: 'corniches',
+    problem_favourable_situation: 'situation favorable', problem_no_distinct_avalanche_problem: 'pas de problème avalancheux marqué',
+    drought: 'Sécheresse', drought_vigilance: 'vigilance', drought_alerte: 'alerte', drought_alerte_renforcee: 'alerte renforcée', drought_crise: 'crise',
+    restrictions: 'restrictions d’eau', restrictions_long: 'Des restrictions d’usage de l’eau sont en vigueur.',
+    water_AEP: 'Eau potable', water_SUP: 'Eaux de surface', water_SOU: 'Eaux souterraines', until_date: 'jusqu’au {d}',
+    drought_link: 'Les restrictions sur VigiEau',
+    pollen: 'Pollens', pollen_pill: 'Pollens · {s}', pollen_det: 'jusqu’à {p}&nbsp;grains/m³',
+    pollen_note: 'Pic du jour en grains par m³ d’air, prévision du modèle européen CAMS, pas un comptage.',
+    species_alder: 'aulne', species_birch: 'bouleau', species_grass: 'graminées', species_mugwort: 'armoise', species_olive: 'olivier',
+    species_ragweed: 'ambroisie',
+    fire: 'Feux de forêt', fire_word: ['', 'faible', 'modéré', 'élevé', 'très élevé'], fire_pill: 'Feux de forêt · danger {w}',
+    fire_note: 'Météo des forêts : un danger pour tout le département, publié de juin à septembre.', dept: 'Département : {n}',
     dir_from: ['du nord', 'du nord-est', 'd’est', 'du sud-est', 'du sud', 'du sud-ouest', 'd’ouest', 'du nord-ouest'],
     dir_to: ['au nord', 'au nord-est', 'à l’est', 'au sud-est', 'au sud', 'au sud-ouest', 'à l’ouest', 'au nord-ouest'],
   },
@@ -126,6 +143,23 @@ const TEXT = {
     forecast_src: 'forecast: {src}', measured_wind: 'Measured wind', ago: '{n}&nbsp;min ago', station: 'Station {n}',
     normal_foot: 'Data: Météo-France (climate sheets, observations) · comparison computed by Vigie',
     weather_title: 'Weather', home_entity: 'weather entity of the home, not Vigie',
+    season: 'Seasonal', tomorrow: 'tomorrow', day_after: 'the day after',
+    aval: 'Avalanches', aval_word: ['', 'low', 'moderate', 'considerable', 'high', 'very high'], aval_pill: 'Avalanches · danger {l} ({w})',
+    aval_sector: 'Area: {n}', aval_until: 'Bulletin valid until {t}', aval_note: 'Danger of the mountain bulletin (BRA), not the warning',
+    aval_link: 'The avalanche bulletin of {issuer}',
+    problem_new_snow: 'new snow', problem_wind_slab: 'wind slab', problem_persistent_weak_layers: 'persistent weak layers',
+    problem_wet_snow: 'wet snow', problem_gliding_snow: 'gliding snow', problem_cornices: 'cornices',
+    problem_favourable_situation: 'favourable situation', problem_no_distinct_avalanche_problem: 'no distinct avalanche problem',
+    drought: 'Drought', drought_vigilance: 'watch', drought_alerte: 'alert', drought_alerte_renforcee: 'reinforced alert', drought_crise: 'crisis',
+    restrictions: 'water restrictions', restrictions_long: 'Restrictions on the use of water are in force.',
+    water_AEP: 'Drinking water', water_SUP: 'Surface water', water_SOU: 'Groundwater', until_date: 'until {d}',
+    drought_link: 'The restrictions on VigiEau',
+    pollen: 'Pollen', pollen_pill: 'Pollen · {s}', pollen_det: 'up to {p}&nbsp;grains/m³',
+    pollen_note: 'Peak of the day in grains per m³ of air, a forecast of the European CAMS model, not a count.',
+    species_alder: 'alder', species_birch: 'birch', species_grass: 'grass', species_mugwort: 'mugwort', species_olive: 'olive',
+    species_ragweed: 'ragweed',
+    fire: 'Forest fires', fire_word: ['', 'low', 'moderate', 'high', 'very high'], fire_pill: 'Forest fires · {w} danger',
+    fire_note: 'Météo des forêts: a danger for the whole department, published from June to September.', dept: 'Department: {n}',
     dir_from: ['from the north', 'from the north-east', 'from the east', 'from the south-east', 'from the south', 'from the south-west', 'from the west', 'from the north-west'],
     dir_to: ['to the north', 'to the north-east', 'to the east', 'to the south-east', 'to the south', 'to the south-west', 'to the west', 'to the north-west'],
   },
@@ -310,6 +344,9 @@ const GLYPHS = {
   thermo: '<path d="M10 14 V5 a2 2 0 0 1 4 0 v9 a4 4 0 1 1 -4 0 Z"/>',
   montagne: '<path d="M2 20 L9 7 L13 13 L16 9 L22 20 Z"/>',
   flamme: '<path d="M12 3 c1 4 6 6 6 11 a6 6 0 0 1 -12 0 c0 -3 2 -4 2 -6 c1.5 1 2 2 2 3 c0 -3 1 -5 2 -8 Z"/>',
+  feuille: '<path d="M5 19 C5 10 11 4 20 4 C20 13 14 19 5 19 Z"/><line x1="5" y1="19" x2="13" y2="11"/>',
+  secheresse: '<path d="M12 3 C12 3 5 11 5 15 a7 7 0 0 0 14 0 C19 11 12 3 12 3 Z"/><line x1="4" y1="4" x2="20" y2="20"/>',
+  fleur: '<circle cx="12" cy="7" r="3"/><circle cx="17" cy="12" r="3"/><circle cx="12" cy="17" r="3"/><circle cx="7" cy="12" r="3"/><circle cx="12" cy="12" r="1.4"/>',
   brume: '<line x1="4" y1="9" x2="20" y2="9"/><line x1="3" y1="13" x2="21" y2="13"/><line x1="5" y1="17" x2="19" y2="17"/>',
 };
 const glyph = (name, s, c, sw = 2) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" style="flex:none" aria-hidden="true">${GLYPHS[name] || ''}</svg>`;
@@ -319,7 +356,7 @@ const ACTIVITY_GLYPH = { surf: 'planche', kite: 'cerfVolant', boat: 'voilier', s
 const PAGE_GLYPH = { home: 'accueil', details: 'horloge', alerts: 'danger', sea: 'vagues', normal: 'jauge' };
 
 // The providers named in the credits the data give, in the order of the list: the pages say who the values are from.
-const PROVIDERS = ['Météo-France', 'Vigicrues', 'MeteoAlarm', 'Open-Meteo', 'Copernicus', 'EOT20', 'OpenStreetMap', 'USGS', 'EMSC', 'NOAA', 'ECMWF', 'DWD'];
+const PROVIDERS = ['Météo-France', 'Vigicrues', 'VigiEau', 'MeteoAlarm', 'Open-Meteo', 'Copernicus', 'SLF', 'Avalanche.report', 'EOT20', 'OpenStreetMap', 'USGS', 'EMSC', 'NOAA', 'ECMWF', 'DWD'];
 function providers(...credits) {
   const text = credits.filter((c) => typeof c === 'string').join(' ');
   return PROVIDERS.filter((p) => text.includes(p));
@@ -536,17 +573,181 @@ function daysOfPoint(c) {
   return daily.filter((d) => d && typeof d.date === 'string').map((d) => ({ name: c.dayName(d.date), kind: wmoKind(d.code), max: d.tmax, min: d.tmin, mm: d.rain_mm }));
 }
 
+// ----------------------------------------------------------------------------------------------------------------- season
+// Avalanches, drought, pollen and forest fires: a line only when there is something to say (thresholds below). The strongest
+// line is a pill of the home page ("+n" for the others) that opens Alerts, where each one has its block.
+const SEASON = { droughtFrom: 'alerte', fireFrom: 2, pollenFrom: 1 }; // pollen: the rule of the site, in grains per m³
+const DROUGHT_RANK = { vigilance: 1, alerte: 2, alerte_renforcee: 3, crise: 4 };
+// The colours of the site for these native levels (none of them is an official warning level of Vigie).
+const DROUGHT_TONE = { vigilance: 'jaune', alerte: 'orange', alerte_renforcee: 'orange', crise: 'rouge' };
+const avalancheTone = (l) => (l <= 1 ? 'vert' : l === 2 ? 'jaune' : l === 3 ? 'orange' : 'rouge');
+const fireTone = (l) => (l <= 1 ? 'vert' : l === 2 ? 'jaune' : l === 3 ? 'orange' : 'rouge');
+const TONE_RANK = { neutre: 0, vert: 0, jaune: 1, orange: 2, rouge: 3 };
+const POLLEN_SPECIES = ['alder', 'birch', 'grass', 'mugwort', 'olive', 'ragweed'];
+const AVALANCHE_ISSUER = { meteofrance_bra: 'Météo-France', slf_avalanche: 'SLF', euregio_avalanche: 'Avalanche.report' };
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const httpUrl = (u) => typeof u === 'string' && /^https?:\/\//.test(u);
+
+// "demain", "après-demain", a day name, or nothing for today; then the hour when asked.
+function dayWord(c, ts, withHour) {
+  const d = Math.round((Date.parse(`${c.dayKey(ts)}T00:00:00Z`) - Date.parse(`${c.dayKey(c.now)}T00:00:00Z`)) / 86400000);
+  const day = d === 0 ? '' : d === 1 ? c.t('tomorrow') : d === 2 ? c.t('day_after') : c.dayName(c.dayKey(ts)).toLowerCase();
+  return [day, withHour ? c.hm(ts) : ''].filter(Boolean).join(' ');
+}
+const dateWord = (c, iso) => {
+  const v = Date.parse(iso);
+  return Number.isFinite(v) ? new Intl.DateTimeFormat(c.lang, { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(v)) : '';
+};
+
+// The species whose peak reaches the threshold over the days from today, the highest first.
+function pollenPeaks(c, p) {
+  const today = c.dayKey(c.now);
+  const days = Array.isArray(p?.daily) ? p.daily.filter((d) => d && typeof d.date === 'string' && d.date >= today) : [];
+  const out = [];
+  for (const s of POLLEN_SPECIES) {
+    const peak = Math.max(0, ...days.map((d) => d[`${s}_max_grains_m3`]).filter(num), num(p?.current?.[`${s}_grains_m3`]) ? p.current[`${s}_grains_m3`] : 0);
+    if (peak >= SEASON.pollenFrom) out.push({ s, peak });
+  }
+  return { days: days.slice(0, 4), peaks: out.sort((a, b) => b.peak - a.peak) };
+}
+
+// The lines worth saying, the strongest first. Nothing is shown from an answer that is not there or not in season.
+function seasonItems(c) {
+  const pt = c.point || {}, out = [];
+  const av = pt.avalanche, until = isoTs(av?.valid_until);
+  if (av && av.status === 'active' && num(av.max_danger_level) && av.max_danger_level >= 1 && av.max_danger_level <= 5 && (until === null || until > c.now)) {
+    const l = av.max_danger_level, word = c.t('aval_word')[l], issuer = AVALANCHE_ISSUER[av.covered_by];
+    const problems = (Array.isArray(av.problem_types) ? av.problem_types : []).map((p) => TEXT[c.lang][`problem_${p}`]).filter(Boolean);
+    out.push({
+      id: 'avalanche', tone: avalancheTone(l), glyph: 'montagne', name: c.t('aval'), word: `${l} · ${word}`,
+      pill: c.t('aval_pill', { l, w: word }), det: av.region_name ? esc(av.region_name) : '', scale: l, attribution: av.attribution,
+      lines: [[av.region_name ? c.t('aval_sector', { n: esc(av.region_name) }) : '', problems.length ? cap(problems.join(', ')) : ''].filter(Boolean).join(' · '),
+        until !== null ? c.t('aval_until', { t: dayWord(c, until, true) }) : ''],
+      note: av.covered_by === 'meteofrance_bra' ? c.t('aval_note') : '',
+      link: httpUrl(av.bulletin_url) ? [av.bulletin_url, issuer ? c.t('aval_link', { issuer }) : c.t('bulletin_plain')] : null,
+    });
+  }
+  const dr = pt.drought;
+  if (dr && dr.status === 'available' && DROUGHT_RANK[dr.max_level] >= DROUGHT_RANK[SEASON.droughtFrom]) {
+    const seen = new Set();
+    const zones = (Array.isArray(dr.zones) ? dr.zones : []).filter((z) => z && DROUGHT_RANK[z.level] >= DROUGHT_RANK[SEASON.droughtFrom] && TEXT.en[`water_${z.water_type}`])
+      .filter((z) => { const k = `${z.water_type}|${z.level}`; if (seen.has(k)) return false; seen.add(k); return true; });
+    const mixed = new Set(zones.map((z) => z.level)).size > 1;
+    out.push({
+      id: 'drought', tone: DROUGHT_TONE[dr.max_level], glyph: 'secheresse', name: c.t('drought'), word: c.t(`drought_${dr.max_level}`),
+      pill: `${c.t('drought')} · ${c.t(`drought_${dr.max_level}`)}`, det: dr.restrictions_in_force === true ? c.t('restrictions') : '', attribution: dr.attribution,
+      lines: [dr.restrictions_in_force === true ? c.t('restrictions_long') : ''],
+      rows: zones.slice(0, 3).map((z) => ({ tone: DROUGHT_TONE[z.level], a: c.t(`water_${z.water_type}`), b: mixed ? c.t(`drought_${z.level}`) : '',
+        c: z.decree_valid_until ? c.t('until_date', { d: dateWord(c, z.decree_valid_until) }) : '' })),
+      link: ['https://vigieau.gouv.fr', c.t('drought_link')],
+    });
+  }
+  const pollens = pt.air_quality?.pollens;
+  const pol = pollenPeaks(c, pollens);
+  if (pol.peaks.length) {
+    const top = pol.peaks[0], name = c.t(`species_${top.s}`);
+    out.push({
+      id: 'pollen', tone: 'neutre', glyph: 'fleur', name: c.t('pollen'), word: cap(name), pill: c.t('pollen_pill', { s: name }),
+      det: c.t('pollen_det', { p: c.fmt(top.peak, 1) }), pollen: { peaks: pol.peaks.slice(0, 3), days: pol.days }, note: c.t('pollen_note'),
+      attribution: pollens.attribution,
+    });
+  }
+  const ff = c.data?.forest_fire;
+  if (ff && ff.status === 'available') {
+    // day1 and day2 are the two days after the publication; a day already past is left out.
+    const pub = isoTs(ff.reference_time), today = c.dayKey(c.now);
+    const days = [ff.day1, ff.day2].map((d, i) => (d && num(d.level) && d.level >= 1 && d.level <= 4 ? { level: d.level, ts: pub !== null ? pub + (i + 1) * 86400 : null } : null))
+      .filter((d) => d && (d.ts === null || c.dayKey(d.ts) >= today));
+    const top = days.reduce((a, d) => (d.level > (a?.level || 0) ? d : a), null);
+    if (top && top.level >= SEASON.fireFrom) {
+      out.push({
+        id: 'fire', tone: fireTone(top.level), glyph: 'flamme', name: c.t('fire'), word: c.t('fire_word')[top.level],
+        pill: c.t('fire_pill', { w: c.t('fire_word')[top.level] }), det: top.ts !== null ? dayWord(c, top.ts, false) : '', fire: days,
+        lines: [ff.department?.name ? c.t('dept', { n: esc(ff.department.name) }) : ''], note: c.t('fire_note'), attribution: ff.attribution,
+      });
+    }
+  }
+  return out.sort((a, b) => TONE_RANK[b.tone] - TONE_RANK[a.tone]);
+}
+
+const toneColour = (c, tone) => (tone === 'neutre' ? c.P.t2 : c.P[tone]);
+// The home page: the strongest line, "+n" for the others; it opens Alerts. On a phone the detail goes when "+n" is there.
+function seasonPill(c, fs, g, inline) {
+  const items = seasonItems(c);
+  if (!items.length) return '';
+  const it = items[0], col = toneColour(c, it.tone), neutral = it.tone === 'neutre', more = items.length - 1;
+  const plus = more ? ` <span class="plus" style="background:${alpha(neutral ? c.P.t3 : col, 0.25)};color:${col}">+${more}</span>` : '';
+  const det = it.det && !(more && inline) ? (inline ? ` <span class="det" style="font-size:${fs - 1}px">· ${it.det}</span>` : `<small>${it.det}</small>`) : '';
+  const go = c.config._pages.includes('alerts') ? ' data-go="alerts"' : '';
+  const bg = neutral ? 'transparent' : alpha(col, 0.2), bd = neutral ? c.P.filet : alpha(col, 0.65);
+  return `<button class="puce"${go} style="font-size:${fs}px;background:${bg};border-color:${bd}">${glyph(it.glyph, g, col, 2.2)}<span class="tx">${it.pill}${plus}${det}</span></button>`;
+}
+
+function dangerScale(c, level, w) {
+  const gap = 4, n = 5, cw = (w - gap * (n - 1)) / n, h = 10;
+  let s = `<svg width="${w}" height="${h + 2}" viewBox="0 0 ${w} ${h + 2}" style="margin-top:6px" aria-hidden="true">`;
+  for (let i = 1; i <= n; i++) s += `<rect x="${r1((i - 1) * (cw + gap))}" y="1" width="${r1(cw)}" height="${h}" rx="${h / 2}" fill="${c.P[avalancheTone(i)]}" opacity="${i === level ? 1 : 0.22}"/>`;
+  return s + '</svg>';
+}
+// The peaks of the day per species, in a neutral colour: the model gives no health threshold and none is made up here.
+function pollenDays(c, p, w) {
+  if (!p.days.length) return '';
+  const top = Math.max(...p.peaks.map((x) => x.peak)), nameW = c.wide ? 110 : 92, cw = (w - nameW) / p.days.length, fs = 12, bh = 22;
+  const h = 18 + p.peaks.length * (bh + 18);
+  let s = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="margin-top:6px" aria-hidden="true">`;
+  p.days.forEach((d, i) => { s += `<text x="${r1(nameW + i * cw + cw / 2)}" y="12" font-size="${fs}" font-weight="700" fill="${i === 0 && d.date === c.dayKey(c.now) ? c.P.accent : c.P.t3}" text-anchor="middle">${c.dayName(d.date)}</text>`; });
+  p.peaks.forEach((x, j) => {
+    const y0 = 22 + j * (bh + 18);
+    s += `<text x="0" y="${y0 + bh - 4}" font-size="${fs + 1}" font-weight="700" fill="${c.P.texte}">${cap(c.t(`species_${x.s}`))}</text>`;
+    p.days.forEach((d, i) => {
+      const v = d[`${x.s}_max_grains_m3`], bw = Math.min(cw - 14, 34), cx = nameW + i * cw + cw / 2;
+      if (!num(v)) return;
+      const on = v >= SEASON.pollenFrom, hh = on ? Math.max(3, (v / top) * bh) : 2;
+      s += `<rect x="${r1(cx - bw / 2)}" y="${r1(y0 + bh - hh)}" width="${r1(bw)}" height="${r1(hh)}" rx="3" fill="${c.P.t3}" opacity="${on ? 0.85 : 0.3}"/>` +
+        `<text x="${r1(cx)}" y="${y0 + bh + 13}" font-size="${fs - 1}" font-weight="700" fill="${c.P.t3}" text-anchor="middle">${c.fmt(v, 1)}</text>`;
+    });
+  });
+  return s + '</svg>';
+}
+function fireDays(c, days) {
+  return `<div class="chips" style="margin-top:8px">` + days.map((d) => {
+    const col = c.P[fireTone(d.level)], when = d.ts !== null ? dayWord(c, d.ts, false) : '';
+    return `<span class="chip" style="font-size:13px;border-color:${alpha(col, 0.65)};background:${alpha(col, 0.16)}">${when ? `${cap(when)}${c.lang === 'fr' ? '&nbsp;: ' : ': '}` : ''}<b>${c.t('fire_word')[d.level]}</b></span>`;
+  }).join('') + `</div>`;
+}
+// One line in full: its name and level in colour, what it is, and the official page.
+function seasonEntry(c, it, w) {
+  const col = toneColour(c, it.tone);
+  let s = `<div class="frise-l" style="font-size:15px;margin-top:0">${glyph(it.glyph, 19, col, 2.2)}<span>${it.name}</span><span class="fin" style="font-weight:700;color:${col};font-size:14px">${it.word}</span></div>`;
+  if (it.scale) s += dangerScale(c, it.scale, Math.min(w, 300));
+  if (it.fire) s += fireDays(c, it.fire);
+  for (const l of (it.lines || []).filter(Boolean)) s += `<div class="t2" style="font-size:13px;margin-top:5px">${l}</div>`;
+  for (const r of it.rows || []) s += `<div class="lig" style="padding:3px 0;font-size:13px"><b style="color:${c.P[r.tone]}">${r.a}</b>${r.b ? `<span>${r.b}</span>` : ''}${r.c ? `<span class="t3" style="margin-left:auto">${r.c}</span>` : ''}</div>`;
+  if (it.pollen) s += pollenDays(c, it.pollen, Math.min(w, 420));
+  if (it.note) s += `<div class="note" style="margin-top:5px">${it.note}</div>`;
+  if (it.link) s += `<div style="height:8px"></div><a class="lien" href="${esc(it.link[0])}" target="_blank" rel="noopener noreferrer">${glyph('lien', 15, c.P.t2, 2.2)}${it.link[1]}</a>`;
+  return s;
+}
+function seasonBlock(c, items, w) {
+  if (!items.length) return '';
+  // The sources go on the line of the title only when they fit there whole; each line names its own source anyway, and the
+  // foot of the page credits them all.
+  const src = providers(...items.map((it) => it.attribution)).join(', ');
+  return title(c, 'feuille', c.t('season'), src.length * 6.6 + 120 <= w ? src : '') +
+    items.map((it, i) => (i ? sep('12px 0') : '') + seasonEntry(c, it, w)).join('');
+}
+
 // ------------------------------------------------------------------------------------------------------------------- pages
 function pageHome(c) {
   if (!c.inFrance) return pageHomeWorld(c);
   const P = c.P, W = c.W;
   const now = momentOfPoint(c);
   const m = moment(c, now);
-  const credit = foot(c, providers(c.point?.weather_attribution, c.point?.rain_nowcast?.attribution));
+  const credit = foot(c, providers(c.point?.weather_attribution, c.point?.rain_nowcast?.attribution, seasonItems(c)[0]?.attribution));
   if (c.wide) {
     // The moment (icon, temperature, words) needs about 640 px at full size: in a column it is scaled to that column.
     const fit = (w) => clamp(w / (640 * c.k), 0.6, 1);
-    const pills = `<div class="pills">${rainPill(c, 18, 26, false)}${warningPill(c, 18, 26, false)}</div>`;
+    const pills = `<div class="pills">${rainPill(c, 18, 26, false)}${warningPill(c, 18, 26, false)}${seasonPill(c, 18, 26, false)}</div>`;
     const half = Math.floor((W - 26) / 2);
     const pair = `<div class="grille" style="grid-template-columns:1fr 1fr;align-items:center"><div>${moment(c, now, fit(half))}</div><div>${pills}</div></div>`;
     const daysBlock = sep('20px 0 16px') + days(c, daysOfPoint(c), 7) + credit;
@@ -564,7 +765,7 @@ function pageHome(c) {
     return pair + daysBlock;
   }
   const curve = hoursCurve(c, W, 200);
-  return m + (curve ? `<div style="height:10px"></div>${curve}` : '') + `<div style="height:12px"></div><div class="pills">${rainPill(c, 14, 20, true)}${warningPill(c, 14, 20, true)}</div>` +
+  return m + (curve ? `<div style="height:10px"></div>${curve}` : '') + `<div style="height:12px"></div><div class="pills">${rainPill(c, 14, 20, true)}${warningPill(c, 14, 20, true)}${seasonPill(c, 14, 20, true)}</div>` +
     sep() + days(c, daysOfPoint(c), 5) + credit;
 }
 
@@ -579,12 +780,15 @@ function pageHomeWorld(c) {
     const m = moment(c, { kind: CONDITION_ICON[ent.state] || null, temp: a.temperature, feels: a.apparent_temperature, label: CONDITION[c.lang][ent.state] || null,
       wind: a.wind_speed, gust: a.wind_gust_speed, deg: a.wind_bearing, windUnit: a.wind_speed_unit });
     const list = (c.config._forecast || []).map((f) => ({ name: c.dayName(String(f.datetime).slice(0, 10)), kind: CONDITION_ICON[f.condition] || null, max: f.temperature, min: f.templow }));
-    return title(c, 'accueil', c.t('weather_title'), c.t('home_entity')) + m + (quakePill ? `<div style="height:12px"></div>${quakePill}` : '') + sep() +
-      days(c, list, c.wide ? 7 : 5, { noRain: true }) + foot(c, providers(quakes?.attribution), '');
+    const season = seasonPill(c, 14, 20, true);
+    return title(c, 'accueil', c.t('weather_title'), c.t('home_entity')) + m + (quakePill ? `<div style="height:12px"></div>${quakePill}` : '') +
+      (season ? `<div style="height:8px"></div>${season}` : '') + sep() +
+      days(c, list, c.wide ? 7 : 5, { noRain: true }) + foot(c, providers(quakes?.attribution, seasonItems(c)[0]?.attribution), '');
   }
   const answer = q ? `<div class="rep"><div class="ligne" style="font-size:20px">${glyph('onde', 24, c.P.texte, 2.3)}<span>${quakeText(c, q)}</span></div></div>`
     : `<div class="rep"><div class="ligne" style="font-size:20px">${glyph('ok', 24, c.P.vert, 2.3)}<span>${c.t('nothing_to_report')}</span></div></div>`;
-  return answer + `<div style="height:12px"></div>${officialPill(c)}` + (c.data?.tides ? sep() + tideBlock(c, c.wide ? Math.min(c.W, 640) : c.W) : '') + foot(c, providers(c.data?.warnings?.attribution, quakes?.attribution, c.data?.tides?.attribution));
+  const season = seasonPill(c, 14, 20, true);
+  return answer + `<div style="height:12px"></div>${officialPill(c)}` + (season ? `<div style="height:8px"></div>${season}` : '') + (c.data?.tides ? sep() + tideBlock(c, c.wide ? Math.min(c.W, 640) : c.W) : '') + foot(c, providers(c.data?.warnings?.attribution, quakes?.attribution, c.data?.tides?.attribution, seasonItems(c)[0]?.attribution));
 }
 function officialPill(c) {
   const groups = warningGroups(c);
@@ -765,11 +969,15 @@ function pageAlerts(c) {
       ? rivers.slice(0, 4).map((v) => `<div class="lig"><b style="color:${P[LEVEL_COLOUR[v.level]]}">${c.t(`level_${v.level}`)}</b><span>${esc(v.area || v.headline || '')}</span>${num(v.distance_km) ? `<span class="t3" style="margin-left:auto">${c.fmt(v.distance_km, 1)}&nbsp;km</span>` : ''}</div>`).join('')
       : `<div class="t2" style="font-size:14px">${c.t('no_river')}</div>`);
   }
+  // The lines of the season: under the warnings on a wall screen (the side keeps the rivers), after the rivers on a phone.
+  const items = seasonItems(c);
+  if (items.length && c.wide) main += sep('18px 0 14px') + seasonBlock(c, items, Math.floor(((c.W - 26) * 1.2) / 2.2));
+  else if (items.length) side += (side ? sep() : '') + seasonBlock(c, items, c.W);
   if (qs.length) {
     side += (side ? sep() : '') + title(c, 'onde', c.t('quakes'), providers(quakes?.attribution).join(', ')) +
       qs.slice(0, 3).map((q) => `<div class="lig"><span>${quakeText(c, q)}</span><span class="t3" style="margin-left:auto;font-size:13px">${quakeWhen(c, q)}</span></div>`).join('');
   }
-  const credit = foot(c, providers(w?.attribution, ...(w?.vigilances || []).map((v) => v.source === 'vigicrues' ? 'Vigicrues' : '')), groups.length ? ` · ${c.t('official_text')}` : '');
+  const credit = foot(c, providers(w?.attribution, ...(w?.vigilances || []).map((v) => v.source === 'vigicrues' ? 'Vigicrues' : ''), ...items.map((it) => it.attribution)), groups.length ? ` · ${c.t('official_text')}` : '');
   if (c.wide && side) return `<div class="grille" style="grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);align-items:start"><div>${main}</div><div>${side}</div></div>${credit}`;
   return main + (side ? sep() + side : '') + credit;
 }

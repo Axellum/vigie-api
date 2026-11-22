@@ -61,6 +61,9 @@ TIDES_REFRESH: Final = timedelta(hours=6)
 NORMALS_REFRESH: Final = timedelta(hours=12)
 SPOTS_REFRESH: Final = timedelta(hours=24)
 ACTIVITIES_REFRESH: Final = timedelta(minutes=30)
+# The forest fire danger of Météo-France: published once a day (about 17:00, June to September); out of season the instance
+# answers `out_of_season` without asking anyone.
+FOREST_FIRE_REFRESH: Final = timedelta(hours=1)
 # The profile asked of `/v1/point` (its full answer, not the compact one of the screens, and the sea when there is one).
 POINT_DEVICE_TYPE: Final = "generic"
 # Half the side of the box around the place in which a measuring station's wind is looked for (degrees), and the spots offered

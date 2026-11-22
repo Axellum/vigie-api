@@ -1,7 +1,7 @@
 """The Home Assistant integration (``custom_components/vigie``) reads ``GET /v1/vigilances``, ``GET /v1/earthquakes``, when its
 experimental option is ticked ``GET /v1/experimental/prealert``, and when its option "Weather and card" is ticked (ADR 0042)
 ``GET /v1/point``, ``/v1/tides``, ``/v1/climate/normals``, ``/v1/stations/wind``, ``/v1/surf/spots`` and
-``/v1/activities/{spot_id}``: keep what it reads true.
+``/v1/activities/{spot_id}`` and ``/v1/forest-fire``: keep what it reads true.
 
 The integration is tested in its own environment (``tests_ha/``, Python and Home Assistant of their own, see
 ``docs/home-assistant.md``). Here, in the API's own CI, the answers its tests use are checked against the API's
@@ -26,6 +26,7 @@ from pydantic import BaseModel
 from app.models.activities import ActivitiesForecast
 from app.models.climate import ClimateNormalsResponse
 from app.models.earthquakes import EarthquakesResponse
+from app.models.forest_fire import ForestFireResponse
 from app.models.prealert import PrealertResponse
 from app.models.schemas import PointResponse, SeverityLevel
 from app.models.stations import StationWindMap
@@ -47,6 +48,7 @@ WEATHER_MODELS: dict[str, type[BaseModel]] = {
     "stationwind_": StationWindMap,
     "spots_": SurfSpots,
     "activities_": ActivitiesForecast,
+    "forestfire_": ForestFireResponse,
 }
 WEATHER_FIXTURES = sorted(path for prefix in WEATHER_MODELS for path in (ROOT / "tests_ha" / "fixtures").glob(f"{prefix}*.json"))
 
@@ -107,6 +109,12 @@ def test_the_earthquake_builders_of_the_integration_tests_make_answers_of_the_ap
     quakes = [payloads.earthquake(), payloads.earthquake("emsc_x", sources=("EMSC",), depth_km=None), payloads.earthquake("usgs_y", sources=("USGS", "EMSC"), tsunami=True)]
     for answer in (payloads.earthquakes_response(quakes), payloads.earthquakes_response([], answered=(False, False))):
         response = EarthquakesResponse.model_validate(answer)
+        assert answer == json.loads(response.model_dump_json())
+
+
+def test_the_forest_fire_builder_of_the_integration_tests_makes_answers_of_the_api() -> None:
+    for answer in (payloads.forest_fire(), payloads.forest_fire(4, 3), payloads.forest_fire(None, None, reference_time=None, status="out_of_season")):
+        response = ForestFireResponse.model_validate(answer)
         assert answer == json.loads(response.model_dump_json())
 
 
