@@ -86,6 +86,11 @@ QUOTAS: dict[str, Quota] = {
     # 36 transactions (measured with /mapserver/mapkey_status/), see ``WORLD_DAY_TRANSACTIONS`` in ``firms.py``. The static files
     # have no key and no transaction: they weigh 0 and are counted as calls only.
     "nasa_firms": Quota("nasa-firms", (Limit(600, 5_000),), "https://firms.modaps.eosdis.nasa.gov/api/area/"),
+    # NASA GIBS WMTS (GPM IMERG 30-minute observed precipitation tiles): no numeric rate limit is published on the GIBS
+    # documentation pages (https://nasa-gibs.github.io/gibs-api-docs/, read 2026-11-22). A ceiling of our own protects
+    # upstream against runaway tile loops: 600 requests/minute (held to 90% = 540/min), backed by a 600-tile LRU cache,
+    # in-flight coalescing, and 10-minute DescribeDomains caching (at most 6 XML calls/hour).
+    "nasa_gibs_imerg": Quota("nasa-gibs-imerg", (Limit(60, 600),), "https://github.com/Axellum/vigie-api/blob/main/SOURCES.md"),
     # ECMWF open data on its AWS mirror (the unofficial pre-alert pilot for Turkey, off by default): no request limit is published
     # for the mirror (ECMWF's own server allows 500 to 2,000 simultaneous connections). A ceiling of our own: 2 runs of 144 requests
     # (an index and five byte ranges per lead) and a check every 30 minutes (one or two HEAD) make about 400 a day; 1,000 leaves room

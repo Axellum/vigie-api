@@ -167,6 +167,18 @@ COMMERCIAL_USE: dict[str, CommercialUse] = {
             ("https://www.earthdata.nasa.gov/engage/open-data-services-software-policies/data-information-guidance",),
         ),
         CommercialUse(
+            "nasa_gibs_imerg",
+            "allowed",
+            "CC0 / U.S. Government public domain (NASA ESDIS Data Use Guidance, read on 2026-11-22: unless marked with a "
+            "use restriction, data provided from a NASA-led mission are licensed as Creative Commons Zero (CC0) with no "
+            "restrictions on reuse, provided NASA is acknowledged and no endorsement is implied).",
+            (
+                "https://www.earthdata.nasa.gov/engage/open-data-services-software-policies/data-use-guidance",
+                "https://nasa-gibs.github.io/gibs-api-docs/",
+            ),
+            "2026-11-22",
+        ),
+        CommercialUse(
             "meteoalarm",
             "not_verified",
             "Terms equivalent to CC BY 4.0, with additional requirements for redistributors that were not read.",

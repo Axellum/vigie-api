@@ -138,6 +138,13 @@ CREDITS: dict[str, Credit] = {
             "provider",
         ),
         Credit(
+            "nasa_gibs_imerg",
+            "NASA GIBS (GPM IMERG, ESDIS)",
+            "We acknowledge the use of imagery provided by services from NASA's Global Imagery Browse Services (GIBS), "
+            "part of NASA's Earth Science Data and Information System (ESDIS).",
+            "provider",
+        ),
+        Credit(
             "meteoalarm",
             "MeteoAlarm (EUMETNET)",
             "Source: EUMETNET – MeteoAlarm (https://meteoalarm.org/en/live/), warnings of the national meteorological "

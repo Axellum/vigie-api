@@ -92,13 +92,14 @@ def test_health_and_providers(world: World) -> None:
     assert data["status"] == "ok"
     assert data["storage_journal_mode"] == "wal"
     assert {"waveshare-7b", "tab5"} <= set(data["supported_devices"])
-    assert data["providers_summary"]["total"] == 37  # 22, four SWPC products of the aurora, four travel ministries (Smartraveller is off by default), ECDC, the surf forecast, REFMAR tide gauges, NOAA NDBC buoys, VigiEau, SLF and Euregio avalanches
+    assert data["providers_summary"]["total"] == 38  # 22, four SWPC products of the aurora, four travel ministries (Smartraveller is off by default), ECDC, the surf forecast, REFMAR tide gauges, NOAA NDBC buoys, VigiEau, SLF and Euregio avalanches, NASA GIBS IMERG observed rain
     assert data["scheduler"]["running"] is False  # the scheduler is opt-in (VIGIE_SCHEDULER)
 
     providers = world.client.get("/v1/providers")
     assert providers.status_code == 200
     ids = {p["provider_id"] for p in providers.json()}
-    assert len(providers.json()) == 37
+    assert len(providers.json()) == 38
+    assert "nasa_gibs_imerg" in ids
     assert "vigieau" in ids
     assert "slf_avalanche" in ids
     assert "euregio_avalanche" in ids

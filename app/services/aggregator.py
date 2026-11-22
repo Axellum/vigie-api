@@ -107,6 +107,7 @@ from app.collectors.meteofrance_weather import (
 )
 from app.collectors.meteofrance_wind_field import MeteoFranceWindFieldCollector, wind_field_key_from_env
 from app.collectors.metservice import MetServiceCollector, metservice_enabled_from_env
+from app.collectors.nasa_gibs_imerg import NasaGibsImergCollector, observed_rain_enabled
 from app.collectors.ndbc import NdbcCollector
 from app.collectors.nhc import NHCCollector
 from app.collectors.refmar import RefmarCollector
@@ -350,6 +351,7 @@ class AggregatorService:
         meteofrance_uv: Optional[MeteoFranceUvCollector] = None,
         meteofrance_wind_field: Optional[MeteoFranceWindFieldCollector] = None,
         meteofrance_rain_field: Optional[MeteoFranceRainFieldCollector] = None,
+        nasa_gibs_imerg: Optional[NasaGibsImergCollector] = None,
         meteofrance_radar: Optional[MeteoFranceRadarCollector] = None,
         meteofrance_shortterm: Optional[MeteoFranceShortTermCollector] = None,
         meteofrance_overseas: Optional[MeteoFranceOverseasCollector] = None,
@@ -522,6 +524,13 @@ class AggregatorService:
         if meteofrance_rain_field is None and rain_key is not None:
             meteofrance_rain_field = MeteoFranceRainFieldCollector(rain_key)
         self.meteofrance_rain_field = meteofrance_rain_field
+        # Global observed satellite precipitation tiles (NASA GIBS GPM IMERG 30-min, keyless, CC0 / US Public Domain).
+        self.nasa_gibs_imerg_off_reason = (
+            "turned off with VIGIE_OBSERVED_RAIN=0 (NASA GIBS GPM IMERG global observed precipitation)"
+        )
+        if nasa_gibs_imerg is None and observed_rain_enabled():
+            nasa_gibs_imerg = NasaGibsImergCollector()
+        self.nasa_gibs_imerg = nasa_gibs_imerg
         # The weather of the overseas territories from AROME-OM, read by the same gateway (windows around the islands).
         self.meteofrance_overseas_off_reason = (
             "no vigie-meteo gateway: set VIGIE_METEO_GATEWAY_URL (Météo-France AROME-OM weather of the overseas territories), "
@@ -816,6 +825,8 @@ class AggregatorService:
             collectors.append(self.meteofrance_wind_field)
         if self.meteofrance_rain_field is not None:
             collectors.append(self.meteofrance_rain_field)
+        if self.nasa_gibs_imerg is not None:
+            collectors.append(self.nasa_gibs_imerg)
         if self.meteofrance_radar is not None:
             collectors.append(self.meteofrance_radar)
         if self.meteofrance_shortterm is not None:
@@ -939,6 +950,15 @@ class AggregatorService:
                     "name": "Météo-France AROME / ARPEGE precipitation (forecast map)",
                     "domain": "weather",
                     "reason": self.meteofrance_rain_field_off_reason,
+                }
+            )
+        if self.nasa_gibs_imerg is None:
+            off.append(
+                {
+                    "provider_id": "nasa_gibs_imerg",
+                    "name": "NASA GIBS GPM IMERG (observed rain)",
+                    "domain": "weather",
+                    "reason": self.nasa_gibs_imerg_off_reason,
                 }
             )
         if self.meteofrance_radar is None:

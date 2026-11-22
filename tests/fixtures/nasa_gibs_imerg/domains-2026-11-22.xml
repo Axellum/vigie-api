@@ -1,0 +1,1 @@
+<Domains xmlns:ows='http://www.opengis.net/ows/1.1'><SpaceDomain><BoundingBox minx='-20037508.342789' crs='urn:ogc:def:crs:EPSG::3857' maxx='20037508.342789' maxy='20037508.342789' miny='-20037508.342789'/></SpaceDomain><DimensionDomain><ows:Identifier>time</ows:Identifier><Domain>2026-11-21T18:00:00Z/2026-11-22T12:30:00Z/PT30M</Domain><Size>1</Size></DimensionDomain></Domains>
