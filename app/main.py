@@ -51,6 +51,8 @@ Endpoints:
 - ``GET    /v1/wind/field/{level}/{stamp}.png`` : One of those images (immutable).
 - ``GET    /v1/rain/field``        : The forecast precipitation (1-hour totals) by AROME and ARPEGE (Météo-France), three grids across lead steps as RGBA PNG overlays.
 - ``GET    /v1/rain/field/{level}/{stamp}.png`` : One of those precipitation overlays (immutable).
+- ``GET    /v1/rain/observed``     : Global observed satellite precipitation (NASA GIBS GPM IMERG 30-min average), active frames and tile template.
+- ``GET    /v1/rain/observed/tiles/{stamp}/{z}/{x}/{y}.png`` : One 256 px Web Mercator IMERG precipitation tile (immutable).
 - ``GET    /v1/radar/france/nowcast`` : Météo-France PIAF +1h rain nowcast frames over France, relayed from a vigie-meteo gateway.
 - ``GET    /v1/radar/france/nowcast/tiles/{epoch}/{z}/{x}/{y}.png`` : One 256 px Web Mercator PIAF nowcast tile (immutable).
 - ``GET    /v1/surf/spots/{id}/station`` : The latest 6-minute observation (wind speed, gusts, direction, relative regime, air temperature, pressure) of the nearest coastal station of a spot, with optional live comparison against the wind forecast (`compare=true`).
@@ -126,6 +128,8 @@ from app.collectors.meteofrance_radar import AREAS as RADAR_AREAS
 from app.collectors.meteofrance_radar import TRANSPARENT_PNG, tile_touches
 from app.collectors.meteofrance_rain_field import LEVEL_IDS as RAIN_FIELD_LEVELS
 from app.collectors.meteofrance_wind_field import LEVEL_IDS as WIND_FIELD_LEVELS
+from app.collectors.nasa_gibs_imerg import MAX_ZOOM as OBSERVED_RAIN_MAX_ZOOM
+from app.collectors.nasa_gibs_imerg import MIN_ZOOM as OBSERVED_RAIN_MIN_ZOOM
 from app.models.activities import ActivitiesForecast, ActivitiesOverview, BoatCategory
 from app.models.avalanches import AvalancheResponse
 from app.models.buoys import SpotBuoyReading, SpotBuoys
@@ -149,6 +153,7 @@ from app.models.pollens import PollensResponse
 from app.models.prealert import PrealertResponse
 from app.models.radar import RadarFrance, RadarNowcastFrance
 from app.models.rain_field import RainFieldMap
+from app.models.rain_observed import ObservedRainMap
 from app.models.schemas import (
     CAPFeedResponse,
     DeviceType,
@@ -190,6 +195,7 @@ from app.services import (
     buoys,
     radar_france,
     rain_field,
+    rain_observed,
     sea_buoys,
     sea_places,
     station_wind,
@@ -367,6 +373,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await scheduler.stop()
         if prealert_pilot is not None:
             await prealert_pilot.stop()
+        if aggregator.nasa_gibs_imerg is not None:
+            await aggregator.nasa_gibs_imerg.aclose()
 
 
 app = FastAPI(
@@ -1282,6 +1290,76 @@ async def get_rain_field_image(level: str, stamp: str) -> Response:
     if png is None:
         raise HTTPException(status_code=404, detail="no such image (any more)")
     return Response(content=png, media_type="image/png", headers={"Cache-Control": RAIN_FIELD_IMAGE_CACHE})
+
+
+OBSERVED_RAIN_CACHE = "public, max-age=300"
+OBSERVED_RAIN_TILE_CACHE = "public, max-age=86400, immutable"
+_OBSERVED_RAIN_STAMP = re.compile(r"^\d{12}$")
+
+
+@app.get(
+    "/v1/rain/observed",
+    response_model=ObservedRainMap,
+    tags=["Weather"],
+    description=(
+        "Global observed satellite precipitation rate (NASA GIBS GPM IMERG 30-minute average, ~10 km native "
+        "resolution, typically 4 to 6 hours behind real time, CC0 / U.S. Government public domain, keyless). "
+        "Returns the active observed 30-minute frames (up to the last 6 hours), the tile URL template "
+        "(`GET /v1/rain/observed/tiles/{stamp}/{z}/{x}/{y}.png`, 256 px Web Mercator PNG tiles, zooms 0 to 6), "
+        "bounds and NASA GIBS rain/snow legends. Satellite estimate, not a ground weather radar. "
+        "Turned off with `VIGIE_OBSERVED_RAIN=0` (`status: disabled`). **Not for safety.**"
+    ),
+)
+async def get_rain_observed(response: Response) -> ObservedRainMap:
+    """Global observed satellite precipitation frames and tile template (NASA GIBS GPM IMERG)."""
+    response.headers["Cache-Control"] = OBSERVED_RAIN_CACHE
+    return await rain_observed.rain_observed_map(aggregator.nasa_gibs_imerg)
+
+
+@app.get(
+    "/v1/rain/observed/tiles/{stamp}/{z}/{x}/{y}.png",
+    tags=["Weather"],
+    response_class=Response,
+    responses={
+        200: {"content": {"image/png": {}}, "description": "A 256 px Web Mercator PNG tile (transparent below 0.1 mm/h or outside coverage)."},
+        404: {"description": "Observed rain disabled, stamp not in `GET /v1/rain/observed`, or tile out of range."},
+        503: {"description": "NASA GIBS does not answer or the call budget is exhausted."},
+    },
+    description=(
+        "One 256 px Web Mercator XYZ tile of a global observed satellite precipitation frame listed by "
+        "`GET /v1/rain/observed` (proxied from NASA GIBS IMERG with bounded in-memory LRU cache; immutable)."
+    ),
+)
+async def get_rain_observed_tile(
+    stamp: str = Path(description="compact UTC timestamp (`YYYYMMDDHHMM`) listed by `GET /v1/rain/observed`"),
+    z: int = Path(ge=0, le=22),
+    x: int = Path(ge=0),
+    y: int = Path(ge=0),
+) -> Response:
+    """One 256 px Web Mercator PNG tile of NASA GIBS GPM IMERG observed precipitation."""
+    collector = aggregator.nasa_gibs_imerg
+    if collector is None:
+        raise HTTPException(status_code=404, detail="observed satellite rain is disabled on this instance")
+    if (
+        not _OBSERVED_RAIN_STAMP.match(stamp)
+        or not OBSERVED_RAIN_MIN_ZOOM <= z <= OBSERVED_RAIN_MAX_ZOOM
+        or x >= 2**z
+        or y >= 2**z
+    ):
+        raise HTTPException(status_code=404, detail="no such observed rain tile")
+    fetched = await collector.frames()
+    if fetched is None:
+        raise HTTPException(status_code=503, detail="NASA GIBS does not answer")
+    frame = fetched.value.by_stamp.get(stamp)
+    if frame is None:
+        raise HTTPException(status_code=404, detail="no such observed rain frame")
+    try:
+        png = await collector.tile(frame, z, x, y)
+    except Exception:
+        raise HTTPException(status_code=503, detail="NASA GIBS does not answer") from None
+    if png is None:
+        raise HTTPException(status_code=404, detail="no such observed rain tile")
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": OBSERVED_RAIN_TILE_CACHE})
 
 
 PLACES_CACHE = "public, max-age=86400"  # the file changes with a release, not by the hour

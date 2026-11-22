@@ -90,6 +90,7 @@ from app.collectors.meteoalarm import (  # noqa: E402
 from app.collectors.metservice import COLOUR_PARAMETER as METSERVICE_COLOUR  # noqa: E402
 from app.collectors.metservice import EVENTS as METSERVICE_EVENTS  # noqa: E402
 from app.collectors.metservice import MetServiceCollector  # noqa: E402
+from app.collectors.nasa_gibs_imerg import NasaGibsImergCollector  # noqa: E402
 from app.collectors.ndbc import NdbcCollector  # noqa: E402
 from app.collectors.nhc import NHCCollector  # noqa: E402
 from app.collectors.refmar import RefmarCollector  # noqa: E402
@@ -909,6 +910,20 @@ async def check_health_ecdc(client: httpx.AsyncClient) -> Result:
     return Result("health_ecdc", "ok", ", ".join(counts))
 
 
+async def check_nasa_gibs_imerg(client: httpx.AsyncClient) -> Result:
+    """NASA GIBS GPM IMERG 30-min observed precipitation: DescribeDomains XML and one z=0 tile."""
+    collector = NasaGibsImergCollector(http_client=client)
+    frames = await collector._collect(client)
+    tile = await collector.tile(frames.latest, 0, 0, 0)
+    if tile is None:
+        return Result("nasa_gibs_imerg", "FAIL", f"z=0 tile missing for latest frame {frames.latest.time_at}")
+    return Result(
+        "nasa_gibs_imerg",
+        "ok",
+        f"{len(frames.frames)} frames, latest {frames.latest.time_at}, z=0 tile {len(tile)} B",
+    )
+
+
 CHECKS: dict[str, Check] = {
     "usgs_eq": check_usgs,
     "emsc_seismic": check_emsc,
@@ -930,6 +945,7 @@ CHECKS: dict[str, Check] = {
     "open_meteo_aqi": check_air_quality,
     "met_norway_fallback": check_met_norway,
     "rainviewer_radar": check_rainviewer,
+    "nasa_gibs_imerg": check_nasa_gibs_imerg,
     "meteoalarm_atom": check_meteoalarm_atom,
     "meteoalarm_cap": check_meteoalarm_cap,
     "dwd_cap": check_dwd,

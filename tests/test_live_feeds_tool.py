@@ -16,6 +16,7 @@ from typing import Any, Optional
 import httpx
 import pytest
 
+from app.collectors.meteofrance_radar import TRANSPARENT_PNG
 from tests import firms_samples, health_samples, samples, storm_samples, swic_samples, travel_samples
 from tests import vigilance_samples as national
 from tests.helpers import SimClock
@@ -193,6 +194,11 @@ def good_answers() -> dict[str, Callable[[httpx.Request], httpx.Response]]:
         "air-quality-api.open-meteo.com": lambda r: httpx.Response(200, json=GOOD_AIR),
         "api.met.no": lambda r: httpx.Response(200, json=samples.metno_payload(), headers=METNO_HEADERS),
         "api.rainviewer.com": lambda r: httpx.Response(200, json=GOOD_RADAR),
+        "gibs.earthdata.nasa.gov": lambda r: (
+            httpx.Response(200, content=(Path(__file__).parent / "fixtures" / "nasa_gibs_imerg" / "domains-2026-11-22.xml").read_bytes())
+            if r.url.path.endswith(".xml")
+            else httpx.Response(200, content=TRANSPARENT_PNG, headers={"Content-Type": "image/png"})
+        ),
         "feeds.meteoalarm.org": meteoalarm_answer,
         "opendata.dwd.de": lambda r: httpx.Response(200, content=national.national_fixture("dwd", "status_district_mul.zip")),
         "api.weather.gc.ca": lambda r: httpx.Response(200, content=national.national_fixture("eccc", "weather_alerts_items.json")),
