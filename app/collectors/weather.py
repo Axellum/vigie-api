@@ -45,6 +45,7 @@ from app.collectors.grid import (
     grid_step_from_env,
     snap_to_grid,
 )
+from app.collectors.open_meteo_hosts import get_open_meteo
 from app.collectors.weights import open_meteo_weight
 from app.models.schemas import CurrentWeather, DailyForecast
 
@@ -296,7 +297,7 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> dict[str, Any]:
         part = str(kwargs.get("part", "now"))
         params = self.request_params(part, float(kwargs["lat"]), float(kwargs["lon"]))
-        resp = await self._get(client, self.BASE_URL, params=params)
+        resp = await get_open_meteo(self, client, self.BASE_URL, DEFAULT_OPEN_METEO_FORECAST_URL, params)
         resp.raise_for_status()
         payload = resp.json()
         return self.parse_daily(payload) if part == "daily" else self.parse_now(payload)

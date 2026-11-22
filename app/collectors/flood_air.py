@@ -14,6 +14,7 @@ value at all raises ``ValueError``, so the caller reports "unknown" instead of a
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -29,6 +30,7 @@ from app.collectors.grid import (
     grid_step_from_env,
     snap_to_grid,
 )
+from app.collectors.open_meteo_hosts import get_open_meteo
 from app.collectors.weights import open_meteo_weight
 from app.models.pollens import (
     POLLEN_API_VARIABLES,
@@ -45,6 +47,15 @@ from app.models.schemas import (
     HazardCategory,
     SeverityLevel,
 )
+
+DEFAULT_OPEN_METEO_AIR_QUALITY_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
+
+
+def open_meteo_air_quality_url(env: Optional[Mapping[str, str]] = None) -> str:
+    """The Open-Meteo Air Quality endpoint: ``VIGIE_OPEN_METEO_AIR_QUALITY_URL`` when set (e.g. a self-hosted
+    Open-Meteo, asked first with the public API as a fallback, see ``open_meteo_hosts.py``), else the public one."""
+    raw = ((env if env is not None else os.environ).get("VIGIE_OPEN_METEO_AIR_QUALITY_URL") or "").strip()
+    return raw or DEFAULT_OPEN_METEO_AIR_QUALITY_URL
 
 
 def _numbers(values: Any) -> list[float]:
@@ -163,6 +174,7 @@ class OpenMeteoAirQualityCollector(BaseCollector[AirQualityStatus]):
             ttl_seconds=3600,
             http_client=http_client,
         )
+        self.BASE_URL = open_meteo_air_quality_url()
         self.grid_deg = (
             grid_deg
             if grid_deg is not None
@@ -202,7 +214,7 @@ class OpenMeteoAirQualityCollector(BaseCollector[AirQualityStatus]):
         lat = float(kwargs["lat"])
         lon = float(kwargs["lon"])
         params = self.request_params(lat, lon)
-        resp = await self._get(client, self.BASE_URL, params=params)
+        resp = await get_open_meteo(self, client, self.BASE_URL, DEFAULT_OPEN_METEO_AIR_QUALITY_URL, params)
         resp.raise_for_status()
         return self.parse_response(resp.json())
 
