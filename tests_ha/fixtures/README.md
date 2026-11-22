@@ -11,6 +11,7 @@ here must match one of the prefixes that test knows.
 | `point_*`, `tides_*`, `normals_*`, `vigilances_biarritz_*` | `GET /v1/point?compact=false&marine=true`, `/v1/tides`, `/v1/climate/normals`, `/v1/vigilances` | 2026-11-22 around 13:11 UTC, Biarritz and Tokyo |
 | `stationwind_biarritz_2026-11-22.json` | `GET /v1/stations/wind?bbox=` (a box around Biarritz) | same read |
 | `spots_2026-11-22.json`, `activities_biarritz-plage-des-corsaires_2026-11-22.json` | `GET /v1/surf/spots`, `GET /v1/activities/{spot_id}` | same read |
+| `earthquakes_biarritz_2026-11-22.json` | `GET /v1/earthquakes` (300 km, magnitude 4.5, 24 h: what the integration asks) | 2026-11-22 around 18:28 UTC, Biarritz: none that day |
 
 The places are public places (a city centre, a beach), never the home of anyone. The tests that read the weather freeze the clock
 just after the read, because "the next hours" and "the next high tide" are relative to now.

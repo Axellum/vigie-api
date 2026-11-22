@@ -26,7 +26,9 @@ If you prefer the weather integration you already use in Home Assistant (Météo
 the entry then keeps the warnings and the earthquakes only.
 
 Its tests run against Home Assistant 2026.10.2. The warnings were tried on one running Home Assistant installation on
-2026-10-20; see "Develop" for what the tests do and do not cover.
+2026-10-20. On every change, the `install` job of the workflow installs it in a Home Assistant that never ran, the way
+"Install" and "Configure" below say, on the oldest Home Assistant `hacs.json` accepts and on a newer one; see "Develop" for
+what the tests do and do not cover.
 
 ## Install
 
@@ -406,7 +408,16 @@ pip install playwright && python -m playwright install chromium
 python tools/card_in_home_assistant.py --ha http://127.0.0.1:8123 --instance http://127.0.0.1:8099 --out captures
 ```
 
-It finishes the onboarding of a fresh Home Assistant: run it on a throwaway one, never on your own installation. Home
+The **`install` job** does what a person does, in Home Assistant's own screens (`tools/install_in_fresh_home_assistant.py`):
+`custom_components/vigie` copied from the files of the commit (what HACS or a copy by hand puts there, not the work tree)
+into a Home Assistant that never ran, the onboarding, then Settings, Devices & services, Add integration, "Vigie" and its
+form (the address of the fake instance instead of the public one), the entities this page lists, and the card added from
+the card picker (Edit, Add card, "Vigie", Save) on an empty dashboard. It fails on any error the integration writes in Home
+Assistant's log. It runs on the oldest Home Assistant `hacs.json` accepts and on a newer stable release, both pinned; the
+captures of every step are kept as the artifacts `install-captures-<version>`. HACS itself is not run (it asks for a GitHub
+account), nor is the dashboard made through the screens (its card is).
+
+Both scripts finish the onboarding of a fresh Home Assistant: run them on a throwaway one, never on your own installation. Home
 Assistant is not built for Windows: its test plugin needs the Unix modules `fcntl` and `resource`, and pytest-socket
 refuses the socket pair that the Windows event loop opens. For a run on Windows only, `tests_ha/windows/` holds three
 tiny stubs for them:

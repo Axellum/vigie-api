@@ -148,7 +148,7 @@ def test_the_image_carries_the_fault_file_and_the_notice_that_goes_with_it() -> 
 def test_the_home_assistant_workflow_has_its_own_python_and_leaves_the_api_jobs_alone() -> None:
     workflow = load("home-assistant.yml")
     assert workflow["permissions"] == {"contents": "read"}
-    assert set(workflow["jobs"]) == {"tests", "hassfest", "hacs", "card"}
+    assert set(workflow["jobs"]) == {"tests", "hassfest", "hacs", "card", "install"}
     tests = workflow["jobs"]["tests"]
     setup = next(step for step in tests["steps"] if "setup-python" in str(step.get("uses", "")))
     assert setup["with"]["python-version"] == "3.14"  # what the pinned Home Assistant needs, not the API's 3.12 and 3.13
@@ -172,6 +172,25 @@ def test_the_card_is_tried_in_a_pinned_home_assistant_on_the_replayed_answers() 
     assert re.search(r"playwright==\d+\.\d+\.\d+", text)
     upload = next(step for step in workflow["jobs"]["card"]["steps"] if "upload-artifact@" in str(step.get("uses", "")))
     assert upload["with"]["name"] == "card-captures" and upload.get("if") == "always()"
+
+
+def test_the_install_is_tried_in_a_fresh_home_assistant_from_the_commits_files() -> None:
+    """The `install` job: a Home Assistant that never ran (no configuration of ours), the folder copied from the files of the
+    commit rather than the work tree, on the oldest Home Assistant hacs.json accepts and on a stated newer one."""
+    workflow = load("home-assistant.yml")
+    job = workflow["jobs"]["install"]
+    versions = job["strategy"]["matrix"]["ha"]
+    hacs = json.loads((ROOT / "hacs.json").read_text(encoding="utf-8"))
+    assert versions[0] == hacs["homeassistant"] and len(versions) >= 2 and job["strategy"]["fail-fast"] is False
+    assert all(re.fullmatch(r"\d{4}\.\d+\.\d+", version) for version in versions)  # never `stable`, which moves
+    text = steps_text(workflow, "install")
+    assert "git archive HEAD custom_components/vigie" in text and "configuration.yaml" in text
+    assert "ghcr.io/home-assistant/home-assistant:${{ matrix.ha }}" in text
+    assert "--replay tests_ha/fixtures" in text and "tools/install_in_fresh_home_assistant.py" in text
+    upload = next(step for step in job["steps"] if "upload-artifact@" in str(step.get("uses", "")))
+    assert upload["with"]["name"] == "install-captures-${{ matrix.ha }}" and upload.get("if") == "always()"
+    for trigger in ("push", "pull_request"):
+        assert "tools/install_in_fresh_home_assistant.py" in workflow[True][trigger]["paths"]
 
 
 def test_hassfest_and_hacs_are_run_with_the_category_and_ignores_stated() -> None:

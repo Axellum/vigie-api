@@ -22,9 +22,10 @@ entry. The real instance and the real warnings are not touched. It has no authen
 
 With ``--replay tests_ha/fixtures`` it also serves the routes of the option "Weather and card" (ADR 0042): the real answers
 recorded for Biarritz on 2026-11-22 (the weather, the tide, the normals, the wind measured, the spots and the verdicts of one
-spot, the warnings in force then), every time in them moved by as much as the clock moved since the read, so "now" falls
-where it fell. This is how the dashboard card is tried in a real Home Assistant (the ``card`` job of the workflow). What it
-serves is a replay of an old read, not today's weather: say so wherever it is shown.
+spot, the warnings in force then, and the earthquakes near it, read later that day), every time in them moved by as much as
+the clock moved since the read, so "now" falls where it fell. This is how the dashboard card is tried in a real Home
+Assistant, and the integration installed in a fresh one (the ``card`` and ``install`` jobs of the workflow), with nothing
+left unanswered. What it serves is a replay of an old read, not today's weather: say so wherever it is shown.
 """
 
 from __future__ import annotations
@@ -167,8 +168,11 @@ REPLAY_ROUTES = {
     "/v1/stations/wind": "stationwind_biarritz_2026-11-22.json",
     "/v1/surf/spots": "spots_2026-11-22.json",
     "/v1/activities/biarritz-plage-des-corsaires": "activities_biarritz-plage-des-corsaires_2026-11-22.json",
+    "/v1/earthquakes": "earthquakes_biarritz_2026-11-22.json",
 }
 REPLAY_VIGILANCES = "vigilances_biarritz_2026-11-22.json"
+# A route read apart from the others: moved from its own time of reading (the key that holds it), not from the point's.
+REPLAY_OWN_READ = {"/v1/earthquakes": "generated_utc"}
 
 
 def _moved(value: Any, seconds: int, days: int, dated: bool = False) -> Any:
@@ -202,16 +206,19 @@ class Replay:
         self.read_utc: int = point["server_utc"]
         self._offset: int = point.get("utc_offset_s") or 0
 
-    def _shift(self, now: int) -> tuple[int, int]:
-        seconds = now - self.read_utc
+    def _shift(self, now: int, read_utc: Optional[int] = None) -> tuple[int, int]:
+        read_utc = self.read_utc if read_utc is None else read_utc
+        seconds = now - read_utc
         local = lambda t: datetime.datetime.fromtimestamp(t + self._offset, tz=datetime.timezone.utc).date()  # noqa: E731
-        return seconds, (local(now) - local(self.read_utc)).days
+        return seconds, (local(now) - local(read_utc)).days
 
     def answer(self, route: str, now: Optional[int] = None) -> Optional[Any]:
         """The recorded answer of ``route`` moved to ``now``; None when nothing was recorded for it."""
         if route not in self._answers:
             return None
-        return _moved(copy.deepcopy(self._answers[route]), *self._shift(int(time.time()) if now is None else now))
+        recorded = self._answers[route]
+        read_utc = recorded[REPLAY_OWN_READ[route]] if route in REPLAY_OWN_READ else None
+        return _moved(copy.deepcopy(recorded), *self._shift(int(time.time()) if now is None else now, read_utc))
 
     def vigilances(self, scenario: Scenario, now: Optional[int] = None) -> dict[str, Any]:
         """The warnings recorded then, moved to ``now``, and the simulated ones of ``scenario`` after them."""

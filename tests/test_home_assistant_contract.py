@@ -98,7 +98,8 @@ def test_the_recorded_answers_are_answers_of_the_api(path: Path) -> None:
 def test_the_recorded_earthquake_answers_are_answers_of_the_api(path: Path) -> None:
     raw = json.loads(path.read_text(encoding="utf-8"))
     response = EarthquakesResponse.model_validate(raw)
-    assert response.earthquakes and response.sources and response.attribution
+    assert response.sources and response.attribution
+    assert len(response.earthquakes) == raw["count"]  # a quiet day (Biarritz, 2026-11-22) is an answer too
     assert raw == json.loads(response.model_dump_json())  # every field the API sends, and none it does not
 
 
@@ -169,7 +170,7 @@ def test_the_replay_serves_the_recorded_answers_moved_to_now() -> None:
     recorded = json.loads((ROOT / "tests_ha" / "fixtures" / fake_instance.REPLAY_ROUTES["/v1/point"]).read_text(encoding="utf-8"))
     later = replay.read_utc + 3 * 86400 + 600
     for route, name in fake_instance.REPLAY_ROUTES.items():
-        model = next(model for prefix, model in WEATHER_MODELS.items() if name.startswith(prefix))
+        model = next(model for prefix, model in {**WEATHER_MODELS, "earthquakes_": EarthquakesResponse}.items() if name.startswith(prefix))
         model.model_validate(replay.answer(route, now=later))
     moved = replay.answer("/v1/point", now=later)
     assert moved["short_term"]["steps"][0]["time_utc"] == recorded["short_term"]["steps"][0]["time_utc"] + later - replay.read_utc
@@ -182,7 +183,8 @@ def test_the_replay_serves_the_recorded_answers_moved_to_now() -> None:
     assert normals.records.gust_ms.date == "2019-11-03"  # a record keeps its date
     answer = replay.vigilances(fake_instance.Scenario(), now=later)
     assert abs(VigilancesResponse.model_validate(answer).server_utc - later) < 60  # read a few seconds after the point
-    assert replay.answer("/v1/earthquakes", now=later) is None  # nothing recorded: the fake instance answers 404
+    assert replay.answer("/v1/earthquakes", now=later)["generated_utc"] == later  # read hours after the point: moved from its own read
+    assert replay.answer("/v1/experimental/prealert", now=later) is None  # nothing recorded: the fake instance answers 404
 
 
 def test_the_fake_instance_refuses_what_is_not_a_phenomenon_or_a_level() -> None:
