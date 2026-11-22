@@ -388,11 +388,15 @@ app = FastAPI(
 )
 
 # The admin token is checked inside the CORS middleware (the CORS one is added after it, so it is the outermost): a 401 carries the CORS headers a browser needs to read it.
+# Any page may read the API, never with the browser's cookies: the API reads none (the admin token is a header that a page
+# has to set itself), and the site's account cookie lives on the same host. With credentials allowed, Starlette echoes the
+# origin of the page and adds `Access-Control-Allow-Credentials: true`, which would let any page read with that cookie the
+# day a route of this host trusts it.
 app.add_middleware(AdminTokenMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
