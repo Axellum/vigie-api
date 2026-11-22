@@ -116,7 +116,11 @@ def add_the_integration(page: Page, ha: str, instance: str, steps: Steps) -> lis
     page.wait_for_timeout(500)
     steps.shot("entree_creee")
     button(page, "dialog-data-entry-flow", "(skip and )?finish").click(timeout=30_000)  # "Skip and finish" while no area is picked
-    page.locator("dialog-data-entry-flow").wait_for(state="detached", timeout=30_000)
+    # the dialog element stays in the page, empty; Home Assistant then opens the page of the new device
+    page.locator("step-flow-create-entry").wait_for(state="detached", timeout=30_000)
+    page.wait_for_url(re.compile(r"/config/devices/device/"), timeout=30_000)
+    page.wait_for_timeout(1500)
+    steps.shot("appareil")
     return problems
 
 
@@ -166,7 +170,8 @@ def add_the_card(page: Page, ha: str, steps: Steps) -> list[str]:
     page.wait_for_timeout(1000)
     steps.shot("carte_apercu")
     button(page, "hui-dialog-edit-card", "save").click(timeout=30_000)
-    page.locator("hui-dialog-edit-card").wait_for(state="detached", timeout=30_000)
+    # the dialog element stays in the page once closed: its preview of the card goes
+    page.locator("hui-dialog-edit-card vigie-card").first.wait_for(state="detached", timeout=30_000)
     page.get_by_role("button", name=re.compile(r"^\s*done\s*$", re.I)).first.click(timeout=30_000)
     try:
         page.locator("vigie-card .page").first.wait_for(timeout=60_000)
