@@ -16,7 +16,8 @@ API (`GET /v1/vigilances`, see [the README](../README.md#official-weather-warnin
   official warnings and never change the three entities above;
 - and, with the option **Weather of the place and dashboard card** (on by default), the **weather** of the place
   (`GET /v1/point`, a weather entity) and three sensors: **rain in the next hour**, **strongest gust of the next hours** and
-  **next high tide**. The same option feeds the dashboard card ([ADR 0042](decisions/0042-home-assistant-weather-of-the-place-and-card.md)).
+  **next high tide**. The same option feeds the **dashboard card** that ships with the integration (below, ["The dashboard
+  card"](#the-dashboard-card), [ADR 0042](decisions/0042-home-assistant-weather-of-the-place-and-card.md)).
 
 It needs no screen, no key and no package beyond what Home Assistant ships. It does not issue anything: it reads the public
 instance, or one you run yourself ([README, "Run"](../README.md#run)).
@@ -248,6 +249,48 @@ card, not to entities: they are too large for the attributes of a state.
 `vigie/card/spots` (for the card's editor) and `vigie/card/data` (what the card shows for one entry, with the verdicts of
 `spot`, an identifier or `auto` for the nearest spot within 20 km). The card never calls the instance itself.
 
+## The dashboard card
+
+The weather, the warnings, the sea and the normals of the place, on pages one swipes or picks in a bar, in the spirit of the
+community's Météo-France card. It ships with the integration (`custom_components/vigie/frontend/vigie-card.js`): Home
+Assistant serves it and loads it on every page of its frontend, so there is **no resource to add**, and it always matches the
+integration that feeds it. After an update of the integration, a reload of the page is enough.
+
+Add it like any card: edit a dashboard, *Add card*, "Vigie". Its editor sets everything below; in YAML:
+
+```yaml
+type: custom:vigie-card
+entry_id: 0123456789abcdef   # optional: the Vigie entry (the first one with the weather option when left out)
+name: Home                   # optional: the name shown (else the name of the entry, without "Vigie")
+pages: [home, details, alerts, sea, normal]   # optional: the pages shown, in this order
+start_page: home             # optional: the page it opens on
+idle: return                 # return: back to the opening page after a minute untouched; cycle: the next page every 20 s; none
+spot: auto                   # auto: the nearest spot within 20 km; none; or the id of a spot (the editor lists the spots within 60 km)
+weather_entity: weather.home # optional, outside France: the weather entity of the home page
+```
+
+| Page | What it shows | Where |
+| --- | --- | --- |
+| Home | Now (icon, temperature in its colour, feels like, wind and gusts), the next 12 hours (a temperature curve with the rain of each hour, once the instance gives the hours, API ADR 0040), the rain of the next hour (radar nowcast) and the first warning (each opens its page), the days. | Everywhere; outside France see below |
+| Details | A sentence for the rain (within the hour the same nowcast as the home page, AROME-PI after it: the two can disagree, the card says one thing) and one for the gusts, then the next hours by 15 minutes (AROME-PI: precipitation, gusts), hail and visibility, and the chances per 3 hours of rain and of gusts of 56 km/h or more (PE-AROME). | France |
+| Alerts | The official level, one row per phenomenon with its end on a timeline, the headline of the issuer as it was issued, the link to its bulletin; in France the river sections under warning nearby (Vigicrues); the earthquakes nearby. | Everywhere |
+| Sea | The tide of the next 24 hours (high and low waters; in France the estimated coefficient), the waves, and the verdicts of the spot for surf, kite, boat and shore fishing, with the reason when it is not "good". | Near the coast |
+| Normal? | Today's highest and lowest against the normals of the month (nearest Météo-France station), the forecast gusts against the record of the month, the wind measured now nearby. | France |
+
+**A page with nothing for the place is not shown**, even ticked: inland there is no Sea page, outside France no Details nor
+Normal?. Outside France, the home page shows the weather of the weather entity chosen in the editor (the weather integration you
+already use), said as such; without one, it shows the warnings, the earthquakes and the tide.
+
+It follows the language of Home Assistant (French or English) and its dark mode (two themes of the Vigie family); its
+background is the dashboard's. From 640 px wide it takes the layout of a wall screen (the bar at the top right, the hours
+beside "now"). Swipe left or right, or use the arrow keys, to change pages. Every page credits the providers of what it
+shows, relayed by the instance.
+
+Its limits are those of the data: it shows the **official** level only; the tide is the open sea's, computed by the instance
+(in a bay the real tide can come an hour or more later, and it is not for navigation); the verdicts of a spot are rules of
+Vigie, not a safety advice; "milder" or "cooler than normal" is a rule of the card (more than 1 °C from the normals on average),
+not of Météo-France. A value the data do not give is not drawn.
+
 ## Push and poll
 
 The integration is declared `local_push`. `WS /v1/stream` of the API tells a client that follows a place when a warning
@@ -296,6 +339,11 @@ over real HTTP.) Delete the entry when done. The fake instance has no
 authentication: run it on a trusted network. It does not serve the weather: for its entry, the weather entity and its three
 sensors stay unavailable (or untick the option), and the warnings work as described.
 
+**To see the card without the public instance**, start it with `--replay tests_ha/fixtures`: it then also serves the weather
+routes, from the real answers recorded for Biarritz on 2026-11-22 (and the warnings in force then), every time in them moved to
+now. Give the entry the place of Biarritz. It is a replay of an old read, not today's weather: say so wherever you show it.
+The `card` job of the workflow does exactly this in a real Home Assistant (`tools/card_in_home_assistant.py`).
+
 ## Limits
 
 - **You need an instance**, and it must be reachable from Home Assistant. The integration does not start one.
@@ -343,8 +391,22 @@ python -m venv .venv-ha                # the integration's tests: their own envi
 release (now 0.13.373 for 2026.10.2, which needs Python 3.14.2 or newer; this is why the CI has its own job). The
 workflow `.github/workflows/home-assistant.yml` runs the tests, **hassfest** and the **HACS validation**. The HACS action
 refuses a private repository ("can only validate public repositories"), so that job is skipped while the repository is
-private; it runs since the repository is public. `brands` is ignored (no brand image is published); the topics are
-checked. Home
+private; it runs since the repository is public. `brands` is ignored (no image in Home Assistant's brands repository; the
+integration carries its own, `custom_components/vigie/brand/`, which Home Assistant 2026.10 and later shows); the topics are
+checked.
+
+The workflow's **`card` job** tries the dashboard card in a real Home Assistant: its official container (the version is pinned
+in the workflow), the integration mounted, the fake instance replaying the recorded answers, and Playwright going through every
+page at a phone width and a wall width, in both themes. It fails when the card does not load, shows no page or logs an error;
+its captures are kept as the artifact `card-captures`, to be looked at (a green run does not say the card looks right). Locally,
+with a Home Assistant of your own on port 8123 and the fake instance on 8099:
+
+```
+pip install playwright && python -m playwright install chromium
+python tools/card_in_home_assistant.py --ha http://127.0.0.1:8123 --instance http://127.0.0.1:8099 --out captures
+```
+
+It finishes the onboarding of a fresh Home Assistant: run it on a throwaway one, never on your own installation. Home
 Assistant is not built for Windows: its test plugin needs the Unix modules `fcntl` and `resource`, and pytest-socket
 refuses the socket pair that the Windows event loop opens. For a run on Windows only, `tests_ha/windows/` holds three
 tiny stubs for them:

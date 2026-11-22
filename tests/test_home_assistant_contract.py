@@ -11,6 +11,7 @@ models, so they cannot drift from the real shape: the recorded real answer, the 
 from __future__ import annotations
 
 import ast
+import datetime
 import json
 import threading
 import typing
@@ -65,9 +66,7 @@ def test_the_recorded_weather_answers_are_answers_of_the_api(path: Path) -> None
 
 
 def test_the_hours_builder_makes_hours_of_the_api() -> None:
-    """``hourly`` of ``/v1/point`` comes with API ADR 0040; until the model has it, the integration reads none."""
-    if "hourly" not in PointResponse.model_fields:
-        pytest.skip("PointResponse has no hourly field yet (API ADR 0040 not merged): the builder is checked once it is")
+    """``hourly`` of ``/v1/point`` (API ADR 0040): the builder of the integration's tests makes hours of the API."""
     raw = json.loads((ROOT / "tests_ha" / "fixtures" / "point_biarritz_2026-11-22.json").read_text(encoding="utf-8"))
     raw["hourly"] = payloads.hourly(raw["server_utc"], [(14.9, 70.0, 0.4, 61, True), (12.0, None, None, 3, False)])
     response = PointResponse.model_validate(raw)
@@ -162,6 +161,28 @@ def test_the_fake_instance_speaks_the_language_of_the_api() -> None:
     assert VigilancesResponse.model_validate(fake_instance.vigilances(scenario, 45.0, 5.0, 5.0)).vigilances == []
     health = fake_instance.health()
     assert health["status"] == "ok" and isinstance(health["version"], str) and health["scheduler"] == {"running": False}
+
+
+def test_the_replay_serves_the_recorded_answers_moved_to_now() -> None:
+    """``tools/fake_instance.py --replay``: the answers stay answers of the API, and now falls where it fell at the read."""
+    replay = fake_instance.Replay(ROOT / "tests_ha" / "fixtures")
+    recorded = json.loads((ROOT / "tests_ha" / "fixtures" / fake_instance.REPLAY_ROUTES["/v1/point"]).read_text(encoding="utf-8"))
+    later = replay.read_utc + 3 * 86400 + 600
+    for route, name in fake_instance.REPLAY_ROUTES.items():
+        model = next(model for prefix, model in WEATHER_MODELS.items() if name.startswith(prefix))
+        model.model_validate(replay.answer(route, now=later))
+    moved = replay.answer("/v1/point", now=later)
+    assert moved["short_term"]["steps"][0]["time_utc"] == recorded["short_term"]["steps"][0]["time_utc"] + later - replay.read_utc
+    point = PointResponse.model_validate(moved)
+    assert point.server_utc == later
+    assert [day.date for day in point.daily] == [
+        (datetime.date.fromisoformat(day["date"]) + datetime.timedelta(days=3)).isoformat() for day in recorded["daily"]
+    ]
+    normals = ClimateNormalsResponse.model_validate(replay.answer("/v1/climate/normals", now=later))
+    assert normals.records.gust_ms.date == "2019-11-03"  # a record keeps its date
+    answer = replay.vigilances(fake_instance.Scenario(), now=later)
+    assert abs(VigilancesResponse.model_validate(answer).server_utc - later) < 60  # read a few seconds after the point
+    assert replay.answer("/v1/earthquakes", now=later) is None  # nothing recorded: the fake instance answers 404
 
 
 def test_the_fake_instance_refuses_what_is_not_a_phenomenon_or_a_level() -> None:

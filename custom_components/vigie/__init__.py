@@ -4,7 +4,8 @@ A personal project, shared in case it helps. It reads an instance of the Vigie A
 `/v1/earthquakes` for the earthquakes near the place, a layer of its own, and `/v1/experimental/prealert` only when its
 experimental option is ticked) and does not issue any warning: it is not an official warning service, follow the warnings of your national authorities.
 With the option "Weather and card" (on by default), it also reads the weather of the place (`/v1/point`), its tide, the normals of
-the month and the wind measured nearby, gives a weather entity and three sensors, and serves all of it to the dashboard card.
+the month and the wind measured nearby, gives a weather entity and three sensors, and serves all of it to the dashboard card,
+which ships with it (`frontend/vigie-card.js`, loaded by the frontend without a resource to add).
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
 from .api import VigieClient
+from .card import async_register_card
 from .const import CONF_EXPERIMENTAL_PREALERT, CONF_WEATHER_AND_CARD, DEFAULT_WEATHER_AND_CARD, DOMAIN
 from .coordinator import (
     VigieConfigEntry,
@@ -34,8 +36,9 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Once per Home Assistant: the commands the dashboard card asks its data with."""
+    """Once per Home Assistant: the dashboard card, and the commands it asks its data with."""
     async_register_commands(hass)
+    await async_register_card(hass)
     return True
 
 

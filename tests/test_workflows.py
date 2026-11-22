@@ -148,7 +148,7 @@ def test_the_image_carries_the_fault_file_and_the_notice_that_goes_with_it() -> 
 def test_the_home_assistant_workflow_has_its_own_python_and_leaves_the_api_jobs_alone() -> None:
     workflow = load("home-assistant.yml")
     assert workflow["permissions"] == {"contents": "read"}
-    assert set(workflow["jobs"]) == {"tests", "hassfest", "hacs"}
+    assert set(workflow["jobs"]) == {"tests", "hassfest", "hacs", "card"}
     tests = workflow["jobs"]["tests"]
     setup = next(step for step in tests["steps"] if "setup-python" in str(step.get("uses", "")))
     assert setup["with"]["python-version"] == "3.14"  # what the pinned Home Assistant needs, not the API's 3.12 and 3.13
@@ -161,12 +161,26 @@ def test_the_home_assistant_workflow_has_its_own_python_and_leaves_the_api_jobs_
     assert 'testpaths = ["tests"]' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
 
 
+def test_the_card_is_tried_in_a_pinned_home_assistant_on_the_replayed_answers() -> None:
+    """The `card` job: Home Assistant's official container at a stated version (never `stable`, which moves), the fake
+    instance replaying the recorded answers, the script of the card, and its captures kept."""
+    workflow = load("home-assistant.yml")
+    text = steps_text(workflow, "card")
+    assert re.search(r"ghcr\.io/home-assistant/home-assistant:\d{4}\.\d+\.\d+\b", text)
+    assert "fake_instance.py" in text and "--replay tests_ha/fixtures" in text
+    assert "tools/card_in_home_assistant.py" in text
+    assert re.search(r"playwright==\d+\.\d+\.\d+", text)
+    upload = next(step for step in workflow["jobs"]["card"]["steps"] if "upload-artifact@" in str(step.get("uses", "")))
+    assert upload["with"]["name"] == "card-captures" and upload.get("if") == "always()"
+
+
 def test_hassfest_and_hacs_are_run_with_the_category_and_ignores_stated() -> None:
     workflow = load("home-assistant.yml")
     assert any("home-assistant/actions/hassfest@" in str(step.get("uses", "")) for step in workflow["jobs"]["hassfest"]["steps"])
     hacs = next(step for step in workflow["jobs"]["hacs"]["steps"] if "hacs/action@" in str(step.get("uses", "")))
     assert hacs["with"]["category"] == "integration"
-    assert set(hacs["with"]["ignore"].split()) == {"brands"}  # no brand image yet; the topics are checked
+    # not in home-assistant/brands (the integration carries its own images in `brand/`); the topics are checked
+    assert set(hacs["with"]["ignore"].split()) == {"brands"}
     assert str(hacs["with"]["comment"]).lower() == "false"  # read-only job
     # The action refuses a private repository: the job runs only once the repository is public.
     assert "github.event.repository.private" in workflow["jobs"]["hacs"]["if"]
