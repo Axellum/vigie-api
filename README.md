@@ -750,6 +750,7 @@ All settings are optional environment variables.
 | `VIGIE_GRID_AIR_QUALITY_DEG` | `0.1` | Same, for Open-Meteo Air Quality (about 11 km). |
 | `VIGIE_GRID_FLOOD_DEG` | `0.1` | Same, for Open-Meteo Flood (GloFAS). |
 | `VIGIE_GRID_MARINE_DEG` | `0.1` | Same, for Open-Meteo Marine. |
+| `VIGIE_GRID_RAIN_NOWCAST_DEG` | `0.01` | Same, for the Météo-France PIAF rain of the next hour read through the vigie-meteo gateway: about 1 km, the grid of PIAF, so that a shower smaller than the forecast grid is not missed. |
 | `VIGIE_EMMA_GEOMETRIES` | none | Path of a gzipped GeoJSON of MeteoAlarm `EMMA_ID` shapes that you built yourself (`python tools/build_geometries.py --emma`; by default `app/data/local/emma_id.geojson.gz` is read when it exists). It lets warnings that name only `EMMA_ID` codes be matched to a point. Not bundled: see [`SOURCES.md`](SOURCES.md). |
 | `VIGIE_NEAR_FAULT_KM` | `10` | An earthquake or volcanic event within this distance (km) of the mapped trace of a named active fault is near it (0.1 to 100). A setting, not a published fact. |
 | `VIGIE_NEAR_FAULT_MAX_DEPTH_KM` | `70` | An earthquake deeper than this (km) is not compared with the faults (1 to 1000). |

@@ -112,6 +112,38 @@ def rain_next_hour(point: dict[str, Any] | None) -> float | None:
     return round(sum(values), 2)  # type: ignore[arg-type]
 
 
+# The slots of the former Météo-France "rain in the hour" (start and length in minutes): 5 minutes for the first half hour, then
+# 10 minutes. Each 10-minute slot keeps the stronger of its two 5-minute rates.
+RAIN_SLOTS: tuple[tuple[int, int], ...] = ((0, 5), (5, 5), (10, 5), (15, 5), (20, 5), (25, 5), (30, 10), (40, 10), (50, 10))
+
+
+def rain_slots(point: dict[str, Any] | None) -> list[dict[str, Any]] | None:
+    """The next hour in the nine slots of the former Météo-France API, from the twelve 5-minute rates (mm/h) of
+    `rain_nowcast.rate_5m_mm_h` (Météo-France PIAF, metropolitan France only). Each slot: `start` (ISO, UTC), `minutes` (its
+    length) and `mm_h`. The first slot is the current 5 minutes (`server_utc` floored to 5 minutes, as the API counts them).
+    `None` without the twelve rates (outside France, a rate unknown): never a dry hour made up."""
+    nowcast = point.get("rain_nowcast") if isinstance(point, dict) else None
+    rates = nowcast.get("rate_5m_mm_h") if isinstance(nowcast, dict) else None
+    server_utc = _number(point.get("server_utc")) if isinstance(point, dict) else None
+    if not isinstance(rates, list) or len(rates) != 12 or server_utc is None:
+        return None
+    values = [_number(rate) for rate in rates]
+    if any(value is None for value in values):
+        return None
+    first = int(server_utc) // 300 * 300
+    slots = []
+    for start, minutes in RAIN_SLOTS:
+        steps = values[start // 5 : (start + minutes) // 5]
+        slots.append(
+            {
+                "start": datetime.fromtimestamp(first + start * 60, tz=UTC).isoformat(),
+                "minutes": minutes,
+                "mm_h": max(steps),  # type: ignore[type-var]
+            }
+        )
+    return slots
+
+
 @dataclass(frozen=True, slots=True)
 class Gust:
     """The strongest gust among the next hours, and where in the answer it was read."""

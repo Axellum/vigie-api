@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from copy import deepcopy
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -22,7 +22,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry, async_
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.vigie.const import CONF_WEATHER_AND_CARD, DOMAIN
-from custom_components.vigie.weather_data import condition_of, nearby_spots, rain_next_hour, strongest_gust
+from custom_components.vigie.weather_data import condition_of, nearby_spots, rain_next_hour, rain_slots, strongest_gust
 
 from .conftest import BIARRITZ, POINT, SPOTS, recorded, setup_entry
 from .payloads import URL, hourly
@@ -105,6 +105,8 @@ async def test_the_three_sensors(hass: HomeAssistant, mock_instance: Callable[..
     rain = hass.states.get(RAIN)
     assert float(rain.state) == pytest.approx(0.07) and rain.attributes["unit_of_measurement"] == "mm"
     assert rain.attributes["mm_per_step"] == [0.0, 0.0, 0.03, 0.04] and rain.attributes["interval_minutes"] == 15
+    assert rain.attributes["rate_5m_mm_h"] == recorded(POINT)["rain_nowcast"]["rate_5m_mm_h"]
+    assert [slot["mm_h"] for slot in rain.attributes["slots"]] == [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.36, 0.48]
     gust = hass.states.get(GUST)
     # no hourly forecast in this answer: the short-term forecast (AROME-PI), 85 km/h at 15:00 UTC
     assert float(gust.state) == 85.0
@@ -210,3 +212,28 @@ def test_the_spots_near_a_place_nearest_first() -> None:
     assert spots[0]["id"] == "biarritz-grande-plage" and spots[0]["distance_km"] == 0.5
     assert len(spots) == 12 and all(a["distance_km"] <= b["distance_km"] for a, b in zip(spots, spots[1:], strict=False))
     assert nearby_spots(recorded(SPOTS), 45.76, 4.84) == []  # Lyon: no spot within 60 km
+
+
+def test_the_nine_slots_of_the_former_meteo_france_api() -> None:
+    """Twelve 5-minute rates (PIAF, recorded in Biarritz) give 5-minute slots for the first half hour, then 10-minute slots
+    that keep the stronger of their two rates; the first slot starts at the current 5 minutes of the answer's clock."""
+    point = deepcopy(recorded(POINT))
+    point["rain_nowcast"]["rate_5m_mm_h"] = [0.0, 1.2, 0.0, 0.0, 0.0, 0.0, 0.5, 2.0, 0.36, 0.0, 0.0, 0.48]
+    slots = rain_slots(point)
+    assert slots is not None and [(slot["minutes"], slot["mm_h"]) for slot in slots] == [
+        (5, 0.0), (5, 1.2), (5, 0.0), (5, 0.0), (5, 0.0), (5, 0.0), (10, 2.0), (10, 0.36), (10, 0.48)
+    ]
+    first = point["server_utc"] // 300 * 300
+    assert slots[0]["start"] == datetime.fromtimestamp(first, tz=UTC).isoformat()
+    assert slots[6]["start"] == datetime.fromtimestamp(first + 1800, tz=UTC).isoformat()
+
+
+def test_no_slots_without_the_twelve_rates() -> None:
+    """Outside metropolitan France (Tokyo) the API gives no 5-minute rates: no slots, never a dry hour made up."""
+    assert rain_slots(recorded("point_tokyo_2026-11-22.json")) is None
+    point = deepcopy(recorded(POINT))
+    point["rain_nowcast"]["rate_5m_mm_h"][3] = None
+    assert rain_slots(point) is None
+    point["rain_nowcast"]["rate_5m_mm_h"] = [0.0] * 11
+    assert rain_slots(point) is None
+    assert rain_slots(None) is None
