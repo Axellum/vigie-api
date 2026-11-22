@@ -7,6 +7,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, NAME
 from .coordinator import VigieConfigEntry, VigieCoordinator, VigiePrealertCoordinator, VigieQuakeCoordinator
+from .weather_data import VigieWeatherCoordinator
 
 
 def device_info(entry: VigieConfigEntry, base_url: str) -> DeviceInfo:
@@ -55,6 +56,18 @@ class VigieQuakeEntity(CoordinatorEntity[VigieQuakeCoordinator]):
         """The credit of the seismic sources (USGS, EMSC), as the API words it (`None` until there is an answer)."""
         data = self.coordinator.data
         return data.attribution if data is not None else None
+
+
+class VigieWeatherDataEntity(CoordinatorEntity[VigieWeatherCoordinator]):
+    """A sensor of the weather of the place (only when the option "Weather and card" is ticked)."""
+
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator: VigieWeatherCoordinator, key: str) -> None:
+        super().__init__(coordinator)
+        entry = coordinator.config_entry
+        self._attr_unique_id = f"{entry.entry_id}_{key}"
+        self._attr_device_info = device_info(entry, coordinator.client.base_url)
 
 
 class VigiePrealertEntity(CoordinatorEntity[VigiePrealertCoordinator]):

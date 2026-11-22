@@ -3,18 +3,22 @@ experimental, unofficial pre-alert for Turkey when its option is ticked."""
 
 from __future__ import annotations
 
+import time
+from datetime import datetime
 from typing import Any
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
+from homeassistant.const import UnitOfPrecipitationDepth, UnitOfSpeed
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import MAX_LEVEL_STATES, PREALERT_LEVEL_STATES
 from .coordinator import VigieConfigEntry, VigieCoordinator, VigiePrealertCoordinator, VigieQuakeCoordinator
-from .entity import VigieEntity, VigiePrealertEntity, VigieQuakeEntity
+from .entity import VigieEntity, VigiePrealertEntity, VigieQuakeEntity, VigieWeatherDataEntity
 from .models import build_attributes
 from .prealert import build_prealert_attributes
 from .quakes import build_quake_attributes
+from .weather_data import Gust, VigieWeatherCoordinator, next_extreme, rain_next_hour, strongest_gust, utc_datetime
 
 PARALLEL_UPDATES = 0
 
@@ -25,7 +29,128 @@ async def async_setup_entry(hass: HomeAssistant, entry: VigieConfigEntry, async_
     entities: list[SensorEntity] = [VigieMaxLevelSensor(runtime.coordinator), VigieStrongestQuakeSensor(runtime.quakes)]
     if runtime.prealert is not None:
         entities.append(VigiePrealertSensor(runtime.prealert))
+    if runtime.weather is not None:
+        entities += [VigieRainNextHourSensor(runtime.weather), VigieGustSensor(runtime.weather), VigieNextHighTideSensor(runtime.weather)]
     async_add_entities(entities)
+
+
+def _credit(value: Any) -> str | None:
+    return value if isinstance(value, str) else None
+
+
+class VigieRainNextHourSensor(VigieWeatherDataEntity, SensorEntity):
+    """The rain of the next hour (mm), the sum of the steps of the API's rain nowcast; unknown when a step is unknown.
+
+    In metropolitan France the steps come from Météo-France's 5-minute rain (PIAF) summed by quarter of an hour; elsewhere from
+    Open-Meteo's 15-minute forecast; in the overseas territories the API gives none (unknown).
+    """
+
+    _attr_translation_key = "rain_next_hour"
+    _attr_device_class = SensorDeviceClass.PRECIPITATION
+    _attr_native_unit_of_measurement = UnitOfPrecipitationDepth.MILLIMETERS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 1
+
+    def __init__(self, coordinator: VigieWeatherCoordinator) -> None:
+        super().__init__(coordinator, "rain_next_hour")
+
+    @property
+    def _nowcast(self) -> dict[str, Any]:
+        nowcast = self.coordinator.data.point.get("rain_nowcast") if self.coordinator.data is not None else None
+        return nowcast if isinstance(nowcast, dict) else {}
+
+    @property
+    def native_value(self) -> float | None:
+        return rain_next_hour(self.coordinator.data.point) if self.coordinator.data is not None else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """The steps as the API gives them, whether it expects rain within the hour, and the strongest rate."""
+        nowcast = self._nowcast
+        return {
+            "interval_minutes": nowcast.get("interval_minutes"),
+            "mm_per_step": nowcast.get("mm_per_step"),
+            "rain_expected_60m": nowcast.get("rain_expected_60m"),
+            "max_mm_h": nowcast.get("max_mm_h"),
+        }
+
+    @property
+    def attribution(self) -> str | None:
+        return _credit(self._nowcast.get("attribution"))
+
+
+class VigieGustSensor(VigieWeatherDataEntity, SensorEntity):
+    """The strongest gust of the next 6 hours of the hourly forecast, or, without it, of the short-term forecast (AROME-PI, in
+    France: its own horizon, under 5 hours). Unknown when neither gives a gust."""
+
+    _attr_translation_key = "strongest_gust_next_hours"
+    _attr_device_class = SensorDeviceClass.WIND_SPEED
+    _attr_native_unit_of_measurement = UnitOfSpeed.KILOMETERS_PER_HOUR
+    _attr_suggested_display_precision = 0
+
+    def __init__(self, coordinator: VigieWeatherCoordinator) -> None:
+        super().__init__(coordinator, "strongest_gust_next_hours")
+
+    def _gust(self) -> Gust | None:
+        return strongest_gust(self.coordinator.data.point, int(time.time())) if self.coordinator.data is not None else None
+
+    @property
+    def native_value(self) -> float | None:
+        gust = self._gust()
+        return gust.kmh if gust is not None else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """When the gust is expected, which forecast it was read in, and how far that forecast goes."""
+        gust = self._gust()
+        if gust is None:
+            return {}
+        return {"at": utc_datetime(gust.at_utc).isoformat(), "forecast": gust.source, "horizon_minutes": gust.horizon_minutes}
+
+    @property
+    def attribution(self) -> str | None:
+        gust = self._gust()
+        point = self.coordinator.data.point if self.coordinator.data is not None else {}
+        if gust is not None and gust.source == "short_term" and isinstance(point.get("short_term"), dict):
+            return _credit(point["short_term"].get("attribution"))
+        return _credit(point.get("weather_attribution"))
+
+
+class VigieNextHighTideSensor(VigieWeatherDataEntity, SensorEntity):
+    """The time of the next high water at the place (EOT20 model of the API, calculated, not an official tide table); unknown
+    inland, where the API has no tide."""
+
+    _attr_translation_key = "next_high_tide"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def __init__(self, coordinator: VigieWeatherCoordinator) -> None:
+        super().__init__(coordinator, "next_high_tide")
+
+    def _tides(self) -> dict[str, Any] | None:
+        return self.coordinator.data.tides if self.coordinator.data is not None else None
+
+    @property
+    def native_value(self) -> datetime | None:
+        high = next_extreme(self._tides(), "high", int(time.time()))
+        return utc_datetime(high["time_utc"]) if high is not None else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """The height of that high water and the next low water (metres, relative to the model's mean sea level)."""
+        now = int(time.time())
+        high, low = next_extreme(self._tides(), "high", now), next_extreme(self._tides(), "low", now)
+        if high is None and low is None:
+            return {}
+        return {
+            "height_m": high.get("height_m") if high else None,
+            "next_low_tide": utc_datetime(low["time_utc"]).isoformat() if low else None,
+            "next_low_height_m": low.get("height_m") if low else None,
+        }
+
+    @property
+    def attribution(self) -> str | None:
+        tides = self._tides()
+        return _credit(tides.get("attribution")) if tides is not None else None
 
 
 class VigieMaxLevelSensor(VigieEntity, SensorEntity):

@@ -1,19 +1,35 @@
-"""The client of a Vigie API instance: five calls, no state."""
+"""The client of a Vigie API instance: one call per route it reads, no state."""
 
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
 import aiohttp
 from yarl import URL
 
-from .const import EARTHQUAKES_TIMEOUT_S, HEALTH_TIMEOUT_S, PREALERT_TIMEOUT_S, STREAM_HEARTBEAT_S, VIGILANCES_TIMEOUT_S
+from .const import (
+    EARTHQUAKES_TIMEOUT_S,
+    HEALTH_TIMEOUT_S,
+    POINT_DEVICE_TYPE,
+    PREALERT_TIMEOUT_S,
+    STREAM_HEARTBEAT_S,
+    VIGILANCES_TIMEOUT_S,
+    WEATHER_TIMEOUT_S,
+)
 
 HEALTH_PATH = "/v1/health"
 VIGILANCES_PATH = "/v1/vigilances"
 STREAM_PATH = "/v1/stream"
 EARTHQUAKES_PATH = "/v1/earthquakes"
 PREALERT_PATH = "/v1/experimental/prealert"
+# The weather of the place and what the dashboard card shows (only when the option "Weather and card" is ticked).
+POINT_PATH = "/v1/point"
+TIDES_PATH = "/v1/tides"
+NORMALS_PATH = "/v1/climate/normals"
+STATION_WIND_PATH = "/v1/stations/wind"
+SPOTS_PATH = "/v1/surf/spots"
+ACTIVITIES_PATH = "/v1/activities"
 
 # Decimals of the position sent to the API: about one metre. The stream rounds a followed point to four.
 POSITION_DECIMALS = 5
@@ -29,6 +45,10 @@ class VigieConnectionError(VigieError):
 
 class VigieResponseError(VigieError):
     """The instance answered, but not with what a Vigie API says."""
+
+
+class VigieNotFoundError(VigieResponseError):
+    """The instance answered 404: for a place, nothing of that kind there (no tide inland), or a route it does not have."""
 
 
 def normalize_url(raw: str) -> str:
@@ -69,6 +89,8 @@ class VigieClient:
         url = f"{self._base_url}{path}"
         try:
             async with self._session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=timeout_s)) as response:
+                if response.status == 404:
+                    raise VigieNotFoundError(f"{path}: HTTP 404: nothing there, or the instance is too old for this route")
                 if 400 <= response.status < 500:
                     raise VigieResponseError(f"{path}: HTTP {response.status}: this is not a Vigie API, or it is too old for this route")
                 response.raise_for_status()
@@ -116,6 +138,34 @@ class VigieClient:
         """
         params = {"lat": f"{lat:.{POSITION_DECIMALS}f}", "lon": f"{lon:.{POSITION_DECIMALS}f}"}
         return await self._get_json(PREALERT_PATH, params, PREALERT_TIMEOUT_S)
+
+    def _position(self, lat: float, lon: float) -> dict[str, str]:
+        return {"lat": f"{lat:.{POSITION_DECIMALS}f}", "lon": f"{lon:.{POSITION_DECIMALS}f}"}
+
+    async def point(self, lat: float, lon: float) -> Any:
+        """``GET /v1/point``, the full answer (not the compact one of the screens) with the sea: the raw JSON."""
+        params = {**self._position(lat, lon), "compact": "false", "marine": "true", "device_type": POINT_DEVICE_TYPE}
+        return await self._get_json(POINT_PATH, params, WEATHER_TIMEOUT_S)
+
+    async def tides(self, lat: float, lon: float) -> Any:
+        """``GET /v1/tides`` at a point. Inland the instance answers 404 (``VigieNotFoundError``)."""
+        return await self._get_json(TIDES_PATH, self._position(lat, lon), WEATHER_TIMEOUT_S)
+
+    async def climate_normals(self, lat: float, lon: float) -> Any:
+        """``GET /v1/climate/normals`` of the month at a point (France and its overseas territories; elsewhere `outside_coverage`)."""
+        return await self._get_json(NORMALS_PATH, self._position(lat, lon), WEATHER_TIMEOUT_S)
+
+    async def station_wind(self, west: float, south: float, east: float, north: float) -> Any:
+        """``GET /v1/stations/wind`` of a box: the wind measured now by the Météo-France stations in it."""
+        return await self._get_json(STATION_WIND_PATH, {"bbox": f"{west:.3f},{south:.3f},{east:.3f},{north:.3f}"}, WEATHER_TIMEOUT_S)
+
+    async def surf_spots(self) -> Any:
+        """``GET /v1/surf/spots``: the spots of the instance (the card offers the nearest ones)."""
+        return await self._get_json(SPOTS_PATH, None, WEATHER_TIMEOUT_S)
+
+    async def activities(self, spot_id: str) -> Any:
+        """``GET /v1/activities/{spot_id}``: the verdicts of a spot, hour by hour, with its tide and the coastal warnings."""
+        return await self._get_json(f"{ACTIVITIES_PATH}/{quote(spot_id, safe='')}", None, WEATHER_TIMEOUT_S)
 
     def stream_url(self) -> str:
         """The WebSocket address of the push stream."""

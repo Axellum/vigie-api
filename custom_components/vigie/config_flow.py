@@ -1,5 +1,5 @@
 """Config flow: the address of an instance (the public one is suggested) and the place to watch; options: the poll, the river
-radius, and the radius and minimum magnitude of the earthquakes."""
+radius, the radius and minimum magnitude of the earthquakes, and the weather of the place with the dashboard card (on by default)."""
 
 from __future__ import annotations
 
@@ -30,11 +30,13 @@ from .const import (
     CONF_QUAKE_RADIUS_KM,
     CONF_RIVER_RADIUS_KM,
     CONF_SCAN_INTERVAL_MIN,
+    CONF_WEATHER_AND_CARD,
     DEFAULT_EXPERIMENTAL_PREALERT,
     DEFAULT_QUAKE_MIN_MAGNITUDE,
     DEFAULT_QUAKE_RADIUS_KM,
     DEFAULT_RIVER_RADIUS_KM,
     DEFAULT_SCAN_INTERVAL_MIN,
+    DEFAULT_WEATHER_AND_CARD,
     DOMAIN,
     MAX_QUAKE_MIN_MAGNITUDE,
     MAX_QUAKE_RADIUS_KM,
@@ -148,8 +150,8 @@ class VigieConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class VigieOptionsFlow(OptionsFlowWithReload):
-    """The poll interval, the river radius, the earthquakes' radius and minimum magnitude, and the experimental pre-alert (off by
-    default); the entry is reloaded when they change."""
+    """The poll interval, the river radius, the earthquakes' radius and minimum magnitude, the weather of the place and the
+    dashboard card (on by default), and the experimental pre-alert (off by default); the entry is reloaded when they change."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Show or save the options."""
@@ -161,6 +163,7 @@ class VigieOptionsFlow(OptionsFlowWithReload):
                     CONF_QUAKE_RADIUS_KM: int(round(user_input[CONF_QUAKE_RADIUS_KM])),
                     CONF_QUAKE_MIN_MAGNITUDE: round(float(user_input[CONF_QUAKE_MIN_MAGNITUDE]), 1),
                     CONF_EXPERIMENTAL_PREALERT: user_input.get(CONF_EXPERIMENTAL_PREALERT) is True,
+                    CONF_WEATHER_AND_CARD: user_input.get(CONF_WEATHER_AND_CARD, DEFAULT_WEATHER_AND_CARD) is True,
                 }
             )
         schema = vol.Schema(
@@ -200,6 +203,7 @@ class VigieOptionsFlow(OptionsFlowWithReload):
                         mode=NumberSelectorMode.BOX,
                     )
                 ),
+                vol.Optional(CONF_WEATHER_AND_CARD, default=DEFAULT_WEATHER_AND_CARD): BooleanSelector(),
                 vol.Optional(CONF_EXPERIMENTAL_PREALERT, default=DEFAULT_EXPERIMENTAL_PREALERT): BooleanSelector(),
             }
         )
@@ -209,6 +213,7 @@ class VigieOptionsFlow(OptionsFlowWithReload):
             CONF_QUAKE_RADIUS_KM: DEFAULT_QUAKE_RADIUS_KM,
             CONF_QUAKE_MIN_MAGNITUDE: DEFAULT_QUAKE_MIN_MAGNITUDE,
             CONF_EXPERIMENTAL_PREALERT: DEFAULT_EXPERIMENTAL_PREALERT,
+            CONF_WEATHER_AND_CARD: DEFAULT_WEATHER_AND_CARD,
             **self.config_entry.options,
         }
         return self.async_show_form(step_id="init", data_schema=self.add_suggested_values_to_schema(schema, current))

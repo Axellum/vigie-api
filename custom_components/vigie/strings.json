@@ -49,6 +49,7 @@
           "river_radius_km": "River radius",
           "quake_radius_km": "Earthquake radius",
           "quake_min_magnitude": "Earthquake minimum magnitude",
+          "weather_and_card": "Weather of the place and dashboard card",
           "experimental_prealert": "Experimental pre-alert for Turkey (unofficial)"
         },
         "data_description": {
@@ -56,6 +57,7 @@
           "river_radius_km": "How far from the place a river section still counts, in kilometres (France, Vigicrues; 1 to 50).",
           "quake_radius_km": "How far from the place an earthquake counts, in kilometres (10 to 3000). The earthquakes are a layer of their own (USGS, EMSC), not official warnings.",
           "quake_min_magnitude": "The smallest magnitude shown and announced (4.5 to 9). The sources the API reads list nothing below 4.5.",
+          "weather_and_card": "On by default. Reads the weather of the place from the instance every 10 minutes (and, far less often, its tide, the normals of the month and the wind measured nearby), adds a weather entity and three sensors, and gives the Vigie dashboard card its data. In France the weather comes from Météo-France; elsewhere from Open-Meteo, which Home Assistant can read on its own: untick it there to keep the warnings only.",
           "experimental_prealert": "Off by default. A test of Vigie, being improved: levels computed by Vigie from the ECMWF forecast for the province of Turkey the place is in, with thresholds of its own. It is not an official warning and must not be taken for one: follow the warnings of the Turkish State Meteorological Service (MGM). Only an instance that runs the pre-alert answers it."
         }
       }
@@ -83,6 +85,15 @@
           "strong": "Strong",
           "severe": "Severe"
         }
+      },
+      "rain_next_hour": {
+        "name": "Rain in the next hour"
+      },
+      "strongest_gust_next_hours": {
+        "name": "Strongest gust, next hours"
+      },
+      "next_high_tide": {
+        "name": "Next high tide"
       }
     },
     "binary_sensor": {
