@@ -115,7 +115,7 @@ def add_the_integration(page: Page, ha: str, instance: str, steps: Steps) -> lis
         raise Stuck("the form did not create the entry") from err
     page.wait_for_timeout(500)
     steps.shot("entree_creee")
-    button(page, "dialog-data-entry-flow", "finish").click(timeout=30_000)
+    button(page, "dialog-data-entry-flow", "(skip and )?finish").click(timeout=30_000)  # "Skip and finish" while no area is picked
     page.locator("dialog-data-entry-flow").wait_for(state="detached", timeout=30_000)
     return problems
 
