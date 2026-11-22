@@ -75,7 +75,7 @@ jobs:
           python -m playwright install --with-deps chromium
 
       - name: The fake instance, replaying the recorded answers (tools/fake_instance.py --replay)
-        run: nohup python tools/fake_instance.py --host 127.0.0.1 --port 8099 --replay tests_ha/fixtures > fake_instance.log 2>&1 &
+        run: nohup python -u tools/fake_instance.py --host 127.0.0.1 --port 8099 --replay tests_ha/fixtures > fake_instance.log 2>&1 &
 
       # The stable release read on 2026-11-22 (same digest as `stable` that day); bump it by hand.
       - name: Home Assistant in its official container, the integration mounted

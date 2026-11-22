@@ -5,12 +5,13 @@ replays the answers recorded for Biarritz (``python tools/fake_instance.py --rep
 
 1. finishes the onboarding with a throwaway user, in French, the place in Biarritz;
 2. adds the Vigie entry through its config flow, pointed at the fake instance;
-3. puts the card on the dashboard, under a banner that says the data are a replay;
+3. puts the card on a dashboard of its own, under a banner that says the data are a replay;
 4. opens the dashboard in Chromium (Playwright) at a phone width and a wall width, in the dark and the light themes, goes
    through every page of the card by its bar, and saves a capture of each; then opens the card's editor.
 
-It fails when the frontend did not load the card, when the card shows no page or an error, when a page of the card is
-missing, or when the browser logs an error. Standard library and Playwright only; it never talks to anything but the
+It fails when the frontend did not load the card, when the card shows no page or an error (then a capture
+``echec_<width>_<theme>.png`` and what the card and Home Assistant said are kept), when a page of the card is missing, or
+when the browser logs an error. Standard library and Playwright only; it never talks to anything but the
 Home Assistant and the fake instance on this machine.
 
     python tools/card_in_home_assistant.py --ha http://127.0.0.1:8123 --instance http://127.0.0.1:8099 --out captures
@@ -29,10 +30,24 @@ from pathlib import Path
 from typing import Any
 
 from playwright.sync_api import Page, sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
 PLACE = {"latitude": 43.48, "longitude": -1.56}  # Biarritz, a public place: the place of the recorded answers
 WIDTHS = {"phone": (390, 1100), "wall": (1280, 900)}
 PAGES = ("home", "details", "alerts", "sea", "normal")
+DASHBOARD = "vigie-essai"  # a dashboard of its own: the default one of a fresh Home Assistant is left as it is
+# The spot whose verdicts were recorded ("auto" would pick the Grande Plage, nearer the place, whose verdicts were not).
+SPOT = "biarritz-plage-des-corsaires"
+# Every `vigie-card` of the page, through the shadow roots of Home Assistant's elements.
+FIND_CARDS = """() => {
+    const found = [];
+    const walk = (root) => root.querySelectorAll('*').forEach((el) => {
+        if (el.tagName === 'VIGIE-CARD') found.push(el);
+        if (el.shadowRoot) walk(el.shadowRoot);
+    });
+    walk(document);
+    return found;
+}"""
 BANNER = (
     "**SIMULATION** — réponses de l'API enregistrées le 22/11/2026 et rejouées à l'heure du test "
     "(`tools/fake_instance.py --replay`) : ce n'est pas la météo du jour."
@@ -105,6 +120,23 @@ def login(page: Page, ha: str, tokens: dict[str, Any], dark: bool) -> None:
                          f"localStorage.setItem('selectedTheme', {json.dumps(json.dumps(theme))});")
 
 
+def explain(page: Page, out: Path, label: str, errors: list[str]) -> str:
+    """What the page shows when the card shows no page: a capture, and what the card and Home Assistant say."""
+    page.screenshot(path=str(out / f"echec_{label}.png"), full_page=True)
+    lines = [f"url: {page.url}"]
+    lines.append("cards: " + json.dumps(page.evaluate(
+        f"() => ({FIND_CARDS})().map((c) => (c.shadowRoot ? c.shadowRoot.textContent : '(no shadow root)').replace(/\\s+/g, ' ').slice(-300))"
+    ), ensure_ascii=False))
+    for message in ({"type": "vigie/card/data", "spot": SPOT}, {"type": "config_entries/get", "domain": "vigie"}):
+        try:
+            answer = page.evaluate("(m) => document.querySelector('home-assistant').hass.callWS(m).then((r) => ({ok: r}), (e) => ({error: e}))", message)
+        except Exception as err:  # noqa: BLE001 - a diagnosis prints whatever went wrong
+            answer = {"failed": str(err)}
+        lines.append(f"{message['type']}: {json.dumps(answer, ensure_ascii=False)[:600]}")
+    lines.extend(errors)
+    return "\n  ".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("--ha", default="http://127.0.0.1:8123")
@@ -129,33 +161,39 @@ def main(argv: list[str] | None = None) -> int:
                 page.on("pageerror", lambda err, errors=errors: errors.append(f"page error: {err.message} {err.stack or ''}"))
                 page.on("console", lambda msg, errors=errors: errors.append(f"console: {msg.text}") if msg.type == "error" else None)
                 login(page, args.ha, tokens, dark)
-                page.goto(f"{args.ha}/lovelace/0")
-                page.wait_for_function("() => document.querySelector('home-assistant')?.hass?.connected", timeout=60_000)
+                connected = "() => document.querySelector('home-assistant')?.hass?.connected"
                 if dark and name == "phone":  # once: the place, the language, and the dashboard
+                    page.goto(f"{args.ha}/profile")
+                    page.wait_for_function(connected, timeout=60_000)
                     ws(page, {"type": "config/core/update", **PLACE, "time_zone": "Europe/Paris", "country": "FR", "language": "fr",
                               "unit_system": "metric", "currency": "EUR", "location_name": "Biarritz"})
                     ws(page, {"type": "frontend/set_user_data", "key": "language", "value": {
                         "language": "fr", "number_format": "language", "time_format": "language", "date_format": "language",
                         "first_weekday": "language", "time_zone": "local"}})
-                    ws(page, {"type": "lovelace/config/save", "config": {"title": "Vigie", "views": [{
+                    ws(page, {"type": "lovelace/dashboards/create", "url_path": DASHBOARD, "title": "Vigie", "icon": "mdi:eye",
+                              "show_in_sidebar": True, "require_admin": False})
+                    ws(page, {"type": "lovelace/config/save", "url_path": DASHBOARD, "config": {"title": "Vigie", "views": [{
                         "title": "Vigie", "path": "vigie", "panel": True,
-                        "cards": [{"type": "vertical-stack", "cards": [{"type": "markdown", "content": BANNER}, {"type": "custom:vigie-card", "spot": "auto"}]}],
+                        "cards": [{"type": "vertical-stack", "cards": [{"type": "markdown", "content": BANNER}, {"type": "custom:vigie-card", "spot": SPOT}]}],
                     }]}})
-                    page.goto(f"{args.ha}/lovelace/vigie")
-                    page.wait_for_function("() => document.querySelector('home-assistant')?.hass?.connected", timeout=60_000)
-                else:
-                    page.goto(f"{args.ha}/lovelace/vigie")
+                page.goto(f"{args.ha}/{DASHBOARD}/vigie")
+                page.wait_for_function(connected, timeout=60_000)
+                theme = "sombre" if dark else "clair"
                 served = page.evaluate("() => !!customElements.get('vigie-card') && (window.customCards || []).some((c) => c.type === 'vigie-card')")
                 if not served:
                     problems.append(f"{name}: the frontend did not load the card")
                     context.close()
                     continue
                 card = page.locator("vigie-card")
-                card.locator(".page").wait_for(timeout=60_000)
+                try:
+                    card.locator(".page").wait_for(timeout=60_000)
+                except PlaywrightTimeout:
+                    problems.append(f"{name}/{theme}: the card shows no page\n  {explain(page, args.out, f'{name}_{theme}', errors)}")
+                    context.close()
+                    continue
                 dark_seen = page.evaluate("() => document.querySelector('home-assistant').hass.themes.darkMode")
                 if dark_seen is not dark:
                     problems.append(f"{name}: dark mode is {dark_seen}, {dark} was asked")
-                theme = "sombre" if dark else "clair"
                 page.screenshot(path=str(args.out / f"{name}_{theme}_tableau.png"))
                 shown = card.locator(".nav button").evaluate_all("(buttons) => buttons.map((b) => b.dataset.go)")
                 missing = [p for p in PAGES if p not in shown]
