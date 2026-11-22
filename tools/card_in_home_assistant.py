@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 import urllib.error
@@ -35,7 +36,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeout
 PLACE = {"latitude": 43.48, "longitude": -1.56}  # Biarritz, a public place: the place of the recorded answers
 WIDTHS = {"phone": (390, 1100), "wall": (1280, 900)}
 PAGES = ("home", "details", "alerts", "sea", "normal")
-DASHBOARD = "vigie-essai"  # a dashboard of its own: the default one of a fresh Home Assistant is left as it is
+DASHBOARD = "essai-carte"  # a dashboard of its own (the default one is left as it is); no "vigie" in its address, which would pass for the card's
 # The spot whose verdicts were recorded ("auto" would pick the Grande Plage, nearer the place, whose verdicts were not).
 SPOT = "biarritz-plage-des-corsaires"
 # Every `vigie-card` of the page, through the shadow roots of Home Assistant's elements.
@@ -137,6 +138,25 @@ def explain(page: Page, out: Path, label: str, errors: list[str]) -> str:
     return "\n  ".join(lines)
 
 
+FRAME = re.compile(r"(https?://\S+?\.js):(\d+):(\d+)")
+
+
+def near(page: Page, error: str) -> str:
+    """The custom elements named in the file of Home Assistant's frontend an error points at (the files are minified: the
+    names of the elements are what tells which one it was), and the code around the place."""
+    match = FRAME.search(error)
+    if not match:
+        return ""
+    url, line, column = match.group(1), int(match.group(2)), int(match.group(3))
+    try:
+        source = page.evaluate("(u) => fetch(u).then((r) => r.text())", url).split("\n")[line - 1]
+    except Exception:  # noqa: BLE001 - a diagnosis that cannot read the file says nothing more
+        return ""
+    window = source if len(source) < 30_000 else source[max(0, column - 6000) : column + 2000]
+    names = sorted(set(re.findall(r"[\"'`]((?:ha|hui|state|more-info|dialog|entity)-[a-z0-9-]+)[\"'`]", window)))
+    return f"\n    near: {', '.join(names[:20]) or 'no element name'}\n    code: {source[max(0, column - 200) : column + 60]!r}"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("--ha", default="http://127.0.0.1:8123")
@@ -157,9 +177,12 @@ def main(argv: list[str] | None = None) -> int:
                 context = browser.new_context(viewport={"width": width, "height": height}, locale="fr-FR", timezone_id="Europe/Paris")
                 page = context.new_page()
                 errors: list[str] = []
+                phase = ["dashboard"]  # or "editor": what was on the screen when an error came
                 # the stack names the file an uncaught error came from (`/vigie/vigie-card.js` for the card)
-                page.on("pageerror", lambda err, errors=errors: errors.append(f"page error: {err.message} {err.stack or ''}"))
-                page.on("console", lambda msg, errors=errors: errors.append(f"console: {msg.text}") if msg.type == "error" else None)
+                page.on("pageerror", lambda err, errors=errors, phase=phase: errors.append(f"[{phase[0]}] page error: {err.message} {err.stack or ''}"))
+                page.on("console", lambda msg, errors=errors, phase=phase: errors.append(f"[{phase[0]}] console: {msg.text}") if msg.type == "error" else None)
+                # a console error "Failed to load resource" does not say which: the answer does
+                page.on("response", lambda r, errors=errors, phase=phase: errors.append(f"[{phase[0]}] HTTP {r.status}: {r.url}") if r.status >= 400 else None)
                 login(page, args.ha, tokens, dark)
                 connected = "() => document.querySelector('home-assistant')?.hass?.connected"
                 if dark and name == "phone":  # once: the place, the language, and the dashboard
@@ -173,10 +196,10 @@ def main(argv: list[str] | None = None) -> int:
                     ws(page, {"type": "lovelace/dashboards/create", "url_path": DASHBOARD, "title": "Vigie", "icon": "mdi:eye",
                               "show_in_sidebar": True, "require_admin": False})
                     ws(page, {"type": "lovelace/config/save", "url_path": DASHBOARD, "config": {"title": "Vigie", "views": [{
-                        "title": "Vigie", "path": "vigie", "panel": True,
+                        "title": "Vigie", "path": "carte", "panel": True,
                         "cards": [{"type": "vertical-stack", "cards": [{"type": "markdown", "content": BANNER}, {"type": "custom:vigie-card", "spot": SPOT}]}],
                     }]}})
-                page.goto(f"{args.ha}/{DASHBOARD}/vigie")
+                page.goto(f"{args.ha}/{DASHBOARD}/carte")
                 page.wait_for_function(connected, timeout=60_000)
                 theme = "sombre" if dark else "clair"
                 served = page.evaluate("() => !!customElements.get('vigie-card') && (window.customCards || []).some((c) => c.type === 'vigie-card')")
@@ -194,6 +217,13 @@ def main(argv: list[str] | None = None) -> int:
                 dark_seen = page.evaluate("() => document.querySelector('home-assistant').hass.themes.darkMode")
                 if dark_seen is not dark:
                     problems.append(f"{name}: dark mode is {dark_seen}, {dark} was asked")
+                # the whole screen once Home Assistant has finished drawing it: its launch screen gone, the banner drawn
+                try:
+                    page.wait_for_function("() => !document.getElementById('ha-launch-screen')", timeout=30_000)
+                    page.get_by_text("SIMULATION").first.wait_for(timeout=30_000)
+                except PlaywrightTimeout:
+                    print(f"({name}/{theme}: Home Assistant had not finished drawing the screen after 30 s)")
+                page.wait_for_timeout(1000)
                 page.screenshot(path=str(args.out / f"{name}_{theme}_tableau.png"))
                 shown = card.locator(".nav button").evaluate_all("(buttons) => buttons.map((b) => b.dataset.go)")
                 missing = [p for p in PAGES if p not in shown]
@@ -207,6 +237,8 @@ def main(argv: list[str] | None = None) -> int:
                         problems.append(f"{name}/{page_id}: empty or in error: {text[:120]!r}")
                     card.screenshot(path=str(args.out / f"{name}_{theme}_{page_id}.png"))
                 if dark and name == "wall":  # the editor of the card, in Home Assistant's own form
+                    phase[0] = "editor"
+                    page.set_viewport_size({"width": width, "height": 1500})  # the whole editor, down to its last field
                     page.evaluate("""async () => {
                         const holder = document.createElement('div');
                         holder.id = 'editeur';
@@ -226,7 +258,7 @@ def main(argv: list[str] | None = None) -> int:
                 problems.extend(f"{name}/{theme}: {error}" for error in errors if "vigie" in error.lower())
                 for error in errors:
                     if "vigie" not in error.lower():
-                        print(f"(not the card) {name}/{theme}: {error}")
+                        print(f"(not the card) {name}/{theme}: {error}{near(page, error) if 'page error' in error else ''}")
                 context.close()
         browser.close()
     print("\n".join(sorted(path.name for path in args.out.glob("*.png"))))
