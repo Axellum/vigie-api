@@ -39,6 +39,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from card_in_home_assistant import PLACE, login, onboard, wait_for, ws  # noqa: E402 - the card job's own helpers
 
 DASHBOARD = "essai-installation"  # no "vigie" in its address, which would pass for the card's
+PUBLIC_INSTANCE = "https://vigie.auxfilsdesidees.fr"  # what the form suggests (docs/home-assistant.md, "Configure")
 CONNECTED = "() => document.querySelector('home-assistant')?.hass?.connected === true"
 # What the documentation lists for one entry with the option "Weather of the place and dashboard card", on by default:
 # maximum level, strongest earthquake, rain in the next hour, strongest gust, next high tide; warning active; vigilance and
@@ -79,7 +80,7 @@ def button(page: Page, scope: str, name: str) -> Any:
     return page.locator(scope).get_by_role("button", name=re.compile(rf"^\s*{name}\s*$", re.I)).first
 
 
-def add_the_integration(page: Page, ha: str, instance: str, steps: Steps) -> None:
+def add_the_integration(page: Page, ha: str, instance: str, steps: Steps) -> list[str]:
     """Settings, Devices & services, Add integration, "Vigie", the form, Submit, Finish."""
     page.goto(f"{ha}/config/integrations/dashboard")
     page.wait_for_function(CONNECTED, timeout=60_000)
@@ -93,10 +94,18 @@ def add_the_integration(page: Page, ha: str, instance: str, steps: Steps) -> Non
     except PlaywrightTimeout as err:
         raise Stuck(f'"Vigie" is not found by the search of Add integration ({err.message.splitlines()[0]})') from err
     form = page.locator("step-flow-form")
+    # the one address field of the form (a URL text selector; its label is not tied to its input for Playwright)
+    address = form.locator('input[type="url"]')
     try:
-        form.get_by_label("Address of the instance").first.fill(instance, timeout=30_000)
+        address.first.wait_for(timeout=30_000)
     except PlaywrightTimeout as err:
-        raise Stuck(f"the form of the integration has no field \"Address of the instance\" ({err.message.splitlines()[0]})") from err
+        raise Stuck(f"the form of the integration has no address field ({err.message.splitlines()[0]})") from err
+    if address.count() != 1:
+        raise Stuck(f"the form of the integration has {address.count()} address fields, one was expected")
+    suggested = address.input_value()
+    print(f"Suggested by the form: the address {suggested!r}")
+    problems = [] if suggested == PUBLIC_INSTANCE else [f"the form suggests {suggested!r}, the documentation says {PUBLIC_INSTANCE}"]
+    address.fill(instance)
     page.wait_for_timeout(500)
     steps.shot("formulaire")
     button(page, "step-flow-form", "submit").click(timeout=30_000)
@@ -108,6 +117,7 @@ def add_the_integration(page: Page, ha: str, instance: str, steps: Steps) -> Non
     steps.shot("entree_creee")
     button(page, "step-flow-create-entry", "finish").click(timeout=30_000)
     page.locator("dialog-data-entry-flow").wait_for(state="detached", timeout=30_000)
+    return problems
 
 
 def check_the_entities(page: Page) -> list[str]:
@@ -208,7 +218,7 @@ def main(argv: list[str] | None = None) -> int:
             page.wait_for_function(CONNECTED, timeout=60_000)
             ws(page, {"type": "config/core/update", **PLACE, "time_zone": "Europe/Paris", "country": "FR", "unit_system": "metric",
                       "currency": "EUR", "location_name": "Biarritz"})
-            add_the_integration(page, args.ha, args.instance, steps)
+            problems += add_the_integration(page, args.ha, args.instance, steps)
             problems += check_the_entities(page)
             page.goto(f"{args.ha}/config/integrations/integration/vigie")
             page.wait_for_function(CONNECTED, timeout=60_000)
