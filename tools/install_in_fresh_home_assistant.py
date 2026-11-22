@@ -156,6 +156,8 @@ def add_the_card(page: Page, ha: str, steps: Steps) -> list[str]:
     page.wait_for_function(CONNECTED, timeout=60_000)
     try:
         page.get_by_role("button", name=re.compile(r"add card", re.I)).first.click(timeout=60_000)
+        # the picker opens on "By entity"; the cards are under "By card"
+        page.locator("hui-dialog-create-card").get_by_text("By card", exact=True).first.click(timeout=30_000)
         picker = page.locator("hui-card-picker")
         picker.locator("input").first.fill("Vigie", timeout=30_000)
         page.wait_for_timeout(1500)
