@@ -49,6 +49,7 @@
           "river_radius_km": "Rayon des rivières",
           "quake_radius_km": "Rayon des séismes",
           "quake_min_magnitude": "Magnitude minimale des séismes",
+          "weather_and_card": "Météo du lieu et carte du tableau de bord",
           "experimental_prealert": "Pré-alerte expérimentale pour la Turquie (non officielle)"
         },
         "data_description": {
@@ -56,6 +57,7 @@
           "river_radius_km": "À quelle distance du lieu un tronçon de rivière compte encore, en kilomètres (France, Vigicrues ; 1 à 50).",
           "quake_radius_km": "À quelle distance du lieu un séisme compte, en kilomètres (10 à 3000). Les séismes sont une couche à part (USGS, EMSC), pas des vigilances officielles.",
           "quake_min_magnitude": "La plus petite magnitude montrée et annoncée (4,5 à 9). Les sources que lit l'API ne listent rien sous 4,5.",
+          "weather_and_card": "Cochée par défaut. Lit la météo du lieu sur l'instance toutes les 10 minutes (et, bien plus rarement, sa marée, les normales du mois et le vent mesuré à côté), ajoute une entité météo et trois capteurs, et donne ses données à la carte Vigie du tableau de bord. En France la météo vient de Météo-France ; ailleurs d'Open-Meteo, que Home Assistant sait lire seul : décochez-la alors pour ne garder que les vigilances.",
           "experimental_prealert": "Coupée par défaut. Un essai de Vigie, en cours d'amélioration : des niveaux calculés par Vigie à partir de la prévision de l'ECMWF pour la province de Turquie où se trouve le lieu, avec ses propres seuils. Ce n'est pas une vigilance officielle et elle ne doit pas être prise pour telle : suivez les vigilances du service météorologique turc (MGM). Seule une instance qui calcule la pré-alerte y répond."
         }
       }
@@ -83,6 +85,15 @@
           "strong": "Forte",
           "severe": "Sévère"
         }
+      },
+      "rain_next_hour": {
+        "name": "Pluie dans l'heure"
+      },
+      "strongest_gust_next_hours": {
+        "name": "Rafale la plus forte, prochaines heures"
+      },
+      "next_high_tide": {
+        "name": "Prochaine pleine mer"
       }
     },
     "binary_sensor": {

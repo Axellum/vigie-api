@@ -1,0 +1,275 @@
+{
+ "version": "1.1",
+ "server_utc": 1795353080,
+ "device_type": "generic",
+ "compact": false,
+ "coordinates": {
+  "lat": 35.68,
+  "lon": 139.69,
+  "sog_knots": null,
+  "cog_deg": null
+ },
+ "utc_offset_s": 32400,
+ "weather_provider": "Open-Meteo",
+ "fallback_used": false,
+ "weather_attribution": "Weather data by Open-Meteo.com (https://open-meteo.com/) | Air quality: CAMS ENSEMBLE data provider (Copernicus Atmosphere Monitoring Service)",
+ "local_alert_level": "YELLOW",
+ "current": {
+  "temp_c": 7.7,
+  "feels_like_c": 5.2,
+  "humidity_pct": 55,
+  "pressure_hpa": 1028.7,
+  "wind_kmh": 2.2,
+  "gust_kmh": 11.9,
+  "wind_deg": 351,
+  "rain_1h_mm": 0.0,
+  "weather_code": 0,
+  "uv_index": 0.0,
+  "aqi_eu": 64
+ },
+ "daily": [
+  {
+   "date": "2026-11-22",
+   "code": 1,
+   "tmin": 4.6,
+   "tmax": 13.0,
+   "rain_mm": 0.0,
+   "rain_probability_pct": 2,
+   "wind_max": 6.2,
+   "uv_max": 3.6
+  },
+  {
+   "date": "2026-11-23",
+   "code": 1,
+   "tmin": 4.2,
+   "tmax": 12.9,
+   "rain_mm": 0.0,
+   "rain_probability_pct": 0,
+   "wind_max": 6.0,
+   "uv_max": 2.6
+  },
+  {
+   "date": "2026-11-24",
+   "code": 63,
+   "tmin": 7.7,
+   "tmax": 18.5,
+   "rain_mm": 13.6,
+   "rain_probability_pct": 98,
+   "wind_max": 12.9,
+   "uv_max": 3.4
+  },
+  {
+   "date": "2026-11-25",
+   "code": 1,
+   "tmin": 7.6,
+   "tmax": 13.2,
+   "rain_mm": 0.0,
+   "rain_probability_pct": 12,
+   "wind_max": 9.3,
+   "uv_max": 3.5
+  },
+  {
+   "date": "2026-11-26",
+   "code": 3,
+   "tmin": 9.4,
+   "tmax": 14.5,
+   "rain_mm": 0.0,
+   "rain_probability_pct": 0,
+   "wind_max": 6.2,
+   "uv_max": 3.3
+  },
+  {
+   "date": "2026-11-27",
+   "code": 2,
+   "tmin": 11.2,
+   "tmax": 17.1,
+   "rain_mm": 0.0,
+   "rain_probability_pct": 8,
+   "wind_max": 6.7,
+   "uv_max": 3.6
+  },
+  {
+   "date": "2026-11-28",
+   "code": 81,
+   "tmin": 9.6,
+   "tmax": 15.2,
+   "rain_mm": 15.3,
+   "rain_probability_pct": 41,
+   "wind_max": 12.1,
+   "uv_max": 2.5
+  },
+  {
+   "date": "2026-11-29",
+   "code": 51,
+   "tmin": 11.5,
+   "tmax": 15.8,
+   "rain_mm": 1.2,
+   "rain_probability_pct": 24,
+   "wind_max": 8.5,
+   "uv_max": 3.2
+  },
+  {
+   "date": "2026-11-30",
+   "code": 0,
+   "tmin": 10.8,
+   "tmax": 16.0,
+   "rain_mm": 0.0,
+   "rain_probability_pct": 0,
+   "wind_max": 9.1,
+   "uv_max": 3.2
+  },
+  {
+   "date": "2026-12-01",
+   "code": 0,
+   "tmin": 11.7,
+   "tmax": 17.7,
+   "rain_mm": 0.0,
+   "rain_probability_pct": 0,
+   "wind_max": 6.6,
+   "uv_max": 3.2
+  }
+ ],
+ "rain_nowcast": {
+  "interval_minutes": 15,
+  "mm_per_step": [
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rate_5m_mm_h": null,
+  "rain_expected_60m": false,
+  "max_mm_h": 0.0,
+  "radar_tile_url_template": null,
+  "radar_timestamp_utc": null,
+  "attribution": "Weather data by Open-Meteo.com (https://open-meteo.com/)"
+ },
+ "marine": {
+  "wave_height_m": 0.16,
+  "wave_direction_deg": 197,
+  "wave_period_s": 4.3,
+  "swell_wave_height_m": 0.12,
+  "swell_wave_direction_deg": 188,
+  "swell_wave_period_s": 4.2,
+  "ocean_current_velocity_kmh": 0.0,
+  "ocean_current_direction_deg": 90,
+  "sea_surface_temperature_c": 16.9,
+  "sea_state_label": "SMOOTH",
+  "navigation_warning": false,
+  "stale": false,
+  "attribution": "Weather data by Open-Meteo.com (https://open-meteo.com/) | Generated using ICON Wave forecast from the German Weather Service DWD | Generated using E.U. Copernicus Marine Service Information; https://doi.org/10.48670/moi-00016"
+ },
+ "flood_risk": {
+  "river_discharge_m3s": 3.42,
+  "river_discharge_mean_m3s": 3.93,
+  "river_discharge_max_m3s": 21.28,
+  "anomaly_ratio": 5.41,
+  "flood_alert_level": null,
+  "stale": false,
+  "attribution": "Weather data by Open-Meteo.com (https://open-meteo.com/) | River discharge: Global Flood Awareness System (GloFAS)"
+ },
+ "air_quality": {
+  "european_aqi": 64,
+  "us_aqi": 97,
+  "pm2_5_ugm3": 34.9,
+  "pm10_ugm3": 35.3,
+  "uv_index": 0.0,
+  "dust_ugm3": 0.0,
+  "ash_or_dust_warning": false,
+  "pollens": null,
+  "stale": false,
+  "attribution": "Weather data by Open-Meteo.com (https://open-meteo.com/) | Air quality: CAMS ENSEMBLE data provider (Copernicus Atmosphere Monitoring Service)"
+ },
+ "space_weather": {
+  "solar_kp": 0.3,
+  "solar_storm_level": "G0",
+  "gps_degraded": false,
+  "hf_radio_blackout_risk": false,
+  "attribution": "Source: NOAA Space Weather Prediction Center (https://www.swpc.noaa.gov). Not endorsed by NOAA"
+ },
+ "nearby_hazards": [
+  {
+   "id": "emsc_20261121_0000150",
+   "category": "EARTHQUAKE",
+   "severity": "YELLOW",
+   "title": "M 5.2 - NEAR EAST COAST OF HONSHU, JAPAN",
+   "source": "EMSC",
+   "sources": [
+    "EMSC"
+   ],
+   "timestamp_utc": 1795255747,
+   "lat": 34.1897,
+   "lon": 140.2163,
+   "value_primary": 5.2,
+   "value_unit": "mb",
+   "depth_km": 10.0,
+   "tsunami_warning": false,
+   "tsunami_eta_minutes": null,
+   "nearest_zone_id": "gps_point",
+   "nearest_zone_name": "GPS position",
+   "distance_to_zone_km": 172.52,
+   "bearing_deg": 163.7,
+   "bearing_cardinal": "S",
+   "near_places": [],
+   "attribution": "Credit: EMSC-CSEM SeismicPortal, https://www.seismicportal.eu",
+   "derived": [
+    "near_places"
+   ]
+  },
+  {
+   "id": "usgs_us6000ucn8",
+   "category": "EARTHQUAKE",
+   "severity": "GREEN",
+   "title": "M 4.6 - 68 km SSE of Tateyama, Japan",
+   "source": "USGS+EMSC",
+   "sources": [
+    "USGS",
+    "EMSC"
+   ],
+   "timestamp_utc": 1795282244,
+   "lat": 34.4089,
+   "lon": 140.131,
+   "value_primary": 4.6,
+   "value_unit": "mb",
+   "depth_km": 65.5,
+   "tsunami_warning": false,
+   "tsunami_eta_minutes": null,
+   "nearest_zone_id": "gps_point",
+   "nearest_zone_name": "GPS position",
+   "distance_to_zone_km": 146.93,
+   "bearing_deg": 164.0,
+   "bearing_cardinal": "S",
+   "near_places": [],
+   "attribution": "Credit: U.S. Geological Survey | Credit: EMSC-CSEM SeismicPortal, https://www.seismicportal.eu",
+   "derived": [
+    "near_places"
+   ]
+  }
+ ],
+ "fires_nearby": {
+  "radius_km": 50.0,
+  "count_24h": 35,
+  "nearest_km": 37.0,
+  "max_frp_mw": 8.48,
+  "latest_utc": 1795320960,
+  "data_read_utc": 1795353066,
+  "stale": false,
+  "sources": [
+   "VIIRS_NOAA20_NRT",
+   "VIIRS_NOAA21_NRT"
+  ],
+  "derived": [
+   "count_24h",
+   "nearest_km",
+   "max_frp_mw",
+   "latest_utc"
+  ],
+  "attribution": "We acknowledge the use of data and/or imagery from NASA's Fire Information for Resource Management System (FIRMS) (https://earthdata.nasa.gov/firms), part of NASA's Land, Atmosphere Near real-time Capability for Earth observations (LANCE) (https://earthdata.nasa.gov/lance) and NASA's Earth Science Data and Information System (ESDIS).",
+  "disclaimer": "The information presented through LANCE, GIBS, Worldview, and FIRMS are provided “as is” and users bear all responsibility and liability for their use of data. Due to the spatial resolution and other characteristics of these data, their use for tactical decision-making or informing about conditions at a local scale are not advised."
+ },
+ "disclaimer": null,
+ "drought": null,
+ "avalanche": null,
+ "short_term": null,
+ "probabilities": null
+}

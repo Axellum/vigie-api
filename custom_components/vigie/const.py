@@ -17,6 +17,7 @@ CONF_RIVER_RADIUS_KM: Final = "river_radius_km"
 CONF_QUAKE_RADIUS_KM: Final = "quake_radius_km"
 CONF_QUAKE_MIN_MAGNITUDE: Final = "quake_min_magnitude"
 CONF_EXPERIMENTAL_PREALERT: Final = "experimental_prealert"
+CONF_WEATHER_AND_CARD: Final = "weather_and_card"
 
 # The public instance, suggested in the address field of a new entry (any other instance can be typed instead).
 PUBLIC_INSTANCE_URL: Final = "https://vigie.auxfilsdesidees.fr"
@@ -51,11 +52,29 @@ DEFAULT_EXPERIMENTAL_PREALERT: Final = False
 PREALERT_LEVEL_STATES: Final = ("none", "watch", "strong", "severe")
 PREALERT_INTERVAL: Final = timedelta(minutes=30)
 
+# The weather of the place and what the dashboard card shows (ADR 0042 of the API), on by default and untickable to keep the
+# warnings only. `/v1/point` is cached by the instance for 7 to 15 minutes (its Cache-Control), so one read every 10 minutes is
+# enough; the tide, the normals of the month and the list of spots change far more slowly and are read again far less often.
+DEFAULT_WEATHER_AND_CARD: Final = True
+WEATHER_INTERVAL: Final = timedelta(minutes=10)
+TIDES_REFRESH: Final = timedelta(hours=6)
+NORMALS_REFRESH: Final = timedelta(hours=12)
+SPOTS_REFRESH: Final = timedelta(hours=24)
+ACTIVITIES_REFRESH: Final = timedelta(minutes=30)
+# The profile asked of `/v1/point` (its full answer, not the compact one of the screens, and the sea when there is one).
+POINT_DEVICE_TYPE: Final = "generic"
+# Half the side of the box around the place in which a measuring station's wind is looked for (degrees), and the spots offered
+# to the card: those within this distance of the place, nearest first.
+STATION_BOX_DEG: Final = 0.3
+MAX_SPOT_DISTANCE_KM: Final = 60.0
+MAX_LISTED_SPOTS: Final = 12
+
 # Time given to an answer. The first read of a country can fetch a feed and up to 40 CAP documents.
 HEALTH_TIMEOUT_S: Final = 10
 VIGILANCES_TIMEOUT_S: Final = 60
 EARTHQUAKES_TIMEOUT_S: Final = 30
 PREALERT_TIMEOUT_S: Final = 30
+WEATHER_TIMEOUT_S: Final = 30
 
 # The push stream: re-asked after a failure with a growing delay (seconds), and looked at again from time to time
 # when the instance does not run its scheduler (no push is sent then).

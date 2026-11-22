@@ -42,6 +42,7 @@ from .models import ChangeTracker, VigieData, parse_response
 from .prealert import PrealertData, parse_prealert
 from .quakes import QuakeData, QuakeTracker, parse_earthquakes
 from .stream import VigieStream
+from .weather_data import VigieWeatherCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -171,3 +172,4 @@ class VigieRuntimeData:
     stream: VigieStream
     quakes: VigieQuakeCoordinator
     prealert: VigiePrealertCoordinator | None = None
+    weather: VigieWeatherCoordinator | None = None  # only when the option "Weather and card" is ticked

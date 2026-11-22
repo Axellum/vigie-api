@@ -1,0 +1,18 @@
+{
+ "status": "outside_coverage",
+ "lat": 35.68,
+ "lon": 139.69,
+ "month": 11,
+ "station": null,
+ "nearest_distance_km": 6768.9,
+ "dataset_updated": "2026-11-06",
+ "normals": null,
+ "records": null,
+ "records_all_year": null,
+ "comparison": null,
+ "derived": [
+  "nearest_distance_km"
+ ],
+ "note": "No Météo-France climate sheet within 50 km (the nearest is 6768.9 km away). The sheets cover France and its overseas territories; nothing is estimated elsewhere.",
+ "attribution": "Source: Météo-France, Fiches climatologiques (https://www.data.gouv.fr/datasets/fiches-climatologiques, Licence Ouverte 2.0), dated as in the answer (sheet_edited); the choice of the station, its distance and the comparison with a given value are calculated by Vigie"
+}

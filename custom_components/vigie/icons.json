@@ -13,6 +13,15 @@
       "strongest_earthquake": {
         "default": "mdi:waveform"
       },
+      "rain_next_hour": {
+        "default": "mdi:weather-pouring"
+      },
+      "strongest_gust_next_hours": {
+        "default": "mdi:weather-windy"
+      },
+      "next_high_tide": {
+        "default": "mdi:waves-arrow-up"
+      },
       "experimental_prealert": {
         "default": "mdi:flask-outline",
         "state": {

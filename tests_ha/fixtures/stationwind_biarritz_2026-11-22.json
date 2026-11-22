@@ -1,0 +1,60 @@
+{
+ "status": "ok",
+ "bbox": [
+  -1.86,
+  43.28,
+  -1.26,
+  43.68
+ ],
+ "count": 3,
+ "truncated": false,
+ "measured_utc": 1795352400,
+ "stale": false,
+ "max_age_hours": 1.0,
+ "stations": [
+  {
+   "id": "40065002",
+   "name": "CAPBRETON",
+   "alt_m": 11,
+   "lat": 43.62733,
+   "lon": -1.45333,
+   "measured_utc": 1795352400,
+   "age_minutes": 11,
+   "wind_speed_kmh": 51.5,
+   "wind_gust_kmh": 71.6,
+   "wind_from_deg": 250
+  },
+  {
+   "id": "64189001",
+   "name": "SOCOA",
+   "alt_m": 21,
+   "lat": 43.3945,
+   "lon": -1.6865,
+   "measured_utc": 1795352400,
+   "age_minutes": 11,
+   "wind_speed_kmh": 50.0,
+   "wind_gust_kmh": 77.0,
+   "wind_from_deg": 260
+  },
+  {
+   "id": "64024001",
+   "name": "BIARRITZ-PAYS-BASQUE",
+   "alt_m": 71,
+   "lat": 43.46933,
+   "lon": -1.53433,
+   "measured_utc": 1795352400,
+   "age_minutes": 11,
+   "wind_speed_kmh": 43.6,
+   "wind_gust_kmh": 63.7,
+   "wind_from_deg": 260
+  }
+ ],
+ "note": "Every Météo-France ground station of the box whose latest 6-minute wind observation is at most `max_age_hours` old, strongest mean wind first. The wind is measured at 10 m where the station stands: a summit (`alt_m`) or a sheltered valley can differ much from the places around. `age_minutes` is calculated by Vigie. Not for safety.",
+ "derived": [
+  "age_minutes",
+  "measured_utc",
+  "truncated"
+ ],
+ "licence": "Licence Ouverte 2.0",
+ "attribution": "Source: Météo-France, observations infrahoraires 6 min (https://portail-api.meteofrance.fr/web/fr/api/PaquetObs, Licence Ouverte 2.0), dated as in the answer (measured_at, UTC); the choice of the station, its distance, its age and the relative wind are calculated by Vigie | Source: Météo-France, file 'POSTES_MF.csv' (Licence Ouverte 2.0), names and altitudes of the open ground stations"
+}

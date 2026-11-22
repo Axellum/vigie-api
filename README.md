@@ -688,7 +688,10 @@ with a message otherwise; the reads always work), and on a public instance they 
 
 `custom_components/vigie` is a Home Assistant integration that reads these warnings for a place and gives a
 maximum-level sensor, a "warning active" binary sensor and an event entity (`new`, `upgraded`, `ended`) to start
-automations. It needs an instance of this API that Home Assistant can reach, and nothing else. Install, options, the
+automations. With its option "Weather of the place and dashboard card" (on by default) it also reads the weather of
+the place and gives a weather entity, the rain of the next hour, the strongest gust of the next hours and the next high
+tide ([ADR 0042](docs/decisions/0042-home-assistant-weather-of-the-place-and-card.md)). It needs an instance of this API
+that Home Assistant can reach, and nothing else. Install, options, the
 rules of "unknown is not none", an automation example and the limits: [`docs/home-assistant.md`](docs/home-assistant.md).
 It comes as is, like the rest of the project, and it is not an official warning service either.
 

@@ -707,7 +707,10 @@ et `/v1/simulate`. Détails, chiffres et ce qui n'est pas vérifié : [`docs/dat
 
 `custom_components/vigie` est une intégration Home Assistant qui lit ces vigilances pour un lieu et donne un capteur
 de niveau maximal, un capteur binaire « vigilance active » et une entité événement (`new`, `upgraded`, `ended`) pour
-déclencher des automatisations. Il lui faut une instance de cette API que Home Assistant peut joindre, et rien d'autre.
+déclencher des automatisations. Avec son option « Météo du lieu et carte du tableau de bord » (cochée par défaut), elle
+lit aussi la météo du lieu et donne une entité météo, la pluie dans l'heure, la rafale la plus forte des prochaines heures
+et la prochaine pleine mer ([ADR 0042](docs/decisions/0042-home-assistant-weather-of-the-place-and-card.md), en anglais).
+Il lui faut une instance de cette API que Home Assistant peut joindre, et rien d'autre.
 Installation, options, la règle « inconnu n'est pas aucune », un exemple d'automatisation et les limites :
 [`docs/home-assistant.md`](docs/home-assistant.md) (en anglais). Elle est fournie telle quelle, comme le reste du
 projet, et n'est pas non plus un service d'alerte officiel.

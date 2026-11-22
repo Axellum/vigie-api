@@ -1,0 +1,247 @@
+{
+ "version": "1.0",
+ "server_utc": 1795353071,
+ "query": {
+  "lat": 43.48,
+  "lon": -1.56,
+  "country": null,
+  "river_radius_km": 5.0
+ },
+ "countries": [
+  "FR"
+ ],
+ "vigilances": [
+  {
+   "id": "meteofrance:64:1:2026-11-22T09:04:31Z",
+   "source": "meteofrance",
+   "country": "FR",
+   "attribution": "Source: Météo-France, Vigilance météorologique (https://vigilance.meteofrance.fr). Licence Ouverte 2.0. Last update: 2026-11-22T09:04:31Z",
+   "identifier": "MF-VIGILANCE-64-1-2026-11-22T09:04:31Z",
+   "sent_utc": 1795338271,
+   "effective_utc": 1795338271,
+   "onset_utc": 1795338000,
+   "expires_utc": 1795366800,
+   "ends_utc": null,
+   "message_type": "Alert",
+   "status": "new",
+   "level": "YELLOW",
+   "level_original": "Jaune",
+   "phenomenon": "wind",
+   "phenomenon_original": "Vent",
+   "event": "Vigilance jaune vent",
+   "issuer": "Météo-France",
+   "texts": [
+    {
+     "language": "fr-FR",
+     "sender_name": "Météo-France",
+     "event": "Vigilance jaune vent",
+     "headline": "Pyrénées-Atlantiques (64) : Vigilance jaune vent",
+     "description": null,
+     "instruction": null,
+     "web": "https://vigilance.meteofrance.fr/fr",
+     "parameters": [
+      {
+       "name": "phenomenon_id",
+       "value": "1"
+      },
+      {
+       "name": "color_id",
+       "value": "2"
+      },
+      {
+       "name": "timelaps",
+       "value": "2026-11-22T09:00:00Z/2026-11-22T17:00:00Z:Jaune"
+      }
+     ]
+    }
+   ],
+   "area": {
+    "description": "Pyrénées-Atlantiques",
+    "geocodes": [
+     {
+      "scheme": "NUTS3",
+      "value": "FR615"
+     },
+     {
+      "scheme": "INSEE_DEP",
+      "value": "64"
+     }
+    ],
+    "has_polygon": false,
+    "localization": "geocode"
+   },
+   "distance_km": null,
+   "link": null,
+   "web": "https://vigilance.meteofrance.fr/fr",
+   "derived": [
+    "status",
+    "level",
+    "phenomenon"
+   ]
+  },
+  {
+   "id": "meteofrance:64:3:2026-11-22T09:04:31Z",
+   "source": "meteofrance",
+   "country": "FR",
+   "attribution": "Source: Météo-France, Vigilance météorologique (https://vigilance.meteofrance.fr). Licence Ouverte 2.0. Last update: 2026-11-22T09:04:31Z",
+   "identifier": "MF-VIGILANCE-64-3-2026-11-22T09:04:31Z",
+   "sent_utc": 1795338271,
+   "effective_utc": 1795338271,
+   "onset_utc": 1795338000,
+   "expires_utc": 1795359600,
+   "ends_utc": null,
+   "message_type": "Alert",
+   "status": "new",
+   "level": "YELLOW",
+   "level_original": "Jaune",
+   "phenomenon": "thunderstorm",
+   "phenomenon_original": "Orages",
+   "event": "Vigilance jaune orages",
+   "issuer": "Météo-France",
+   "texts": [
+    {
+     "language": "fr-FR",
+     "sender_name": "Météo-France",
+     "event": "Vigilance jaune orages",
+     "headline": "Pyrénées-Atlantiques (64) : Vigilance jaune orages",
+     "description": null,
+     "instruction": null,
+     "web": "https://vigilance.meteofrance.fr/fr",
+     "parameters": [
+      {
+       "name": "phenomenon_id",
+       "value": "3"
+      },
+      {
+       "name": "color_id",
+       "value": "2"
+      },
+      {
+       "name": "timelaps",
+       "value": "2026-11-22T09:00:00Z/2026-11-22T15:00:00Z:Jaune"
+      }
+     ]
+    }
+   ],
+   "area": {
+    "description": "Pyrénées-Atlantiques",
+    "geocodes": [
+     {
+      "scheme": "NUTS3",
+      "value": "FR615"
+     },
+     {
+      "scheme": "INSEE_DEP",
+      "value": "64"
+     }
+    ],
+    "has_polygon": false,
+    "localization": "geocode"
+   },
+   "distance_km": null,
+   "link": null,
+   "web": "https://vigilance.meteofrance.fr/fr",
+   "derived": [
+    "status",
+    "level",
+    "phenomenon"
+   ]
+  },
+  {
+   "id": "meteofrance:64:9:2026-11-22T09:04:31Z",
+   "source": "meteofrance",
+   "country": "FR",
+   "attribution": "Source: Météo-France, Vigilance météorologique (https://vigilance.meteofrance.fr). Licence Ouverte 2.0. Last update: 2026-11-22T09:04:31Z",
+   "identifier": "MF-VIGILANCE-64-9-2026-11-22T09:04:31Z",
+   "sent_utc": 1795338271,
+   "effective_utc": 1795338271,
+   "onset_utc": 1795338000,
+   "expires_utc": 1795366800,
+   "ends_utc": null,
+   "message_type": "Alert",
+   "status": "new",
+   "level": "YELLOW",
+   "level_original": "Jaune",
+   "phenomenon": "coastal",
+   "phenomenon_original": "Vagues-submersion",
+   "event": "Vigilance jaune vagues-submersion",
+   "issuer": "Météo-France",
+   "texts": [
+    {
+     "language": "fr-FR",
+     "sender_name": "Météo-France",
+     "event": "Vigilance jaune vagues-submersion",
+     "headline": "Pyrénées-Atlantiques (64) : Vigilance jaune vagues-submersion",
+     "description": null,
+     "instruction": null,
+     "web": "https://vigilance.meteofrance.fr/fr",
+     "parameters": [
+      {
+       "name": "phenomenon_id",
+       "value": "9"
+      },
+      {
+       "name": "color_id",
+       "value": "2"
+      },
+      {
+       "name": "timelaps",
+       "value": "2026-11-22T09:00:00Z/2026-11-22T17:00:00Z:Jaune"
+      }
+     ]
+    }
+   ],
+   "area": {
+    "description": "Pyrénées-Atlantiques",
+    "geocodes": [
+     {
+      "scheme": "NUTS3",
+      "value": "FR615"
+     },
+     {
+      "scheme": "INSEE_DEP",
+      "value": "64"
+     }
+    ],
+    "has_polygon": false,
+    "localization": "geocode"
+   },
+   "distance_km": null,
+   "link": null,
+   "web": "https://vigilance.meteofrance.fr/fr",
+   "derived": [
+    "status",
+    "level",
+    "phenomenon"
+   ]
+  }
+ ],
+ "coverage": [
+  {
+   "source": "meteofrance",
+   "source_id": null,
+   "country": "FR",
+   "status": "ok",
+   "warnings_in_feed": 91,
+   "warnings_not_matchable": 0,
+   "feed_updated_utc": 1795338271,
+   "fetched_age_s": 31,
+   "note": null
+  },
+  {
+   "source": "vigicrues",
+   "source_id": null,
+   "country": "FR",
+   "status": "ok",
+   "warnings_in_feed": 13,
+   "warnings_not_matchable": 0,
+   "feed_updated_utc": 1795337838,
+   "fetched_age_s": 16,
+   "note": "13 of the 337 river sections are above green; a position gets those within its river radius (`river_radius_km`), with their distance."
+  }
+ ],
+ "uncovered": [],
+ "attribution": "Source: Météo-France, Vigilance météorologique (https://vigilance.meteofrance.fr). Licence Ouverte 2.0 | Source: Vigicrues, Service central d'hydrométéorologie et d'appui à la prévision des inondations (SCHAPI), https://www.vigicrues.gouv.fr. Licence Ouverte 2.0",
+ "disclaimer": null,
+ "note": null
+}

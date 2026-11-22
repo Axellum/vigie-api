@@ -205,3 +205,26 @@ def prealert_response(days: list[dict[str, Any]] | None = None, *, run_utc: str 
         "attribution": ECMWF_CREDIT,
         "derived": ["value", "level", "level_word", "thresholds", "max_level"],
     }
+
+
+def hourly(start_utc: int, rows: list[tuple[float | None, float | None, float | None, int | None, bool | None]]) -> list[dict[str, Any]]:
+    """Hours of ``/v1/point?compact=false`` (``hourly``, API ADR 0040) from the hour of ``start_utc``: one row per hour,
+    ``(temp_c, wind_gust_kmh, precipitation_mm, weather_code, is_day)``; every other field unknown, as a provider that does not
+    give it."""
+    first = start_utc - start_utc % 3600
+    fields = (
+        "feels_like_c", "dew_point_c", "precipitation_probability_pct", "wind_kmh", "wind_deg", "cloud_cover_pct", "cloud_low_pct",
+        "cloud_mid_pct", "cloud_high_pct", "pressure_hpa", "uv_index", "shortwave_wm2",
+    )
+    return [
+        {
+            "time_utc": first + 3600 * index,
+            "temp_c": temp,
+            "precipitation_mm": rain,
+            "wind_gust_kmh": gust,
+            "weather_code": code,
+            "is_day": is_day,
+            **dict.fromkeys(fields),
+        }
+        for index, (temp, gust, rain, code, is_day) in enumerate(rows)
+    ]
