@@ -1,7 +1,9 @@
 """Tests for the official Météo-France vigilance of the overseas territories (``DPVigilance/v1``, ADR 0036).
 
 The fixtures are real answers read on 2026-11-21 (Guadeloupe in yellow for rain and thunderstorms, French Polynesia in yellow
-for waves, the others without a level), cut down to the files the parser reads.
+for waves, the others without a level), cut down to the files the parser reads. Their warnings end on 2026-11-22 (14:00 UTC
+for French Polynesia, 19:00 UTC for Guadeloupe) and the service leaves out a warning that has ended: the wall clock of these
+tests stays on a morning when they were all valid.
 """
 
 from __future__ import annotations
@@ -9,11 +11,13 @@ from __future__ import annotations
 import io
 import json
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
 import pytest
 
+from app import clock
 from app.collectors.meteofrance_overseas_vigilance import (
     COUNTRY_FEEDS,
     FEED_URLS,
@@ -39,6 +43,13 @@ POINTS = {  # a point on land of each territory
     "PF": (-17.55, -149.55),
     "NC": (-22.27, 166.45),
 }
+# A morning when every warning of the fixtures was valid (they were read the day before).
+NOW = datetime(2026, 11, 22, 6, 0, tzinfo=timezone.utc).timestamp()
+
+
+@pytest.fixture(autouse=True)
+def _frozen_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(clock, "_wall", lambda: NOW)
 
 
 def zip_bytes(extra: dict[str, bytes] | None = None, skip: tuple[str, ...] = ()) -> bytes:
