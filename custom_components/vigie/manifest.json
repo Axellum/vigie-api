@@ -1,6 +1,7 @@
 {
   "domain": "vigie",
   "name": "Vigie",
+  "after_dependencies": ["frontend", "http"],
   "codeowners": ["@Axellum"],
   "config_flow": true,
   "dependencies": ["websocket_api"],
