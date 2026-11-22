@@ -92,13 +92,13 @@ def test_health_and_providers(world: World) -> None:
     assert data["status"] == "ok"
     assert data["storage_journal_mode"] == "wal"
     assert {"waveshare-7b", "tab5"} <= set(data["supported_devices"])
-    assert data["providers_summary"]["total"] == 38  # 22, four SWPC products of the aurora, five travel ministries, ECDC, the surf forecast, REFMAR tide gauges, NOAA NDBC buoys, VigiEau, SLF and Euregio avalanches
+    assert data["providers_summary"]["total"] == 37  # 22, four SWPC products of the aurora, four travel ministries (Smartraveller is off by default), ECDC, the surf forecast, REFMAR tide gauges, NOAA NDBC buoys, VigiEau, SLF and Euregio avalanches
     assert data["scheduler"]["running"] is False  # the scheduler is opt-in (VIGIE_SCHEDULER)
 
     providers = world.client.get("/v1/providers")
     assert providers.status_code == 200
     ids = {p["provider_id"] for p in providers.json()}
-    assert len(providers.json()) == 38
+    assert len(providers.json()) == 37
     assert "vigieau" in ids
     assert "slf_avalanche" in ids
     assert "euregio_avalanche" in ids
@@ -118,9 +118,9 @@ def test_health_and_providers(world: World) -> None:
         "travel_gb",
         "travel_us",
         "travel_ca",
-        "travel_au",
         "travel_nl",
     } <= ids
+    assert "travel_au" not in ids and "travel_au" in {s["provider_id"] for s in data["disabled_sources"]}
 
 
 def test_point_endpoint_marine_gps(world: World, monkeypatch: pytest.MonkeyPatch) -> None:

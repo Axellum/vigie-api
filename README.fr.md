@@ -444,11 +444,13 @@ depuis un serveur qui garde la réponse, pas depuis chaque navigateur.
 
 ## Conseils aux voyageurs
 
-`GET /v1/travel` et `GET /v1/travel/{country}` relaient ce que cinq ministères conseillent à leurs ressortissants : le FCDO
-(Royaume-Uni, GOV.UK), le Department of State (États-Unis), Affaires mondiales Canada, Smartraveller (Australie) et NederlandWereldwijd
-(Pays-Bas), chacun lu dans son flux ouvert, en entier, toutes les heures. Chaque niveau reste dans les mots du ministère, son texte
-intact, avec la date de sa version (`published_utc`) et l'heure où Vigie l'a lu (`checked_utc`). L'Allemagne et la France sont listées
-avec la raison pour laquelle elles ne sont pas lues (`ministries[].why_not_read`).
+`GET /v1/travel` et `GET /v1/travel/{country}` relaient ce que des ministères conseillent à leurs ressortissants : le FCDO
+(Royaume-Uni, GOV.UK), le Department of State (États-Unis), Affaires mondiales Canada et NederlandWereldwijd (Pays-Bas), chacun lu
+dans son flux ouvert, en entier, toutes les heures ; Smartraveller (Australie) aussi, sur une instance qui l'active
+(`VIGIE_ENABLE_SMARTRAVELLER`, désactivée par défaut : son serveur refuse les hébergeurs). Chaque niveau reste dans les mots du
+ministère, son texte intact, avec la date de sa version (`published_utc`) et l'heure où Vigie l'a lu (`checked_utc`). L'Allemagne, la
+France et l'Australie quand elle est désactivée sont listées avec la raison pour laquelle elles ne sont pas lues
+(`ministries[].why_not_read`).
 
 ```
 GET /v1/travel            tous les pays, le niveau de chaque ministère, et la comparaison
@@ -752,6 +754,7 @@ Tous les réglages sont des variables d'environnement facultatives.
 | `VIGIE_ENABLE_WATCHED_POINTS_WRITE` | `0` | `1` active `POST` et `DELETE` de `/v1/watched-points` (403 sinon ; les lectures marchent toujours). Les routes n'ont pas d'authentification et un point surveillé est personnel : ne l'activez que sur une instance que seuls des clients de confiance peuvent atteindre, et bloquez ces deux routes dans le proxy inverse d'une instance publique. |
 | `VIGIE_ENABLE_RAINVIEWER` | `1` ; `0` dans l'image Docker | `0` cesse d'interroger RainViewer (les champs radar de `/v1/point` restent inconnus). Son API gratuite est réservée à un usage personnel et pédagogique : mettez `0` sur une instance qui sert d'autres personnes. |
 | `VIGIE_ENABLE_METSERVICE` | `1` (aussi dans l'image Docker) | `0` cesse d'interroger MetService (Nouvelle-Zélande) : une position là-bas n'a alors aucune source, et la réponse dit que la source est désactivée. Son flux indique CC BY 4.0 mais les conditions du site auxquelles il renvoie n'autorisent qu'un usage personnel et interdisent la rediffusion, et on n'a pas vérifié laquelle prévaut : mettez `0` sur une instance qui sert d'autres personnes, sauf accord de MetService. |
+| `VIGIE_ENABLE_SMARTRAVELLER` | `0` (aussi dans l'image Docker) | `1` interroge de nouveau Smartraveller (Australie). Désactivée par défaut depuis le 2026-11-22 : la protection de son serveur ne répond ni au client TLS de l'image ni aux adresses des hébergeurs, si bien que chaque lecture expirait ou était refusée. Désactivée, l'Australie est listée avec la raison pour laquelle elle n'est pas lue (`ministries[].why_not_read` de `GET /v1/travel`) et la source figure dans `disabled_sources` de `GET /v1/health`. |
 | `VIGIE_ADMIN_TOKEN` | aucun | Quand il est défini, toute requête qui n'est pas une lecture (`POST`, `PUT`, `PATCH`, `DELETE`) doit porter `Authorization: Bearer <jeton>`, sinon la réponse est 401 ; les lectures n'en ont jamais besoin. Non défini ou vide : rien ne change (le réseau est de confiance). Il s'ajoute aux deux interrupteurs ci-dessus : une route désactivée reste en 403. Comparé en temps constant ; il n'apparaît dans aucun journal ni aucune réponse (`GET /v1/health` dit seulement `admin_token_set`). Un secret partagé dans un en-tête : mettez TLS devant toute instance qui n'est pas sur un réseau de confiance. |
 | `VIGIE_CONTACT` | aucune | Adresse e-mail ou URL ajoutée au `User-Agent` envoyé aux sources. MET Norway et NOAA exigent un contact identifiable : renseignez-la. |
 | `VIGIE_CAP_SENDER` | `vigie-api` | `sender` des alertes CAP. |

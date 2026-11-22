@@ -56,7 +56,7 @@ from app.collectors.avalanches import (
     resolve_avalanche_coverage,
     summarize_point_avalanche,
 )
-from app.collectors.base import CollectorUnavailableError
+from app.collectors.base import BaseCollector, CollectorUnavailableError
 from app.collectors.budget import share_budgets
 from app.collectors.candhis import CandhisCollector, candhis_key_from_env
 from app.collectors.disasters import GDACSCollector, NOAANWSCollector
@@ -115,11 +115,14 @@ from app.collectors.surf import SurfForecastCollector
 from app.collectors.swic import SwicCollector
 from app.collectors.swic_registry import SwicRegistryCollector, wmo_sources_from_env
 from app.collectors.travel import (
+    SMARTRAVELLER_NOT_READ,
+    SMARTRAVELLER_OFF_REASON,
     CanadaTravelCollector,
     FCDOTravelCollector,
     NetherlandsTravelCollector,
     SmartravellerCollector,
     USTravelCollector,
+    smartraveller_enabled_from_env,
 )
 from app.collectors.tsunami import TsunamiCollector
 from app.collectors.vigicrues import VigicruesCollector
@@ -329,6 +332,7 @@ class AggregatorService:
         db_path: Optional[str | Path] = None,
         rainviewer_enabled: Optional[bool] = None,
         metservice_enabled: Optional[bool] = None,
+        smartraveller_enabled: Optional[bool] = None,
         meteoalarm: Optional[MeteoAlarmCollector] = None,
         meteoalarm_cap: Optional[MeteoAlarmCapCollector] = None,
         dwd: Optional[DWDCollector] = None,
@@ -551,6 +555,10 @@ class AggregatorService:
         self.travel_us = travel_us or USTravelCollector()
         self.travel_ca = travel_ca or CanadaTravelCollector()
         self.travel_au = travel_au or SmartravellerCollector()
+        # Smartraveller is off unless VIGIE_ENABLE_SMARTRAVELLER turns it on (see ``smartraveller_enabled_from_env``).
+        self.smartraveller_enabled = (
+            smartraveller_enabled_from_env() if smartraveller_enabled is None else smartraveller_enabled
+        )
         self.travel_nl = travel_nl or NetherlandsTravelCollector()
         # The ECDC's publications on communicable disease threats, for the travel pages.
         self.health_ecdc = health_ecdc or ECDCHealthCollector()
@@ -613,11 +621,16 @@ class AggregatorService:
             archive=self.vigilance_archive,
         )
         # The travel advice: every ministry's level for each country, one country's texts, and the archive of the versions.
+        ministries: dict[str, BaseCollector[Any]] = {"gb": self.travel_gb, "us": self.travel_us, "ca": self.travel_ca}
+        if self.smartraveller_enabled:
+            ministries["au"] = self.travel_au
+        ministries["nl"] = self.travel_nl
         self.travel = TravelService(
-            {"gb": self.travel_gb, "us": self.travel_us, "ca": self.travel_ca, "au": self.travel_au, "nl": self.travel_nl},
+            ministries,
             countries=self.vigilances.countries,
             store=travel_store,
             health=HealthService(self.health_ecdc, self.vigilances.countries),
+            off={} if self.smartraveller_enabled else {"au": SMARTRAVELLER_NOT_READ},
         )
 
     @property
@@ -759,6 +772,7 @@ class AggregatorService:
             for c, enabled in (
                 (self.rainviewer, self.rainviewer_enabled),
                 (self.metservice, self.metservice_enabled),
+                (self.travel_au, self.smartraveller_enabled),
                 (self.swic, self.wmo_sources != "off"),
                 (self.swic_registry, self.wmo_sources != "off"),
             )
@@ -955,6 +969,15 @@ class AggregatorService:
                     "name": "Météo-France forest fire danger, Météo des forêts (vigie-meteo gateway)",
                     "domain": "weather",
                     "reason": self.meteofrance_forests_off_reason,
+                }
+            )
+        if not self.smartraveller_enabled:
+            off.append(
+                {
+                    "provider_id": "travel_au",
+                    "name": "Smartraveller travel advice (Australia, DFAT)",
+                    "domain": "travel",
+                    "reason": SMARTRAVELLER_OFF_REASON,
                 }
             )
         return off

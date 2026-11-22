@@ -21,7 +21,7 @@ from app.services.travel_store import TravelStore
 from tests import health_samples
 from tests import travel_samples as samples
 from tests.conftest import World
-from tests.helpers import SimClock
+from tests.helpers import SimClock, make_service
 
 
 def recorded_hosts(gb_pages: tuple[str, ...] = tuple(samples.GB_RECORDED)) -> Callable[[httpx.Request], httpx.Response]:
@@ -40,7 +40,11 @@ def recorded_hosts(gb_pages: tuple[str, ...] = tuple(samples.GB_RECORDED)) -> Ca
     return lambda request: hosts[request.url.host](request)
 
 
-def make_travel(tmp_path: Path, answer: Callable[[httpx.Request], httpx.Response] | None = None) -> TravelService:
+def make_travel(
+    tmp_path: Path,
+    answer: Callable[[httpx.Request], httpx.Response] | None = None,
+    off: dict[str, str] | None = None,
+) -> TravelService:
     client = httpx.AsyncClient(transport=httpx.MockTransport(answer or recorded_hosts()))
     store = TravelStore(tmp_path / "travel.db")
     sources = {
@@ -50,8 +54,10 @@ def make_travel(tmp_path: Path, answer: Callable[[httpx.Request], httpx.Response
         "au": collectors.SmartravellerCollector(http_client=client),
         "nl": collectors.NetherlandsTravelCollector(http_client=client),
     }
+    for ministry in off or {}:
+        del sources[ministry]  # switched off: not read at all
     health = HealthService(ECDCHealthCollector(http_client=client), default_countries())
-    return TravelService(sources, default_countries(), store, health=health)
+    return TravelService(sources, default_countries(), store, health=health, off=off)
 
 
 def level(ministry: str, low: int | None, high: int | None, part: bool = False) -> TravelLevel:
@@ -264,3 +270,57 @@ def test_the_routes_answer_and_check_the_country(world: World, tmp_path: Path, m
     kenya = world.client.get("/v1/travel/KE").json()["health"]
     assert kenya["country"] == "KE" and [i["countries"] for i in kenya["items"]] == [["KE", "NG"]]
     assert kenya["items"][0]["derived"] == ["countries"]
+
+
+# --- Smartraveller, off unless the instance turns it on -----------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("value", "enabled"),
+    [(None, False), ("", False), ("0", False), ("no", False), ("1", True), ("true", True), ("YES", True), (" on ", True)],
+)
+def test_smartraveller_switch(monkeypatch: pytest.MonkeyPatch, value: str | None, enabled: bool) -> None:
+    if value is None:
+        monkeypatch.delenv("VIGIE_ENABLE_SMARTRAVELLER", raising=False)
+    else:
+        monkeypatch.setenv("VIGIE_ENABLE_SMARTRAVELLER", value)
+    assert collectors.smartraveller_enabled_from_env() is enabled
+
+
+@pytest.mark.asyncio
+async def test_a_ministry_switched_off_is_listed_as_not_read_and_never_asked(tmp_path: Path) -> None:
+    hosts = recorded_hosts()
+    asked: set[str] = set()
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        asked.add(request.url.host)
+        return hosts(request)
+
+    travel = make_travel(tmp_path, answer, off={"au": collectors.SMARTRAVELLER_NOT_READ})
+    overview = await travel.overview()
+    au = next(m for m in overview.ministries if m.id == "au")
+    assert (au.read, au.state, au.advices) == (False, None, None)
+    assert au.why_not_read == collectors.SMARTRAVELLER_NOT_READ and au.url  # its pages stay linked
+    assert au.attribution is None and au.commercial_use is None  # nothing of it is relayed
+    assert sorted(m.id for m in overview.ministries if m.read) == ["ca", "gb", "nl", "us"]
+    assert all(a.ministry != "au" for c in overview.countries for a in c.advices)
+    detail = await travel.country("MX")
+    assert sorted(a.ministry for a in detail.advices) == ["ca", "gb", "nl", "us"] and detail.not_covered == []
+    assert "www.smartraveller.gov.au" not in asked and "www.gov.uk" in asked
+
+
+def test_smartraveller_is_off_by_default(world: World) -> None:
+    service = world.aggregator
+    assert service.smartraveller_enabled is False
+    assert service.travel_au not in service.get_all_collectors() and "au" not in service.travel.sources
+    assert service.travel.off == {"au": collectors.SMARTRAVELLER_NOT_READ}
+    health = world.client.get("/v1/health").json()
+    off = next(s for s in health["disabled_sources"] if s["provider_id"] == "travel_au")
+    assert off["domain"] == "travel" and "VIGIE_ENABLE_SMARTRAVELLER=1" in off["reason"]
+    assert "travel_au" not in {p["provider_id"] for p in health["providers"]}
+
+
+def test_an_instance_can_turn_smartraveller_back_on(tmp_path: Path) -> None:
+    service = make_service(tmp_path / "au.db", smartraveller_enabled=True)
+    assert service.travel_au in service.get_all_collectors() and service.travel.sources["au"] is service.travel_au
+    assert service.travel.off == {} and "travel_au" not in {s["provider_id"] for s in service.disabled_sources()}

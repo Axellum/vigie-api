@@ -424,11 +424,12 @@ afterwards): ask it from a server that keeps the answer, not from each browser.
 
 ## Travel advice
 
-`GET /v1/travel` and `GET /v1/travel/{country}` relay what five foreign ministries advise their citizens: the FCDO (United Kingdom,
-GOV.UK), the Department of State (United States), Global Affairs Canada, Smartraveller (Australia) and NederlandWereldwijd (the
-Netherlands), each read from its open feed, whole, an hour at a time. Each level stays in the ministry's own words, its text untouched,
-with the date of its version (`published_utc`) and when Vigie read it (`checked_utc`). Germany and France are listed with the reason
-they are not read (`ministries[].why_not_read`).
+`GET /v1/travel` and `GET /v1/travel/{country}` relay what foreign ministries advise their citizens: the FCDO (United Kingdom,
+GOV.UK), the Department of State (United States), Global Affairs Canada and NederlandWereldwijd (the Netherlands), each read from its
+open feed, whole, an hour at a time; Smartraveller (Australia) too, on an instance that turns it on (`VIGIE_ENABLE_SMARTRAVELLER`, off
+by default: its server refuses hosting providers). Each level stays in the ministry's own words, its text untouched, with the date of
+its version (`published_utc`) and when Vigie read it (`checked_utc`). Germany, France and Australia when it is off are listed with the
+reason they are not read (`ministries[].why_not_read`).
 
 ```
 GET /v1/travel            every country, each ministry's level, and the comparison
@@ -733,6 +734,7 @@ All settings are optional environment variables.
 | `VIGIE_ADMIN_TOKEN` | none | When set, every request that is not a read (`POST`, `PUT`, `PATCH`, `DELETE`) must carry `Authorization: Bearer <token>`, else the answer is 401; the reads never need it. Unset or blank: nothing changes (the network is trusted). It stacks with the two switches above: a disabled route stays 403. Compared in constant time; it appears in no log and no answer (`GET /v1/health` only says `admin_token_set`). A shared secret in a header: put TLS in front of any instance that is not on a trusted network. |
 | `VIGIE_ENABLE_RAINVIEWER` | `1`; `0` in the Docker image | `0` stops asking RainViewer (the radar fields of `/v1/point` stay unknown). Its free API is for personal and educational use: set `0` on an instance that serves other people. |
 | `VIGIE_ENABLE_METSERVICE` | `1` (also in the Docker image) | `0` stops asking MetService (New Zealand): a position there then gets no source, and the answer says it is turned off. Its feed says CC BY 4.0 but the website terms it points to allow personal use only and forbid resupply, and which one governs is not verified: set `0` on an instance that serves other people unless MetService agrees. |
+| `VIGIE_ENABLE_SMARTRAVELLER` | `0` (also in the Docker image) | `1` asks Smartraveller (Australia) again. Off by default since 2026-11-22: the protection of its server answers neither the TLS client of the image nor the addresses of hosting providers, so every read timed out or was refused. Off, Australia is listed with the reason it is not read (`ministries[].why_not_read` of `GET /v1/travel`) and the source appears in `disabled_sources` of `GET /v1/health`. |
 | `VIGIE_WMO_SOURCES` | `verified` | Which national services of the WMO registry are read for the countries that have no source of their own: `verified` (only those whose own terms were read and allow relaying them), `all` (every service that is not excluded, for an instance only its owner uses) or `off`. An unknown value means `verified`. See "More countries, through the WMO registry". |
 | `VIGIE_CONTACT` | none | E-mail address or URL added to the `User-Agent` sent to the providers. MET Norway and NOAA require an identifying contact: set it. |
 | `VIGIE_CAP_SENDER` | `vigie-api` | `sender` of the CAP alerts. |
