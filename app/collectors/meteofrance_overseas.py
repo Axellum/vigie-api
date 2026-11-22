@@ -29,7 +29,7 @@ import httpx
 from app.attribution import OPEN_METEO_WEATHER, credit_text, merge_credits
 from app.collectors.base import BaseCollector
 from app.collectors.grid import DEFAULT_FORECAST_GRID_DEG, coord_str, snap_to_grid
-from app.models.schemas import CurrentWeather, DailyForecast
+from app.models.schemas import CurrentWeather, DailyForecast, HourlyWeatherPoint
 
 PROVIDER_ID = "meteofrance_overseas"
 TOGGLE_ENV = "VIGIE_METEO_GATEWAY_OVERSEAS"
@@ -235,6 +235,20 @@ def merge_overseas_bundle(raw: OverseasRaw, public_daily: Optional[Mapping[str, 
     credits = [credit_text(PROVIDER_ID)]
     if public_daily is not None:
         credits.append(credit_text(*OPEN_METEO_WEATHER))
+    hourly_all = [
+        HourlyWeatherPoint(
+            time_utc=h.time_utc,
+            temp_c=_round(h.temp_c),
+            precipitation_mm=_round(h.rain_mm, 2),
+            wind_kmh=_round(h.wind_kmh),
+            wind_gust_kmh=_round(h.gust_kmh),
+            wind_deg=None if h.wind_deg is None else int(round(h.wind_deg)) % 360,
+            cloud_cover_pct=None if h.cloud_pct is None else int(round(h.cloud_pct)),
+            pressure_hpa=_round(h.pressure_hpa),
+            weather_code=weather_code(h.rain_mm, h.cloud_pct),
+        )
+        for h in raw.hours
+    ]
     return {
         "provider_name": PROVIDER_NAME,
         "attribution": merge_credits(*credits),
@@ -243,6 +257,7 @@ def merge_overseas_bundle(raw: OverseasRaw, public_daily: Optional[Mapping[str, 
         "rain_next_60m": None,
         "daily_10d": [days[date] for date in sorted(days)],
         "hourly_cloud_cover": list((public_daily or {}).get("hourly_cloud_cover", [])),
+        "hourly_all": hourly_all,
     }
 
 

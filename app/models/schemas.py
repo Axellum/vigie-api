@@ -168,6 +168,50 @@ class DailyForecast(BaseModel):
     uv_max: Optional[float] = Field(default=None, ge=0.0, description="Maximum UV index of the day")
 
 
+class HourlyWeatherPoint(BaseModel):
+    """One hour of the point weather forecast (up to 72 hours). Every field a provider did not supply is ``None``."""
+
+    time_utc: int = Field(..., description="Start of the hour, UTC epoch seconds")
+    temp_c: Optional[float] = Field(default=None, description="Temperature at 2 m (deg C)")
+    feels_like_c: Optional[float] = Field(default=None, description="Apparent temperature (deg C)")
+    dew_point_c: Optional[float] = Field(default=None, description="Dew point temperature at 2 m (deg C)")
+    precipitation_mm: Optional[float] = Field(default=None, ge=0.0, description="Hourly precipitation total (mm)")
+    precipitation_probability_pct: Optional[int] = Field(
+        default=None, ge=0, le=100, description="Hourly precipitation probability (%)"
+    )
+    wind_kmh: Optional[float] = Field(default=None, ge=0.0, description="Wind speed at 10 m (km/h)")
+    wind_gust_kmh: Optional[float] = Field(default=None, ge=0.0, description="Wind gusts at 10 m (km/h)")
+    wind_deg: Optional[int] = Field(default=None, ge=0, le=360, description="Wind direction at 10 m (degrees)")
+    cloud_cover_pct: Optional[int] = Field(default=None, ge=0, le=100, description="Total cloud cover (%)")
+    cloud_low_pct: Optional[int] = Field(default=None, ge=0, le=100, description="Low-level cloud cover (%)")
+    cloud_mid_pct: Optional[int] = Field(default=None, ge=0, le=100, description="Mid-level cloud cover (%)")
+    cloud_high_pct: Optional[int] = Field(default=None, ge=0, le=100, description="High-level cloud cover (%)")
+    pressure_hpa: Optional[float] = Field(default=None, ge=0.0, description="Mean sea-level pressure (hPa)")
+    uv_index: Optional[float] = Field(default=None, ge=0.0, description="Hourly UV index")
+    shortwave_wm2: Optional[float] = Field(default=None, ge=0.0, description="Shortwave solar radiation (W/m2)")
+    weather_code: Optional[int] = Field(default=None, ge=0, le=99, description="WMO weather interpretation code")
+    is_day: Optional[bool] = Field(default=None, description="True during local daylight, False at night, null when unknown")
+
+
+class PressureHistoryPoint(BaseModel):
+    """One past hourly mean sea-level pressure sample (up to 24 hours before now)."""
+
+    time_utc: int = Field(..., description="Start of the hour, UTC epoch seconds")
+    pressure_hpa: Optional[float] = Field(default=None, ge=0.0, description="Mean sea-level pressure (hPa)")
+
+
+class AirHourlyPoint(BaseModel):
+    """One hour of the air quality forecast (up to 72 hours, CAMS via Open-Meteo). Missing values are ``None``."""
+
+    time_utc: int = Field(..., description="Start of the hour, UTC epoch seconds")
+    pm2_5: Optional[float] = Field(default=None, ge=0.0, description="PM2.5 particles (ug/m3)")
+    pm10: Optional[float] = Field(default=None, ge=0.0, description="PM10 particles (ug/m3)")
+    ozone: Optional[float] = Field(default=None, ge=0.0, description="Ozone O3 (ug/m3)")
+    nitrogen_dioxide: Optional[float] = Field(default=None, ge=0.0, description="Nitrogen dioxide NO2 (ug/m3)")
+    dust: Optional[float] = Field(default=None, ge=0.0, description="Desert dust / volcanic ash (ug/m3)")
+    european_aqi: Optional[int] = Field(default=None, ge=0, description="European air quality index (EAQI)")
+
+
 class RainNowcast(BaseModel):
     """Precipitation over the next 60 minutes (Open-Meteo 15-minute steps, or in France, when a vigie-meteo gateway is
     configured, Météo-France PIAF 5-minute steps summed by quarter of an hour) and the latest observed radar frame."""
@@ -487,6 +531,19 @@ class AirQualityStatus(BaseModel):
     attribution: Optional[str] = Field(
         default=None, description="Credit the source asks for, to show with this data; null when there is no data"
     )
+    # Hourly air quality forecast carried alongside the status for ``/v1/point?compact=false`` only; kept private so
+    # ``AirQualityStatus`` (and the compact 16 KiB profile) stays unchanged.
+    _hourly: Optional[list[AirHourlyPoint]] = PrivateAttr(default=None)
+
+    @property
+    def hourly_series(self) -> Optional[list[AirHourlyPoint]]:
+        """Up to 72 hours of air quality forecast, or ``None`` when the provider did not supply hourly data."""
+        return self._hourly
+
+    def with_hourly(self, points: Optional[list[AirHourlyPoint]]) -> "AirQualityStatus":
+        """Attach the hourly air quality series and return this instance."""
+        self._hourly = points or None
+        return self
 
 
 class FiresNearby(BaseModel):
@@ -579,6 +636,22 @@ class PointResponse(BaseModel):
     local_alert_level: SeverityLevel = Field(default=SeverityLevel.GREEN)
     current: Optional[CurrentWeather] = Field(default=None, description="Current weather; null when unknown")
     daily: list[DailyForecast] = Field(default_factory=list, description="Daily forecasts at the position")
+    hourly: Optional[list[HourlyWeatherPoint]] = Field(
+        default=None,
+        description="Hourly weather forecast at the position (up to 72 hours, starting at the current hour). "
+        "Populated only when `compact=false` (omitted as null in the 16 KiB compact profile) and when the weather "
+        "provider supplied hourly data; every field a provider did not supply stays null",
+    )
+    pressure_history: Optional[list[PressureHistoryPoint]] = Field(
+        default=None,
+        description="Hourly mean sea-level pressure over the past 24 hours before the current hour (hPa), for barometer "
+        "trend charts. Populated only when `compact=false` and the weather provider supplied past hourly pressure; null otherwise",
+    )
+    air_hourly: Optional[list[AirHourlyPoint]] = Field(
+        default=None,
+        description="Hourly air quality forecast at the position (up to 72 hours, starting at the current hour) from "
+        "Open-Meteo Air Quality (CAMS). Populated only when `compact=false` and the provider supplied hourly data; null otherwise",
+    )
     rain_nowcast: RainNowcast
     marine: Optional[MarineConditions] = Field(
         default=None, description="Marine conditions (present when requested and available)"

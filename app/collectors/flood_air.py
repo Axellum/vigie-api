@@ -41,6 +41,7 @@ from app.models.pollens import (
     PollenStatus,
 )
 from app.models.schemas import (
+    AirHourlyPoint,
     AirQualityStatus,
     FloodRiskStatus,
     HazardAlert,
@@ -150,6 +151,13 @@ CAMS_EUROPE_LAT_MAX = 72.0
 CAMS_EUROPE_LON_MIN = -25.0
 CAMS_EUROPE_LON_MAX = 45.0
 POLLEN_FORECAST_DAYS = 4
+# ``european_aqi``, ``pm10``, ``pm2_5`` and ``dust`` are already in ``hourly`` at CAMS's 1-hour resolution, so asking
+# for only ``us_aqi,uv_index`` in ``current`` avoids double-counting them in the Open-Meteo call weight (8 variables
+# outside Europe -> weight 1.0; 14 with the 6 European pollens -> weight 1.4).
+AIR_CURRENT_VARIABLES = "us_aqi,uv_index"
+AIR_HOURLY_VARIABLES = ("pm2_5", "pm10", "ozone", "nitrogen_dioxide", "dust", "european_aqi")
+AIR_HOURLY_FORECAST_DAYS = 4
+AIR_HOURLY_MAX_HOURS = 72
 
 
 def is_in_cams_europe(lat: float, lon: float) -> bool:
@@ -182,24 +190,25 @@ class OpenMeteoAirQualityCollector(BaseCollector[AirQualityStatus]):
         )
 
     def call_weight(self, params: Mapping[str, str]) -> float:
-        """Weight of one request under the Open-Meteo rule (1.0 outside Europe, 1.2 in Europe with 6 pollens)."""
+        """Weight of one request under the Open-Meteo rule (1.0 outside Europe, 1.4 in Europe with 6 pollens)."""
         return open_meteo_weight(params, default_forecast_days=5)
 
     @staticmethod
     def request_params(lat: float, lon: float) -> dict[str, str]:
         """Build Open-Meteo Air Quality query parameters (pollen hourly series requested only inside CAMS Europe)."""
-        params = {
+        hourly_vars = list(AIR_HOURLY_VARIABLES)
+        if is_in_cams_europe(lat, lon):
+            hourly_vars.extend(POLLEN_API_VARIABLES.values())
+        return {
             "latitude": coord_str(lat),
             "longitude": coord_str(lon),
-            "current": "european_aqi,us_aqi,pm10,pm2_5,uv_index,dust",
+            "current": AIR_CURRENT_VARIABLES,
+            "hourly": ",".join(hourly_vars),
+            "forecast_days": str(AIR_HOURLY_FORECAST_DAYS),
         }
-        if is_in_cams_europe(lat, lon):
-            params["hourly"] = ",".join(POLLEN_API_VARIABLES.values())
-            params["forecast_days"] = str(POLLEN_FORECAST_DAYS)
-        return params
 
     async def fetch_air_quality(self, lat: float, lon: float) -> AirQualityStatus:
-        """Fetch the AQI, fine particles, UV, dust / ash and (in Europe) pollens near ``lat, lon``."""
+        """Fetch the AQI, fine particles, UV, dust / ash, hourly air series and (in Europe) pollens near ``lat, lon``."""
         lat_r, lon_r = snap_to_grid(lat, lon, self.grid_deg)
         cache_key = f"aqi:{coord_str(lat_r)},{coord_str(lon_r)}"
         fetched = await self.fetch_ex(cache_key=cache_key, lat=lat_r, lon=lon_r)
@@ -208,7 +217,7 @@ class OpenMeteoAirQualityCollector(BaseCollector[AirQualityStatus]):
         updates: dict[str, Any] = {"stale": True}
         if fetched.value.pollens is not None:
             updates["pollens"] = fetched.value.pollens.model_copy(update={"stale": True})
-        return fetched.value.model_copy(update=updates)
+        return fetched.value.model_copy(update=updates).with_hourly(fetched.value.hourly_series)
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> AirQualityStatus:
         lat = float(kwargs["lat"])
@@ -308,20 +317,131 @@ class OpenMeteoAirQualityCollector(BaseCollector[AirQualityStatus]):
         )
 
     @staticmethod
+    def _observed_hour_index(curr: Mapping[str, Any], times: list[str]) -> Optional[int]:
+        """Index of ``curr['time']`` inside ``hourly['time']``, or ``None`` when absent / unmatched."""
+        observed_raw = curr.get("time")
+        observed_time = observed_raw.strip() if isinstance(observed_raw, str) and observed_raw.strip() else None
+        if observed_time is None or not times:
+            return None
+        try:
+            return times.index(observed_time)
+        except ValueError:
+            return None
+
+    @staticmethod
+    def parse_hourly(payload: dict[str, Any]) -> Optional[list[AirHourlyPoint]]:
+        """Extract up to 72 hours of hourly air quality starting from ``current.time`` (or the first hour).
+
+        Returns ``None`` when the provider supplied no non-null air quality values in ``hourly``.
+        """
+        curr = payload.get("current") or {}
+        hourly = payload.get("hourly")
+        if not isinstance(hourly, dict):
+            return None
+        raw_times = hourly.get("time")
+        if not isinstance(raw_times, list) or not raw_times:
+            return None
+        times = [t for t in raw_times if isinstance(t, str)]
+        if not times:
+            return None
+
+        offset = optional_float(payload.get("utc_offset_seconds")) or 0.0
+        start_idx = OpenMeteoAirQualityCollector._observed_hour_index(curr, times)
+        if start_idx is None:
+            start_idx = 0
+
+        def col(name: str) -> list[Any]:
+            arr = hourly.get(name)
+            return arr if isinstance(arr, list) else []
+
+        def at(values: list[Any], idx: int) -> Any:
+            return values[idx] if idx < len(values) else None
+
+        def non_neg(value: Any) -> Optional[float]:
+            num = optional_float(value)
+            return None if num is None else round(max(0.0, num), 1)
+
+        pm25_arr = col("pm2_5")
+        pm10_arr = col("pm10")
+        o3_arr = col("ozone")
+        no2_arr = col("nitrogen_dioxide")
+        dust_arr = col("dust")
+        eaqi_arr = col("european_aqi")
+
+        points: list[AirHourlyPoint] = []
+        for idx in range(start_idx, len(raw_times)):
+            if len(points) >= AIR_HOURLY_MAX_HOURS:
+                break
+            stamp = raw_times[idx]
+            if not isinstance(stamp, str) or not stamp.strip():
+                continue
+            text = stamp.strip()
+            if text.endswith("Z"):
+                text = text[:-1] + "+00:00"
+            try:
+                dt = datetime.fromisoformat(text)
+            except ValueError:
+                continue
+            epoch = int(dt.timestamp()) if dt.tzinfo is not None else int(dt.replace(tzinfo=timezone.utc).timestamp() - offset)
+
+            pm2_5 = non_neg(at(pm25_arr, idx))
+            pm10 = non_neg(at(pm10_arr, idx))
+            ozone = non_neg(at(o3_arr, idx))
+            no2 = non_neg(at(no2_arr, idx))
+            dust = non_neg(at(dust_arr, idx))
+            eaqi_raw = optional_float(at(eaqi_arr, idx))
+            eaqi = None if eaqi_raw is None else max(0, int(round(eaqi_raw)))
+            if all(v is None for v in (pm2_5, pm10, ozone, no2, dust, eaqi)):
+                continue
+            points.append(
+                AirHourlyPoint(
+                    time_utc=epoch,
+                    pm2_5=pm2_5,
+                    pm10=pm10,
+                    ozone=ozone,
+                    nitrogen_dioxide=no2,
+                    dust=dust,
+                    european_aqi=eaqi,
+                )
+            )
+
+        return points or None
+
+    @staticmethod
     def parse_response(payload: dict[str, Any]) -> AirQualityStatus:
         """Normalize an Open-Meteo Air Quality response. Missing variables become ``None``.
 
+        ``european_aqi``, ``pm2_5``, ``pm10`` and ``dust`` are read from ``current`` when present, else from the
+        matching ``current.time`` hour of ``hourly`` (avoiding double-counting them in the Open-Meteo call weight).
         Raises ``ValueError`` when the response carries neither air quality nor pollen values.
         """
         curr = payload.get("current") or {}
-        eu_raw = optional_float(curr.get("european_aqi"))
+        hourly = payload.get("hourly") or {}
+        raw_times = hourly.get("time") if isinstance(hourly, dict) else None
+        times = [t for t in raw_times if isinstance(t, str)] if isinstance(raw_times, list) else []
+        obs_idx = OpenMeteoAirQualityCollector._observed_hour_index(curr, times)
+        if obs_idx is None and times and not curr.get("time"):
+            obs_idx = 0
+
+        def current_or_hourly(key: str) -> Optional[float]:
+            val = optional_float(curr.get(key))
+            if val is not None:
+                return val
+            if obs_idx is not None and isinstance(hourly, dict):
+                arr = hourly.get(key)
+                if isinstance(arr, list) and obs_idx < len(arr):
+                    return optional_float(arr[obs_idx])
+            return None
+
+        eu_raw = current_or_hourly("european_aqi")
         us_raw = optional_float(curr.get("us_aqi"))
-        pm2_5 = optional_float(curr.get("pm2_5"))
-        pm10 = optional_float(curr.get("pm10"))
+        pm2_5 = current_or_hourly("pm2_5")
+        pm10 = current_or_hourly("pm10")
         uv = optional_float(curr.get("uv_index"))
-        dust = optional_float(curr.get("dust"))
+        dust = current_or_hourly("dust")
         pollens = OpenMeteoAirQualityCollector.parse_pollens(payload)
-        if all(v is None for v in (eu_raw, us_raw, pm2_5, pm10, dust)) and pollens is None:
+        air_hourly = OpenMeteoAirQualityCollector.parse_hourly(payload)
+        if all(v is None for v in (eu_raw, us_raw, pm2_5, pm10, dust)) and pollens is None and air_hourly is None:
             raise ValueError("Open-Meteo Air Quality response has no air quality value")
 
         eu_aqi = None if eu_raw is None else max(0, int(round(eu_raw)))
@@ -340,7 +460,7 @@ class OpenMeteoAirQualityCollector(BaseCollector[AirQualityStatus]):
             ash_or_dust_warning=warning,
             pollens=pollens,
             attribution=credit_text(*AIR_QUALITY),
-        )
+        ).with_hourly(air_hourly)
 
 
 _AVIATION_COLOR_TO_SEVERITY: dict[str, SeverityLevel] = {

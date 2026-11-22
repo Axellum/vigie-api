@@ -121,8 +121,8 @@ async def test_weight_of_the_other_open_meteo_requests() -> None:
     await flood_collector.fetch_flood_risk(48.85, 2.35)
     await marine_collector.fetch_marine(48.85, 2.35)
 
-    assert air_collector.call_weight(air.query()) == 1.2  # 6 current + 6 hourly pollen variables over 4 days in CAMS Europe
-    assert air_outside_collector.call_weight(air_outside.query()) == 1.0  # 6 current variables outside CAMS Europe
+    assert air_collector.call_weight(air.query()) == 1.4  # 2 current + 6 hourly air + 6 hourly pollen variables over 4 days in CAMS Europe
+    assert air_outside_collector.call_weight(air_outside.query()) == 1.0  # 2 current + 6 hourly air variables outside CAMS Europe
     assert flood_collector.call_weight(flood.query()) == 1.0  # 3 variables, 7 days
     assert marine_collector.call_weight(marine.query()) == 1.0  # 9 variables, the sea temperature among them
     assert "sea_surface_temperature" in marine.query()["current"].split(",")

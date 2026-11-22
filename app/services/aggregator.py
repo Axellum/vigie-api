@@ -145,6 +145,7 @@ from app.collectors.weather import (
     RainViewerCollector,
     as_stale_bundle,
     rainviewer_enabled_from_env,
+    split_hourly_series,
 )
 from app.models.activities import ActivitiesForecast
 from app.models.avalanches import (
@@ -987,11 +988,11 @@ class AggregatorService:
         return [collector.get_health() for collector in self.get_all_collectors()]
 
     async def fetch_weather_with_fallback(
-        self, lat: float, lon: float, utc_offset_s: Optional[int] = None
+        self, lat: float, lon: float, utc_offset_s: Optional[int] = None, include_hourly: bool = False
     ) -> tuple[Optional[dict[str, Any]], bool]:
         """The weather of a GPS point (``_fetch_weather_sources``), with the rain of the next hour from Météo-France PIAF when
         the gateway is configured and answers for the point (``_with_piaf_rain``)."""
-        bundle, fallback_used = await self._fetch_weather_sources(lat, lon, utc_offset_s)
+        bundle, fallback_used = await self._fetch_weather_sources(lat, lon, utc_offset_s, include_hourly=include_hourly)
         return await self._with_piaf_rain(bundle, lat, lon), fallback_used
 
     async def _with_piaf_rain(self, bundle: Optional[dict[str, Any]], lat: float, lon: float) -> Optional[dict[str, Any]]:
@@ -1057,7 +1058,7 @@ class AggregatorService:
         return await self.meteofrance_uv.uv_grids() if self.meteofrance_uv is not None else None
 
     async def _fetch_weather_sources(
-        self, lat: float, lon: float, utc_offset_s: Optional[int] = None
+        self, lat: float, lon: float, utc_offset_s: Optional[int] = None, include_hourly: bool = False
     ) -> tuple[Optional[dict[str, Any]], bool]:
         """Fetch the weather of a GPS point: Open-Meteo, then MET Norway, then the stale cache.
 
@@ -1065,6 +1066,10 @@ class AggregatorService:
         the caller must then report the weather as unknown. The bundle carries the longest
         forecast (10 days): the caller keeps the days its profile needs. ``utc_offset_s`` (the
         zone configuration) only helps MET Norway to group its hourly series into local days.
+
+        When ``include_hourly`` is True (non-compact ``/v1/point``) and Open-Meteo is used, its
+        dedicated 6-hour ``hourly`` series (72h forecast + 24h past pressure) is fetched alongside
+        ``fetch_point``; a failure of that optional part never drops the weather bundle.
 
         When the Open-Meteo call budget is used up, Open-Meteo hands back its expired entry: MET Norway
         is asked first, and that expired entry (marked stale) is served only when MET Norway has no
@@ -1077,11 +1082,24 @@ class AggregatorService:
             self.last_weather_fallback_used = False
             return france, False
 
-        try:
-            bundle = await self.open_meteo.fetch_point(lat, lon, allow_stale_on_error=False)
-        except Exception:
-            pass
+        point_res: Any
+        hourly_res: Any = None
+        if include_hourly:
+            point_res, hourly_res = await asyncio.gather(
+                self.open_meteo.fetch_point(lat, lon, allow_stale_on_error=False),
+                _or_none(self.open_meteo.fetch_hourly(lat, lon)),
+                return_exceptions=True,
+            )
         else:
+            try:
+                point_res = await self.open_meteo.fetch_point(lat, lon, allow_stale_on_error=False)
+            except Exception as exc:
+                point_res = exc
+
+        if not isinstance(point_res, BaseException):
+            bundle = point_res
+            if isinstance(hourly_res, dict) and hourly_res.get("hourly_all"):
+                bundle = {**bundle, "hourly_all": hourly_res["hourly_all"]}
             if not bundle.get("stale"):
                 self.last_weather_fallback_used = False
                 return bundle, False
@@ -1751,7 +1769,7 @@ class AggregatorService:
             short_term,
             probabilities,
         ) = await asyncio.gather(
-            self.fetch_weather_with_fallback(lat, lon),
+            self.fetch_weather_with_fallback(lat, lon, include_hourly=not compact),
             self.collect_and_fuse_hazards(),
             self.get_space_weather_safe(),
             self.get_flood_risk_safe(lat, lon),
@@ -1851,6 +1869,16 @@ class AggregatorService:
         current_weather: Optional[CurrentWeather] = (
             self._with_air_quality(weather_bundle["current"], aqi_status) if weather_bundle else None
         )
+        hourly_points = None
+        pressure_history = None
+        air_hourly = None
+        if not compact:
+            if weather_bundle and weather_bundle.get("hourly_all"):
+                hourly_points, pressure_history = split_hourly_series(
+                    list(weather_bundle["hourly_all"]), reference_utc=int(clock.wall())
+                )
+            if aqi_status is not None:
+                air_hourly = aqi_status.hourly_series
 
         return PointResponse(
             version="1.1",
@@ -1874,6 +1902,9 @@ class AggregatorService:
             local_alert_level=local_level,
             current=current_weather,
             daily=list(weather_bundle.get("daily_10d") or [])[:days_count] if weather_bundle else [],
+            hourly=hourly_points,
+            pressure_history=pressure_history,
+            air_hourly=air_hourly,
             rain_nowcast=rain_nowcast,
             marine=marine_conditions,
             flood_risk=flood_status,

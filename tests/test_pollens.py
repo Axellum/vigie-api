@@ -106,14 +106,16 @@ async def test_collector_request_params_weight_and_stale_cache(sim_clock: SimClo
         in_eu = await collector.fetch_air_quality(36.74, -4.42)
         assert in_eu.pollens is not None
         assert in_eu.pollens.stale is False
-        assert queries[0]["hourly"] == ",".join(POLLEN_API_VARIABLES.values())
+        eu_hourly = queries[0]["hourly"].split(",")
+        assert all(v in eu_hourly for v in POLLEN_API_VARIABLES.values())
         assert queries[0]["forecast_days"] == "4"
-        assert collector.call_weight(queries[0]) == 1.2
+        assert collector.call_weight(queries[0]) == 1.4
 
         outside = await collector.fetch_air_quality(40.71, -74.01)
         assert outside.pollens is None
-        assert "hourly" not in queries[1]
-        assert "forecast_days" not in queries[1]
+        outside_hourly = queries[1]["hourly"].split(",")
+        assert not any(v in outside_hourly for v in POLLEN_API_VARIABLES.values())
+        assert queries[1]["forecast_days"] == "4"
         assert collector.call_weight(queries[1]) == 1.0
 
         # After the 1-hour TTL expires and upstream returns 503, stale flag propagates to pollens.
