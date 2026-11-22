@@ -151,6 +151,13 @@ QUOTAS: dict[str, Quota] = {
         (Limit(60, 50),),
         "https://portail-api.meteofrance.fr/web/fr/api/AROME",
     ),
+    # Météo-France Portail API (AROME and ARPEGE WCS, 1-hour total precipitation for the map): 50 requests a minute on the portal's
+    # free plan. This API sends at most 18 requests an hour (6 lead times across 3 grids, reusing unchanged frames from memory).
+    "meteofrance_rain_field": Quota(
+        "meteofrance-rain-field",
+        (Limit(60, 50),),
+        "https://portail-api.meteofrance.fr/web/fr/api/AROME",
+    ),
     "meteofrance_uv": Quota(
         "meteofrance-uv",
         (Limit(60, 50),),

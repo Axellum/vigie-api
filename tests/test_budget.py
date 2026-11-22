@@ -141,6 +141,7 @@ def test_quotas_are_declared_in_one_place_with_their_source() -> None:
         "meteofrance_piaf",  # PIAF through the vigie-meteo gateway: a ceiling of our own per instance (see budget.py)
         "meteofrance_uv",  # Météo-France API portal (PaquetENVIRONNEMENT, PHEALTH UV): 50 requests a minute, three an hour
         "meteofrance_wind_field",  # Météo-France API portal (AROME and ARPEGE WCS): 50 requests a minute, six an hour
+        "meteofrance_rain_field",  # Météo-France API portal (AROME and ARPEGE WCS _PT1H): 50 requests a minute, at most 18 an hour
         "meteofrance_radar",  # radar mosaic through the vigie-meteo gateway: a ceiling of our own per instance (see budget.py)
         "meteofrance_shortterm",  # AROME-PI through the vigie-meteo gateway: a ceiling of our own per instance (see budget.py)
         "meteofrance_overseas",  # AROME-OM through the vigie-meteo gateway: a ceiling of our own per instance (see budget.py)

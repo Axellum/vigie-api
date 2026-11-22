@@ -95,6 +95,7 @@ from app.collectors.meteofrance_overseas_vigilance import (
 from app.collectors.meteofrance_radar import FRANCE as RADAR_FRANCE
 from app.collectors.meteofrance_radar import MeteoFranceRadarCollector, overseas_area_of
 from app.collectors.meteofrance_radar import tile_path as radar_tile_path
+from app.collectors.meteofrance_rain_field import MeteoFranceRainFieldCollector, rain_field_key_from_env
 from app.collectors.meteofrance_shortterm import MeteoFranceShortTermCollector
 from app.collectors.meteofrance_station_daily import MeteoFranceStationDailyCollector
 from app.collectors.meteofrance_uv import MeteoFranceUvCollector, meteofrance_uv_key_from_env
@@ -347,6 +348,7 @@ class AggregatorService:
         meteofrance_weather: Optional[MeteoFranceWeatherCollector] = None,
         meteofrance_uv: Optional[MeteoFranceUvCollector] = None,
         meteofrance_wind_field: Optional[MeteoFranceWindFieldCollector] = None,
+        meteofrance_rain_field: Optional[MeteoFranceRainFieldCollector] = None,
         meteofrance_radar: Optional[MeteoFranceRadarCollector] = None,
         meteofrance_shortterm: Optional[MeteoFranceShortTermCollector] = None,
         meteofrance_overseas: Optional[MeteoFranceOverseasCollector] = None,
@@ -509,6 +511,16 @@ class AggregatorService:
         if meteofrance_wind_field is None and wind_key is not None:
             meteofrance_wind_field = MeteoFranceWindFieldCollector(wind_key)
         self.meteofrance_wind_field = meteofrance_wind_field
+        # The forecast rain of the map (AROME, ARPEGE _PT1H), read from the WCS of the portal with the same key.
+        rain_key, rain_problem = rain_field_key_from_env()
+        if rain_problem is not None:
+            log.warning(rain_problem)
+        self.meteofrance_rain_field_off_reason = (
+            "no Météo-France API key: set VIGIE_METEOFRANCE_API_KEY (portail-api.meteofrance.fr, AROME and ARPEGE), and not VIGIE_RAIN_FIELD=0"
+        )
+        if meteofrance_rain_field is None and rain_key is not None:
+            meteofrance_rain_field = MeteoFranceRainFieldCollector(rain_key)
+        self.meteofrance_rain_field = meteofrance_rain_field
         # The weather of the overseas territories from AROME-OM, read by the same gateway (windows around the islands).
         self.meteofrance_overseas_off_reason = (
             "no vigie-meteo gateway: set VIGIE_METEO_GATEWAY_URL (Météo-France AROME-OM weather of the overseas territories), "
@@ -801,6 +813,8 @@ class AggregatorService:
             collectors.append(self.meteofrance_uv)
         if self.meteofrance_wind_field is not None:
             collectors.append(self.meteofrance_wind_field)
+        if self.meteofrance_rain_field is not None:
+            collectors.append(self.meteofrance_rain_field)
         if self.meteofrance_radar is not None:
             collectors.append(self.meteofrance_radar)
         if self.meteofrance_shortterm is not None:
@@ -915,6 +929,15 @@ class AggregatorService:
                     "name": "Météo-France AROME / ARPEGE wind at 10 m (forecast map)",
                     "domain": "weather",
                     "reason": self.meteofrance_wind_field_off_reason,
+                }
+            )
+        if self.meteofrance_rain_field is None:
+            off.append(
+                {
+                    "provider_id": "meteofrance_rain_field",
+                    "name": "Météo-France AROME / ARPEGE precipitation (forecast map)",
+                    "domain": "weather",
+                    "reason": self.meteofrance_rain_field_off_reason,
                 }
             )
         if self.meteofrance_radar is None:

@@ -1,0 +1,26 @@
+{
+  "source_model": "meteofrance-piaf",
+  "run_utc": "2026-11-22T12:00:00Z",
+  "bounds": [-6.0, 41.0, 10.5, 51.5],
+  "min_zoom": 3,
+  "max_zoom": 10,
+  "step_seconds": 300,
+  "tile_path": "/v1/rain-nowcast/tiles/{epoch}/{z}/{x}/{y}.png",
+  "legend": [
+    {"min_mm_h": 0.1, "color": "#a6cee3", "alpha": 0.67},
+    {"min_mm_h": 0.5, "color": "#60a5fa", "alpha": 0.78},
+    {"min_mm_h": 1.0, "color": "#2563eb", "alpha": 0.84},
+    {"min_mm_h": 2.0, "color": "#22c55e", "alpha": 0.88},
+    {"min_mm_h": 4.0, "color": "#facc15", "alpha": 0.92},
+    {"min_mm_h": 8.0, "color": "#f97316", "alpha": 0.94},
+    {"min_mm_h": 16.0, "color": "#dc2626", "alpha": 0.96},
+    {"min_mm_h": 32.0, "color": "#a21caf", "alpha": 0.98},
+    {"min_mm_h": 64.0, "color": "#581c87", "alpha": 1.0}
+  ],
+  "frames": [
+    {"epoch": 1795349100, "time_utc": "2026-11-22T12:05:00Z", "lead_minutes": 5},
+    {"epoch": 1795349400, "time_utc": "2026-11-22T12:10:00Z", "lead_minutes": 10},
+    {"epoch": 1795352400, "time_utc": "2026-11-22T13:00:00Z", "lead_minutes": 60}
+  ],
+  "attribution": "Source : Météo-France, prévision immédiate PIAF (portail-api.meteofrance.fr)"
+}
