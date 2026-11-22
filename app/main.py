@@ -47,6 +47,8 @@ Endpoints:
 - ``GET    /v1/surf/spots/{id}/buoy`` : The latest record (height, period, direction, sea temperature) of the nearest buoy of a spot that has a current one.
 - ``GET    /v1/surf/stations``     : The nearest Météo-France coastal weather station of each surf spot and its distance (the list only).
 - ``GET    /v1/stations/wind``     : The wind measured now (6-minute observations) by every Météo-France ground station of a ``bbox``, strongest first.
+- ``GET    /v1/wind/field``        : The wind forecast for the hour by AROME and ARPEGE (Météo-France), three grids as PNG images for an animated map.
+- ``GET    /v1/wind/field/{level}/{stamp}.png`` : One of those images (immutable).
 - ``GET    /v1/surf/spots/{id}/station`` : The latest 6-minute observation (wind speed, gusts, direction, relative regime, air temperature, pressure) of the nearest coastal station of a spot, with optional live comparison against the wind forecast (`compare=true`).
 - ``GET    /v1/sea/places``        : The ports, slipways, anchorages, dive sites and bathing sites of the French coast (OpenStreetMap, Sandre, QSB).
 - ``GET    /v1/sea/places/{id}``   : One of them.
@@ -100,6 +102,7 @@ import asyncio
 import json
 import math
 import os
+import re
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -117,6 +120,7 @@ from app import __version__, clock
 from app.collectors.base import CollectorUnavailableError
 from app.collectors.meteofrance_radar import AREAS as RADAR_AREAS
 from app.collectors.meteofrance_radar import TRANSPARENT_PNG, tile_touches
+from app.collectors.meteofrance_wind_field import LEVEL_IDS as WIND_FIELD_LEVELS
 from app.models.activities import ActivitiesForecast, ActivitiesOverview, BoatCategory
 from app.models.avalanches import AvalancheResponse
 from app.models.buoys import SpotBuoyReading, SpotBuoys
@@ -172,6 +176,7 @@ from app.models.vigilance import (
     VigilancesResponse,
 )
 from app.models.watch import WatchedPointsStatus
+from app.models.wind_field import WindFieldMap
 from app.routers.dashboard import router as dashboard_router
 from app.security import AdminTokenMiddleware, admin_token, document_admin_token
 from app.services import (
@@ -186,6 +191,7 @@ from app.services import (
     surf_correction,
     tide_correction,
     tides,
+    wind_field,
 )
 from app.services import activities_overview as activities_summary
 from app.services import earthquakes as quakes
@@ -1181,6 +1187,48 @@ async def get_station_wind(
         raise HTTPException(status_code=422, detail=str(exc)) from None
     response.headers["Cache-Control"] = STATION_WIND_CACHE
     return await station_wind.wind_map(aggregator.meteofrance_obs, box, clock.wall(), limit)
+
+
+WIND_FIELD_CACHE = "public, max-age=300"  # a new hour at half past; the images keep their address
+WIND_FIELD_IMAGE_CACHE = "public, max-age=86400, immutable"
+_WIND_STAMP = re.compile(r"^\d{10}-\d{10}$")
+
+
+@app.get(
+    "/v1/wind/field",
+    response_model=WindFieldMap,
+    tags=["Weather"],
+    description=(
+        "The wind forecast at 10 m for the hour nearest to now, for an animated map: Météo-France's AROME over France (0.025 degree, "
+        "served every 2nd node: 0.05) and ARPEGE over Europe (0.1, served at 0.2) and the world (0.25, served at 0.5), read from the WCS of "
+        "the API portal (Licence Ouverte 2.0) once an hour for every client. Each grid is a PNG image (`image`): red is the east "
+        "component, green the north one (`value = (byte - 127.5) / 127.5 * scale_ms`), blue 255 where the model has a value. A map "
+        "loads the finer grids from their `min_zoom` and draws the finest that has a value. A forecast, never a measure "
+        "(`GET /v1/stations/wind`). Without a key (`VIGIE_METEOFRANCE_API_KEY`) `status` is `not_configured`. **Not for safety.**"
+    ),
+)
+async def get_wind_field(response: Response) -> WindFieldMap:
+    """The grids of the wind of the hour."""
+    response.headers["Cache-Control"] = WIND_FIELD_CACHE
+    return await wind_field.wind_field_map(aggregator.meteofrance_wind_field, clock.wall())
+
+
+@app.get(
+    "/v1/wind/field/{level}/{stamp}.png",
+    tags=["Weather"],
+    response_class=Response,
+    responses={200: {"content": {"image/png": {}}, "description": "the image"}, 404: {"description": "no such image (any more)"}},
+    description="One image of `GET /v1/wind/field`, at the address that answer gives (kept for a few hours).",
+)
+async def get_wind_field_image(level: str, stamp: str) -> Response:
+    """An image of the forecast wind."""
+    collector = aggregator.meteofrance_wind_field
+    if collector is None or level not in WIND_FIELD_LEVELS or not _WIND_STAMP.match(stamp):
+        raise HTTPException(status_code=404, detail="no such image")
+    png = collector.image(level, stamp)
+    if png is None:
+        raise HTTPException(status_code=404, detail="no such image (any more)")
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": WIND_FIELD_IMAGE_CACHE})
 
 
 PLACES_CACHE = "public, max-age=86400"  # the file changes with a release, not by the hour

@@ -144,6 +144,13 @@ QUOTAS: dict[str, Quota] = {
     "meteofrance_piaf": Quota("vigie-meteo-piaf", (Limit(300, 3000),), "https://github.com/Axellum/vigie-api/blob/main/SOURCES.md"),
     # Météo-France Portail API (PaquetENVIRONNEMENT, PHEALTH daily UV index): 50 requests a minute, as the key of the application says
     # for this API (the portal's free plan). This API sends three requests an hour (the runs, the newest run, its file when new).
+    # Météo-France Portail API (AROME and ARPEGE WCS, wind at 10 m for the map): 50 requests a minute on the portal's free plan, the plan of
+    # the application's key. This API sends 6 requests an hour (two components of three grids), a few more when a new run lacks the hour.
+    "meteofrance_wind_field": Quota(
+        "meteofrance-wind-field",
+        (Limit(60, 50),),
+        "https://portail-api.meteofrance.fr/web/fr/api/AROME",
+    ),
     "meteofrance_uv": Quota(
         "meteofrance-uv",
         (Limit(60, 50),),
