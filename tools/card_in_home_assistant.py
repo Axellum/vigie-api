@@ -10,8 +10,9 @@ replays the answers recorded for Biarritz (``python tools/fake_instance.py --rep
    through every page of the card by its bar, and saves a capture of each; then opens the card's editor.
 
 It fails when the frontend did not load the card, when the card shows no page or an error (then a capture
-``echec_<width>_<theme>.png`` and what the card and Home Assistant said are kept), when a page of the card is missing, or
-when the browser logs an error. Standard library and Playwright only; it never talks to anything but the
+``echec_<width>_<theme>.png`` and what the card and Home Assistant said are kept), when a page of the card is missing,
+when the editor does not draw all its fields, or when the browser logs an error of the card (or any uncaught error while
+the editor is open). The other errors of Home Assistant's frontend are printed, with the elements their file names. Standard library and Playwright only; it never talks to anything but the
 Home Assistant and the fake instance on this machine.
 
     python tools/card_in_home_assistant.py --ha http://127.0.0.1:8123 --instance http://127.0.0.1:8099 --out captures
@@ -248,16 +249,24 @@ def main(argv: list[str] | None = None) -> int:
                         editor.setConfig({ type: 'custom:vigie-card', spot: 'auto' });
                         editor.hass = document.querySelector('home-assistant').hass;
                         holder.appendChild(editor);
-                        document.body.appendChild(holder);
+                        // Inside Home Assistant's own tree, where its dialogs open: its pickers take their words from a
+                        // context the `home-assistant` element provides (under <body> the entity picker throws).
+                        document.querySelector('home-assistant').shadowRoot.appendChild(holder);
                     }""")
                     page.locator("vigie-card-editor ha-form").wait_for(timeout=30_000)
+                    try:  # its last field, the weather entity of the home, in Home Assistant's own entity picker
+                        page.locator("vigie-card-editor ha-entity-picker").wait_for(timeout=30_000)
+                    except PlaywrightTimeout:
+                        problems.append(f"{name}/{theme}: the editor does not draw its field of the weather entity")
                     page.wait_for_timeout(1500)
                     page.locator("#editeur").screenshot(path=str(args.out / "wall_sombre_editeur.png"))
                 # Home Assistant logs errors of its own in a container without hardware (Bluetooth, USB...): only the
-                # card's fail the run, the others are printed.
-                problems.extend(f"{name}/{theme}: {error}" for error in errors if "vigie" in error.lower())
+                # card's fail the run, and any uncaught error while only the editor of the card changed the screen; the
+                # others are printed.
+                ours = [e for e in errors if "vigie" in e.lower() or e.startswith("[editor] page error")]
+                problems.extend(f"{name}/{theme}: {error}{near(page, error) if 'page error' in error else ''}" for error in ours)
                 for error in errors:
-                    if "vigie" not in error.lower():
+                    if error not in ours:
                         print(f"(not the card) {name}/{theme}: {error}{near(page, error) if 'page error' in error else ''}")
                 context.close()
         browser.close()
