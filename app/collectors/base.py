@@ -8,6 +8,9 @@ and reports its health through ``get_health()``.
 Every request a collector sends goes through ``BaseCollector._get``, which counts it (and its weight)
 and refuses it when the published quota of the provider is used up (see ``budget.py``). The one exception is a
 self-hosted Open-Meteo instance, which is not a provider's quota (see ``open_meteo_hosts.py``).
+
+A collector keeps one HTTP client for the life of the server (``_http_client``), so that a burst of requests reuses its
+connections; how it connects is its ``ConnectionPolicy``.
 """
 
 from __future__ import annotations
@@ -118,6 +121,33 @@ class CollectorUnavailableError(RuntimeError):
     """Raised when a collector fails and no cached fallback value is available."""
 
 
+@dataclass(frozen=True)
+class ConnectionPolicy:
+    """How the HTTP client a collector keeps (``BaseCollector._http_client``) connects to its provider."""
+
+    # Seconds to open a connection; ``None``: the timeout of the collector applies to the connection too.
+    connect_timeout_s: Optional[float] = None
+    # A new connection that fails or does not open in time is tried this many more times (no request was sent on it).
+    connect_retries: int = 0
+    # Seconds an idle connection is kept for the next request (5 s is the default of httpx).
+    keepalive_s: float = 5.0
+
+
+PUBLIC_CONNECTION = ConnectionPolicy()
+# The vigie-meteo gateway answers in milliseconds from the same host. A new connection to it left without an answer (2 in 128
+# from the container of this API, measured on 2026-11-24) is given up after 2 s and tried once more, rather than waiting the
+# whole timeout. Idle connections are kept 30 s: the gateway keeps them 75 s (vigie-meteo#21), so this side always closes first.
+SELF_HOSTED_CONNECTION = ConnectionPolicy(connect_timeout_s=2.0, connect_retries=1, keepalive_s=30.0)
+# The Open-Meteo collectors ask a self-hosted instance first when there is one (``open_meteo_hosts.py`` gives that request its
+# own 2 s to connect), the public API otherwise or as a fallback. A self-hosted instance kept an idle connection over 200 s
+# (measured on 2026-11-24): kept 30 s here too.
+OPEN_METEO_CONNECTION = ConnectionPolicy(connect_retries=1, keepalive_s=30.0)
+# Entries a collector keeps in its cache (``BaseCollector.cache_max_entries``). A collector with one entry per place grows with
+# the places asked; the oldest refreshed go first. One place of the forecast is about 165 kB (the "now", "daily" and "hourly"
+# parts, measured on 2026-11-24), so the forecast cache stays under about 230 MB.
+CACHE_MAX_ENTRIES = 4096
+
+
 @dataclass
 class CacheEntry(Generic[T]):
     """One cached answer."""
@@ -165,6 +195,7 @@ class BaseCollector(ABC, Generic[T]):
         timeout_seconds: float | httpx.Timeout = 6.0,
         is_fallback: bool = False,
         http_client: Optional[httpx.AsyncClient] = None,
+        connection: ConnectionPolicy = PUBLIC_CONNECTION,
     ) -> None:
         self.provider_id = provider_id
         self.name = name
@@ -175,6 +206,11 @@ class BaseCollector(ABC, Generic[T]):
         self.timeout_seconds = timeout_seconds
         self.is_fallback = is_fallback
         self._external_client = http_client
+        self.connection = connection
+        # The client this collector keeps, and the event loop it belongs to (see ``_http_client``)
+        self._client: Optional[httpx.AsyncClient] = None
+        self._client_loop: Optional[asyncio.AbstractEventLoop] = None
+        self.cache_max_entries = CACHE_MAX_ENTRIES
 
         # Circuit breaker state
         self.circuit_state: CircuitState = CircuitState.CLOSED
@@ -245,9 +281,13 @@ class BaseCollector(ABC, Generic[T]):
         else:
             self.latency_ms = round(0.7 * self.latency_ms + 0.3 * elapsed_ms, 2)
         lifetime = self.ttl_seconds if ttl_seconds is None else ttl_seconds
+        # Stored again at the end, so the cache is in the order of the refreshes and the oldest refreshed go first.
+        self._cache.pop(cache_key, None)
         self._cache[cache_key] = CacheEntry(
             stored_at=now_mono, value=data, fresh_until=now_mono + lifetime, validators=validators
         )
+        while len(self._cache) > self.cache_max_entries:
+            del self._cache[next(iter(self._cache))]
 
     def _record_failure(self, error_msg: str, cache_key: str = "global") -> None:
         """Count a failure and open the circuit once the threshold is reached (``cache_key``: for a collector with a circuit per key)."""
@@ -360,14 +400,7 @@ class BaseCollector(ABC, Generic[T]):
         start_mono = clock.monotonic()
         previous = self._cache.get(cache_key)
         try:
-            if self._external_client is not None:
-                result = await self._collect(self._external_client, previous=previous, **kwargs)
-            else:
-                headers = {"User-Agent": build_user_agent(), "Accept": "application/json"}
-                async with httpx.AsyncClient(
-                    timeout=self.timeout_seconds, headers=headers, follow_redirects=True
-                ) as client:
-                    result = await self._collect(client, previous=previous, **kwargs)
+            result = await self._collect(self._http_client(), previous=previous, **kwargs)
         except BudgetExhaustedError:
             self.budget_refusals += 1
             raise
@@ -383,6 +416,44 @@ class BaseCollector(ABC, Generic[T]):
         self._record_success(elapsed_ms, cache_key, result, ttl_seconds)
         return result
 
+    def _http_client(self) -> httpx.AsyncClient:
+        """The client of this collector: the one it was given, else one it keeps (``self.connection`` says how it connects).
+
+        Kept so that a burst of requests (the parts of a place, the feeds of a service) reuses its connections, and the client is
+        built once: a new client for every request took 11.8 ms against 2.7 ms for a kept one, to the vigie-meteo gateway from
+        the container of this API (median of 60 requests, measured on 2026-11-24). A client belongs to the event loop that made
+        it: under another loop (a test, a restarted server) a new one is made.
+        """
+        if self._external_client is not None:
+            return self._external_client
+        loop = asyncio.get_running_loop()
+        if self._client is None or self._client.is_closed or self._client_loop is not loop:
+            policy = self.connection
+            timeout = self.timeout_seconds
+            if policy.connect_timeout_s is not None and not isinstance(timeout, httpx.Timeout):
+                timeout = httpx.Timeout(timeout, connect=policy.connect_timeout_s)
+            self._client = httpx.AsyncClient(
+                timeout=timeout,
+                headers={"User-Agent": build_user_agent(), "Accept": "application/json"},
+                follow_redirects=True,
+                # The limits go to the transport: a client given a transport ignores its own. No limit on the connections open
+                # at once, as when every request had a client of its own.
+                transport=httpx.AsyncHTTPTransport(
+                    retries=policy.connect_retries,
+                    limits=httpx.Limits(max_connections=None, max_keepalive_connections=20, keepalive_expiry=policy.keepalive_s),
+                ),
+            )
+            self._client_loop = loop
+        return self._client
+
+    async def aclose(self) -> None:
+        """Close the client this collector keeps (when the server stops). The next request makes a new one."""
+        client, loop = self._client, self._client_loop
+        self._client = None
+        self._client_loop = None
+        if client is not None and loop is asyncio.get_running_loop():
+            await client.aclose()
+
     async def _get(
         self,
         client: httpx.AsyncClient,
@@ -391,6 +462,7 @@ class BaseCollector(ABC, Generic[T]):
         params: Optional[Mapping[str, str]] = None,
         headers: Optional[Mapping[str, str]] = None,
         weight: Optional[float] = None,
+        follow_redirects: Optional[bool] = None,
     ) -> httpx.Response:
         """Send a GET request to the provider: the only way a collector reaches it.
 
@@ -398,9 +470,18 @@ class BaseCollector(ABC, Generic[T]):
         When the call budget is used up it is not sent and ``BudgetExhaustedError`` is raised. ``weight`` is the
         weight of this request in the provider's quota when the provider says it (NASA FIRMS counts a world read as
         several transactions); otherwise ``call_weight`` of the collector gives it from the query parameters.
+
+        A kept connection the provider closed just as the request left (``httpx.RemoteProtocolError``: it read nothing of it)
+        is asked once more, on a new connection, and counted again. ``follow_redirects`` replaces the client's for this request.
         """
-        self._spend({} if params is None else params, weight)
-        return await client.get(url, params=params, headers=headers)
+        counted: Mapping[str, str] = {} if params is None else params
+        redirects: Any = httpx.USE_CLIENT_DEFAULT if follow_redirects is None else follow_redirects
+        self._spend(counted, weight)
+        try:
+            return await client.get(url, params=params, headers=headers, follow_redirects=redirects)
+        except httpx.RemoteProtocolError:
+            self._spend(counted, weight)
+            return await client.get(url, params=params, headers=headers, follow_redirects=redirects)
 
     async def _get_capped(
         self,
@@ -414,11 +495,22 @@ class BaseCollector(ABC, Generic[T]):
 
         For the providers that follow addresses taken from a feed (the WMO registry, the CAP documents): the body is read in
         pieces and the read stops at ``max_bytes``, so a host that sends an endless or a huge answer costs no more than that
-        in memory, and the body of an error answer (4xx, 5xx) is not read at all. Counted like ``_get``. ``ValueError`` when the
-        answer is larger. The returned response holds the decoded body; what really came over the network (compressed) is in
-        ``response.extensions["wire_bytes"]``.
+        in memory, and the body of an error answer (4xx, 5xx) is not read at all. Counted, and asked once more on a closed kept
+        connection, like ``_get``. ``ValueError`` when the answer is larger. The returned response holds the decoded body; what
+        really came over the network (compressed) is in ``response.extensions["wire_bytes"]``.
         """
         self._spend({})
+        try:
+            return await self._read_capped(client, url, max_bytes=max_bytes, headers=headers)
+        except httpx.RemoteProtocolError:
+            self._spend({})
+            return await self._read_capped(client, url, max_bytes=max_bytes, headers=headers)
+
+    @staticmethod
+    async def _read_capped(
+        client: httpx.AsyncClient, url: str, *, max_bytes: int, headers: Optional[Mapping[str, str]]
+    ) -> httpx.Response:
+        """The request of ``_get_capped``, sent once."""
         async with client.stream("GET", url, headers=headers) as response:
             gone = {n: v for n, v in response.headers.items() if n.lower() not in ("content-encoding", "content-length", "transfer-encoding")}
             if response.status_code >= 400:  # an error page is not read (a feed of the registry answers 404 with 251 KB of HTML)
@@ -453,9 +545,14 @@ class BaseCollector(ABC, Generic[T]):
         *,
         headers: Optional[Mapping[str, str]] = None,
     ) -> httpx.Response:
-        """Send a HEAD request to the provider: only its headers come back, but it is counted like a GET."""
+        """Send a HEAD request to the provider: only its headers come back, but it is counted like a GET (and asked once more on
+        a closed kept connection, like a GET)."""
         self._spend({})
-        return await client.head(url, headers=headers)
+        try:
+            return await client.head(url, headers=headers)
+        except httpx.RemoteProtocolError:
+            self._spend({})
+            return await client.head(url, headers=headers)
 
     def _spend(self, params: Mapping[str, str], weight: Optional[float] = None) -> None:
         """Count one request in the usage and the budget of the provider, or raise ``BudgetExhaustedError``."""

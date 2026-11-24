@@ -36,6 +36,7 @@ import httpx
 
 from app.attribution import MET_NORWAY_WEATHER, OPEN_METEO_WEATHER, credit_text
 from app.collectors.base import (
+    OPEN_METEO_CONNECTION,
     BaseCollector,
     CacheEntry,
     Collected,
@@ -300,6 +301,7 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
             ttl_seconds=900,
             is_fallback=False,
             http_client=http_client,
+            connection=OPEN_METEO_CONNECTION,
         )
         self.BASE_URL = open_meteo_forecast_url()
         self.grid_deg = (

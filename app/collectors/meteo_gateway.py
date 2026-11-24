@@ -32,7 +32,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from app import clock
-from app.collectors.base import BaseCollector
+from app.collectors.base import SELF_HOSTED_CONNECTION, BaseCollector
 from app.collectors.grid import DEFAULT_RAIN_NOWCAST_GRID_DEG, coord_str, snap_to_grid
 
 URL_ENV = "VIGIE_METEO_GATEWAY_URL"
@@ -154,6 +154,7 @@ class MeteoGatewayRainCollector(BaseCollector[RainSlices]):
             recovery_timeout_seconds=120,
             timeout_seconds=8.0,
             http_client=http_client,
+            connection=SELF_HOSTED_CONNECTION,
         )
         self.base_url = base_url.rstrip("/")
         self.grid_deg = grid_deg

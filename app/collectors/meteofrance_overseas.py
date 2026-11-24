@@ -27,7 +27,7 @@ from typing import Any, Optional
 import httpx
 
 from app.attribution import OPEN_METEO_WEATHER, credit_text, merge_credits
-from app.collectors.base import BaseCollector
+from app.collectors.base import SELF_HOSTED_CONNECTION, BaseCollector
 from app.collectors.grid import DEFAULT_FORECAST_GRID_DEG, coord_str, snap_to_grid
 from app.models.schemas import CurrentWeather, DailyForecast, HourlyWeatherPoint
 
@@ -280,6 +280,7 @@ class MeteoFranceOverseasCollector(BaseCollector[OverseasRaw]):
             recovery_timeout_seconds=120,
             timeout_seconds=8.0,
             http_client=http_client,
+            connection=SELF_HOSTED_CONNECTION,
         )
         self.base_url = base_url.rstrip("/")
         self.grid_deg = grid_deg

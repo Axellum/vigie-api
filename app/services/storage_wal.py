@@ -73,13 +73,22 @@ class SQLiteWALStorage:
         self._init_schema_and_seed()
 
     def _connect(self) -> sqlite3.Connection:
-        """Open a SQLite connection configured with WAL, synchronous=NORMAL and a busy timeout."""
+        """Open a SQLite connection configured with WAL, synchronous=NORMAL, a busy timeout and the read settings below.
+
+        Sorts and groupings in memory, a 16 MB page cache and the file mapped up to 256 MB: the summary of the warnings archive
+        over 30 days (``vigilance_archive_days``) took 408 ms without them, 183 ms with the three (median of 15 runs on a copy of
+        a production database of 260 MB, measured on 2026-11-24; ``temp_store`` alone gave 240 ms). The other reads gained under
+        2 ms. Memory: the cache fills only as pages are read and goes with the connection; the mapping is the system's file cache.
+        """
         conn = sqlite3.connect(str(self.db_path), timeout=5.0)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute("PRAGMA synchronous=NORMAL;")
         conn.execute("PRAGMA busy_timeout=5000;")
         conn.execute("PRAGMA foreign_keys=ON;")
+        conn.execute("PRAGMA temp_store=MEMORY;")
+        conn.execute("PRAGMA cache_size=-16384;")
+        conn.execute("PRAGMA mmap_size=268435456;")
         return conn
 
     @staticmethod

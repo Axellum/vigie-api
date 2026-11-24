@@ -29,8 +29,9 @@ bucket).
    `VIGIE_OPEN_METEO_MARINE_URL` (already there) and `VIGIE_OPEN_METEO_AIR_QUALITY_URL` (new). The flood API stays public.
 2. When such a URL is set, the request goes to the instance first (`app/collectors/open_meteo_hosts.py`). It is not counted
    in the public quota.
-3. The same request goes to the public API, counted as before, when the instance cannot be reached in 5 seconds (it is then
-   left aside for 60 seconds), answers an error or no JSON, or answers without a single value. The public API is the
+3. The same request goes to the public API, counted as before, when the instance cannot be reached in 5 seconds (2 seconds
+   to open a connection, tried once more; it is then left aside for 15 seconds, 60 until 2026-11-24), answers an error or no
+   JSON, or answers without a single value. The public API is the
    fallback, not a second source: the answer used is one or the other, never a mix.
 4. `VIGIE_OPEN_METEO_PUBLIC_FALLBACK=0` turns the fallback off (for a test of the instance alone).
 5. The credit stays "Open-Meteo" (CC BY 4.0): the data is theirs. The server runs unmodified, so the AGPLv3 asks nothing more

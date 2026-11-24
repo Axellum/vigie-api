@@ -22,7 +22,7 @@ from typing import Any, Literal, Optional
 import httpx
 
 from app.attribution import MARINE, MARINE_SEA_TEMPERATURE, credit_text
-from app.collectors.base import BaseCollector, optional_float
+from app.collectors.base import OPEN_METEO_CONNECTION, BaseCollector, optional_float
 from app.collectors.grid import DEFAULT_MARINE_GRID_DEG, coord_str, grid_step_from_env, snap_to_grid
 from app.collectors.open_meteo_hosts import get_open_meteo
 from app.collectors.weights import open_meteo_weight
@@ -94,6 +94,7 @@ class OpenMeteoMarineCollector(BaseCollector[MarineConditions]):
             # 6 to 24 hours. https://open-meteo.com/en/docs/marine-weather-api
             ttl_seconds=3600,
             http_client=http_client,
+            connection=OPEN_METEO_CONNECTION,
         )
         self.BASE_URL = open_meteo_marine_url()
         self.grid_deg = (

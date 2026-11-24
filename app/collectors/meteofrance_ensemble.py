@@ -29,7 +29,7 @@ import httpx
 
 from app import clock
 from app.attribution import credit_text, merge_credits
-from app.collectors.base import BaseCollector
+from app.collectors.base import SELF_HOSTED_CONNECTION, BaseCollector
 from app.collectors.grid import DEFAULT_FORECAST_GRID_DEG, coord_str, snap_to_grid
 from app.models.ensemble import (
     LongRange,
@@ -203,6 +203,7 @@ class MeteoFranceEnsembleCollector(BaseCollector[RawProbabilities]):
             recovery_timeout_seconds=120,
             timeout_seconds=8.0,
             http_client=http_client,
+            connection=SELF_HOSTED_CONNECTION,
         )
         self.base_url = base_url.rstrip("/")
         self.grid_deg = grid_deg

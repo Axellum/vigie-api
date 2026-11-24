@@ -22,7 +22,7 @@ from typing import Any, Optional
 
 import httpx
 
-from app.collectors.base import BaseCollector, optional_float
+from app.collectors.base import SELF_HOSTED_CONNECTION, BaseCollector, optional_float
 from app.models.climate_recent import ClimateDay
 
 PROVIDER_ID = "meteofrance_station_daily"
@@ -102,6 +102,7 @@ class MeteoFranceStationDailyCollector(BaseCollector[StationDaily]):
             recovery_timeout_seconds=120,
             timeout_seconds=30.0,  # a first order of the day for a station waits for the portal's file (seconds)
             http_client=http_client,
+            connection=SELF_HOSTED_CONNECTION,
         )
         self.base_url = base_url.rstrip("/")
 

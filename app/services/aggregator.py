@@ -843,6 +843,17 @@ class AggregatorService:
             collectors.append(self.meteofrance_forests)
         return [c for c in collectors if c not in off]
 
+    async def aclose(self) -> None:
+        """Close the HTTP clients the collectors keep (when the server stops); one that fails to close does not stop the others."""
+        for collector in self.get_all_collectors():
+            aclose = getattr(collector, "aclose", None)
+            if aclose is None:
+                continue
+            try:
+                await aclose()
+            except Exception:  # the server is stopping: nothing left to protect
+                log.debug("closing the client of %s failed", getattr(collector, "provider_id", collector), exc_info=True)
+
     def disabled_sources(self) -> list[dict[str, str]]:
         """The optional sources that are off on this instance and why (``GET /v1/health``); a source that is off is not in the providers."""
         off: list[dict[str, str]] = []
