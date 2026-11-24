@@ -36,7 +36,8 @@ def test_the_manifest() -> None:
     assert manifest["iot_class"] == "cloud_polling"
     assert manifest["requirements"] == []  # what Home Assistant ships (aiohttp, yarl, voluptuous, astral)
     assert manifest["dependencies"] == ["websocket_api"]  # the commands of the dashboard card (ADR 0042)
-    assert manifest["after_dependencies"] == ["frontend", "http"]  # the card is served once they run, never required
+    # the card is served once they run, and listed as a dashboard resource once the dashboards are set up (ADR 0044); never required
+    assert manifest["after_dependencies"] == ["frontend", "http", "lovelace"]
     assert re.fullmatch(r"\d+\.\d+\.\d+", manifest["version"])
     assert manifest["documentation"].startswith("https://github.com/Axellum/vigie-api")
     assert manifest["issue_tracker"] == "https://github.com/Axellum/vigie-api/issues"

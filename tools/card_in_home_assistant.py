@@ -209,7 +209,14 @@ def main(argv: list[str] | None = None) -> int:
                 page.goto(f"{args.ha}/{DASHBOARD}/carte")
                 page.wait_for_function(connected, timeout=60_000)
                 theme = "sombre" if dark else "clair"
-                served = page.evaluate("() => !!customElements.get('vigie-card') && (window.customCards || []).some((c) => c.type === 'vigie-card')")
+                # A dashboard resource is loaded when the dashboard reads its resources, after the connection (ADR 0044);
+                # the frontend's own extra modules, before it.
+                defined = "() => !!customElements.get('vigie-card') && (window.customCards || []).some((c) => c.type === 'vigie-card')"
+                try:
+                    page.wait_for_function(defined, timeout=30_000)
+                    served = True
+                except PlaywrightTimeout:
+                    served = False
                 if not served:
                     problems.append(f"{name}: the frontend did not load the card")
                     context.close()
