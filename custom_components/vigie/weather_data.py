@@ -103,7 +103,11 @@ def _number(value: Any) -> float | None:
 
 
 def rain_next_hour(point: dict[str, Any] | None) -> float | None:
-    """The rain of the next hour (mm): the sum of the steps of `rain_nowcast.mm_per_step`, unknown when one of them is."""
+    """The rain of the four steps of `rain_nowcast.mm_per_step` (mm), unknown when one of them is.
+
+    The hour they cover depends on the source (the API's `RainNowcast`): with Météo-France PIAF, the hour from the current
+    5-minute boundary on; with Open-Meteo, the quarter-hour that ended when the provider answered, then the next three.
+    """
     nowcast = point.get("rain_nowcast") if isinstance(point, dict) else None
     steps = nowcast.get("mm_per_step") if isinstance(nowcast, dict) else None
     if not isinstance(steps, list) or not steps:

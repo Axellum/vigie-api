@@ -49,8 +49,10 @@ def _credit(value: Any) -> str | None:
 class VigieRainNextHourSensor(VigieWeatherDataEntity, SensorEntity):
     """The rain of the next hour (mm), the sum of the steps of the API's rain nowcast; unknown when a step is unknown.
 
-    In metropolitan France the steps come from Météo-France's 5-minute rain (PIAF) summed by quarter of an hour; elsewhere from
-    Open-Meteo's 15-minute forecast; in the overseas territories the API gives none (unknown).
+    In metropolitan France the steps come from Météo-France's 5-minute rain (PIAF) summed by quarter of an hour: the hour from
+    the current 5-minute boundary on. Elsewhere (and in France when PIAF gives no full hour) from Open-Meteo's 15-minute
+    forecast, whose first step is the quarter-hour that ended when the provider answered, so the sum starts with a quarter-hour
+    already over. In the overseas territories the API gives none (unknown).
     """
 
     _attr_translation_key = "rain_next_hour"

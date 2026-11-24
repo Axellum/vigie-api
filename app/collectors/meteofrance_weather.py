@@ -15,8 +15,10 @@ in ADR 0028:
   later days (and the hourly cloud cover, which feeds the aurora estimate) come from Open-Meteo's public API.
 
 A position costs two requests, refreshed at the pace of what they carry, like ``OpenMeteoCollector``: ``now`` (the current conditions
-and the 15-minute rain of the next hour, every 15 minutes) and ``daily`` (every hour). The answers are read with the parsers of
-``OpenMeteoCollector``: the format is the same.
+and four 15-minute rain amounts, every 15 minutes) and ``daily`` (every hour). The answers are read with the parsers of
+``OpenMeteoCollector``: the format is the same, and so are the times of the rain amounts (the first is a quarter-hour already
+over, see ``RainNowcast``); the gateway keeps an answer up to ``METEO_FORECAST_TTL_SECONDS`` (15 minutes by default) on top of
+this collector's own 15 minutes.
 
 The collector is used only for a point in the box around metropolitan France and Corsica (``in_france_box``); a neighbour inside the
 box is served from the same models, which cover it. Without ``VIGIE_METEO_GATEWAY_URL``, or with ``VIGIE_METEO_GATEWAY_WEATHER`` at
@@ -77,7 +79,7 @@ def in_france_box(lat: float, lon: float) -> bool:
 
 
 class MeteoFranceWeatherCollector(BaseCollector[dict[str, Any]]):
-    """The current conditions, the rain of the next hour and the daily forecast of a point, from the Météo-France models."""
+    """The current conditions, four 15-minute rain amounts and the daily forecast of a point, from the Météo-France models."""
 
     def __init__(
         self,

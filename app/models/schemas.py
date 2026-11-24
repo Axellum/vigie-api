@@ -213,21 +213,48 @@ class AirHourlyPoint(BaseModel):
 
 
 class RainNowcast(BaseModel):
-    """Precipitation over the next 60 minutes (Open-Meteo 15-minute steps, or in France, when a vigie-meteo gateway is
-    configured, Météo-France PIAF 5-minute steps summed by quarter of an hour) and the latest observed radar frame."""
+    """The rain of four 15-minute steps around the next hour, and the latest observed radar frame.
 
-    interval_minutes: int = Field(default=15, description="Time step (minutes)")
+    The answer does not give the times of the steps; they depend on the source of the rain:
+
+    - **Météo-France PIAF**, in France when the instance has a vigie-meteo gateway (``rate_5m_mm_h`` is then set): the twelve
+      5-minute rates from the current 5-minute boundary on, summed by three. The four steps are the hour that starts at the
+      time of the answer floored to 5 minutes.
+    - **Otherwise Open-Meteo's ``minutely_15`` precipitation** (its public API, or in France the Météo-France models AROME and
+      ARPEGE read through the gateway, in the same format). Open-Meteo gives each value as the sum of the 15 minutes
+      **before** its time, and its first time is the start of the quarter-hour in which it answered: the first step is the
+      quarter-hour that ended then, the second the quarter-hour in progress, the last two the next ones. This API keeps an
+      answer up to 15 minutes, and the gateway keeps its own (15 minutes by default, ``METEO_FORECAST_TTL_SECONDS`` of
+      vigie-meteo): that quarter-hour is the one of ``server_utc`` or the one before (up to two before through the
+      gateway); an answer served from an expired cache (``weather_provider`` ends with "(stale cache)") is older.
+    """
+
+    interval_minutes: int = Field(default=15, description="Length of a step of `mm_per_step` (minutes)")
     mm_per_step: Optional[list[float]] = Field(
         default=None,
-        description="Precipitation (mm) per 15-minute step over the next hour; null when unknown",
+        description="Precipitation (mm) of four consecutive 15-minute steps, oldest first. Their times are not given: with "
+        "Météo-France PIAF (`rate_5m_mm_h` set) they are the hour from the current 5-minute boundary on; otherwise they are "
+        "Open-Meteo's `minutely_15` values, each the sum of the 15 minutes before its time, so the first step is the "
+        "quarter-hour that ended when the quarter-hour of the provider's answer began (the quarter-hour of `server_utc` or "
+        "one before it, two through the Météo-France gateway, older from an expired cache), the second the quarter-hour in "
+        "progress then. null when unknown",
     )
     rate_5m_mm_h: Optional[list[float]] = Field(
         default=None,
-        description="Rain rate (mm/h) of each 5-minute step over the next hour (twelve values), from Météo-France PIAF; "
-        "null when the rain comes from a provider without 5-minute steps",
+        description="Rain rate (mm/h) of each 5-minute step of the hour from the current 5-minute boundary on (twelve "
+        "values), from Météo-France PIAF; null when the rain comes from a provider without 5-minute steps",
     )
-    rain_expected_60m: Optional[bool] = Field(default=None, description="Rain expected within 60 minutes")
-    max_mm_h: Optional[float] = Field(default=None, ge=0.0, description="Peak equivalent intensity (mm/h)")
+    rain_expected_60m: Optional[bool] = Field(
+        default=None,
+        description="Whether one of the four steps of `mm_per_step` has more than 0.05 mm (with Open-Meteo the first step "
+        "is already over); null when unknown",
+    )
+    max_mm_h: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        description="Peak rate (mm/h): the highest of `rate_5m_mm_h` with Météo-France PIAF, otherwise the largest step "
+        "of `mm_per_step` times 4; null when unknown",
+    )
     radar_tile_url_template: Optional[str] = Field(
         default=None, description="RainViewer radar tile URL template (slippy map)"
     )
@@ -402,11 +429,14 @@ class ZoneWeather(BaseModel):
         default=None, description="Current weather; null when no provider answered"
     )
     rain_next_60m: Optional[list[float]] = Field(
-        default=None, description="Precipitation per 15-minute step over the next hour (mm); null when unknown"
+        default=None,
+        description="Precipitation (mm) of four consecutive 15-minute steps, oldest first, timed like `rain_nowcast.mm_per_step` "
+        "of `GET /v1/point` (times not given: with Open-Meteo the first step is a quarter-hour already over); null when unknown",
     )
     rain_rate_5m_mm_h: Optional[list[float]] = Field(
         default=None,
-        description="Rain rate (mm/h) of each 5-minute step over the next hour, from Météo-France PIAF; null otherwise",
+        description="Rain rate (mm/h) of each 5-minute step of the hour from the current 5-minute boundary on, from "
+        "Météo-France PIAF; null otherwise",
     )
     daily_10d: list[DailyForecast] = Field(default_factory=list, description="Daily forecasts")
     attribution: Optional[str] = Field(
