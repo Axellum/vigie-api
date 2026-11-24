@@ -159,6 +159,49 @@ async def test_an_unknown_image_is_none_and_a_broken_answer_raises(sim_clock: Si
         await collector(huge).tile(LAST, *PARIS_TILE)
 
 
+async def test_a_connection_the_gateway_closed_is_asked_again_once(sim_clock: SimClock) -> None:
+    def closed_once(request: httpx.Request) -> httpx.Response:
+        if len(provider.requests) == 1:
+            raise httpx.RemoteProtocolError("Server disconnected without sending a response.", request=request)
+        return httpx.Response(200, content=FAKE_PNG, headers={"content-type": "image/png"})
+
+    provider = Provider(answer=closed_once)
+    assert await collector(provider).tile(LAST, *PARIS_TILE) == FAKE_PNG
+    assert provider.count == 2
+
+    def always_closed(request: httpx.Request) -> httpx.Response:
+        raise httpx.RemoteProtocolError("Server disconnected without sending a response.", request=request)
+
+    closed = Provider(answer=always_closed)
+    with pytest.raises(httpx.RemoteProtocolError):
+        await collector(closed).tile(LAST, *PARIS_TILE)
+    assert closed.count == 2  # once more only
+
+
+async def test_the_tile_client_keeps_its_connections_and_gives_up_a_silent_new_one_soon(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, Any] = {}
+    real_transport = httpx.AsyncHTTPTransport
+
+    def spy(**kwargs: Any) -> httpx.AsyncHTTPTransport:
+        seen.update(kwargs)
+        return real_transport(**kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncHTTPTransport", spy)
+    radar = MeteoFranceRadarCollector("http://gateway.test")
+    client = radar._tile_http_client()
+    try:
+        assert radar._tile_http_client() is client  # one client: its connections are reused
+        assert client.timeout.connect == meteofrance_radar.TILE_CONNECT_TIMEOUT_S == 2.0
+        assert client.timeout.read == meteofrance_radar.TILE_TIMEOUT_S
+        assert seen["retries"] == 1  # a new connection that does not answer is tried once more
+        # Kept less long than the gateway keeps it (75 s, vigie-meteo#21), longer than the 5 s of httpx.
+        assert seen["limits"].keepalive_expiry == meteofrance_radar.TILE_KEEPALIVE_S == 30.0
+        assert (seen["limits"].max_connections, seen["limits"].max_keepalive_connections) == (100, 20)
+    finally:
+        await radar.aclose()
+    assert radar._tile_client is None
+
+
 def test_the_transparent_tile_is_a_png() -> None:
     assert TRANSPARENT_PNG.startswith(PNG_SIGNATURE) and TRANSPARENT_PNG.endswith(b"IEND\xaeB`\x82")
 
