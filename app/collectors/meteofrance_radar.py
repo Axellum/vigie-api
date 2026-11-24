@@ -39,6 +39,12 @@ SOURCE_MODEL = "meteofrance-lame-d-eau"
 NOWCAST_SOURCE_MODEL = "meteofrance-piaf"
 TTL_SECONDS = 120  # an image every 5 minutes, published about 2 minutes late
 TILE_TIMEOUT_S = 8.0
+# A new connection to the gateway answers in about 0.1 s; one left without an answer (2 in 128 from the container of this API,
+# 0 from its host, measured on 2026-11-24) is given up after 2 s and tried once more, rather than waiting the 8 s of a tile.
+TILE_CONNECT_TIMEOUT_S = 2.0
+TILE_CONNECT_RETRIES = 1
+# The gateway keeps an idle connection 75 s (vigie-meteo#21): kept 30 s here, fewer new connections, and always closed by this side first.
+TILE_KEEPALIVE_S = 30.0
 TILE_CACHE_ENTRIES = 600  # about 5 kB each at most
 MAX_TILE_BYTES = 200_000
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -358,13 +364,7 @@ class MeteoFranceRadarCollector(BaseCollector[RadarFrames]):
     async def _fetch_tile(self, key: tuple[str, int, int, int, int]) -> tuple[Optional[bytes], bool]:
         """The tile of ``key`` from the gateway, and whether it is the one asked for (always, except a PIAF tile of another run)."""
         area, epoch, z, x, y = key
-        client = self._external_client
-        if client is None:
-            if self._tile_client is None:
-                self._tile_client = httpx.AsyncClient(
-                    timeout=TILE_TIMEOUT_S, headers={"User-Agent": build_user_agent(), "Accept": "image/png"}, follow_redirects=False
-                )
-            client = self._tile_client
+        client = self._tile_http_client()
         run: Optional[str] = None
         if area.startswith(NOWCAST_KEY + ":"):
             run = area.split(":", 1)[1]
@@ -373,7 +373,13 @@ class MeteoFranceRadarCollector(BaseCollector[RadarFrames]):
             path = f"/v1/radar/tiles/{epoch}/{z}/{x}/{y}.png"
         else:
             path = f"/v1/radar/{area}/tiles/{epoch}/{z}/{x}/{y}.png"
-        response = await self._get(client, f"{self.base_url}{path}", params=None if run is None else {"run": run})
+        url = f"{self.base_url}{path}"
+        params = None if run is None else {"run": run}
+        try:
+            response = await self._get(client, url, params=params)
+        except httpx.RemoteProtocolError:
+            # A kept connection the gateway closed just as the request left (it read nothing of it): asked once more, on a new one.
+            response = await self._get(client, url, params=params)
         if response.status_code == 404:
             return None, False
         response.raise_for_status()
@@ -387,6 +393,23 @@ class MeteoFranceRadarCollector(BaseCollector[RadarFrames]):
             while len(self._tiles) > TILE_CACHE_ENTRIES:
                 self._tiles.popitem(last=False)
         return body, exact
+
+    def _tile_http_client(self) -> httpx.AsyncClient:
+        """The client of the tiles (one for the life of the collector, so its connections to the gateway are kept and reused)."""
+        if self._external_client is not None:
+            return self._external_client
+        if self._tile_client is None:
+            self._tile_client = httpx.AsyncClient(
+                timeout=httpx.Timeout(TILE_TIMEOUT_S, connect=TILE_CONNECT_TIMEOUT_S),
+                # The limits go to the transport: a client given a transport ignores its own. Default numbers, longer keep-alive.
+                transport=httpx.AsyncHTTPTransport(
+                    retries=TILE_CONNECT_RETRIES,
+                    limits=httpx.Limits(max_connections=100, max_keepalive_connections=20, keepalive_expiry=TILE_KEEPALIVE_S),
+                ),
+                headers={"User-Agent": build_user_agent(), "Accept": "image/png"},
+                follow_redirects=False,
+            )
+        return self._tile_client
 
     async def aclose(self) -> None:
         if self._tile_client is not None:
