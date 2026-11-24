@@ -70,8 +70,9 @@ class RadarNowcastFrance(BaseModel):
     interval_minutes: int = 5
     tile_url_template: Optional[str] = Field(
         None,
-        description="path, relative to the root of this API, of a 256 px Web Mercator tile (`{epoch}` one of `frames`, `{z}`, `{x}`, `{y}`); "
-        "transparent where no rain is forecast or outside coverage; immutable",
+        description="path, relative to the root of this API, of a 256 px Web Mercator tile (`{epoch}` one of `frames`, `{z}`, `{x}`, `{y}`), "
+        "with the run filled in (`?run=`): the next run draws the same times again, so a tile is immutable under the address of its run; "
+        "transparent where no rain is forecast or outside coverage",
     )
     bounds: Optional[list[float]] = Field(None, description="west, south, east, north (degrees) of the area the tiles can cover")
     min_zoom: Optional[int] = None

@@ -69,7 +69,7 @@ async def radar_nowcast_france(collector: Optional[MeteoFranceRadarCollector]) -
             for f in nowcast.frames
         ],
         interval_minutes=max(1, nowcast.step_seconds // 60),
-        tile_url_template=NOWCAST_TILE_PATH,
+        tile_url_template=f"{NOWCAST_TILE_PATH}?run={nowcast.run_utc}",  # the next run draws the same times again
         bounds=list(nowcast.bounds),
         min_zoom=nowcast.min_zoom,
         max_zoom=nowcast.max_zoom,

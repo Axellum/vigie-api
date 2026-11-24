@@ -422,6 +422,7 @@ async def test_a_point_without_a_radar_of_its_own_asks_nothing(sim_clock: SimClo
 
 NOWCAST_FIXTURE = Path(__file__).resolve().parent / "fixtures" / "meteofrance_radar" / "nowcast-frames-2026-11-22.json"
 NOWCAST_FIRST, NOWCAST_LAST = 1795349100, 1795352400
+NOWCAST_RUN = 1795348800  # run_utc of the fixture
 
 
 def nowcast_payload() -> dict[str, Any]:
@@ -432,13 +433,20 @@ def nowcast_gateway(
     frames_status: int = 200,
     tile_status: int = 200,
     payload: Optional[dict[str, Any]] = None,
+    drawn_run: Optional[str] = "asked",
 ) -> Provider:
+    """A gateway of PIAF tiles; ``drawn_run`` is the run it says drew a tile (`X-Piaf-Run`): the one asked, another, or none (an older gateway)."""
+
     def answer(request: httpx.Request) -> httpx.Response:
         path = request.url.path
         if path == "/v1/rain-nowcast/frames":
             return httpx.Response(frames_status, json=payload if payload is not None else nowcast_payload())
         if path.startswith("/v1/rain-nowcast/tiles/"):
-            return httpx.Response(tile_status, content=FAKE_PNG, headers={"content-type": "image/png"})
+            headers = {"content-type": "image/png"}
+            drawn = request.url.params.get("run") if drawn_run == "asked" else drawn_run
+            if drawn is not None:
+                headers["x-piaf-run"] = drawn
+            return httpx.Response(tile_status, content=FAKE_PNG, headers=headers)
         if path == "/v1/radar/frames":
             return httpx.Response(200, json=frames_payload())
         raise AssertionError(f"unexpected request to gateway: {path}")
@@ -495,9 +503,30 @@ async def test_nowcast_frames_cache_and_isolation_from_observed_radar(sim_clock:
 async def test_nowcast_tile_cache_and_coalescing(sim_clock: SimClock) -> None:
     provider = nowcast_gateway()
     radar = collector(provider)
-    got = await asyncio.gather(*(radar.nowcast_tile(NOWCAST_FIRST, *PARIS_TILE) for _ in range(10)))
-    assert set(got) == {FAKE_PNG} and provider.count == 1
+    got = await asyncio.gather(*(radar.nowcast_tile(NOWCAST_FIRST, *PARIS_TILE, NOWCAST_RUN) for _ in range(10)))
+    assert set(got) == {(FAKE_PNG, True)} and provider.count == 1
     assert provider.requests[0].url.path == f"/v1/rain-nowcast/tiles/{NOWCAST_FIRST}/8/129/88.png"
+    assert provider.requests[0].url.params["run"] == str(NOWCAST_RUN)
+    assert await radar.nowcast_tile(NOWCAST_FIRST, *PARIS_TILE, NOWCAST_RUN) == (FAKE_PNG, True) and provider.count == 1
+
+
+async def test_a_nowcast_tile_is_kept_under_its_run_only(sim_clock: SimClock) -> None:
+    # The next run draws the same time again: the tile of the next run is asked again, not taken from the first run's.
+    provider = nowcast_gateway()
+    radar = collector(provider)
+    assert await radar.nowcast_tile(NOWCAST_FIRST, *PARIS_TILE, NOWCAST_RUN) == (FAKE_PNG, True)
+    assert await radar.nowcast_tile(NOWCAST_FIRST, *PARIS_TILE, NOWCAST_RUN + 300) == (FAKE_PNG, True)
+    assert provider.count == 2 and provider.requests[1].url.params["run"] == str(NOWCAST_RUN + 300)
+
+
+@pytest.mark.parametrize("drawn_run", [str(NOWCAST_RUN + 300), None])
+async def test_a_nowcast_tile_of_another_run_is_relayed_and_not_kept(sim_clock: SimClock, drawn_run: Optional[str]) -> None:
+    # The gateway already has the next run (or is too old to say which run drew the tile): relayed, not kept, not that run's.
+    provider = nowcast_gateway(drawn_run=drawn_run)
+    radar = collector(provider)
+    assert await radar.nowcast_tile(NOWCAST_FIRST, *PARIS_TILE, NOWCAST_RUN) == (FAKE_PNG, False)
+    assert await radar.nowcast_tile(NOWCAST_FIRST, *PARIS_TILE, NOWCAST_RUN) == (FAKE_PNG, False)
+    assert provider.count == 2
 
 
 def test_nowcast_routes_end_to_end(world: World, sim_clock: SimClock) -> None:
@@ -510,7 +539,7 @@ def test_nowcast_routes_end_to_end(world: World, sim_clock: SimClock) -> None:
     assert body["status"] == "ok" and body["area"] == "france" and body["source_model"] == "meteofrance-piaf"
     assert body["run_utc"] == 1795348800 and body["run_at"] == "2026-11-22T12:00:00Z"
     assert body["interval_minutes"] == 5
-    assert body["tile_url_template"] == "/v1/radar/france/nowcast/tiles/{epoch}/{z}/{x}/{y}.png"
+    assert body["tile_url_template"] == f"/v1/radar/france/nowcast/tiles/{{epoch}}/{{z}}/{{x}}/{{y}}.png?run={NOWCAST_RUN}"
     assert body["bounds"] == [-6.0, 41.0, 10.5, 51.5] and (body["min_zoom"], body["max_zoom"]) == (3, 10)
     assert [(f["epoch"], f["lead_minutes"]) for f in body["frames"]] == [
         (NOWCAST_FIRST, 5),
@@ -521,15 +550,22 @@ def test_nowcast_routes_end_to_end(world: World, sim_clock: SimClock) -> None:
     assert body["attribution"] == credit_text("meteofrance_piaf_tiles")
     assert "not a radar measure" in body["note"].lower()
 
-    # Valid tile inside France
+    # Valid tile inside France, at the address of the template (its run): immutable
     z, x, y = PARIS_TILE
-    tile = world.client.get(f"/v1/radar/france/nowcast/tiles/{NOWCAST_FIRST}/{z}/{x}/{y}.png")
+    tile = world.client.get(body["tile_url_template"].format(epoch=NOWCAST_FIRST, z=z, x=x, y=y))
     assert tile.status_code == 200 and tile.content == FAKE_PNG and tile.headers["content-type"] == "image/png"
     assert tile.headers["Cache-Control"] == "public, max-age=3600, immutable"
 
     def nowcast_tile_reqs() -> list[httpx.Request]:
         return [r for r in provider.requests if r.url.path.startswith("/v1/rain-nowcast/tiles/")]
 
+    assert len(nowcast_tile_reqs()) == 1
+
+    # Without the run, or with another one (an old list), the same tile from memory, but kept a minute only
+    for query in ("", f"?run={NOWCAST_RUN - 300}"):
+        other = world.client.get(f"/v1/radar/france/nowcast/tiles/{NOWCAST_FIRST}/{z}/{x}/{y}.png{query}")
+        assert other.status_code == 200 and other.content == FAKE_PNG
+        assert other.headers["Cache-Control"] == "public, max-age=60"
     assert len(nowcast_tile_reqs()) == 1
 
     # Unlisted epoch, zoom out of range, x/y out of range -> 404 without calling gateway
