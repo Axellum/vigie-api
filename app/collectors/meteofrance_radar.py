@@ -270,7 +270,7 @@ class MeteoFranceRadarCollector(BaseCollector[RadarFrames]):
         )
         self.base_url = base_url.rstrip("/")
         self._tiles: OrderedDict[tuple[str, int, int, int, int], bytes] = OrderedDict()
-        self._tiles_inflight: dict[tuple[str, int, int, int, int], asyncio.Task[Optional[bytes]]] = {}
+        self._tiles_inflight: dict[tuple[str, int, int, int, int], asyncio.Task[tuple[Optional[bytes], bool]]] = {}
         self._tile_client: Optional[httpx.AsyncClient] = None
         self._nowcast_cache: Optional[tuple[float, NowcastFrames]] = None
         self._nowcast_inflight: Optional[asyncio.Task[Optional[NowcastFrames]]] = None
@@ -330,11 +330,24 @@ class MeteoFranceRadarCollector(BaseCollector[RadarFrames]):
 
     async def tile(self, epoch: int, z: int, x: int, y: int, area: str = FRANCE) -> Optional[bytes]:
         """The PNG of a tile of the image of an area ending at ``epoch``: ``None`` when the gateway has no such image; raises when it fails."""
-        key = (area, epoch, z, x, y)
+        body, _ = await self._tile((area, epoch, z, x, y))
+        return body
+
+    async def nowcast_tile(self, epoch: int, z: int, x: int, y: int, run: int) -> tuple[Optional[bytes], bool]:
+        """A PIAF +1h forecast tile ending at ``epoch``, asked of the gateway for the run ``run`` (the run of the frames this API lists),
+        and whether the gateway drew it with that run.
+
+        A new run every 5 minutes draws the same times again, so a tile is kept here under its run, and only when the gateway drew it with
+        that run; a tile of another run (the gateway has the next one already, or its other process is a run behind) is relayed and not
+        kept. ``None`` when the gateway has no such frame; raises on error.
+        """
+        return await self._tile((f"{NOWCAST_KEY}:{run}", epoch, z, x, y))
+
+    async def _tile(self, key: tuple[str, int, int, int, int]) -> tuple[Optional[bytes], bool]:
         cached = self._tiles.get(key)
         if cached is not None:
             self._tiles.move_to_end(key)
-            return cached
+            return cached, True
         task = self._tiles_inflight.get(key)
         if task is None:
             task = asyncio.ensure_future(self._fetch_tile(key))
@@ -342,11 +355,8 @@ class MeteoFranceRadarCollector(BaseCollector[RadarFrames]):
             task.add_done_callback(lambda _t, k=key: self._tiles_inflight.pop(k, None))
         return await asyncio.shield(task)
 
-    async def nowcast_tile(self, epoch: int, z: int, x: int, y: int) -> Optional[bytes]:
-        """The PNG of a PIAF +1h forecast tile ending at ``epoch``: ``None`` when the gateway has no such frame; raises on error."""
-        return await self.tile(epoch, z, x, y, area=NOWCAST_KEY)
-
-    async def _fetch_tile(self, key: tuple[str, int, int, int, int]) -> Optional[bytes]:
+    async def _fetch_tile(self, key: tuple[str, int, int, int, int]) -> tuple[Optional[bytes], bool]:
+        """The tile of ``key`` from the gateway, and whether it is the one asked for (always, except a PIAF tile of another run)."""
         area, epoch, z, x, y = key
         client = self._external_client
         if client is None:
@@ -355,23 +365,28 @@ class MeteoFranceRadarCollector(BaseCollector[RadarFrames]):
                     timeout=TILE_TIMEOUT_S, headers={"User-Agent": build_user_agent(), "Accept": "image/png"}, follow_redirects=False
                 )
             client = self._tile_client
-        if area == NOWCAST_KEY:
+        run: Optional[str] = None
+        if area.startswith(NOWCAST_KEY + ":"):
+            run = area.split(":", 1)[1]
             path = f"/v1/rain-nowcast/tiles/{epoch}/{z}/{x}/{y}.png"
         elif area == FRANCE:
             path = f"/v1/radar/tiles/{epoch}/{z}/{x}/{y}.png"
         else:
             path = f"/v1/radar/{area}/tiles/{epoch}/{z}/{x}/{y}.png"
-        response = await self._get(client, f"{self.base_url}{path}")
+        response = await self._get(client, f"{self.base_url}{path}", params=None if run is None else {"run": run})
         if response.status_code == 404:
-            return None
+            return None, False
         response.raise_for_status()
         body = response.content
         if not body.startswith(PNG_SIGNATURE) or len(body) > MAX_TILE_BYTES:
             raise ValueError("radar tile: the gateway did not answer a PNG of a reasonable size")
-        self._tiles[key] = body
-        while len(self._tiles) > TILE_CACHE_ENTRIES:
-            self._tiles.popitem(last=False)
-        return body
+        # The gateway names the run that drew a PIAF tile (`X-Piaf-Run`); an older gateway names none: not that run's for sure.
+        exact = run is None or response.headers.get("x-piaf-run") == run
+        if exact:
+            self._tiles[key] = body
+            while len(self._tiles) > TILE_CACHE_ENTRIES:
+                self._tiles.popitem(last=False)
+        return body, exact
 
     async def aclose(self) -> None:
         if self._tile_client is not None:

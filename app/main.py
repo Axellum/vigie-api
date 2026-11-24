@@ -54,7 +54,7 @@ Endpoints:
 - ``GET    /v1/rain/observed``     : Global observed satellite precipitation (NASA GIBS GPM IMERG 30-min average), active frames and tile template.
 - ``GET    /v1/rain/observed/tiles/{stamp}/{z}/{x}/{y}.png`` : One 256 px Web Mercator IMERG precipitation tile (immutable).
 - ``GET    /v1/radar/france/nowcast`` : Météo-France PIAF +1h rain nowcast frames over France, relayed from a vigie-meteo gateway.
-- ``GET    /v1/radar/france/nowcast/tiles/{epoch}/{z}/{x}/{y}.png`` : One 256 px Web Mercator PIAF nowcast tile (immutable).
+- ``GET    /v1/radar/france/nowcast/tiles/{epoch}/{z}/{x}/{y}.png`` : One 256 px Web Mercator PIAF nowcast tile (immutable with its `?run=`).
 - ``GET    /v1/surf/spots/{id}/station`` : The latest 6-minute observation (wind speed, gusts, direction, relative regime, air temperature, pressure) of the nearest coastal station of a spot, with optional live comparison against the wind forecast (`compare=true`).
 - ``GET    /v1/sea/places``        : The ports, slipways, anchorages, dive sites and bathing sites of the French coast (OpenStreetMap, Sandre, QSB).
 - ``GET    /v1/sea/places/{id}``   : One of them.
@@ -1462,7 +1462,10 @@ async def get_sea_buoys(
 
 RADAR_FRANCE_CACHE = "public, max-age=60"
 RADAR_TILE_CACHE = "public, max-age=86400, immutable"  # the address holds the date of the image: the tile never changes
+# A PIAF run every 5 minutes draws the same times again: a forecast tile is immutable only under an address that holds its run
+# (`?run=`, given by `tile_url_template`); asked without it, or with another run, it is kept a minute.
 RADAR_NOWCAST_TILE_CACHE = "public, max-age=3600, immutable"
+RADAR_NOWCAST_TILE_SHORT_CACHE = "public, max-age=60"
 
 
 RadarAreaName = Enum("RadarAreaName", {name.replace("-", "_"): name for name in RADAR_AREAS}, type=str)
@@ -1476,8 +1479,9 @@ RADAR_AREA_DOC = "`france` (metropolitan France and Corsica), `antilles`, `reuni
     description=(
         "Météo-France PIAF +1h rain nowcast over metropolitan France and Corsica: 5-minute forecast steps (+5 to +60 min), "
         "relayed from a vigie-meteo gateway (`VIGIE_METEO_GATEWAY_URL`). Returns the forecast frames (`frames`), the tile template "
-        "(`tile_url_template`, `GET /v1/radar/france/nowcast/tiles/{epoch}/{z}/{x}/{y}.png`: 256 px Web Mercator PNG tiles using "
-        "the same intensity palette as observed radar), the coverage box and the legend. A forecast, not a radar measure. "
+        "(`tile_url_template`, `GET /v1/radar/france/nowcast/tiles/{epoch}/{z}/{x}/{y}.png?run={run_utc}`: 256 px Web Mercator PNG "
+        "tiles using the same intensity palette as observed radar; the run is filled in, since the next run draws the same times "
+        "again), the coverage box and the legend. A forecast, not a radar measure. "
         "Without a gateway `status` is `not_configured`. **Not for safety.**"
     ),
 )
@@ -1497,13 +1501,19 @@ async def get_radar_france_nowcast(response: Response) -> RadarNowcastFrance:
         404: {"description": "No such forecast frame (not in `GET /v1/radar/france/nowcast`), gateway not configured, or tile out of range."},
         503: {"description": "The gateway that draws the tiles does not answer."},
     },
-    description="One tile of a PIAF +1h forecast frame over France (see `GET /v1/radar/france/nowcast`). Immutable.",
+    description=(
+        "One tile of a PIAF +1h forecast frame over France (see `GET /v1/radar/france/nowcast`), drawn with the newest run. "
+        "Immutable (cached an hour) when `run` is that run, as in `tile_url_template`; otherwise cached a minute."
+    ),
 )
 async def get_radar_france_nowcast_tile(
     epoch: int = Path(ge=1, le=4_102_444_800, description="`epoch` of a frame listed by `GET /v1/radar/france/nowcast`"),
     z: int = Path(ge=0, le=22),
     x: int = Path(ge=0),
     y: int = Path(ge=0),
+    run: Optional[int] = Query(
+        None, ge=1, le=4_102_444_800, description="`run_utc` of `GET /v1/radar/france/nowcast` (filled in `tile_url_template`)"
+    ),
 ) -> Response:
     """A PIAF +1h forecast rain tile over France, relayed from the gateway."""
     collector = aggregator.meteofrance_radar
@@ -1514,15 +1524,17 @@ async def get_radar_france_nowcast_tile(
         raise HTTPException(status_code=503, detail="the radar gateway does not answer")
     if epoch not in frames.epochs or not frames.min_zoom <= z <= frames.max_zoom or x >= 2**z or y >= 2**z:
         raise HTTPException(status_code=404, detail="no such nowcast tile")
-    if not tile_touches(frames, z, x, y):
+    if not tile_touches(frames, z, x, y):  # outside the box of PIAF: transparent whatever the run
         return Response(content=TRANSPARENT_PNG, media_type="image/png", headers={"Cache-Control": RADAR_NOWCAST_TILE_CACHE})
     try:
-        png = await collector.nowcast_tile(epoch, z, x, y)
+        png, of_the_run = await collector.nowcast_tile(epoch, z, x, y, frames.run_utc)
     except Exception:
         raise HTTPException(status_code=503, detail="the radar gateway does not answer") from None
     if png is None:
         raise HTTPException(status_code=404, detail="no such nowcast frame")
-    return Response(content=png, media_type="image/png", headers={"Cache-Control": RADAR_NOWCAST_TILE_CACHE})
+    immutable = of_the_run and run == frames.run_utc
+    cache = RADAR_NOWCAST_TILE_CACHE if immutable else RADAR_NOWCAST_TILE_SHORT_CACHE
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": cache})
 
 
 @app.get(
