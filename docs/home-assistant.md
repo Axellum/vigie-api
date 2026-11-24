@@ -268,9 +268,20 @@ card, not to entities: they are too large for the attributes of a state.
 ## The dashboard card
 
 The weather, the warnings, the sea and the normals of the place, on pages one swipes or picks in a bar, in the spirit of the
-community's Météo-France card. It ships with the integration (`custom_components/vigie/frontend/vigie-card.js`): Home
-Assistant serves it and loads it on every page of its frontend, so there is **no resource to add**, and it always matches the
-integration that feeds it. After an update of the integration, a reload of the page is enough.
+community's Météo-France card. It ships with the integration (`custom_components/vigie/frontend/vigie-card.js`), so there is
+**no resource to add by hand**, and it always matches the integration that feeds it. After an update of the integration, a
+reload of the page is enough.
+
+How the frontend gets it ([ADR 0044](decisions/0044-home-assistant-card-as-a-dashboard-resource.md)): where the dashboards keep
+their resources in storage (the default) and the configuration has a `www` folder, the integration copies the card to
+`www/vigie/` (with a compressed copy) and lists it itself in *Settings, Dashboards, Resources* as
+`/local/vigie/vigie-card.js?v=…`, like the cards of HACS. The card is then there from the first second of a restart of Home
+Assistant, before the integrations are set up. Otherwise (resources in YAML, no `www` folder when Home Assistant started), Home
+Assistant loads it from the integration's own path on every page, as before; a dashboard opened while Home Assistant starts then
+shows "Configuration error" until the page is reloaded. Removing the last Vigie entry removes that resource and that copy.
+
+The card keeps its last answer, in the browser, and draws it at once while it asks Home Assistant again, so it appears with the
+other cards; an answer older than 30 minutes is not drawn, and a request that fails shows its error, never the answer kept.
 
 Add it like any card: edit a dashboard, *Add card*, "Vigie". Its editor sets everything below; in YAML:
 

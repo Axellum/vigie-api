@@ -169,6 +169,9 @@ def test_the_card_is_tried_in_a_pinned_home_assistant_on_the_replayed_answers() 
     assert re.search(r"ghcr\.io/home-assistant/home-assistant:\d{4}\.\d+\.\d+\b", text)
     assert "fake_instance.py" in text and "--replay tests_ha/fixtures" in text
     assert "tools/card_in_home_assistant.py" in text
+    # with a www folder the card must come from the dashboard resource (ADR 0044); the install job, without one, tries the other way
+    assert "ha_config/www" in text and "--card-from /local/vigie/vigie-card.js" in text
+    assert "www" not in steps_text(workflow, "install")
     assert re.search(r"playwright==\d+\.\d+\.\d+", text)
     upload = next(step for step in workflow["jobs"]["card"]["steps"] if "upload-artifact@" in str(step.get("uses", "")))
     assert upload["with"]["name"] == "card-captures" and upload.get("if") == "always()"

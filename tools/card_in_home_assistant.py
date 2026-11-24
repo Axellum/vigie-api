@@ -9,6 +9,9 @@ replays the answers recorded for Biarritz (``python tools/fake_instance.py --rep
 4. opens the dashboard in Chromium (Playwright) at a phone width and a wall width, in the dark and the light themes, goes
    through every page of the card by its bar, and saves a capture of each; then opens the card's editor.
 
+With ``--card-from /local/vigie/vigie-card.js`` it also fails when the frontend loaded the card from anywhere else (ADR 0044:
+the dashboard resource the integration lists where the www folder is served), and says whether it came compressed.
+
 It fails when the frontend did not load the card, when the card shows no page or an error (then a capture
 ``echec_<width>_<theme>.png`` and what the card and Home Assistant said are kept), when a page of the card is missing,
 when the editor does not draw all its fields, or when the browser logs an error of the card (or any uncaught error while
@@ -163,6 +166,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--ha", default="http://127.0.0.1:8123")
     parser.add_argument("--instance", default="http://127.0.0.1:8099")
     parser.add_argument("--out", type=Path, default=Path("captures"))
+    parser.add_argument("--card-from", help="the path the frontend must load the card from, e.g. /local/vigie/vigie-card.js")
     args = parser.parse_args(argv)
     args.out.mkdir(parents=True, exist_ok=True)
 
@@ -184,6 +188,8 @@ def main(argv: list[str] | None = None) -> int:
                 page.on("console", lambda msg, errors=errors, phase=phase: errors.append(f"[{phase[0]}] console: {msg.text}") if msg.type == "error" else None)
                 # a console error "Failed to load resource" does not say which: the answer does
                 page.on("response", lambda r, errors=errors, phase=phase: errors.append(f"[{phase[0]}] HTTP {r.status}: {r.url}") if r.status >= 400 else None)
+                loaded: list[tuple[str, str]] = []  # where the card's file came from, and its encoding
+                page.on("response", lambda r, loaded=loaded: loaded.append((urllib.parse.urlsplit(r.url).path, r.headers.get("content-encoding", "none"))) if r.url.split("?")[0].endswith("/vigie-card.js") else None)
                 login(page, args.ha, tokens, dark)
                 connected = "() => document.querySelector('home-assistant')?.hass?.connected"
                 if dark and name == "phone":  # once: the place, the language, and the dashboard
@@ -203,11 +209,21 @@ def main(argv: list[str] | None = None) -> int:
                 page.goto(f"{args.ha}/{DASHBOARD}/carte")
                 page.wait_for_function(connected, timeout=60_000)
                 theme = "sombre" if dark else "clair"
-                served = page.evaluate("() => !!customElements.get('vigie-card') && (window.customCards || []).some((c) => c.type === 'vigie-card')")
+                # A dashboard resource is loaded when the dashboard reads its resources, after the connection (ADR 0044);
+                # the frontend's own extra modules, before it.
+                defined = "() => !!customElements.get('vigie-card') && (window.customCards || []).some((c) => c.type === 'vigie-card')"
+                try:
+                    page.wait_for_function(defined, timeout=30_000)
+                    served = True
+                except PlaywrightTimeout:
+                    served = False
                 if not served:
                     problems.append(f"{name}: the frontend did not load the card")
                     context.close()
                     continue
+                print(f"({name}/{theme}: the card came from {loaded})")  # a new browser context each time: never from a cache
+                if args.card_from and not any(path == args.card_from for path, _ in loaded):
+                    problems.append(f"{name}/{theme}: the card came from {loaded}, not from {args.card_from}")
                 card = page.locator("vigie-card")
                 try:
                     card.locator(".page").wait_for(timeout=60_000)
