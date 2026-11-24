@@ -36,8 +36,13 @@ PUBLIC_FALLBACK_ENV = "VIGIE_OPEN_METEO_PUBLIC_FALLBACK"
 # A self-hosted read takes well under a second (a few hundred milliseconds when the data is not in memory yet,
 # measured on 2026-11-22); past this delay the public API answers sooner.
 SELF_HOSTED_TIMEOUT_S = 5.0
-# After a failed connection the instance is left aside this long before it is tried again.
-SELF_HOSTED_PAUSE_S = 60.0
+# A new connection to the instance opens in milliseconds; one left without an answer is given up after 2 s (and tried once more
+# by the transport of the collector, ``OPEN_METEO_CONNECTION``) rather than taking the whole 5 s.
+SELF_HOSTED_CONNECT_TIMEOUT_S = 2.0
+SELF_HOSTED_TIMEOUTS = httpx.Timeout(SELF_HOSTED_TIMEOUT_S, connect=SELF_HOSTED_CONNECT_TIMEOUT_S)
+# After a failed connection the instance is left aside this long before it is tried again: long enough that a stopped instance
+# does not add its wait to every request, short enough that the public quota is not spent for a whole minute after a restart.
+SELF_HOSTED_PAUSE_S = 15.0
 # The blocks of an Open-Meteo answer that hold series (``time`` aside).
 DATA_BLOCKS = ("current", "minutely_15", "hourly", "daily")
 
@@ -98,7 +103,11 @@ async def get_open_meteo(
     if now >= paused_until or not fallback:
         collector.self_hosted_calls += 1
         try:
-            response = await client.get(url, params=params, timeout=SELF_HOSTED_TIMEOUT_S)
+            try:
+                response = await client.get(url, params=params, timeout=SELF_HOSTED_TIMEOUTS)
+            except httpx.RemoteProtocolError:
+                # A kept connection the instance closed just as the request left: asked once more, on a new connection.
+                response = await client.get(url, params=params, timeout=SELF_HOSTED_TIMEOUTS)
         except httpx.HTTPError as exc:
             if not fallback:
                 raise

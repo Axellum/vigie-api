@@ -27,7 +27,7 @@ from typing import Any, Optional
 import httpx
 
 from app import clock
-from app.collectors.base import BaseCollector, optional_float
+from app.collectors.base import OPEN_METEO_CONNECTION, BaseCollector, optional_float
 from app.collectors.grid import coord_str
 from app.collectors.marine import DEFAULT_OPEN_METEO_MARINE_URL, open_meteo_marine_url
 from app.collectors.open_meteo_hosts import get_open_meteo
@@ -147,6 +147,7 @@ class SurfForecastCollector(BaseCollector[dict[str, Any]]):
             domain="marine",
             ttl_seconds=self.WIND_TTL_SECONDS,
             http_client=http_client,
+            connection=OPEN_METEO_CONNECTION,
         )
 
     def call_weight(self, params: Mapping[str, str]) -> float:

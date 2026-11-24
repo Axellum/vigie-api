@@ -320,3 +320,4 @@ class NasaGibsImergCollector(BaseCollector[ObservedRainFrames]):
         if self._tile_client is not None:
             await self._tile_client.aclose()
             self._tile_client = None
+        await super().aclose()

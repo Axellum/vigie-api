@@ -144,8 +144,8 @@ def unavailable_client() -> httpx.AsyncClient:
 def make_service(db_path: Path, **collectors: Any) -> AggregatorService:
     """An ``AggregatorService`` with the given collectors; every other provider answers HTTP 503.
 
-    A collector built without a client would create a real ``httpx`` client (and its SSL context) at each
-    call, which is slow on Windows; the guard of ``conftest.py`` would refuse its request anyway.
+    A collector built without a client would create a real ``httpx`` client (and its SSL context), which is
+    slow on Windows; the guard of ``conftest.py`` would refuse its request anyway.
     """
     down = unavailable_client()
     defaults: dict[str, Any] = {

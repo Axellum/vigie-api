@@ -32,7 +32,7 @@ from typing import Any, Optional
 import httpx
 
 from app import clock
-from app.collectors.base import BaseCollector, build_user_agent, parse_iso_utc
+from app.collectors.base import SELF_HOSTED_CONNECTION, BaseCollector, build_user_agent, parse_iso_utc
 
 PROVIDER_ID = "meteofrance_radar"
 SOURCE_MODEL = "meteofrance-lame-d-eau"
@@ -273,6 +273,7 @@ class MeteoFranceRadarCollector(BaseCollector[RadarFrames]):
             recovery_timeout_seconds=120,
             timeout_seconds=8.0,
             http_client=http_client,
+            connection=SELF_HOSTED_CONNECTION,
         )
         self.base_url = base_url.rstrip("/")
         self._tiles: OrderedDict[tuple[str, int, int, int, int], bytes] = OrderedDict()
@@ -318,15 +319,7 @@ class MeteoFranceRadarCollector(BaseCollector[RadarFrames]):
 
     async def _fetch_nowcast_frames(self) -> Optional[NowcastFrames]:
         try:
-            if self._external_client is not None:
-                response = await self._get(self._external_client, f"{self.base_url}/v1/rain-nowcast/frames")
-            else:
-                async with httpx.AsyncClient(
-                    timeout=self.timeout_seconds,
-                    headers={"User-Agent": build_user_agent(), "Accept": "application/json"},
-                    follow_redirects=False,
-                ) as client:
-                    response = await self._get(client, f"{self.base_url}/v1/rain-nowcast/frames")
+            response = await self._get(self._http_client(), f"{self.base_url}/v1/rain-nowcast/frames", follow_redirects=False)
             response.raise_for_status()
             parsed = parse_nowcast_frames(response.json())
         except Exception:
@@ -375,11 +368,8 @@ class MeteoFranceRadarCollector(BaseCollector[RadarFrames]):
             path = f"/v1/radar/{area}/tiles/{epoch}/{z}/{x}/{y}.png"
         url = f"{self.base_url}{path}"
         params = None if run is None else {"run": run}
-        try:
-            response = await self._get(client, url, params=params)
-        except httpx.RemoteProtocolError:
-            # A kept connection the gateway closed just as the request left (it read nothing of it): asked once more, on a new one.
-            response = await self._get(client, url, params=params)
+        # A kept connection the gateway closed just as the request left is asked once more by ``_get``.
+        response = await self._get(client, url, params=params)
         if response.status_code == 404:
             return None, False
         response.raise_for_status()
@@ -415,3 +405,4 @@ class MeteoFranceRadarCollector(BaseCollector[RadarFrames]):
         if self._tile_client is not None:
             await self._tile_client.aclose()
             self._tile_client = None
+        await super().aclose()

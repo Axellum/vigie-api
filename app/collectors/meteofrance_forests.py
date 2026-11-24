@@ -22,7 +22,7 @@ from typing import Any, Literal, Optional
 
 import httpx
 
-from app.collectors.base import BaseCollector
+from app.collectors.base import SELF_HOSTED_CONNECTION, BaseCollector
 
 PROVIDER_ID = "meteofrance_forests"
 SOURCE_MODEL = "meteofrance-forests"
@@ -86,6 +86,7 @@ class MeteoFranceForestsCollector(BaseCollector[ForestsDepartment]):
             recovery_timeout_seconds=120,
             timeout_seconds=8.0,
             http_client=http_client,
+            connection=SELF_HOSTED_CONNECTION,
         )
         self.base_url = base_url.rstrip("/")
 

@@ -373,8 +373,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await scheduler.stop()
         if prealert_pilot is not None:
             await prealert_pilot.stop()
-        if aggregator.nasa_gibs_imerg is not None:
-            await aggregator.nasa_gibs_imerg.aclose()
+        await aggregator.aclose()
 
 
 app = FastAPI(
