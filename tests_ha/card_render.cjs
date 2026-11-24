@@ -1,4 +1,4 @@
-// Draws pages of the dashboard card outside a browser, for tests_ha/test_card_season.py: the card file runs in a bare context
+// Draws pages of the dashboard card outside a browser, for tests_ha/test_card_season.py and test_card_rain.py: the card file runs in a bare context
 // with the few names of a browser it needs when it loads, and the pages come out as strings of HTML.
 // Usage: node card_render.cjs <vigie-card.js>, the input on stdin: {lang, width, now_ms, data}.
 'use strict';
@@ -17,6 +17,7 @@ const out = vm.runInContext(`(() => {
   const c = makeContext(i.lang, true, i.width, i.data, { type: 'custom:vigie-card', _pages: ['home', 'details', 'alerts', 'sea', 'normal'] });
   return JSON.stringify({
     items: seasonItems(c).map((it) => ({ id: it.id, tone: it.tone })),
+    nowcast: nowcastFirst(c),
     home: pageHome(c),
     alerts: pageAlerts(c),
   });

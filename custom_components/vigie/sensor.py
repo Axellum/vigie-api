@@ -75,13 +75,14 @@ class VigieRainNextHourSensor(VigieWeatherDataEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """The steps as the API gives them, whether it expects rain within the hour, and the strongest rate. In metropolitan
-        France also the twelve 5-minute rates of PIAF and the nine slots of the former Météo-France API (`slots`: 5 minutes
-        for the first half hour, then 10); `None` elsewhere."""
+        """The steps as the API gives them with the start of the first (`start_utc`, UTC epoch seconds), whether it expects rain
+        within the hour, and the strongest rate. In metropolitan France also the twelve 5-minute rates of PIAF and the nine slots
+        of the former Météo-France API (`slots`: 5 minutes for the first half hour, then 10); `None` elsewhere."""
         nowcast = self._nowcast
         point = self.coordinator.data.point if self.coordinator.data is not None else None
         return {
             "interval_minutes": nowcast.get("interval_minutes"),
+            "start_utc": nowcast.get("start_utc"),
             "mm_per_step": nowcast.get("mm_per_step"),
             "rain_expected_60m": nowcast.get("rain_expected_60m"),
             "max_mm_h": nowcast.get("max_mm_h"),

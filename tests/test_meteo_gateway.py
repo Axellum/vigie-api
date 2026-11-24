@@ -16,6 +16,7 @@ import pytest
 from app.attribution import RAIN_PIAF, credit_text
 from app.collectors.meteo_gateway import (
     PIAF_SOURCE_MODEL,
+    HourOfRain,
     MeteoGatewayRainCollector,
     RainSlices,
     in_piaf_box,
@@ -25,6 +26,7 @@ from app.collectors.meteo_gateway import (
     quarter_hour_amounts,
 )
 from app.collectors.weather import OpenMeteoCollector
+from app.services.embedded_frame import _rain_eta_min
 from tests.helpers import Provider, SimClock, forecast_provider, make_service
 
 PARIS = (48.8566, 2.3522)
@@ -125,13 +127,13 @@ async def test_the_collector_snaps_the_point_and_caches_the_run(sim_clock: SimCl
     gateway = Provider(payload=gateway_answer(start - 10 * 60, [0.6] * 18))
     collector = MeteoGatewayRainCollector("http://gateway.test", http_client=gateway.client())
 
-    assert await collector.rain_next_hour(*PARIS) == [0.6] * 12
-    assert await collector.rain_next_hour(PARIS[0] + 0.001, PARIS[1]) == [0.6] * 12  # the same cell: from the cache
+    assert await collector.rain_next_hour(*PARIS) == HourOfRain(start, [0.6] * 12)
+    assert await collector.rain_next_hour(PARIS[0] + 0.001, PARIS[1]) == HourOfRain(start, [0.6] * 12)  # the same cell: from the cache
     assert gateway.count == 1
     assert gateway.requests[0].url.path == "/v1/rain-nowcast"
     assert gateway.query(0) == {"lat": "48.86", "lon": "2.35"}  # the PIAF grid, 0.01 degree
     # 2 km away is another PIAF cell (it was the same 5 km forecast cell before): asked of the gateway, not served from the cache
-    assert await collector.rain_next_hour(PARIS[0] + 0.02, PARIS[1]) == [0.6] * 12
+    assert await collector.rain_next_hour(PARIS[0] + 0.02, PARIS[1]) == HourOfRain(start, [0.6] * 12)
     assert gateway.count == 2 and gateway.query(1) == {"lat": "48.88", "lon": "2.35"}
 
     assert await collector.rain_next_hour(*OSLO) is None  # outside the box: not asked
@@ -146,9 +148,9 @@ async def test_an_expired_run_still_serves_while_it_covers_the_hour_then_the_hou
         return answers.pop(0) if answers else httpx.Response(503)
 
     collector = MeteoGatewayRainCollector("http://gateway.test", http_client=Provider(answer=answer).client())
-    assert await collector.rain_next_hour(*PARIS) == [0.6] * 12
-    sim_clock.advance(301)  # expired, the gateway is down: the old run still covers the next hour
-    assert await collector.rain_next_hour(*PARIS) == [0.6] * 12
+    assert await collector.rain_next_hour(*PARIS) == HourOfRain(start, [0.6] * 12)
+    sim_clock.advance(301)  # expired, the gateway is down: the old run still covers the next hour, from the new boundary
+    assert await collector.rain_next_hour(*PARIS) == HourOfRain(boundary(sim_clock.time()), [0.6] * 12)
     sim_clock.advance(1200)  # half an hour after the run: not twelve slices ahead any more
     assert await collector.rain_next_hour(*PARIS) is None
 
@@ -177,6 +179,7 @@ async def test_the_point_takes_the_piaf_rain_and_credits_it(sim_clock: SimClock,
     rain = point.rain_nowcast
     assert rain.rate_5m_mm_h == RECORDED_RATES
     assert rain.mm_per_step == [2.9, 0.25, 0.96, 0.56]
+    assert rain.start_utc == start  # the 5-minute boundary at which the rain was read: also the start of the first rate
     assert rain.interval_minutes == 15
     assert rain.max_mm_h == 12.72
     assert rain.rain_expected_60m is True
@@ -186,8 +189,11 @@ async def test_the_point_takes_the_piaf_rain_and_credits_it(sim_clock: SimClock,
     frame = await service.build_embedded_frame(lat=PARIS[0], lon=PARIS[1])
     rain_line = next(line for line in frame.splitlines() if line.startswith("RAIN5M|GPS|"))
     assert rain_line == "RAIN5M|GPS|" + ",".join(f"{v:.2f}" for v in RECORDED_RATES)
-    zone_line = next(line for line in frame.splitlines() if line.startswith("ZONE|GPS|"))
-    assert "|2.90,0.25,0.96,0.56|" in zone_line
+    zone = next(line for line in frame.splitlines() if line.startswith("ZONE|GPS|")).split("|")
+    assert zone[17:19] == ["11.6", "2.90,0.25,0.96,0.56"]
+    # Field 16 counts from the time of the frame (``HEAD`` field 1, the real clock here, not the simulated one of the rain)
+    frame_utc = int(next(line for line in frame.splitlines() if line.startswith("HEAD|")).split("|")[1])
+    assert zone[16] == str(_rain_eta_min([2.9, 0.25, 0.96, 0.56], start, frame_utc))
 
 
 async def test_without_piaf_the_rain_stays_open_meteo_s(sim_clock: SimClock, tmp_path: Path) -> None:
@@ -197,6 +203,7 @@ async def test_without_piaf_the_rain_stays_open_meteo_s(sim_clock: SimClock, tmp
         point = await service.build_point_response(*PARIS)
         assert point.rain_nowcast.rate_5m_mm_h is None
         assert point.rain_nowcast.mm_per_step == [0.0, 0.2, 0.5, 0.1]  # tests/samples.py
+        assert point.rain_nowcast.start_utc == 1792332900  # 14:15 UTC: 15 minutes before Open-Meteo's first time
         assert point.rain_nowcast.attribution is not None
         assert credit_text(*RAIN_PIAF) not in point.rain_nowcast.attribution
         frame = await service.build_embedded_frame(lat=PARIS[0], lon=PARIS[1])

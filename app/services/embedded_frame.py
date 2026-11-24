@@ -59,14 +59,21 @@ def _rain_15m(values: Optional[list[float]]) -> Optional[list[float]]:
     return [max(0.0, float(v)) for v in values]
 
 
-def _rain_eta_and_max_mmh(c15: list[float]) -> tuple[int, float]:
-    """Return the delay before rain in minutes (-1 when dry for the next hour) and the peak mm/h."""
-    eta_min = -1
+RAIN_STEP_S = 900  # a step of ``ZONE`` field 18
+
+
+def _rain_eta_min(c15: list[float], start_utc: int, now_utc: int) -> int:
+    """Minutes from ``now_utc`` (``HEAD`` field 1) to the start of the first step above 0.05 mm that has not ended: ``0`` when
+    it has begun, ``-1`` when no step still to come is above 0.05 mm.
+
+    A step already over is skipped: with Open-Meteo the first step is a quarter-hour that has ended (``rain_nowcast.start_utc``).
+    """
     for idx, val in enumerate(c15):
-        if val > 0.05:
-            eta_min = idx * 15
-            break
-    return eta_min, round(max(c15) * 4.0, 1)
+        step_start = start_utc + idx * RAIN_STEP_S
+        if step_start + RAIN_STEP_S <= now_utc or val <= 0.05:
+            continue
+        return max(0, -((now_utc - step_start) // 60))  # whole minutes, rounded up: 0 only once the step has begun
+    return -1
 
 
 def _rain_5m(c15: list[float], rates_5m: Optional[list[float]]) -> list[float]:
@@ -98,20 +105,23 @@ def _emit_zone_block(
     daily: list[DailyForecast],
     marine: Optional[MarineConditions] = None,
     rain_rate_5m: Optional[list[float]] = None,
+    rain_start_utc: Optional[int] = None,
+    now_utc: int = 0,
 ) -> None:
-    """Emit the ``ZONE|``, ``RAIN5M|`` and ``DAY|`` lines of one zone."""
+    """Emit the ``ZONE|``, ``RAIN5M|`` and ``DAY|`` lines of one zone. ``now_utc`` is the time of the frame (``HEAD`` field 1)."""
     zid = _clean_field(zone_id, 12)
     zname = _clean_field(zone_name, 32)
-    c15 = _rain_15m(rain_next_60m) if current is not None else None
+    # The nowcast is known with the start of its steps, or not at all (``ZONE`` field 16 counts from that start).
+    c15 = _rain_15m(rain_next_60m) if current is not None and rain_start_utc is not None else None
 
     if current is None:
         weather_cols = [""] * _ZONE_WEATHER_COLUMNS
     else:
-        if c15 is None:
+        if c15 is None or rain_start_utc is None:
             eta_col = max_col = c15_col = ""
         else:
-            eta_min, max_mmh = _rain_eta_and_max_mmh(c15)
-            eta_col, max_col = str(eta_min), f"{max_mmh:.1f}"
+            eta_col = str(_rain_eta_min(c15, rain_start_utc, now_utc))
+            max_col = f"{round(max(c15) * 4.0, 1):.1f}"
             c15_col = ",".join(f"{v:.2f}" for v in c15)
         current_kt = (
             None
@@ -346,6 +356,8 @@ def serialize_embedded_frame(
             daily=point.daily,
             marine=point.marine,
             rain_rate_5m=point.rain_nowcast.rate_5m_mm_h,
+            rain_start_utc=point.rain_nowcast.start_utc,
+            now_utc=snapshot.server_utc,
         )
 
     # 3. Watched zones (ZONE + RAIN5M + DAY)
@@ -361,6 +373,8 @@ def serialize_embedded_frame(
             rain_next_60m=z.rain_next_60m,
             daily=z.daily_10d,
             rain_rate_5m=z.rain_rate_5m_mm_h,
+            rain_start_utc=z.rain_next_60m_start_utc,
+            now_utc=snapshot.server_utc,
         )
 
     # 4. Active hazards (HAZ)

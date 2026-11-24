@@ -1041,19 +1041,21 @@ class AggregatorService:
         return await self._with_piaf_rain(bundle, lat, lon), fallback_used
 
     async def _with_piaf_rain(self, bundle: Optional[dict[str, Any]], lat: float, lon: float) -> Optional[dict[str, Any]]:
-        """``bundle`` with its rain of the next hour taken from PIAF: the four 15-minute amounts (``rain_next_60m``), the twelve
-        5-minute rates (``rain_rate_5m_mm_h``) and the PIAF credit. ``bundle`` unchanged when PIAF has no full hour for the point.
+        """``bundle`` with its rain of the next hour taken from PIAF: the four 15-minute amounts (``rain_next_60m``), their start
+        (``rain_next_60m_start_utc``), the twelve 5-minute rates (``rain_rate_5m_mm_h``) and the PIAF credit. ``bundle``
+        unchanged when PIAF has no full hour for the point.
 
         The other values of the bundle (current conditions, daily forecast) keep their provider. A point with no weather at all
         stays without weather: the rain alone is not shown without the current conditions."""
         if bundle is None or self.meteo_gateway is None:
             return bundle
-        rates = await self.meteo_gateway.rain_next_hour(lat, lon)
-        if rates is None:
+        hour = await self.meteo_gateway.rain_next_hour(lat, lon)
+        if hour is None:
             return bundle
         out = dict(bundle)
-        out["rain_next_60m"] = quarter_hour_amounts(rates)
-        out["rain_rate_5m_mm_h"] = rates
+        out["rain_next_60m"] = quarter_hour_amounts(hour.mm_h)
+        out["rain_next_60m_start_utc"] = hour.start_utc
+        out["rain_rate_5m_mm_h"] = hour.mm_h
         out["attribution"] = merge_credits(bundle.get("attribution"), credit_text(*RAIN_PIAF))
         return out
 
@@ -1884,6 +1886,7 @@ class AggregatorService:
         )
         rain_nowcast = RainNowcast(
             interval_minutes=15,
+            start_utc=weather_bundle.get("rain_next_60m_start_utc") if weather_bundle and rain_steps is not None else None,
             mm_per_step=rain_steps,
             rate_5m_mm_h=rain_rates,
             rain_expected_60m=None if rain_steps is None else any(v > 0.05 for v in rain_steps),
@@ -2042,6 +2045,9 @@ class AggregatorService:
                     weather_source=str(w_bundle["provider_name"]),
                     current=self._with_air_quality(w_bundle["current"], aqi_results[idx]),
                     rain_next_60m=w_bundle.get("rain_next_60m"),
+                    rain_next_60m_start_utc=w_bundle.get("rain_next_60m_start_utc")
+                    if w_bundle.get("rain_next_60m") is not None
+                    else None,
                     rain_rate_5m_mm_h=w_bundle.get("rain_rate_5m_mm_h") if w_bundle.get("rain_next_60m") is not None else None,
                     daily_10d=list(w_bundle.get("daily_10d") or [])[:days_per_zone],
                     # the weather provider, and the air quality provider when its index was added to `current`

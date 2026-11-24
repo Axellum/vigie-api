@@ -72,6 +72,15 @@ class RainSlices:
     mm_h: tuple[float, ...]
 
 
+@dataclass(frozen=True)
+class HourOfRain:
+    """The rain of the next hour at a point: twelve 5-minute rates (mm/h), the first from ``start_utc``, the 5-minute boundary
+    at which the hour was read (the answer gives it as ``rain_nowcast.start_utc``)."""
+
+    start_utc: int
+    mm_h: list[float]
+
+
 def _epoch(value: Any) -> int:
     text = str(value).strip()
     if text.endswith("Z"):
@@ -107,9 +116,14 @@ def parse_gateway_rain(payload: Any) -> RainSlices:
     return RainSlices(ends_utc=ends, mm_h=tuple(by_end[t] for t in ends))
 
 
+def next_hour_start(now_s: float) -> int:
+    """The start of the next hour of rain at ``now_s``: the current 5-minute boundary."""
+    return int(now_s) // STEP_S * STEP_S
+
+
 def next_hour_rates(slices: RainSlices, now_s: float) -> Optional[list[float]]:
     """The twelve rates (mm/h) of the 5-minute slices from the current 5-minute boundary on; ``None`` when one is missing."""
-    start = int(now_s) // STEP_S * STEP_S
+    start = next_hour_start(now_s)
     rates = dict(zip(slices.ends_utc, slices.mm_h, strict=True))
     wanted = [start + STEP_S * (i + 1) for i in range(STEPS_PER_HOUR)]
     if any(end not in rates for end in wanted):
@@ -153,8 +167,9 @@ class MeteoGatewayRainCollector(BaseCollector[RainSlices]):
         response.raise_for_status()
         return parse_gateway_rain(response.json())
 
-    async def rain_next_hour(self, lat: float, lon: float) -> Optional[list[float]]:
-        """Twelve 5-minute rates (mm/h) over the next hour, or ``None`` (outside the box, gateway down, run too old)."""
+    async def rain_next_hour(self, lat: float, lon: float) -> Optional[HourOfRain]:
+        """Twelve 5-minute rates (mm/h) over the next hour and the start of the first, or ``None`` (outside the box, gateway
+        down, run too old)."""
         if not in_piaf_box(lat, lon):
             return None
         s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
@@ -162,5 +177,8 @@ class MeteoGatewayRainCollector(BaseCollector[RainSlices]):
             slices = await self.fetch(f"piaf:{coord_str(s_lat)},{coord_str(s_lon)}", lat=s_lat, lon=s_lon)
         except Exception:
             return None
-        # An expired entry is fine: the window is checked against the clock, a run too old leaves the hour unknown.
-        return next_hour_rates(slices, clock.wall())
+        # An expired entry is fine: the window is checked against the clock, a run too old leaves the hour unknown. The clock is
+        # read once, so that the rates and their start are the same hour.
+        now = clock.wall()
+        rates = next_hour_rates(slices, now)
+        return None if rates is None else HourOfRain(start_utc=next_hour_start(now), mm_h=rates)

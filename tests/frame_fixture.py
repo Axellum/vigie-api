@@ -90,6 +90,7 @@ def example_snapshot() -> SnapshotResponse:
                 weather_source="Open-Meteo",
                 current=full_current,
                 rain_next_60m=parsed["rain_next_60m"],
+                rain_next_60m_start_utc=parsed["rain_next_60m_start_utc"],
                 daily_10d=parsed["daily_10d"][:3],
             ),
             ZoneWeather(id="z1", name="Tokyo, JP", lat=35.6762, lon=139.6503, utc_offset_s=32400),
@@ -122,7 +123,7 @@ def example_point() -> PointResponse:
         weather_provider="Open-Meteo",
         current=parsed["current"],
         daily=parsed["daily_10d"][:2],
-        rain_nowcast=RainNowcast(mm_per_step=parsed["rain_next_60m"]),
+        rain_nowcast=RainNowcast(mm_per_step=parsed["rain_next_60m"], start_utc=parsed["rain_next_60m_start_utc"]),
         marine=MarineConditions(
             wave_height_m=4.2,
             wave_direction_deg=275,

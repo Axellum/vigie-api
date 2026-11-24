@@ -141,6 +141,7 @@ def test_point_endpoint_marine_gps(world: World, monkeypatch: pytest.MonkeyPatch
     assert payload["current"]["aqi_eu"] == 31  # from the air quality provider
     assert [d["date"] for d in payload["daily"]][:2] == ["2026-10-18", "2026-10-19"]
     assert payload["rain_nowcast"]["mm_per_step"] == [0.0, 0.2, 0.5, 0.1]
+    assert payload["rain_nowcast"]["start_utc"] == 1792332900  # tests/samples.py: 15 minutes before Open-Meteo's first time
     assert payload["rain_nowcast"]["rain_expected_60m"] is True
     assert payload["marine"]["wave_height_m"] == 4.2
 
@@ -180,6 +181,7 @@ def test_point_endpoint_reports_unknown_as_null(world: World, monkeypatch: pytes
     assert payload["daily"] == []
     assert payload["utc_offset_s"] is None
     assert payload["rain_nowcast"]["mm_per_step"] is None
+    assert payload["rain_nowcast"]["start_utc"] is None
     assert payload["rain_nowcast"]["rain_expected_60m"] is None
     assert payload["rain_nowcast"]["radar_tile_url_template"] is None
     assert payload["rain_nowcast"]["radar_timestamp_utc"] is None
@@ -203,6 +205,8 @@ def test_snapshot_zones_carry_air_quality_and_real_days(world: World) -> None:
     assert zone["current"]["uv_index"] == 1.7
     assert zone["weather_source"] == "Open-Meteo"
     assert zone["utc_offset_s"] == 7200  # the provider's offset wins over the configured one
+    assert zone["rain_next_60m"] == [0.0, 0.2, 0.5, 0.1]
+    assert zone["rain_next_60m_start_utc"] == 1792332900  # tests/samples.py: 15 minutes before Open-Meteo's first time
     assert zone["daily_10d"][0]["date"] == "2026-10-18"
     assert zone["daily_10d"][0]["rain_probability_pct"] == 80
     assert snap["global_status"]["solar_kp"] == 2.3
@@ -219,6 +223,7 @@ def test_snapshot_zone_without_weather_is_empty_not_invented(world: World, monke
     for zone in snap["zones"]:
         assert zone["current"] is None
         assert zone["rain_next_60m"] is None
+        assert zone["rain_next_60m_start_utc"] is None
         assert zone["daily_10d"] == []
         assert zone["weather_source"] is None
         assert isinstance(zone["utc_offset_s"], int)  # the configured offset, known by construction

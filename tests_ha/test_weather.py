@@ -228,6 +228,18 @@ def test_the_nine_slots_of_the_former_meteo_france_api() -> None:
     assert slots[6]["start"] == datetime.fromtimestamp(first + 1800, tz=UTC).isoformat()
 
 
+def test_the_slots_start_at_the_start_the_api_gives() -> None:
+    """With ``rain_nowcast.start_utc`` (the 5-minute boundary at which the API read the rain) the first slot starts there, even
+    when ``server_utc`` has passed the next boundary since."""
+    point = deepcopy(recorded(POINT))
+    start = point["server_utc"] // 300 * 300 - 300
+    point["rain_nowcast"]["start_utc"] = start
+    slots = rain_slots(point)
+    assert slots is not None
+    assert slots[0]["start"] == datetime.fromtimestamp(start, tz=UTC).isoformat()
+    assert slots[8]["start"] == datetime.fromtimestamp(start + 3000, tz=UTC).isoformat()
+
+
 def test_no_slots_without_the_twelve_rates() -> None:
     """Outside metropolitan France (Tokyo) the API gives no 5-minute rates: no slots, never a dry hour made up."""
     assert rain_slots(recorded("point_tokyo_2026-11-22.json")) is None

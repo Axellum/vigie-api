@@ -11,7 +11,7 @@ import zlib
 from pathlib import Path
 
 from app.models.schemas import GlobalStatus, SnapshotResponse
-from app.services.embedded_frame import serialize_embedded_frame, verify_embedded_frame_crc
+from app.services.embedded_frame import _rain_eta_min, serialize_embedded_frame, verify_embedded_frame_crc
 from tests import frame_fixture
 from tests.conftest import World
 
@@ -81,7 +81,7 @@ def test_zone_columns_with_full_weather() -> None:
     assert zone == [
         "ZONE", "z0", "Paris, FR", "48.8566", "2.3522", "7200",
         "18.2", "17.6", "68", "1016.4", "19.5", "31.0", "245", "61", "1.7", "31",  # columns 6-15
-        "15", "2.0", "0.00,0.20,0.50,0.10",                                      # columns 16-18: rain
+        "0", "2.0", "0.00,0.20,0.50,0.10",                                       # columns 16-18: rain (it rains now)
         "", "", "", "", "",                                                      # columns 19-23: marine
     ]  # fmt: skip
 
@@ -109,13 +109,34 @@ def test_partial_weather_leaves_only_the_unknown_columns_empty() -> None:
 def test_rain_columns_and_five_minute_steps() -> None:
     frame = serialize_embedded_frame(frame_fixture.example_snapshot())
     zone = [cols for cols in _by_tag(frame, "ZONE") if cols[1] == "z0"][0]
-    assert zone[16] == "15"  # rain starts in 15 minutes (-1 would mean a dry hour)
+    # The steps start at 14:15 UTC and the frame is made at 14:43:20: the first step (0.00 mm) is over, the second
+    # (14:30 to 14:45, 0.2 mm) has begun, so it rains now (-1 would mean no rain in the steps still to come)
+    assert zone[16] == "0"
     assert zone[17] == "2.0"  # peak mm/h
     rain = [cols for cols in _by_tag(frame, "RAIN5M") if cols[1] == "z0"][0]
     steps = rain[2].split(",")
     assert len(steps) == 12
     # each 15-minute amount (mm) becomes a rate (mm/h) repeated for its three 5-minute steps
     assert steps == ["0.00"] * 3 + ["0.80"] * 3 + ["2.00"] * 3 + ["0.40"] * 3
+
+
+def test_the_minutes_before_the_rain_count_from_the_frame_and_skip_the_steps_already_over() -> None:
+    now = frame_fixture.SERVER_UTC  # 14:43:20 UTC
+    start = now // 900 * 900 - 900  # 14:15: the first step is over, the second ends at 14:45
+    assert _rain_eta_min([0.0, 0.2, 0.5, 0.1], start, now) == 0  # the step in progress
+    assert _rain_eta_min([3.0, 0.0, 0.5, 0.1], start, now) == 2  # 14:45, in 1 min 40 s: rounded up
+    assert _rain_eta_min([3.0, 0.0, 0.0, 0.0], start, now) == -1  # rain only in the step already over
+    assert _rain_eta_min([0.0, 0.0, 0.0, 0.6], start, now) == 17  # 15:00
+    assert _rain_eta_min([0.0, 0.04, 0.05, 0.0], now - now % 300, now) == -1  # 0.05 mm is not rain
+
+
+def test_without_the_start_of_the_steps_the_nowcast_is_unknown() -> None:
+    snapshot = frame_fixture.example_snapshot()
+    snapshot.zones[0].rain_next_60m_start_utc = None
+    frame = serialize_embedded_frame(snapshot)
+    zone = [cols for cols in _by_tag(frame, "ZONE") if cols[1] == "z0"][0]
+    assert zone[16:19] == ["", "", ""]
+    assert [cols for cols in _by_tag(frame, "RAIN5M") if cols[1] == "z0"][0][2] == ""
 
 
 def test_dry_hour_is_minus_one_not_empty() -> None:

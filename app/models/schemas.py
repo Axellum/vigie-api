@@ -215,34 +215,41 @@ class AirHourlyPoint(BaseModel):
 class RainNowcast(BaseModel):
     """The rain of four 15-minute steps around the next hour, and the latest observed radar frame.
 
-    The answer does not give the times of the steps; they depend on the source of the rain:
+    ``start_utc`` is the start of the first step; the times of the steps depend on the source of the rain:
 
     - **Météo-France PIAF**, in France when the instance has a vigie-meteo gateway (``rate_5m_mm_h`` is then set): the twelve
-      5-minute rates from the current 5-minute boundary on, summed by three. The four steps are the hour that starts at the
-      time of the answer floored to 5 minutes.
+      5-minute rates from the 5-minute boundary at which the rain was read, summed by three. The four steps are the hour that
+      starts there, and ``start_utc`` is also the start of the first 5-minute rate.
     - **Otherwise Open-Meteo's ``minutely_15`` precipitation** (its public API, or in France the Météo-France models AROME and
       ARPEGE read through the gateway, in the same format). Open-Meteo gives each value as the sum of the 15 minutes
       **before** its time, and its first time is the start of the quarter-hour in which it answered: the first step is the
       quarter-hour that ended then, the second the quarter-hour in progress, the last two the next ones. This API keeps an
       answer up to 15 minutes, and the gateway keeps its own (15 minutes by default, ``METEO_FORECAST_TTL_SECONDS`` of
-      vigie-meteo): that quarter-hour is the one of ``server_utc`` or the one before (up to two before through the
-      gateway); an answer served from an expired cache (``weather_provider`` ends with "(stale cache)") is older.
+      vigie-meteo): ``start_utc`` is then 15 to 45 minutes before ``server_utc``, up to 60 through the gateway, and older for
+      an answer served from an expired cache (``weather_provider`` ends with "(stale cache)").
     """
 
     interval_minutes: int = Field(default=15, description="Length of a step of `mm_per_step` (minutes)")
+    start_utc: Optional[int] = Field(
+        default=None,
+        description="Start of the first step of `mm_per_step` (UTC epoch seconds); step i covers `start_utc + i * "
+        "interval_minutes * 60` to the start of the next one. With Météo-France PIAF it is the 5-minute boundary at which the "
+        "rain was read, also the start of the first rate of `rate_5m_mm_h`; with Open-Meteo it is 15 to 45 minutes before "
+        "`server_utc`, up to 60 through the Météo-France gateway (the first step is already over). null when `mm_per_step` is "
+        "null or the provider gave no readable time",
+    )
     mm_per_step: Optional[list[float]] = Field(
         default=None,
-        description="Precipitation (mm) of four consecutive 15-minute steps, oldest first. Their times are not given: with "
-        "Météo-France PIAF (`rate_5m_mm_h` set) they are the hour from the current 5-minute boundary on; otherwise they are "
-        "Open-Meteo's `minutely_15` values, each the sum of the 15 minutes before its time, so the first step is the "
-        "quarter-hour that ended when the quarter-hour of the provider's answer began (the quarter-hour of `server_utc` or "
-        "one before it, two through the Météo-France gateway, older from an expired cache), the second the quarter-hour in "
-        "progress then. null when unknown",
+        description="Precipitation (mm) of four consecutive 15-minute steps from `start_utc`, oldest first. With "
+        "Météo-France PIAF (`rate_5m_mm_h` set) they are the hour from the 5-minute boundary at which the rain was read; "
+        "otherwise they are Open-Meteo's `minutely_15` values, each the sum of the 15 minutes before its time, so the first "
+        "step is a quarter-hour already over and the second the quarter-hour in progress when the provider answered (one or "
+        "two quarter-hours before `server_utc` when the answer was kept in a cache). null when unknown",
     )
     rate_5m_mm_h: Optional[list[float]] = Field(
         default=None,
-        description="Rain rate (mm/h) of each 5-minute step of the hour from the current 5-minute boundary on (twelve "
-        "values), from Météo-France PIAF; null when the rain comes from a provider without 5-minute steps",
+        description="Rain rate (mm/h) of each 5-minute step of the hour from `start_utc` on (twelve values), from "
+        "Météo-France PIAF; null when the rain comes from a provider without 5-minute steps",
     )
     rain_expected_60m: Optional[bool] = Field(
         default=None,
@@ -430,12 +437,19 @@ class ZoneWeather(BaseModel):
     )
     rain_next_60m: Optional[list[float]] = Field(
         default=None,
-        description="Precipitation (mm) of four consecutive 15-minute steps, oldest first, timed like `rain_nowcast.mm_per_step` "
-        "of `GET /v1/point` (times not given: with Open-Meteo the first step is a quarter-hour already over); null when unknown",
+        description="Precipitation (mm) of four consecutive 15-minute steps from `rain_next_60m_start_utc`, oldest first, "
+        "timed like `rain_nowcast.mm_per_step` of `GET /v1/point` (with Open-Meteo the first step is a quarter-hour already "
+        "over); null when unknown",
+    )
+    rain_next_60m_start_utc: Optional[int] = Field(
+        default=None,
+        description="Start of the first step of `rain_next_60m` (UTC epoch seconds), like `rain_nowcast.start_utc` of "
+        "`GET /v1/point`: also the start of the first rate of `rain_rate_5m_mm_h`. null when `rain_next_60m` is null or the "
+        "provider gave no readable time",
     )
     rain_rate_5m_mm_h: Optional[list[float]] = Field(
         default=None,
-        description="Rain rate (mm/h) of each 5-minute step of the hour from the current 5-minute boundary on, from "
+        description="Rain rate (mm/h) of each 5-minute step of the hour from `rain_next_60m_start_utc` on, from "
         "Météo-France PIAF; null otherwise",
     )
     daily_10d: list[DailyForecast] = Field(default_factory=list, description="Daily forecasts")

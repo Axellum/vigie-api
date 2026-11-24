@@ -7,6 +7,7 @@ skipped / the parser raises); no parser invents a default value.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any
 
 import httpx
 import pytest
@@ -471,6 +472,8 @@ def test_open_meteo_parser_full_response() -> None:
     assert current.uv_index == 1.7
     assert current.aqi_eu is None  # filled later from the air quality collector
     assert parsed["rain_next_60m"] == [0.0, 0.2, 0.5, 0.1]
+    # The first time is 16:30 local (14:30 UTC) and each value the 15 minutes before its time: the steps start at 14:15 UTC
+    assert parsed["rain_next_60m_start_utc"] == 1792332900
 
     days = parsed["daily_10d"]
     assert [d.date for d in days] == ["2026-10-18", "2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22"]
@@ -496,6 +499,7 @@ def test_open_meteo_parser_keeps_missing_values_unknown() -> None:
     assert current.uv_index is None
     assert parsed["utc_offset_s"] is None
     assert parsed["rain_next_60m"] is None  # no nowcast: unknown, not four zeros
+    assert parsed["rain_next_60m_start_utc"] is None
 
     day = parsed["daily_10d"][0]
     assert day.tmax == 11.0
@@ -505,8 +509,31 @@ def test_open_meteo_parser_keeps_missing_values_unknown() -> None:
 
 def test_open_meteo_parser_incomplete_nowcast_is_unknown() -> None:
     payload = samples.open_meteo_payload()
-    payload["minutely_15"] = {"precipitation": [0.0, None, 0.2, 0.0]}
-    assert OpenMeteoCollector.parse_response(payload)["rain_next_60m"] is None
+    payload["minutely_15"]["precipitation"] = [0.0, None, 0.2, 0.0]
+    parsed = OpenMeteoCollector.parse_response(payload)
+    assert parsed["rain_next_60m"] is None
+    assert parsed["rain_next_60m_start_utc"] is None
+
+
+@pytest.mark.parametrize("times", [None, [], ["not a time"], ["2026-10-18T16:30"]])
+def test_open_meteo_nowcast_without_a_readable_time_has_no_start(times: Any) -> None:
+    """The steps stay when their time cannot be read (or the offset is missing): only their start is unknown, never guessed."""
+    payload = samples.open_meteo_payload()
+    if times is None:
+        del payload["minutely_15"]["time"]
+    else:
+        payload["minutely_15"]["time"] = times
+    if times == ["2026-10-18T16:30"]:
+        del payload["utc_offset_seconds"]  # a local time without its offset
+    parsed = OpenMeteoCollector.parse_response(payload)
+    assert parsed["rain_next_60m"] == [0.0, 0.2, 0.5, 0.1]
+    assert parsed["rain_next_60m_start_utc"] is None
+
+
+def test_open_meteo_nowcast_start_with_a_time_in_utc() -> None:
+    payload = samples.open_meteo_payload()
+    payload["minutely_15"]["time"] = ["2026-10-18T14:30:00Z", "2026-10-18T14:45:00Z", "2026-10-18T15:00:00Z", "2026-10-18T15:15:00Z"]
+    assert OpenMeteoCollector.parse_response(payload)["rain_next_60m_start_utc"] == 1792332900
 
 
 def test_open_meteo_parser_raises_without_temperature() -> None:
@@ -529,6 +556,7 @@ def test_metno_parser_reports_what_the_compact_product_lacks_as_unknown() -> Non
     assert current.gust_kmh is None
     assert current.uv_index is None
     assert parsed["rain_next_60m"] is None
+    assert parsed["rain_next_60m_start_utc"] is None
     assert parsed["utc_offset_s"] is None
 
 
