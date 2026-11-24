@@ -1,6 +1,7 @@
 // The Vigie card for Home Assistant (ADR 0042 of the API): the weather, the warnings, the sea and the normals of one place, on
-// pages one swipes or picks in the bar at the top. It is shipped inside the integration and registered by it, and it asks its data
-// of Home Assistant (WebSocket command `vigie/card/data`), never of the instance. A value the data does not give is not drawn:
+// pages one swipes or picks in the bar at the top. It is shipped inside the integration and registered by it (a dashboard resource
+// where it can, ADR 0044), and it asks its data of Home Assistant (WebSocket command `vigie/card/data`), never of the instance; the
+// last answer is kept, so the card draws at once while it asks again. A value the data does not give is not drawn:
 // no empty box, no guess. Colours: the "Sombre uni" and "Clair" themes of the Vigie family, chosen by the dark mode of Home
 // Assistant (the background of the card stays the dashboard's own).
 
@@ -11,6 +12,32 @@ const REFRESH_MS = 5 * 60 * 1000; // the integration reads the instance every 10
 const IDLE_RETURN_MS = 60 * 1000;
 const CYCLE_MS = 20 * 1000;
 const WIDE_PX = 640;
+
+// ------------------------------------------------------------------------------------------------------------ last answer
+// The last answer of each request (an entry and a spot), kept so the card draws at once, with the other cards, while it asks
+// again: in memory for the open page, in the browser's storage for the next visit. Never older than LAST_MAX_MS, and a request
+// that fails shows its error as before, not the answer kept.
+const LAST_MAX_MS = 30 * 60 * 1000;
+const LAST_PREFIX = 'vigie-card:last:';
+const lastAnswers = new Map();
+
+function lastKey(config) {
+  return `${config.entry_id || ''}|${config.spot === 'none' ? '' : config.spot || 'auto'}`;
+}
+
+function lastAnswer(key) {
+  let kept = lastAnswers.get(key);
+  if (!kept) {
+    try { kept = JSON.parse(window.localStorage.getItem(LAST_PREFIX + key) || 'null'); } catch (err) { kept = null; }
+  }
+  return kept && Date.now() - kept.at < LAST_MAX_MS ? kept.data : null;
+}
+
+function keepAnswer(key, data) {
+  const kept = { at: Date.now(), data };
+  lastAnswers.set(key, kept);
+  try { window.localStorage.setItem(LAST_PREFIX + key, JSON.stringify(kept)); } catch (err) { /* full or refused: the page keeps it */ }
+}
 
 // ------------------------------------------------------------------------------------------------------------------ colours
 const PALETTES = {
@@ -1253,7 +1280,8 @@ class VigieCard extends HTMLElement {
     if (!pages.length) throw new Error('pages: at least one of home, details, alerts, sea, normal');
     this._config = { ...config, _pages: pages };
     if (!this._page || !pages.includes(this._page)) this._page = pages.includes(config.start_page) ? config.start_page : pages[0];
-    this._dataKey = null;
+    const key = lastKey(this._config);
+    if (key !== this._dataKey) { this._dataKey = key; this._data = lastAnswer(key); this._error = null; }
     if (this._hass) this._fetch();
     this._subscribeForecast();
     this._render();
@@ -1296,16 +1324,22 @@ class VigieCard extends HTMLElement {
   }
 
   async _fetch() {
-    if (!this._hass || !this._config) return;
+    if (!this._hass || !this._config || this._asking) return;
+    const key = this._dataKey;
     const spot = this._config.spot === 'none' ? null : this._config.spot || 'auto';
     const msg = { type: 'vigie/card/data', spot };
     if (this._config.entry_id) msg.entry_id = this._config.entry_id;
+    this._asking = true;
     try {
-      this._data = await this._hass.callWS(msg);
-      this._error = null;
+      const data = await this._hass.callWS(msg);
+      keepAnswer(key, data);
+      if (key === this._dataKey) { this._data = data; this._error = null; }
     } catch (err) {
-      this._error = err?.code || 'error';
+      if (key === this._dataKey) this._error = err?.code || 'error';
+    } finally {
+      this._asking = false;
     }
+    if (key !== this._dataKey) { this._fetch(); return; } // the editor changed the entry or the spot meanwhile
     this._render();
   }
 

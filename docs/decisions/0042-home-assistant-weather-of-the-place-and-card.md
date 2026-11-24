@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-11-22
 - Number: given by `scripts/prochain_adr.py` on 2026-11-22.
+- Point 4 changed by [ADR 0044](0044-home-assistant-card-as-a-dashboard-resource.md) (the card as a dashboard resource).
 
 ## Context
 

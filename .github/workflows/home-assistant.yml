@@ -79,16 +79,18 @@ jobs:
       - name: The fake instance, replaying the recorded answers (tools/fake_instance.py --replay)
         run: nohup python -u tools/fake_instance.py --host 127.0.0.1 --port 8099 --replay tests_ha/fixtures > fake_instance.log 2>&1 &
 
-      # The stable release read on 2026-11-22 (same digest as `stable` that day); bump it by hand.
+      # The stable release read on 2026-11-22 (same digest as `stable` that day); bump it by hand. A www folder, as most
+      # installations have one: the card is then copied there and listed as a dashboard resource (ADR 0044), which the run
+      # checks; the `install` job, without one, goes the other way.
       - name: Home Assistant in its official container, the integration mounted
         run: |
-          mkdir -p ha_config/custom_components
+          mkdir -p ha_config/custom_components ha_config/www
           cp -r custom_components/vigie ha_config/custom_components/
           printf 'default_config:\n' > ha_config/configuration.yaml
           docker run -d --name ha --network host -e TZ=Europe/Paris -v "$PWD/ha_config:/config" ghcr.io/home-assistant/home-assistant:2026.11.2
 
       - name: The card, every page, both widths, both themes
-        run: python tools/card_in_home_assistant.py --ha http://127.0.0.1:8123 --instance http://127.0.0.1:8099 --out captures
+        run: python tools/card_in_home_assistant.py --ha http://127.0.0.1:8123 --instance http://127.0.0.1:8099 --out captures --card-from /local/vigie/vigie-card.js
 
       - name: What Home Assistant and the fake instance said
         if: always()
