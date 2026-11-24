@@ -105,8 +105,9 @@ def _number(value: Any) -> float | None:
 def rain_next_hour(point: dict[str, Any] | None) -> float | None:
     """The rain of the four steps of `rain_nowcast.mm_per_step` (mm), unknown when one of them is.
 
-    The hour they cover depends on the source (the API's `RainNowcast`): with Météo-France PIAF, the hour from the current
-    5-minute boundary on; with Open-Meteo, the quarter-hour that ended when the provider answered, then the next three.
+    They start at `rain_nowcast.start_utc` and the hour they cover depends on the source (the API's `RainNowcast`): with
+    Météo-France PIAF, the hour from the 5-minute boundary at which the API read the rain; with Open-Meteo, the quarter-hour that
+    ended when the provider answered, then the next three.
     """
     nowcast = point.get("rain_nowcast") if isinstance(point, dict) else None
     steps = nowcast.get("mm_per_step") if isinstance(nowcast, dict) else None
@@ -126,17 +127,19 @@ RAIN_SLOTS: tuple[tuple[int, int], ...] = ((0, 5), (5, 5), (10, 5), (15, 5), (20
 def rain_slots(point: dict[str, Any] | None) -> list[dict[str, Any]] | None:
     """The next hour in the nine slots of the former Météo-France API, from the twelve 5-minute rates (mm/h) of
     `rain_nowcast.rate_5m_mm_h` (Météo-France PIAF, metropolitan France only). Each slot: `start` (ISO, UTC), `minutes` (its
-    length) and `mm_h`. The first slot is the current 5 minutes (`server_utc` floored to 5 minutes, as the API counts them).
+    length) and `mm_h`. The first slot starts at `rain_nowcast.start_utc`, the 5-minute boundary at which the API read the rain
+    (from an older API without it, `server_utc` floored to 5 minutes).
     `None` without the twelve rates (outside France, a rate unknown): never a dry hour made up."""
     nowcast = point.get("rain_nowcast") if isinstance(point, dict) else None
     rates = nowcast.get("rate_5m_mm_h") if isinstance(nowcast, dict) else None
+    start_utc = _number(nowcast.get("start_utc")) if isinstance(nowcast, dict) else None
     server_utc = _number(point.get("server_utc")) if isinstance(point, dict) else None
-    if not isinstance(rates, list) or len(rates) != 12 or server_utc is None:
+    if not isinstance(rates, list) or len(rates) != 12 or (start_utc is None and server_utc is None):
         return None
     values = [_number(rate) for rate in rates]
     if any(value is None for value in values):
         return None
-    first = int(server_utc) // 300 * 300
+    first = int(start_utc) if start_utc is not None else int(server_utc) // 300 * 300  # type: ignore[arg-type]
     slots = []
     for start, minutes in RAIN_SLOTS:
         steps = values[start // 5 : (start + minutes) // 5]

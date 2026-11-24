@@ -546,14 +546,24 @@ function hoursCurve(c, w, h) {
 // The rain of the next hour by the nowcast of the place (PIAF in France: 5-minute rates, or 15-minute amounts): the minutes
 // to the first rain, 0 when it rains now, -1 for none in the hour, null without a nowcast. The home page and the sentence of
 // the Details page both read it, so that they never say two different things about the hour.
+// The steps start at `rain_nowcast.start_utc`: a step already over is skipped (with Open-Meteo the first one always is) and the
+// minutes count from now. An answer without it (an older API) counts from its first step.
 function nowcastFirst(c) {
   const rn = c.point?.rain_nowcast;
   const rates = Array.isArray(rn?.rate_5m_mm_h) && rn.rate_5m_mm_h.length && rn.rate_5m_mm_h.every(num) ? rn.rate_5m_mm_h : null;
   const steps = Array.isArray(rn?.mm_per_step) && rn.mm_per_step.length && rn.mm_per_step.every(num) ? rn.mm_per_step : null;
   const series = rates || steps;
   if (!series) return null;
-  const first = series.findIndex((v) => v > 0);
-  return first < 0 ? -1 : first * (rates ? 5 : rn.interval_minutes || 15);
+  const minutes = rates ? 5 : rn.interval_minutes || 15;
+  const start = num(rn.start_utc) ? rn.start_utc : null;
+  for (let i = 0; i < series.length; i++) {
+    if (!(series[i] > 0)) continue;
+    if (start === null) return i * minutes;
+    const from = start + i * minutes * 60;
+    if (from + minutes * 60 <= c.now) continue;
+    return Math.max(0, Math.ceil((from - c.now) / 60));
+  }
+  return -1;
 }
 
 function rainPill(c, fs, g, inline) {

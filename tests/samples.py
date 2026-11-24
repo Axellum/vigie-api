@@ -25,7 +25,11 @@ def open_meteo_payload() -> dict[str, Any]:
             "weather_code": 61,
             "uv_index": 1.7,
         },
-        "minutely_15": {"precipitation": [0.0, 0.2, 0.5, 0.1]},
+        # Read at 16:43 local time (14:43 UTC): the first time is the start of that quarter-hour, each value the 15 minutes before
+        "minutely_15": {
+            "time": ["2026-10-18T16:30", "2026-10-18T16:45", "2026-10-18T17:00", "2026-10-18T17:15"],
+            "precipitation": [0.0, 0.2, 0.5, 0.1],
+        },
         "daily": {
             "time": ["2026-10-18", "2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22"],
             "weather_code": [61, 2, 1, 3, 63],

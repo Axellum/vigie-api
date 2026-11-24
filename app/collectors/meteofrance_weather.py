@@ -122,7 +122,8 @@ class MeteoFranceWeatherCollector(BaseCollector[dict[str, Any]]):
         return f"mf-now:{cell}", f"mf-daily:{cell}"
 
     async def fetch_point(self, lat: float, lon: float) -> dict[str, Any]:
-        """The weather of a point: ``utc_offset_s``, ``current``, ``rain_next_60m`` and ``daily`` (the complete days only).
+        """The weather of a point: ``utc_offset_s``, ``current``, ``rain_next_60m`` and its start, and ``daily`` (the complete
+        days only).
 
         Raises when the gateway cannot give the current conditions or the days: the caller falls back to Open-Meteo's public API."""
         s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
@@ -141,6 +142,7 @@ class MeteoFranceWeatherCollector(BaseCollector[dict[str, Any]]):
             "utc_offset_s": offset if offset is not None else daily.get("utc_offset_s"),
             "current": now["current"],
             "rain_next_60m": now["rain_next_60m"],
+            "rain_next_60m_start_utc": now.get("rain_next_60m_start_utc"),
             "daily": daily["daily_10d"],
             "hourly_all": daily.get("hourly_all", []),
         }
@@ -235,6 +237,7 @@ def merge_france_bundle(
         "utc_offset_s": offset if offset is not None else (public_daily or {}).get("utc_offset_s"),
         "current": current,
         "rain_next_60m": france["rain_next_60m"],
+        "rain_next_60m_start_utc": france.get("rain_next_60m_start_utc"),
         "daily_10d": [days[date] for date in sorted(days)],
         "hourly_cloud_cover": list((public_daily or {}).get("hourly_cloud_cover", [])),
         "hourly_all": list(france.get("hourly_all") or []),

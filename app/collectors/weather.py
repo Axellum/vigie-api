@@ -62,6 +62,7 @@ from app.models.schemas import (
 # Every forecast is asked for this length and cached once per position; the shorter profiles (the
 # compact ones, 5 days) slice the answer, so the number of days is not part of the cache key.
 MAX_FORECAST_DAYS = 10
+NOWCAST_STEP_S = 900  # a step of ``minutely_15``
 DEFAULT_OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 
 
@@ -440,6 +441,7 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
             "utc_offset_s": utc_offset if utc_offset is not None else daily.get("utc_offset_s"),
             "current": now["current"],
             "rain_next_60m": now["rain_next_60m"],
+            "rain_next_60m_start_utc": now.get("rain_next_60m_start_utc"),
             "daily_10d": daily["daily_10d"],
             "hourly_cloud_cover": daily.get("hourly_cloud_cover", []),
         }
@@ -488,10 +490,18 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
             rain_next_60m = [round(max(0.0, step), 2) for step in raw_steps if step is not None]
 
         utc_offset = optional_float(payload.get("utc_offset_seconds"))
+        # Each value is the sum of the 15 minutes before its time ("Preceding 15 minutes sum" in Open-Meteo's docs): the
+        # first step starts 15 minutes before the first time. The times are local (``timezone=auto``).
+        rain_start: Optional[int] = None
+        if rain_next_60m is not None:
+            times = min15.get("time")
+            first_time = _parse_local_or_utc_epoch(times[0], utc_offset) if isinstance(times, list) and times else None
+            rain_start = None if first_time is None else first_time - NOWCAST_STEP_S
         return {
             "utc_offset_s": None if utc_offset is None else int(utc_offset),
             "current": current_weather,
             "rain_next_60m": rain_next_60m,
+            "rain_next_60m_start_utc": rain_start,
         }
 
     @staticmethod
@@ -867,6 +877,7 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
             "utc_offset_s": None,
             "current": current_weather,
             "rain_next_60m": None,
+            "rain_next_60m_start_utc": None,
             "daily_10d": daily_forecasts,
             "hourly_cloud_cover": clouds,
             "hourly_all": hourly_points,
