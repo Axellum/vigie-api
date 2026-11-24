@@ -3,11 +3,15 @@
 Multi-provider weather:
 
 1. ``OpenMeteoCollector`` (primary): high-resolution blended models (Meteo-France
-   AROME, NOAA HRRR, DWD ICON-D2, ECMWF IFS, JMA...) with the 15-minute precipitation
-   of the next hour (``minutely_15``) at the exact coordinates. Open-Meteo documents that
+   AROME, NOAA HRRR, DWD ICON-D2, ECMWF IFS, JMA...) with four 15-minute precipitation
+   amounts (``minutely_15``) at the exact coordinates. Open-Meteo documents that
    15-minute data is native only in Central Europe and North America; elsewhere it is
-   interpolated from hourly data. This is the only source of the short-term rain of the
-   embedded frame (``ZONE`` fields 16 to 18 and ``RAIN5M``).
+   interpolated from hourly data. Each amount is the sum of the 15 minutes before its time,
+   and the first time is the start of the quarter-hour of the answer: the first amount is a
+   quarter-hour already over, the other three the quarter-hour in progress and the next two
+   (``RainNowcast`` in ``app/models/schemas.py``). This is the source of the short-term rain
+   of the embedded frame (``ZONE`` fields 16 to 18 and ``RAIN5M``) unless Météo-France PIAF
+   gives it in France (``app/collectors/meteo_gateway.py``).
 2. ``MetNorwayCollector`` (fallback): ``api.met.no`` Locationforecast 2.0 (compact),
    used when Open-Meteo is unavailable.
 3. ``RainViewerCollector`` (radar): timestamp and tile URL template of the latest observed
@@ -235,11 +239,11 @@ def as_stale_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
 
 
 class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
-    """Primary collector: Open-Meteo forecast with the 15-minute rain of the next hour and the daily forecast.
+    """Primary collector: Open-Meteo forecast with four 15-minute rain amounts and the daily forecast.
 
     A position costs two requests, refreshed at the pace of what they carry:
 
-    - ``now``: the current conditions and the 15-minute rain of the next hour (11 variables, weight 1.1),
+    - ``now``: the current conditions and four 15-minute rain amounts (11 variables, weight 1.1),
       every 15 minutes, the resolution of that data;
     - ``daily``: the daily forecast (7 variables, 10 days) and the hourly cloud cover of the next 48 hours (one
       variable, read by the aurora estimate), weight 1.0, every hour, because the weather models are updated

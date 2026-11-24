@@ -245,7 +245,10 @@ hours (`/v1/tides` and `/v1/climate/normals`; their 404, inland or outside Franc
   the instance gives them (`hourly`, ADR 0040); an instance without them offers the days only. The condition comes from the WMO
   code of the answer; "clear night" is decided by the sun at the place, not at the home of Home Assistant.
 - **Rain in the next hour** (mm): the sum of the four 15-minute steps of the answer's nowcast (`rain_nowcast`), with the steps,
-  `rain_expected_60m` and `max_mm_h` in the attributes. **Unknown when one step is unknown**, never 0. In metropolitan France
+  `rain_expected_60m` and `max_mm_h` in the attributes. **Unknown when one step is unknown**, never 0. The steps are the hour
+  from the current 5-minute boundary on with Météo-France PIAF; with Open-Meteo (outside France, or when PIAF gives no full
+  hour) the first step is a quarter-hour already over, the one that ended when Open-Meteo answered ("Times of the steps" in
+  [the frame contract](embedded-frame.md#rain5m)). In metropolitan France
   the attributes also give the twelve 5-minute rates of Météo-France PIAF (`rate_5m_mm_h`, mm/h, read at about 1 km of the
   place) and `slots`, the nine slots of the former Météo-France "rain in the hour" (5 minutes for the first half hour, then 10;
   each `start`, `minutes`, `mm_h`, the 10-minute slots keep the stronger of their two rates); elsewhere both are null.

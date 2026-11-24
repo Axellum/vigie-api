@@ -104,9 +104,9 @@ some sources answered the frame cannot say so; see `GET /v1/health` and `GET /v1
 | 13 | `weather_code` | WMO code (`0` clear, `61` rain, `95` thunderstorm...) | empty |
 | 14 | `uv` | UV index, 1 decimal | empty |
 | 15 | `aqi` | European air quality index, integer | empty when the air quality provider failed |
-| 16 | `rain_eta_min` | minutes before rain in the next hour (`0`, `15`, `30`, `45`); `-1` = dry for the whole hour | empty when the nowcast is unknown |
-| 17 | `rain_max_mm_h` | peak intensity of the next hour, 1 decimal | empty with field 16 |
-| 18 | `rain_15m_csv` | four values separated by `,`: mm per 15-minute step, 2 decimals | empty with field 16 |
+| 16 | `rain_eta_min` | the index of the first step of field 18 above 0.05 mm, times 15 (`0`, `15`, `30`, `45`), counted from the start of the steps (see "Times of the steps" under `RAIN5M`: with Open-Meteo step 0 is already over); `-1` = no step above 0.05 mm | empty when the nowcast is unknown |
+| 17 | `rain_max_mm_h` | the largest step of field 18 times 4, 1 decimal | empty with field 16 |
+| 18 | `rain_15m_csv` | four values separated by `,`: mm per 15-minute step, oldest first, 2 decimals (times: see `RAIN5M`) | empty with field 16 |
 | 19 | `wave_m` | significant wave height, 2 decimals | empty |
 | 20 | `wave_period_s` | 1 decimal | empty |
 | 21 | `wave_dir_deg` | integer 0 to 359 | empty |
@@ -128,7 +128,7 @@ Rules:
 
 `RAIN5M` has 3 fields: `RAIN5M|zone_id|v0,v1,...,v11`.
 
-Twelve rain rates in mm/h, one per 5 minutes over the next hour, 2 decimals. The short-term
+Twelve rain rates in mm/h, one per 5 minutes, oldest first, 2 decimals. The short-term
 rain of the frame (this line and `ZONE` fields 16 to 18) never comes from the RainViewer radar
 (the free RainViewer API has had no nowcast since 2026-01-01). It comes from one of two sources:
 
@@ -145,6 +145,20 @@ rain of the frame (this line and `ZONE` fields 16 to 18) never comes from the Ra
 
 The format is the same with both sources. The field is empty when the nowcast is unknown (same
 condition as `ZONE` field 16).
+
+**Times of the steps.** The frame does not give them, and they differ between the two sources:
+
+- With **PIAF**, the twelve values (and the four sums of `ZONE` field 18) are the hour from the
+  5-minute boundary at or before the time of the answer (`HEAD` field 1 floored to 5 minutes).
+- With **Open-Meteo**, each 15-minute value is the rain of the 15 minutes **before** its time
+  (Open-Meteo: "Preceding 15 minutes sum"), and its first time is the start of the quarter-hour in
+  which Open-Meteo answered. So step 0 (`v0` to `v2`, the first value of field 18) is the
+  quarter-hour that ended then, already over; step 1 is the quarter-hour in progress then; steps 2
+  and 3 are the next ones. This API keeps an answer up to 15 minutes, and in France a vigie-meteo
+  gateway reading the Météo-France models keeps its own (15 minutes by default), so that
+  quarter-hour is the one of `HEAD` field 1 or one before it (up to two before through the
+  gateway). When Open-Meteo and MET Norway both fail, the last Open-Meteo answer is served from
+  an expired cache and is older.
 
 ## `DAY`
 
