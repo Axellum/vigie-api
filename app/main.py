@@ -453,6 +453,7 @@ async def get_health() -> dict[str, Any]:
         "scheduler": scheduler.get_status(),
         "vigilance_archive": aggregator.vigilance_archive.health(),
         "surf_forecast_archive": aggregator.surf_archive.health(),
+        "events_cache": aggregator.events_answers.stats(),
         "disabled_sources": aggregator.disabled_sources(),
         "supported_devices": [d.value for d in DeviceType],
         "providers_summary": {
@@ -2326,7 +2327,8 @@ async def get_events(
     unknown = [family for family in wanted or [] if family not in FAMILY_IDS]
     if unknown:
         raise HTTPException(status_code=422, detail=f"Unknown families: {', '.join(unknown)}. The families: GET /v1/families")
-    return await aggregator.events(code, parse_languages(lang), compact, min_impact, wanted)
+    body = await aggregator.events_body(code, parse_languages(lang), compact, min_impact, wanted)
+    return Response(content=body, media_type="application/json")  # the answer already serialized (``response_model`` stays the schema)
 
 
 @app.get(

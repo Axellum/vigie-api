@@ -27,7 +27,7 @@ from typing import Any, Generic, Optional, TypeVar
 
 import httpx
 
-from app import clock
+from app import clock, freshness
 from app.collectors.budget import (
     QUOTAS,
     BudgetExhaustedError,
@@ -317,6 +317,32 @@ class BaseCollector(ABC, Generic[T]):
         return (await self.fetch_ex(cache_key, force_refresh, **kwargs)).value
 
     async def fetch_ex(self, cache_key: str = "global", force_refresh: bool = False, **kwargs: Any) -> Fetched[T]:
+        """``_fetch_ex``, noting what it served in the ``freshness.watching()`` block it runs in, if any (see ``app/freshness.py``)."""
+        witness = freshness.current()
+        if witness is None:
+            return await self._fetch_ex(cache_key, force_refresh, **kwargs)
+        try:
+            fetched = await self._fetch_ex(cache_key, force_refresh, **kwargs)
+        except BaseException:
+            self._note_unrepeatable(witness, cache_key)
+            raise
+        entry = self._cache.get(cache_key)
+        if fetched.stale or entry is None or entry.value is not fetched.value:
+            self._note_unrepeatable(witness, cache_key)
+        else:
+            witness.note(self, cache_key, entry, entry.fresh_until)
+        return fetched
+
+    def _note_unrepeatable(self, witness: freshness.Witness, cache_key: str) -> None:
+        """A read that failed or served a stale copy repeats only while the circuit stays open (no request is sent then); else it is tried again."""
+        if self.circuit_state == CircuitState.OPEN and self.opened_at_monotonic is not None:
+            until = self.opened_at_monotonic + self.recovery_timeout_seconds
+            if clock.monotonic() <= until:
+                witness.note(self, cache_key, self._cache.get(cache_key), until, circuit=self.circuit_state)
+                return
+        witness.taint()
+
+    async def _fetch_ex(self, cache_key: str, force_refresh: bool, **kwargs: Any) -> Fetched[T]:
         """Run the collection behind the TTL cache, the request coalescing, the circuit breaker and the budget.
 
         Concurrent calls for the same ``cache_key`` share one upstream request: the first one starts
