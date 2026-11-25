@@ -335,12 +335,26 @@ class BaseCollector(ABC, Generic[T]):
 
     def _note_unrepeatable(self, witness: freshness.Witness, cache_key: str) -> None:
         """A read that failed or served a stale copy repeats only while the circuit stays open (no request is sent then); else it is tried again."""
+        until = self._quiet_until(cache_key)
+        if until is not None:
+            witness.note(self, cache_key, self._cache.get(cache_key), until, circuit=self._circuit_token(cache_key))
+            return
+        witness.taint(f"failed or stale read: {self.provider_id}")
+
+    def _quiet_until(self, cache_key: str) -> Optional[float]:
+        """The monotonic time until which no request is sent for ``cache_key`` (its circuit is open), or ``None`` when one may be.
+
+        A collector with a circuit per key (``SwicCollector``) says it for the key; this one for the collector.
+        """
         if self.circuit_state == CircuitState.OPEN and self.opened_at_monotonic is not None:
             until = self.opened_at_monotonic + self.recovery_timeout_seconds
             if clock.monotonic() <= until:
-                witness.note(self, cache_key, self._cache.get(cache_key), until, circuit=self.circuit_state)
-                return
-        witness.taint()
+                return until
+        return None
+
+    def _circuit_token(self, cache_key: str) -> Any:
+        """An object that is replaced whenever the circuit of ``cache_key`` changes (compared by identity, see ``freshness``)."""
+        return self.circuit_state
 
     async def _fetch_ex(self, cache_key: str, force_refresh: bool, **kwargs: Any) -> Fetched[T]:
         """Run the collection behind the TTL cache, the request coalescing, the circuit breaker and the budget.

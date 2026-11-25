@@ -18,6 +18,7 @@ from pydantic_core import to_json
 
 from app.collectors.base import Collected, CollectorUnavailableError, Fetched
 from app.collectors.meteoalarm import CAP_URL_PREFIX, CapDocument, MeteoAlarmFeed
+from app.collectors.swic import SERVICE_BACKOFF_S, SERVICE_FAILURES_BEFORE_BACKOFF, SwicFeed
 from app.models.schemas import CircuitState, SeverityLevel
 from app.models.vigilance import Vigilance
 from app.services.events_cache import EventsAnswers
@@ -190,6 +191,7 @@ def test_a_failed_read_that_is_tried_again_is_not_kept(
         world_view(world)
     assert len(worked) == 3 and upstream.asked["CH"] >= 3
     assert world.aggregator.meteoalarm.circuit_state == CircuitState.CLOSED
+    assert world.aggregator.events_answers.not_kept_by["failed or stale read: meteoalarm_atom"] == 3  # said in /v1/health
     upstream.failing.clear()
     sim_clock.advance(1)
     recovered = world_view(world)  # the source is back: its warnings are in the very next answer
@@ -215,6 +217,69 @@ def test_an_open_circuit_is_kept_for_what_it_lasts(
     world_view(world)
     assert len(worked) == 2 and sum(upstream.asked.values()) > asked  # the failing feeds are tried again at once, not at the end of the kept answer
     upstream.fail_all = False
+
+
+@pytest.fixture()
+def failing_wmo_services(world: World, upstream: Upstream, monkeypatch: pytest.MonkeyPatch) -> Iterator[Counter[str]]:
+    """Every service of the WMO registry read through the real collector (its circuit per service), and failing; how often each is asked."""
+    swic = world.aggregator.swic
+    asked: Counter[str] = Counter()
+
+    async def failing(client: Any, **kwargs: Any) -> Any:
+        asked[kwargs["source"].source_id] += 1
+        raise ValueError("no feed answered: simulated outage")
+
+    def reset() -> None:
+        swic._cache.clear()
+        swic._service_failures.clear()
+        swic._persistent.clear()
+        swic.consecutive_failures = 0
+
+    reset()
+    monkeypatch.delattr(swic, "fetch_source")  # the real one, through the freshness witness
+    monkeypatch.setattr(swic, "_collect", failing)
+    yield asked
+    reset()
+
+
+def test_a_wmo_service_waiting_for_its_next_try_lets_the_answer_be_kept(
+    world: World, upstream: Upstream, failing_wmo_services: Counter[str], sim_clock: SimClock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A WMO service that failed three times in a row is not asked for a minute (its own circuit): the answer holds for that minute.
+
+    Its circuit is not the collector's, which never opens: the read used to count as one that would be tried again at the next
+    call, so a single service down among a hundred kept every answer from being kept (0 kept out of 42 calls in production).
+    """
+    settle(world)
+    asked = failing_wmo_services
+    assert asked and set(asked.values()) == {SERVICE_FAILURES_BEFORE_BACKOFF}  # tried at each call until it waits, not after
+    answers = world.aggregator.events_answers
+    assert answers.not_kept_by["failed or stale read: wmo_swic"] >= SERVICE_FAILURES_BEFORE_BACKOFF - 1
+    worked = spy_world_reads(world, monkeypatch)
+    kept = world_view(world)
+    sim_clock.advance(SERVICE_BACKOFF_S / 2)
+    assert world_view(world) == kept and not worked and set(asked.values()) == {SERVICE_FAILURES_BEFORE_BACKOFF}
+    sim_clock.advance(SERVICE_BACKOFF_S / 2 + 1)  # the services may be asked again: the answer is worked out again, and asks them
+    world_view(world)
+    assert len(worked) == 1 and set(asked.values()) == {SERVICE_FAILURES_BEFORE_BACKOFF + 1}
+    assert sum(answers.dropped_by.values()) == 1
+
+
+def test_a_wmo_service_that_answers_again_is_in_the_next_answer(
+    world: World, upstream: Upstream, failing_wmo_services: Counter[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The answer kept while a service waits is dropped as soon as that service's circuit changes, or it answers."""
+    settle(world)
+    swic = world.aggregator.swic
+    answers = world.aggregator.events_answers
+    service = next(iter(failing_wmo_services))
+    worked = spy_world_reads(world, monkeypatch)
+    swic._record_failure("ValueError: simulated", service)  # another reader (the scheduler) asked it, it failed again: it waits longer
+    world_view(world)
+    assert len(worked) == 1 and answers.dropped_by == Counter({"circuit changed: wmo_swic": 1})
+    swic._record_success(1.0, service, SwicFeed(source_id=service), 60.0)  # then it answers
+    world_view(world)
+    assert len(worked) == 2 and answers.dropped_by["read again: wmo_swic"] == 1
 
 
 def test_every_set_of_parameters_has_its_own_answer_and_their_number_is_bounded(world: World, upstream: Upstream) -> None:
@@ -265,6 +330,7 @@ def test_documents_still_to_be_read_hold_the_answer_back(world: World, upstream:
     world_view(world)
     answers = world.aggregator.events_answers
     assert len(answers) == 0  # 40 documents were read, 20 wait for the next request: this answer is not kept
+    assert answers.not_kept_by["CAP documents still to read: meteoalarm_cap"] == 1
     for _ in range(10):
         if len(answers):
             break
@@ -303,5 +369,5 @@ def test_health_says_how_the_answers_were_served(world: World, upstream: Upstrea
     settle(world)
     world_view(world)
     health = world.client.get("/v1/health").json()["events_cache"]
-    assert set(health) == {"kept", "bytes", "hits", "misses", "not_kept"}
+    assert set(health) == {"kept", "bytes", "hits", "misses", "not_kept", "not_kept_by", "dropped_by"}
     assert health["kept"] == 1 and health["hits"] >= 1 and health["misses"] >= 1 and health["bytes"] > 0
