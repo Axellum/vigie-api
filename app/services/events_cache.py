@@ -10,20 +10,24 @@ would be tried again) or a partial read (documents still to be fetched) is never
 
 Calls that arrive while the answer is being worked out share that one computation. ``server_utc`` and ``fetched_age_s`` of
 ``coverage`` are those of the moment it was worked out.
+
+``GET /v1/health`` counts the answers that could not be kept and the ones dropped, by reason (``freshness.Witness.why_not``: the
+provider, never a cache key).
 """
 
 from __future__ import annotations
 
 import asyncio
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from collections.abc import Awaitable, Callable, Hashable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 
 from app import freshness
 
 MAX_ENTRIES = 8  # sets of parameters kept (the world, its compact form, a few countries)
 MAX_BYTES = 64 * 1024 * 1024  # what all of them may weigh together (the world with every warning is about 6 MB)
+REASONS_SHOWN = 8  # the most frequent reasons ``stats()`` lists
 
 State = tuple[Any, ...]
 
@@ -53,6 +57,8 @@ class EventsAnswers:
         self.hits = 0  # answers served from what was kept
         self.misses = 0  # answers worked out
         self.not_kept = 0  # of those, the ones that could not be kept (a failed read, documents to come, the state moved)
+        self.not_kept_by: Counter[str] = Counter()  # why
+        self.dropped_by: Counter[str] = Counter()  # why kept answers stopped holding
 
     def __len__(self) -> int:
         return len(self._kept)
@@ -60,18 +66,28 @@ class EventsAnswers:
     def size_bytes(self) -> int:
         return sum(len(kept.body) for kept in self._kept.values())
 
-    def stats(self) -> dict[str, int]:
-        """What ``GET /v1/health`` says of it: how many answers are kept, what they weigh, and how the calls were served."""
-        return {"kept": len(self._kept), "bytes": self.size_bytes(), "hits": self.hits, "misses": self.misses, "not_kept": self.not_kept}
+    def stats(self) -> dict[str, Any]:
+        """What ``GET /v1/health`` says of it: how many answers are kept, what they weigh, how the calls were served, and why not."""
+        return {
+            "kept": len(self._kept),
+            "bytes": self.size_bytes(),
+            "hits": self.hits,
+            "misses": self.misses,
+            "not_kept": self.not_kept,
+            "not_kept_by": dict(self.not_kept_by.most_common(REASONS_SHOWN)),
+            "dropped_by": dict(self.dropped_by.most_common(REASONS_SHOWN)),
+        }
 
     async def get(self, key: Hashable, state: Callable[[], State], work: Callable[[], Awaitable[bytes]]) -> bytes:
         """The answer for ``key``: the one kept when it still holds, else ``work()`` (once, whatever the number of callers)."""
         kept = self._kept.get(key)
         if kept is not None:
-            if same_state(kept.state, state()) and kept.witness.still_holds():
+            why = "state changed" if not same_state(kept.state, state()) else kept.witness.why_not()
+            if why is None:
                 self._kept.move_to_end(key)
                 self.hits += 1
                 return kept.body
+            self.dropped_by[why] += 1
             del self._kept[key]
         loop = asyncio.get_running_loop()
         task = self._inflight.get(key)
@@ -96,11 +112,20 @@ class EventsAnswers:
         with freshness.watching() as witness:
             body = await work()
         # Kept only if what it read could be read again as is: nothing replaced it meanwhile, nothing failed, no state moved.
-        if witness.reusable and witness.reads() and same_state(before, state()) and witness.still_holds():
+        if not witness.reusable:
+            why: Optional[str] = witness.why_not()
+        elif not witness.reads():
+            why = "nothing read"
+        elif not same_state(before, state()):
+            why = "state changed"
+        else:
+            why = witness.why_not()
+        if why is None:
             self._kept[key] = Kept(body, witness, before)
             self._kept.move_to_end(key)
             while len(self._kept) > self.max_entries or (len(self._kept) > 1 and self.size_bytes() > self.max_bytes):
                 self._kept.popitem(last=False)
         else:
             self.not_kept += 1
+            self.not_kept_by[why] += 1
         return body

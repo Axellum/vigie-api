@@ -355,13 +355,21 @@ class SwicCollector(BaseCollector[SwicFeed]):
         self.consecutive_failures = sum(1 for failures, _ in self._service_failures.values() if failures >= SERVICE_FAILURES_BEFORE_BACKOFF)
 
     def _can_attempt_network(self, cache_key: str = "global") -> bool:
+        return self._quiet_until(cache_key) is None
+
+    def _quiet_until(self, cache_key: str) -> Optional[float]:
+        """Until when the service waits before it is asked again (after its failures), or ``None`` when it may be asked now."""
         failures, last = self._service_failures.get(cache_key, (0, 0.0))
         if failures and cache_key in self._persistent:
-            return clock.monotonic() - last >= PERSISTENT_FAILURE_RETRY_S
-        if failures < SERVICE_FAILURES_BEFORE_BACKOFF:
-            return True
-        wait = min(MAX_SERVICE_BACKOFF_S, SERVICE_BACKOFF_S * 2 ** (failures - SERVICE_FAILURES_BEFORE_BACKOFF))
-        return clock.monotonic() - last >= wait
+            until = last + PERSISTENT_FAILURE_RETRY_S
+        elif failures >= SERVICE_FAILURES_BEFORE_BACKOFF:
+            until = last + min(MAX_SERVICE_BACKOFF_S, SERVICE_BACKOFF_S * 2 ** (failures - SERVICE_FAILURES_BEFORE_BACKOFF))
+        else:
+            return None
+        return until if clock.monotonic() < until else None
+
+    def _circuit_token(self, cache_key: str) -> Any:
+        return self._service_failures.get(cache_key)  # a new tuple at each failure, ``None`` after a success
 
     # ------------------------------------------------------------------ the public entry
 

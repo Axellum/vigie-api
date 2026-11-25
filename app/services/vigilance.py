@@ -860,7 +860,7 @@ class VigilanceService:
         wanted = [url for url in urls if url not in held]
         missing = wanted[:CAP_DOCUMENTS_PER_REQUEST]
         if len(wanted) > len(missing) and (witness := freshness.current()) is not None:
-            witness.taint()  # the next request reads more documents: an answer kept now would hold the others back
+            witness.taint("CAP documents still to read: meteoalarm_cap")  # the next request reads more: an answer kept now would hold them back
         semaphore = asyncio.Semaphore(CAP_CONCURRENCY)
 
         async def load(url: str) -> tuple[str, Optional[CapDocument]]:
