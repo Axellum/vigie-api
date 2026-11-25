@@ -1,1 +1,1 @@
-- **Monitoring**: `GET /v1/health/live` answers `{"status": "ok"}` and reads no provider, database or archive, for a container health check that asks every minute (`GET /v1/health`, which takes about 70 ms to build, is unchanged).
+- **Monitoring**: `GET /v1/health/live` answers `{"status": "ok"}` and reads no provider, database or archive, for a container health check that asks every minute (`GET /v1/health`, which takes about 70 ms to build, is unchanged); the image's own health check asks it too.
