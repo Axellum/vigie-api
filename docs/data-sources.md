@@ -943,7 +943,7 @@ frame or the JSON routes), so none was dropped: bringing one request to weight 1
 fields. Splitting it does not lower the weight of one refresh of both parts (fractional counts: 1.1 + 1.0 =
 2.1 instead of 1.8), but the two parts are refreshed at their own pace: the current
 conditions and the 15-minute rain every 15 minutes (11 variables), the daily forecast every hour
-(7 variables, 10 days). Per cell and per day: 96 x 1.8 = 173 before, 96 x 1.1 + 24 x 1.0 = 130
+(7 variables, 14 days). Per cell and per day: 96 x 1.8 = 173 before, 96 x 1.1 + 24 x 1.0 = 130
 after (-25%) at the same freshness of the current conditions.
 
 ### Call budget

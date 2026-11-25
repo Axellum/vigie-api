@@ -142,6 +142,7 @@ from app.collectors.vigieau import (
     latest_as_of as latest_vigieau_as_of,
 )
 from app.collectors.weather import (
+    MAX_FORECAST_DAYS,
     MetNorwayCollector,
     OpenMeteoCollector,
     RainViewerCollector,
@@ -1122,7 +1123,7 @@ class AggregatorService:
 
         Returns ``(bundle, fallback_used)``. ``bundle`` is ``None`` when every source failed:
         the caller must then report the weather as unknown. The bundle carries the longest
-        forecast (10 days): the caller keeps the days its profile needs. ``utc_offset_s`` (the
+        forecast (14 days): the caller keeps the days its profile needs. ``utc_offset_s`` (the
         zone configuration) only helps MET Norway to group its hourly series into local days.
 
         When ``include_hourly`` is True (non-compact ``/v1/point``) and Open-Meteo is used, its
@@ -1809,7 +1810,7 @@ class AggregatorService:
         include_marine = bool(marine or device_type == DeviceType.MARINE)
         # The radar of the area the point lies in: metropolitan France, or an overseas mosaic (ADR 0037); none elsewhere.
         radar_area = RADAR_FRANCE if in_france_box(lat, lon) else overseas_area_of(lat, lon)
-        days_count = 5 if compact else 10
+        days_count = 5 if compact else MAX_FORECAST_DAYS
         limit_hazards = max_hazards or DEVICE_DEFAULT_MAX_HAZARDS.get(device_type, 15)
 
         (
@@ -1992,7 +1993,7 @@ class AggregatorService:
         compact: bool = True,
     ) -> SnapshotResponse:
         """Build the global snapshot (under 16 KiB in compact mode) and save it to SQLite."""
-        days_per_zone = 5 if compact else 10
+        days_per_zone = 5 if compact else MAX_FORECAST_DAYS
         limit_hazards = max_hazards or DEVICE_DEFAULT_MAX_HAZARDS.get(device_type, 15)
         zones_cfg = list(self.monitored_zones)
 

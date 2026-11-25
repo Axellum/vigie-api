@@ -23,15 +23,15 @@ def ten_day_payload() -> dict[str, Any]:
 
 
 @pytest.mark.asyncio
-async def test_the_forecast_is_asked_for_ten_days_whatever_the_profile() -> None:
+async def test_the_forecast_is_asked_for_fourteen_days_whatever_the_profile() -> None:
     provider = forecast_provider(ten_day_payload())
     collector = OpenMeteoCollector(http_client=provider.client())
 
     await collector.fetch_point(48.8566, 2.3522)
 
-    assert MAX_FORECAST_DAYS == 10
+    assert MAX_FORECAST_DAYS == 14
     (daily_request,) = provider.with_param("daily")
-    assert daily_request.url.params["forecast_days"] == "10"
+    assert daily_request.url.params["forecast_days"] == "14"
 
 
 @pytest.mark.asyncio
