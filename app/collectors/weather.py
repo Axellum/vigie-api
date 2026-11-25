@@ -59,10 +59,11 @@ from app.models.schemas import (
     PressureHistoryPoint,
 )
 
-# The longest forecast any route returns (non-compact ``/v1/snapshot`` and ``/v1/point``: 10 days).
+# The longest forecast any route returns (non-compact ``/v1/snapshot`` and ``/v1/point``: 14 days, the longest request
+# Open-Meteo still counts as one call, see ``app/collectors/weights.py``).
 # Every forecast is asked for this length and cached once per position; the shorter profiles (the
 # compact ones, 5 days) slice the answer, so the number of days is not part of the cache key.
-MAX_FORECAST_DAYS = 10
+MAX_FORECAST_DAYS = 14
 NOWCAST_STEP_S = 900  # a step of ``minutely_15``
 DEFAULT_OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 
@@ -247,7 +248,7 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
 
     - ``now``: the current conditions and four 15-minute rain amounts (11 variables, weight 1.1),
       every 15 minutes, the resolution of that data;
-    - ``daily``: the daily forecast (7 variables, 10 days) and the hourly cloud cover of the next 48 hours (one
+    - ``daily``: the daily forecast (7 variables, 14 days) and the hourly cloud cover of the next 48 hours (one
       variable, read by the aurora estimate), weight 1.0, every hour, because the weather models are updated
       every hour at best.
 
@@ -376,7 +377,7 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
         return list(daily.get("hourly_cloud_cover", [])), daily.get("utc_offset_s")
 
     async def fetch_daily(self, lat: float, lon: float) -> dict[str, Any]:
-        """The "daily" part alone: ``utc_offset_s``, ``daily_10d`` (10 days) and ``hourly_cloud_cover`` (48 hours).
+        """The "daily" part alone: ``utc_offset_s``, ``daily_10d`` (14 days, a name kept from when it was 10) and ``hourly_cloud_cover`` (48 hours).
 
         For the points whose current conditions come from another provider (Météo-France in France): the rain probability, the
         days that provider does not cover and the cloud cover stay Open-Meteo's. An expired entry is served when the provider
