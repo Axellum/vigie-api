@@ -101,6 +101,7 @@ words of the issuing services left as they are, the national services listed in 
 | `GET /v1/watched-points/status?days=7` | For each watched point, the events within its radius over the last days, and `quiet` only when every hazard source answered and was read without a gap. |
 | `GET /v1/history` | Hazard history stored in SQLite. |
 | `GET /v1/health`, `GET /v1/providers` | Health, circuit breaker and cache state of each provider, and its calls, weight and quota over 24 hours. |
+| `GET /v1/health/live` | `{"status": "ok"}` while the process answers; it reads no provider, database or archive (for a container health check). |
 | `GET/POST /v1/scheduler/...` | State of the optional background scheduler, run one cycle now. |
 | `POST /v1/simulate` | Inject a **simulated** scenario for testing (always labelled as a simulation). **Off by default**: it answers 403 unless `VIGIE_ENABLE_SIMULATION=1`. |
 | `WS /v1/stream` | WebSocket with the initial state and alert pushes; a client can also follow a point and be told when its official warnings change. |

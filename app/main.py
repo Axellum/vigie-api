@@ -4,6 +4,8 @@ Endpoints:
 
 - ``GET    /dashboard``            : Web supervision dashboard.
 - ``GET    /v1/health``            : Global health, SQLite mode and collector summary.
+- ``GET    /v1/health/live``       : The process answers, ``{"status": "ok"}``, with no provider, database or archive read (what a
+                                     container health check, asked every minute, calls).
 - ``GET    /v1/providers``         : Circuit breaker, cache state, calls, weight and quota of every provider.
 - ``GET    /v1/scheduler/status``  : Scheduler state and cycle counter.
 - ``POST   /v1/scheduler/trigger`` : Run one collection cycle and differential push now.
@@ -460,6 +462,19 @@ async def get_health() -> dict[str, Any]:
         },
         "providers": [p.model_dump() for p in providers],
     }
+
+
+@app.get(
+    "/v1/health/live",
+    tags=["Monitoring"],
+    description=(
+        "Whether the process answers: always `{\"status\": \"ok\"}` with a 200, and nothing is read for it (no provider, no database, no "
+        "archive). It is made for a container health check that asks every minute; `GET /v1/health` says how the sources are doing."
+    ),
+)
+async def get_health_live() -> dict[str, str]:
+    """The process is up: no provider, database or archive is read."""
+    return {"status": "ok"}
 
 
 @app.get("/v1/providers", response_model=list[ProviderHealth], tags=["Monitoring"])
