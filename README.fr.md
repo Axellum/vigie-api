@@ -104,6 +104,7 @@ des services émetteurs laissés tels quels, services nationaux du registre de l
 | `GET /v1/watched-points/status?days=7` | Pour chaque point surveillé, les événements dans son rayon sur les derniers jours, et `quiet` seulement si chaque source de dangers a répondu et a été lue sans trou. |
 | `GET /v1/history` | Historique des dangers, stocké dans SQLite. |
 | `GET /v1/health`, `GET /v1/providers` | État, disjoncteur et cache de chaque source, avec ses appels, son poids et son quota sur 24 heures. |
+| `GET /v1/health/live` | `{"status": "ok"}` tant que le processus répond ; il ne lit aucune source, base ni archive (pour un contrôle de santé de conteneur). |
 | `GET/POST /v1/scheduler/...` | État du planificateur en arrière-plan (facultatif), lancement d'un cycle immédiat. |
 | `POST /v1/simulate` | Injecte un scénario **simulé** pour les essais (toujours étiqueté comme simulation). **Désactivé par défaut** : il répond 403 sauf si `VIGIE_ENABLE_SIMULATION=1`. |
 | `WS /v1/stream` | WebSocket avec l'état initial et les alertes poussées ; un client peut aussi suivre un point et être prévenu quand ses vigilances officielles changent. |

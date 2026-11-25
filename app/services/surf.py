@@ -558,12 +558,17 @@ def build_overview(
 _overview_memo: Optional[tuple[object, object, int, SurfOverview]] = None
 
 
-async def overview(collector: SurfForecastCollector, now_unix: float) -> SurfOverview:
-    """Every spot in short. ``NoSurfForecast`` when the swell of no spot can be had."""
+def _overview_points() -> tuple[tuple[str, float, float], ...]:
+    return tuple((raw["id"], raw["lat"], raw["lon"]) for raw in spot_file()["spots"])
+
+
+async def overview(collector: SurfForecastCollector, now_unix: float, *, demand: bool = True) -> SurfOverview:
+    """Every spot in short. ``NoSurfForecast`` when the swell of no spot can be had. ``demand=False``: the scheduler's read."""
     global _overview_memo
-    points = tuple((raw["id"], raw["lat"], raw["lon"]) for raw in spot_file()["spots"])
+    points = _overview_points()
+    quiet: dict[str, bool] = {} if demand else {"demand": False}  # a client's read is the plain call, as it always was
     swell, wind = await asyncio.gather(
-        collector.fetch_all("swell", points), collector.fetch_all("wind", points), return_exceptions=True
+        collector.fetch_all("swell", points, **quiet), collector.fetch_all("wind", points, **quiet), return_exceptions=True
     )
     if isinstance(swell, BaseException):
         raise NoSurfForecast(f"the wave model gave no answer for the spots ({type(swell).__name__})")
@@ -582,6 +587,21 @@ async def overview(collector: SurfForecastCollector, now_unix: float) -> SurfOve
     return built
 
 
+async def warm_overview(collector: SurfForecastCollector, now_unix: float) -> bool:
+    """Keep what ``GET /v1/surf/overview`` reads ready, so that no visitor pays for it (the scheduler calls it every cycle).
+
+    The two every-spot answers are read again a few minutes before they expire (``SurfForecastCollector.warm_all``: the same cache
+    entries and requests as the route, nothing while no client asked for an overview within the last day), then the overview of the
+    current hour is worked out and kept (``_overview_memo``), which a visitor would otherwise do at the first request of each hour.
+    True when an answer was read again.
+    """
+    points = _overview_points()
+    refreshed = [await collector.warm_all(kind, points) for kind in ("swell", "wind")]
+    if collector.all_fresh("swell") and collector.all_fresh("wind"):  # never a request of its own: only what the cache holds
+        await overview(collector, now_unix, demand=False)
+    return any(refreshed)
+
+
 __all__ = [
     "MARINE_MODEL",
     "MAX_DAYS",
@@ -593,4 +613,5 @@ __all__ = [
     "find_spot",
     "overview",
     "spots",
+    "warm_overview",
 ]

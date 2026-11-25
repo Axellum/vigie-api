@@ -85,6 +85,29 @@ async def test_no_weather_at_all_means_no_bundle() -> None:
 # ============================================================================
 
 
+def test_health_live_answers_without_reading_anything(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The route a container health check asks every minute: 200 and ``ok``, and no provider, database or archive is read."""
+
+    def refuse(*_: object, **__: object) -> None:
+        raise AssertionError("/v1/health/live read something")
+
+    for name in ("get_providers_health", "disabled_sources", "hazard_collectors"):
+        monkeypatch.setattr(world.aggregator, name, refuse)
+    monkeypatch.setattr(world.aggregator.vigilance_archive, "health", refuse)
+    monkeypatch.setattr(world.aggregator.surf_archive, "health", refuse)
+    monkeypatch.setattr(world.aggregator.storage, "get_journal_mode", refuse)
+    answer = world.client.get("/v1/health/live")
+    assert answer.status_code == 200
+    assert answer.json() == {"status": "ok"}
+
+
+def test_health_live_is_documented_and_health_is_unchanged(world: World) -> None:
+    document = world.client.get("/openapi.json").json()
+    assert document["paths"]["/v1/health/live"]["get"]["tags"] == ["Monitoring"]
+    health = world.client.get("/v1/health").json()
+    assert health["status"] == "ok" and "providers" in health and "scheduler" in health  # what Gatus and others read
+
+
 def test_health_and_providers(world: World) -> None:
     health = world.client.get("/v1/health")
     assert health.status_code == 200

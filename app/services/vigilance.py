@@ -38,7 +38,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from app import clock
+from app import clock, freshness
 from app.attribution import METEOALARM_DISCLAIMER, credit_text, merge_credits
 from app.collectors.base import CollectorUnavailableError
 from app.collectors.disasters import NOAANWSCollector
@@ -371,6 +371,10 @@ class VigilanceService:
                 read.setdefault(source.country, []).append(source)
         self._swic_cache = (registry, read, every)
         return read, every
+
+    def registry_state(self) -> tuple[object, str]:
+        """What the sources of the registry depend on besides the collectors' caches: the registry read (or ``None``) and the mode."""
+        return (self._registry, self.swic_mode)
 
     def swic_sources(self, country: str) -> list[SwicSource]:
         """The registry services this instance reads for a country."""
@@ -853,7 +857,10 @@ class VigilanceService:
         cap = self.meteoalarm_cap
         urls = list(dict.fromkeys(v.link for v in vigilances if v.source == "meteoalarm" and v.link))
         held = {url for url in urls if cap._get_cached_if_fresh(url) is not None}
-        missing = [url for url in urls if url not in held][:CAP_DOCUMENTS_PER_REQUEST]
+        wanted = [url for url in urls if url not in held]
+        missing = wanted[:CAP_DOCUMENTS_PER_REQUEST]
+        if len(wanted) > len(missing) and (witness := freshness.current()) is not None:
+            witness.taint()  # the next request reads more documents: an answer kept now would hold the others back
         semaphore = asyncio.Semaphore(CAP_CONCURRENCY)
 
         async def load(url: str) -> tuple[str, Optional[CapDocument]]:

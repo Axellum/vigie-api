@@ -27,7 +27,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Awaitable, Literal, Optional, TypeVar
 
-from app import __version__, clock
+from pydantic_core import to_json
+
+from app import __version__, clock, freshness
 from app.attribution import (
     DROUGHT,
     MET_NORWAY_WEATHER,
@@ -217,6 +219,7 @@ from app.services.eclipses import EclipseService
 from app.services.embedded_frame import serialize_embedded_frame
 from app.services.events import count as count_events
 from app.services.events import group_hazards, group_warnings, sorted_events
+from app.services.events_cache import EventsAnswers
 from app.services.fires import NEARBY_RADIUS_DEFAULT_KM, FireService
 from app.services.forecast_archive import SurfForecastArchive
 from app.services.forecasts import empty as empty_forecast
@@ -623,6 +626,7 @@ class AggregatorService:
         self.vigilance_archive = VigilanceArchive(lambda: self.storage)
         # The surf forecasts the API reads are kept, with their issue time, to measure their error (no request of its own).
         self.surf_archive = SurfForecastArchive(lambda: self.storage)
+        self.events_answers = EventsAnswers()  # GET /v1/events, serialized, kept while nothing it was made from changed
         self.surf.on_fetched = self.surf_archive.record
         # The official warnings (MeteoAlarm, the national services, the NWS): the NWS answer is the hazards' own, no
         # request of its own.
@@ -2221,6 +2225,37 @@ class AggregatorService:
             features=features,
         )
 
+    def _events_state(self) -> tuple[Any, ...]:
+        """What an answer of ``events`` depends on besides the cache entries of the collectors (compared by identity, see ``events_cache``)."""
+        simulated = self.simulated_hazards if self.simulation_active else None
+        zones = self.monitored_zones
+        return (
+            simulated,
+            len(simulated) if simulated is not None else 0,
+            zones,
+            len(zones),
+            self.places.settings,
+            self.storage,
+            self.fires.recent_cached_set(),
+            *self.vigilances.registry_state(),
+        )
+
+    async def events_body(
+        self,
+        country: Optional[str] = None,
+        languages: Optional[tuple[str, ...]] = None,
+        compact: bool = False,
+        min_impact: Optional[int] = None,
+        families: Optional[list[str]] = None,
+    ) -> bytes:
+        """The answer of ``events`` as the JSON of ``GET /v1/events``, kept while nothing it was made from changed (``events_cache``)."""
+        key = (country, languages, compact, min_impact, tuple(families) if families else None)
+
+        async def work() -> bytes:
+            return to_json(await self.events(country, languages, compact, min_impact, families), by_alias=True)
+
+        return await self.events_answers.get(key, self._events_state, work)
+
     async def events(
         self,
         country: Optional[str] = None,
@@ -2238,6 +2273,10 @@ class AggregatorService:
             warnings = await self.vigilances.for_country(country, languages)
         else:
             warnings = await self.vigilances.for_world(languages)
+        if (witness := freshness.current()) is not None:  # only warnings in force are in the answer: it ends with the first of them
+            ends = [max(t for t in (v.ends_utc, v.expires_utc) if t is not None) for v in warnings.vigilances if v.ends_utc is not None or v.expires_utc is not None]
+            if ends:
+                witness.until_wall(min(ends))
         hazards, answered, asked = await self.collect_hazards_with_status()
         index = self.vigilances.countries
 
