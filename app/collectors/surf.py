@@ -133,10 +133,17 @@ class SurfForecastCollector(BaseCollector[dict[str, Any]]):
     SWELL_TTL_SECONDS = 3 * 3600
     WIND_TTL_SECONDS = 3600
     OVERVIEW_WIND_TTL_SECONDS = 3 * 3600
+    # Keeping the every-spot answers ready (``warm_all``): only while a client asked for them within the last day, and from this long
+    # before they expire. A refresh that fails is not tried again for ``WARM_RETRY_SECONDS``.
+    WARM_DEMAND_SECONDS = 24 * 3600
+    WARM_LEAD_SECONDS = 300
+    WARM_RETRY_SECONDS = 600
 
     def __init__(self, http_client: Optional[httpx.AsyncClient] = None) -> None:
         # Told of every answer read from the provider (never of a cache hit): ``(kind, {spot id: parsed answer})``, set by the archive.
         self.on_fetched: Optional[Callable[[str, dict[str, dict[str, Any]]], None]] = None
+        self._asked_all_at: Optional[float] = None  # monotonic time of the last client that asked for an every-spot answer
+        self._warm_retry_at: dict[str, float] = {}
         self.MARINE_URL = open_meteo_marine_url()
         self.FORECAST_URL = open_meteo_forecast_url()
         # Learned Open-Meteo model grid cell per spot id, populated only from real upstream responses.
@@ -176,13 +183,52 @@ class SurfForecastCollector(BaseCollector[dict[str, Any]]):
                 return entry.value
         return None
 
-    async def fetch_all(self, kind: str, points: tuple[Point, ...]) -> tuple[dict[str, dict[str, Any]], bool]:
+    def _all_ttl(self, kind: str) -> float:
+        return self.SWELL_TTL_SECONDS if kind == "swell" else self.OVERVIEW_WIND_TTL_SECONDS
+
+    async def fetch_all(
+        self, kind: str, points: tuple[Point, ...], *, demand: bool = True
+    ) -> tuple[dict[str, dict[str, Any]], bool]:
         """The swell or the wind (``kind``) of every spot of ``points`` (id, lat, lon), by spot id, in one request; and whether
         it is a stale copy. Neighbouring spots already learned to share an Open-Meteo grid cell are collapsed to one coordinate
-        per cell on refresh while preserving the full per-spot mapping."""
-        ttl = self.SWELL_TTL_SECONDS if kind == "swell" else self.OVERVIEW_WIND_TTL_SECONDS
-        fetched = await self.fetch_ex(cache_key=f"surf-{kind}:all", kind=kind, points=points, ttl_seconds=ttl)
+        per cell on refresh while preserving the full per-spot mapping. ``demand=False`` is for the scheduler, which keeps the
+        answer ready: only a client's read says that someone wants it (``warm_all``)."""
+        if demand:
+            self._asked_all_at = clock.monotonic()
+        fetched = await self.fetch_ex(cache_key=f"surf-{kind}:all", kind=kind, points=points, ttl_seconds=self._all_ttl(kind))
         return fetched.value, fetched.stale
+
+    def all_fresh(self, kind: str) -> bool:
+        """Whether the every-spot answer of ``kind`` is in the cache and not expired (a read of it then sends no request)."""
+        entry = self._cache.get(f"surf-{kind}:all")
+        return entry is not None and clock.monotonic() <= entry.fresh_until
+
+    async def warm_all(self, kind: str, points: tuple[Point, ...]) -> bool:
+        """Read the every-spot answer of ``kind`` again just before it expires, so that no client waits for it; True when it did.
+
+        The same cache entry as ``fetch_all``, the same request, through the same budget and circuit breaker: the entry is only
+        replaced a few minutes early (``WARM_LEAD_SECONDS``), so a day holds at most as many requests as before (9 of each kind).
+        Nothing is read unless a client asked for an every-spot answer within the last day, nor while an earlier try failed
+        (``WARM_RETRY_SECONDS``): an overview nobody looks at costs no request. A stale copy is not "a refresh".
+        """
+        now = clock.monotonic()
+        if self._asked_all_at is None or now - self._asked_all_at > self.WARM_DEMAND_SECONDS:
+            return False
+        if now < self._warm_retry_at.get(kind, 0.0):
+            return False
+        entry = self._cache.get(f"surf-{kind}:all")
+        if entry is not None and entry.fresh_until - now > self.WARM_LEAD_SECONDS:
+            return False
+        try:
+            fetched = await self.fetch_ex(
+                cache_key=f"surf-{kind}:all", force_refresh=True, kind=kind, points=points, ttl_seconds=self._all_ttl(kind)
+            )
+        except Exception:  # no answer and nothing cached: the next client's read tries (and says why) like before
+            fetched = None
+        if fetched is None or fetched.stale:
+            self._warm_retry_at[kind] = clock.monotonic() + self.WARM_RETRY_SECONDS
+            return False
+        return True
 
     async def fetch_swell(self, spot_id: str, lat: float, lon: float) -> tuple[dict[str, Any], bool]:
         """The hourly swell of a spot, and whether it is a stale copy."""

@@ -12,6 +12,10 @@ This service:
    or that ends. The feeds of the countries that are needed are kept fresh (a cached feed costs no request).
 5. Keeps the travel advice of the ministries fresh, in a loop of its own (``run_travel_cycle``, every ``TRAVEL_INTERVAL_S``): each new
    version of an advice is archived even when nobody asks, and the first read of the FCDO's 226 pages never delays a cycle.
+6. Keeps what is slow to work out when its cache is cold ready, in a loop of its own (``run_warm_cycle``, every cycle): the two every-spot answers
+   of ``GET /v1/surf/overview`` are read again a few minutes before they expire, so that no visitor waits for them (3.3 s measured).
+   The same cache entries and requests as the route (at most one read per cache lifetime, a few minutes early), and none for an answer
+   nobody asked for within the last day.
 """
 
 from __future__ import annotations
@@ -21,7 +25,9 @@ import contextlib
 import time
 from typing import Any, Optional
 
+from app import clock
 from app.models.schemas import SEVERITY_RANK, HazardAlert
+from app.services import surf as surf_service
 from app.services.aggregator import AggregatorService
 from app.services.embedded_frame import serialize_embedded_frame
 from app.services.vigilance import FollowedPoint
@@ -81,6 +87,10 @@ class BackgroundAlertScheduler:
         self._travel_task: Optional[asyncio.Task[None]] = None
         self.last_travel_run_utc: Optional[int] = None
         self.last_travel_error: Optional[str] = None
+        self._warm_task: Optional[asyncio.Task[None]] = None
+        self.last_warm_run_utc: Optional[int] = None
+        self.last_warm_refreshed_utc: Optional[int] = None
+        self.last_warm_error: Optional[str] = None
 
     def followed_points(self) -> list[FollowedPoint]:
         """The positions whose official warnings are watched: the watched zones (everyone is told), then the clients' own."""
@@ -181,6 +191,20 @@ class BackgroundAlertScheduler:
         except Exception as exc:
             self.last_travel_error = f"{type(exc).__name__}: {exc}"
 
+    async def run_warm_cycle(self) -> bool:
+        """Keep the surf overview ready (see ``surf.warm_overview``); True when an answer was read again. A failure is only noted."""
+        now_utc = int(clock.wall())
+        try:
+            refreshed = await surf_service.warm_overview(self.aggregator.surf, clock.wall())
+            self.last_warm_run_utc = now_utc
+            self.last_warm_error = None
+            if refreshed:
+                self.last_warm_refreshed_utc = now_utc
+            return refreshed
+        except Exception as exc:
+            self.last_warm_error = f"{type(exc).__name__}: {exc}"
+            return False
+
     async def _loop(self) -> None:
         while self.running:
             await self.run_single_cycle()
@@ -191,6 +215,16 @@ class BackgroundAlertScheduler:
             await self.run_travel_cycle()
             await asyncio.sleep(TRAVEL_INTERVAL_S)
 
+    def warm_delay(self) -> float:
+        """Seconds to the next warm cycle: the usual interval, shortened to land just after the turn of the hour, when the overview
+        of the surf spots has to be worked out again (a few seconds), so that the first visitor of the hour does not wait for it."""
+        return min(float(self.interval_seconds), 3600.0 - (clock.wall() % 3600.0) + 1.0)
+
+    async def _warm_loop(self) -> None:
+        while self.running:
+            await self.run_warm_cycle()
+            await asyncio.sleep(self.warm_delay())
+
     def start(self) -> None:
         """Start the periodic collection loop as an asyncio background task."""
         if self.running:
@@ -198,17 +232,19 @@ class BackgroundAlertScheduler:
         self.running = True
         self._task = asyncio.create_task(self._loop())
         self._travel_task = asyncio.create_task(self._travel_loop())
+        self._warm_task = asyncio.create_task(self._warm_loop())
 
     async def stop(self) -> None:
         """Stop the asyncio background task cleanly."""
         self.running = False
-        for task in (self._task, self._travel_task):
+        for task in (self._task, self._travel_task, self._warm_task):
             if task is not None:
                 task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await task
         self._task = None
         self._travel_task = None
+        self._warm_task = None
 
     def get_status(self) -> dict[str, Any]:
         """Return the operational state of the scheduler."""
@@ -225,4 +261,7 @@ class BackgroundAlertScheduler:
             "last_vigilance_error": self.last_vigilance_error,
             "last_travel_run_utc": self.last_travel_run_utc,
             "last_travel_error": self.last_travel_error,
+            "last_warm_run_utc": self.last_warm_run_utc,
+            "last_warm_refreshed_utc": self.last_warm_refreshed_utc,
+            "last_warm_error": self.last_warm_error,
         }

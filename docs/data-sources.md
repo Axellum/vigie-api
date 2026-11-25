@@ -680,7 +680,12 @@ of spots if every spot is asked all day (`tests/test_surf_sobriety.py`). They sh
 location): the swell kept 3 hours, and the wind kept 3 hours too, because the overview is a summary (the hourly wind of a spot, kept 1 hour,
 is on its own page). At most 9 + 9 requests a day, each weighing the number of spots: 918 calls a day for the 51 spots, whatever the number
 of clients. While these entries are fresh, a spot's page reads its swell from them, and its wind while it is under an hour old, instead of
-asking again. The overview is worked out once per hour and per answer (half a second of tide and rating for the 51 spots, in a worker thread).
+asking again. The overview is worked out once per hour and per answer (tide and rating of every spot, in a worker thread: 1.6 s for the 171 spots on a PC, measured).
+**Kept ready.** When the scheduler runs (`VIGIE_SCHEDULER=1`), its warm cycle (`BackgroundAlertScheduler.run_warm_cycle`, every cycle and just after the turn of the
+hour) reads the two every-spot answers again about five minutes before they expire and works the overview out as soon as the hour turns, so that no visitor waits for
+either. It uses the same cache entries and the same requests as the route, so the bound above holds (9 + 9 requests a day); it reads nothing unless a client asked for an
+overview (or the activities overview, which reads the same entries) within the last day, and a failed read is not tried again for ten minutes
+(`tests/test_surf_warm.py`). Without the scheduler nothing changes: the first visitor after an expiry pays, as before.
 
 **The wave buoys (CANDHIS, Cerema).** `GET /v1/surf/spots/{id}/buoy` gives the latest record of the nearest located buoy that has a current
 one (`app/collectors/candhis.py`, `app/services/buoys.py`). The API (`https://candhis.cerema.fr/API/v1/`) needs a key, in the `Authorization`
