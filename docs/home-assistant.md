@@ -298,7 +298,13 @@ start_page: home             # optional: the page it opens on
 idle: return                 # return: back to the opening page after a minute untouched; cycle: the next page every 20 s; none
 spot: auto                   # auto: the nearest spot within 20 km; none; or the id of a spot (the editor lists the spots within 60 km)
 weather_entity: weather.home # optional, outside France: the weather entity of the home page
+icon_style: meridien         # the weather icons: meridien (the screen's, the default), line, duo or badge
 ```
+
+**The weather icons** are the icon set of the Vigie family ([ADR 0045](decisions/0045-home-assistant-card-weather-icons.md)), the drawings of the Meridien screen, in
+four styles: *Meridien*, the screen's own shapes; *Line*, an outline; *Duo*, the outline filled with its colour at a third;
+*Badge*, a solid glyph on a square tinted with the colour of the weather. Their colours follow the light or dark theme of Home
+Assistant, like the rest of the card, and the hours of the night show the moon.
 
 | Page | What it shows | Where |
 | --- | --- | --- |
