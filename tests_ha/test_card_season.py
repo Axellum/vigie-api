@@ -89,7 +89,7 @@ def test_angouleme_shows_its_drought_restrictions() -> None:
     out = render(ANGOULEME)
     assert out["items"] == [{"id": "drought", "tone": "orange"}]
     assert "Sécheresse · alerte renforcée · restrictions d’eau" in text(out["home"])
-    assert re.search(r"Données : [^·]*VigiEau", text(out["home"]))  # the line of the home page credits its source too
+    assert "Données" not in text(out["home"])  # the home page credits no one (sketches of 2026-11-27): Alerts credits VigiEau
     alerts = text(out["alerts"])
     assert "Des restrictions d’usage de l’eau sont en vigueur." in alerts and "Eau potable jusqu’au 30 nov." in alerts
     assert 'href="https://vigieau.gouv.fr"' in out["alerts"] and "VigiEau" in alerts
