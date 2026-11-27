@@ -1747,7 +1747,12 @@ def production_cost() -> dict[str, Any]:
     models = ",".join(MODELS)
     temperatures = {**daily_only, "daily": "temperature_2m_max,temperature_2m_min", "models": models}
     only_measured = {**daily_only, "daily": ",".join(measured), "models": models}
-    all_daily = {**daily_only, "models": models}
+    # The seven daily variables the request asked when the models were measured (ADR 0010); it asks more since 2026-11-27.
+    seven = (
+        "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,"
+        "wind_speed_10m_max,uv_index_max"
+    )
+    all_daily = {**daily_only, "daily": seven, "models": models}
     refreshes_a_day = 86400 // OpenMeteoCollector.DAILY_TTL_SECONDS
     weights = {
         "daily_request_today": request_weight(current),
