@@ -118,6 +118,39 @@ def test_each_station_has_its_answer_with_the_shape_the_integration_gives_the_mo
     assert stations_seen, "no place has a station: the Mountain page is not in the demo"
 
 
+def test_each_beach_has_its_answer_with_the_shape_the_integration_gives_the_sea_page() -> None:
+    expected = _keys(_dict_with(_function("async_beach", WEATHER_DATA), "bathing"))
+    beaches_seen = 0
+    for record in _records().values():
+        beaches = record["place"].get("beaches", [])
+        answers = record.get("beaches", [])
+        assert len(answers) == len(beaches)
+        listed = {spot["id"] for spot in record.get("spots", [])}
+        for spot_id, answer in zip(beaches, answers, strict=True):
+            beaches_seen += 1
+            assert set(answer) == expected, (
+                f"vigie/card/beach changed ({sorted(expected ^ set(answer))}): update beach_answer in "
+                "tools/record_card_demo.py, then record again"
+            )
+            # A spot near the place, as `vigie/card/spots` lists it (the name of its tab), with its hours from the one under
+            # way at the time of the record and its verdicts.
+            assert answer["spot"]["id"] == spot_id and spot_id in listed
+            hours = answer["forecast"]["hours"]
+            assert hours and all(hour["time_utc"] >= record["recorded_utc"] - 3600 for hour in hours)
+            assert answer["activities"]["activities"]
+    assert beaches_seen, "no place has a beach: the demo shows the Sea page of before"
+
+
+def test_the_beaches_are_what_the_card_reads() -> None:
+    found = re.search(r"const MAX_BEACHES = (\d+);", CARD.read_text(encoding="utf-8"))
+    assert found, "MAX_BEACHES not found in vigie-card.js"
+    max_beaches = int(found.group(1))
+    for place in recorder.PLACES:
+        beaches = place.get("beaches", [])
+        assert all(isinstance(b, str) and b for b in beaches)
+        assert len(set(beaches)) == len(beaches) <= max_beaches
+
+
 def test_the_stations_are_what_the_card_reads() -> None:
     for place in recorder.PLACES:
         for station in place.get("stations", []):

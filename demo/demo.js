@@ -1,7 +1,8 @@
 // The online demo of the Home Assistant card: the card of the integration (`vigie-card.js`, copied next to this page when it is
 // published), drawn without Home Assistant. The page plays the part of Home Assistant for it, as the widget page of vigie-web
-// does: a `hass` object with the language and the theme, whose `callWS` answers the card's commands `vigie/card/data` and
-// `vigie/card/mountain` (a station of the Mountain page) with answers recorded by `tools/record_card_demo.py`
+// does: a `hass` object with the language and the theme, whose `callWS` answers the card's commands `vigie/card/data`,
+// `vigie/card/mountain` (a station of the Mountain page), `vigie/card/beach` (a beach of the Sea page) and `vigie/card/spots`
+// (the spots near the place) with answers recorded by `tools/record_card_demo.py`
 // (`data/<place>.json`). The card's clock starts at the time of that record
 // and runs from there, so "now", "the next hours" and "the rain in the hour" read as they did then. Nothing is asked of a
 // Vigie instance from this page.
@@ -96,7 +97,16 @@ function fakeHass() {
       if (!current) throw { code: 'not_found' };
       if (message?.type === 'vigie/card/data') return answerOf(current, state.lang);
       if (message?.type === 'vigie/card/entries') return [{ entry_id: current.answer.entry_id, title: current.place.name }];
-      if (message?.type === 'vigie/card/spots') return current.answer.spot ? [current.answer.spot] : [];
+      if (message?.type === 'vigie/card/spots') {
+        if (current.spots?.length) return current.spots;
+        return current.answer.spot ? [current.answer.spot] : [];
+      }
+      if (message?.type === 'vigie/card/beach') {
+        // A beach of the place's Sea page, found by its spot; another spot is not near the place, as the integration says.
+        const i = (current.place.beaches || []).indexOf(message.spot);
+        if (i < 0 || !current.beaches?.[i]) throw { code: 'not_found' };
+        return { language: state.lang, ...current.beaches[i] };
+      }
       if (message?.type === 'vigie/card/mountain') {
         // The station the card asks for, found by what it sends: its position and its altitudes.
         const stations = current.place.stations || [];
@@ -124,6 +134,7 @@ function configOf(rec) {
     spot: rec.place.spot,
     idle: 'none',
   };
+  if (rec.place.beaches?.length) config.beaches = rec.place.beaches;
   if (rec.place.stations?.length) config.stations = rec.place.stations;
   return config;
 }
@@ -186,6 +197,7 @@ function yaml(config) {
     `spot: ${config.spot}`,
     `idle: ${config.idle}`,
   ];
+  if (config.beaches) lines.push(`beaches: [${config.beaches.join(', ')}]`);
   if (config.stations) {
     lines.push('stations:');
     for (const s of config.stations) {
