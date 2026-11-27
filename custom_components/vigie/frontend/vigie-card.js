@@ -644,13 +644,14 @@ function header(c, onAlerts) {
 }
 const placeName = (title) => (typeof title === 'string' ? title.replace(/^Vigie\s+/i, '') || title : 'Vigie');
 
-// `iconsOnly`: the names do not fit (six pages on a phone, measured in `_render`): the icons, the name of each in its title.
+// `iconsOnly`: the names do not fit (six pages on a phone, measured in `_render`): the icons, the name of each in its title;
+// 'names': the names without their icons (a wide card whose names do not fit beside their icons).
 function nav(c, pages, current, iconsOnly = false) {
   const fs = c.wide ? 15 : 13, h = c.wide ? 38 : 30;
   return `<div class="nav" role="tablist">` + pages.map((p) => {
     const on = p === current, name = c.t(`page_${p}`);
-    if (iconsOnly) return `<button role="tab" aria-selected="${on}" aria-label="${esc(name)}" title="${esc(name)}" data-go="${p}" class="${on ? 'actif' : ''}" style="height:${h}px">${glyph(PAGE_GLYPH[p], fs + 5, on ? c.P.sur : c.P.t3, 2.2)}</button>`;
-    return `<button role="tab" aria-selected="${on}" data-go="${p}" class="${on ? 'actif' : ''}" style="font-size:${fs}px;height:${h}px">${c.wide ? glyph(PAGE_GLYPH[p], fs + 3, on ? c.P.sur : c.P.t3, 2.2) : ''}<span>${name}</span></button>`;
+    if (iconsOnly === true) return `<button role="tab" aria-selected="${on}" aria-label="${esc(name)}" title="${esc(name)}" data-go="${p}" class="${on ? 'actif' : ''}" style="height:${h}px">${glyph(PAGE_GLYPH[p], fs + 5, on ? c.P.sur : c.P.t3, 2.2)}</button>`;
+    return `<button role="tab" aria-selected="${on}" data-go="${p}" class="${on ? 'actif' : ''}" style="font-size:${fs}px;height:${h}px">${c.wide && iconsOnly !== 'names' ? glyph(PAGE_GLYPH[p], fs + 3, on ? c.P.sur : c.P.t3, 2.2) : ''}<span>${name}</span></button>`;
   }).join('') + `</div>`;
 }
 
@@ -1673,6 +1674,7 @@ const MAX_STATIONS = 6;
 const MIN_ALTITUDE_M = -500;
 const MAX_ALTITUDE_M = 9000;
 const SNOW_CODES = new Set([71, 73, 75, 77, 85, 86]);
+const FRESH_CM = 0.5;  // the fresh snow a day shows: what rounds to 1 cm
 const ASPECTS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 const altitude = (v) => num(v) && v >= MIN_ALTITUDE_M && v <= MAX_ALTITUDE_M;
 
@@ -1731,7 +1733,7 @@ function mountainSentence(c, top, base) {
 }
 
 // The three tiles: the avalanche danger, the freezing level now and where it goes, the next fresh snow at the top.
-function mountainTiles(c, M, S) {
+function mountainTiles(c, M, S, narrowAsked = false) {
   const P = c.P, top = M.top, tiles = [];
   const A = M.avalanches, l = A?.status === 'active' && num(A.max_danger_level) ? A.max_danger_level : null;
   if (A) {
@@ -1751,17 +1753,20 @@ function mountainTiles(c, M, S) {
     tiles.push(`<div class="mt"><span class="k">${c.t('iso0')}</span><b class="v" style="color:${col}">${metres(c, now)}</b><span class="d">${det}</span></div>`);
   }
   const today = c.dayKey(c.now);
-  const days = (Array.isArray(top?.daily) ? top.daily : []).filter((d) => d && typeof d.date === 'string' && d.date >= today && num(d.snowfall_cm));
+  // The days of the page (seven), with the threshold of their pills: a day 11 days ahead would be named like this week's.
+  const days = (Array.isArray(top?.daily) ? top.daily : []).filter((d) => d && typeof d.date === 'string' && d.date >= today).slice(0, 7).filter((d) => num(d.snowfall_cm));
   if (days.length) {
-    const next = days.find((d) => d.snowfall_cm >= 1);
+    const next = days.find((d) => d.snowfall_cm >= FRESH_CM);
     const det = next ? [dayLong(c, dayTs(c, next.date)), num(next.rain_probability_pct) ? c.t('chance_p', { p: next.rain_probability_pct }) : ''].filter(Boolean).join(' · ')
       : c.t('snow_none', { n: days.length });
     tiles.push(`<div class="mt"><span class="k">${c.t('fresh_snow')}</span><b class="v" style="color:${next ? P.icon.neige : P.t3}">${next ? c.fmt(next.snowfall_cm) : 0}&nbsp;cm</b><span class="d">${cap(det)}</span></div>`);
   }
-  // On a narrow card three tiles cut their words: the avalanches on the whole width, the two others under them.
-  const narrow = c.W < 380 && tiles.length === 3 && A;
+  // On a narrow card three tiles cut their words: the avalanches on the whole width, the others under them (also when the
+  // card measured a word cut, `narrowAsked`).
+  const narrow = !!A && tiles.length >= 2 && ((c.W < 380 && tiles.length === 3) || narrowAsked);
   if (narrow) tiles[0] = tiles[0].replace('class="mt mtav"', 'class="mt mtav" style="grid-column:1 / -1"');
-  return tiles.length ? `<div class="mts" style="grid-template-columns:repeat(${narrow ? 2 : tiles.length},minmax(0,1fr))">${tiles.join('')}</div>` : '';
+  const cols = narrow ? tiles.length - 1 : tiles.length;
+  return tiles.length ? `<div class="mts"${narrow ? ' data-narrow="1"' : ''} style="grid-template-columns:repeat(${cols},minmax(0,1fr))">${tiles.join('')}</div>` : '';
 }
 
 // The aspects of the problems on a rose of eight wedges, the north at the top.
@@ -1885,7 +1890,7 @@ function mountainDays(c, top, w) {
     const hrs = hourly.filter((h) => c.dayKey(h.time_utc) === d.date);
     const start = Date.parse(`${d.date}T00:00:00Z`) / 1000 - c.offset, need = Math.round((start + 86400 - Math.max(start, c.now - (c.now % 3600))) / 3600);
     const deg = need > 0 && hrs.length >= need - 1 ? windFrom(hrs) : null;
-    const snow = !hasSnow ? '' : num(d.snowfall_cm) && d.snowfall_cm >= 0.5 ? `<span class="sn" style="background:${P.icon.neige};color:${P.sur}">${c.fmt(d.snowfall_cm)}${tight ? '' : '&nbsp;cm'}</span>` : `<span class="sn" style="color:${P.t3}">–</span>`;
+    const snow = !hasSnow ? '' : num(d.snowfall_cm) && d.snowfall_cm >= FRESH_CM ? `<span class="sn" style="background:${P.icon.neige};color:${P.sur}">${c.fmt(d.snowfall_cm)}${tight ? '' : '&nbsp;cm'}</span>` : `<span class="sn" style="color:${P.t3}">–</span>`;
     return `<div class="mj"><b style="color:${i === 0 ? P.accent : P.texte}">${i === 0 ? c.t('today_short') : c.dayName(d.date)}</b>${icon(P, wmoKind(d.code), 28)}${snow}` +
       `<span class="tt"><b style="color:${tempColour(P, d.tmax)}">${c.fmt(d.tmax)}°</b><span style="color:${tempColour(P, d.tmin)}">${c.fmt(d.tmin)}°</span></span>` +
       `<span class="vt2">${num(deg) ? arrow(11, deg, P.vent) : ''}${num(d.wind_max) ? c.fmt(d.wind_max) : ''}</span></div>`;
@@ -1910,6 +1915,7 @@ function pageMountain(c) {
   const top = M.top || null, base = M.base || null;
   const credit = foot(c, providers(top?.weather_attribution, base?.weather_attribution, M.avalanches?.attribution));
   const left = (w) => [head(top ? mountainSentence(mc, top, base) : ''), mountainTiles(mc, M, S), bulletinBlock(mc, M.avalanches, w)].join('');
+  c.mountainTilesNarrow = () => mountainTiles(mc, M, S, true);  // drawn again by the card when a word of the tiles is cut
   const right = (w) => (top ? mountainHours(mc, top, base, w) + mountainDays(mc, top, w) : '');
   if (c.wide) {
     const half = Math.floor((c.W - 28) / 2);
@@ -2324,10 +2330,18 @@ class VigieCard extends HTMLElement {
     root.innerHTML = `${top}<div class="page" tabindex="0">${body}</div>`;
     // The names of the pages that do not fit their tab (six pages on a phone, a longer word in English): the icons alone. A name
     // is centred in its tab, so it overflows on both sides and `scrollWidth` misses its left half: its own width is measured,
-    // with 4 px kept on each side (seen in a real Home Assistant: "Montagne" cut at both ends of its tab, on a phone).
-    const tabs = root.querySelector('.nav');
+    // with 4 px kept on each side (seen in a real Home Assistant: "Montagne" cut at both ends of its tab, on a phone). A wide
+    // card first drops the icons beside the names (six pages in a bar of 560 px), then keeps the icons alone.
     const tight = (b) => { const r = document.createRange(); r.selectNodeContents(b); return r.getBoundingClientRect().width > b.clientWidth - 8; };
-    if (tabs && !c.wide && [...tabs.querySelectorAll('button')].some(tight)) tabs.outerHTML = nav(c, visible, this._page, true);
+    const cramped = () => [...(root.querySelector('.nav')?.querySelectorAll('button') || [])].some(tight);
+    for (const mode of c.wide ? ['names', true] : [true]) {
+      if (!cramped()) break;
+      root.querySelector('.nav').outerHTML = nav(c, visible, this._page, mode);
+    }
+    // The tiles of the Mountain page cut a word (a level of danger longer in English, a wider font): the avalanches on the
+    // whole width, the others under them.
+    const tiles = root.querySelector('.mts:not([data-narrow])');
+    if (tiles && c.mountainTilesNarrow && [...tiles.querySelectorAll('.k,.v')].some((e) => e.scrollWidth > e.clientWidth + 0.5)) tiles.outerHTML = c.mountainTilesNarrow();
     // The home page fits the card without scrolling: drawn a few px too tall (fonts, a long header, a pill of the season), it is
     // drawn again with flatter curves, by what it is over as measured here, at most three times (the blocks round their
     // heights; nothing to measure while the card is hidden).
