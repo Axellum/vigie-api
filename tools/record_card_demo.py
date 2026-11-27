@@ -7,15 +7,17 @@ For each place of `PLACES` (public places: a beach, a mountain town, a city cent
 what the integration asks for the card (the same routes, the same parameters: the integration's own client, `api.py`), puts the
 answers together as the WebSocket command `vigie/card/data` gives them to the card (`websocket.py`), and writes
 `demo/data/<id>.json`. A place with `stations` also gets, for each, what `vigie/card/mountain` gives the Mountain page (the
-weather at its top and at its base, each at its own altitude, and its avalanche bulletin). The demo page then plays the part of
-Home Assistant and sets the card's clock to the time of the read.
+weather at its top and at its base, each at its own altitude, and its avalanche bulletin); a place with `beaches`, for each,
+what `vigie/card/beach` gives the Sea page (the forecast of the spot hour by hour, its verdicts, the water at its cell and its
+monitored bathing site), and the spots near it, as `vigie/card/spots` lists them. The demo page then plays the part of Home
+Assistant and sets the card's clock to the time of the read.
 
 The integration's modules are loaded from `custom_components/vigie` as they are, without Home Assistant: `api.py`, `const.py`,
 `models.py` and `quakes.py` do not import it; for `weather_data.py` (whose helpers choose the nearest station and spots and
-trim the answers of the Mountain page), the few names it imports from Home Assistant and astral are stand-ins that are never
-called. The small parts that need Home Assistant to load (the answer's shape and the earthquakes' summary of `websocket.py`,
-the station's shape of `weather_data.py`) are written again here, and `tests/test_card_demo.py` checks their keys against those
-files. Needs aiohttp and yarl (Home Assistant's own client libraries): `pip install aiohttp yarl`. An instance that ignores
+trim the answers of the Mountain and Sea pages), the few names it imports from Home Assistant and astral are stand-ins that are
+never called. The small parts that need Home Assistant to load (the answer's shape and the earthquakes' summary of
+`websocket.py`, the station's and the beach's shapes of `weather_data.py`) are written again here, and `tests/test_card_demo.py`
+checks their keys against those files. Needs aiohttp and yarl (Home Assistant's own client libraries): `pip install aiohttp yarl`. An instance that ignores
 the altitude of `GET /v1/point?elevation=` is refused: its top and base would be the same weather.
 """
 
@@ -43,10 +45,19 @@ POINT_RETRY_S = 20
 POINT_TRIES = 4
 
 # Public places only. `spot`: what the card is set to (`auto`: the nearest spot within 20 km, as the editor offers).
+# `beaches`: the Sea page's, as the card's editor writes them (ids of spots near the place, from `app/data/surf-spots.json`).
 # `stations`: the Mountain page's, as the card's editor writes them. Each is a village at the foot of a public lift, with the
 # altitude of the summit it climbs to; positions and altitudes from GeoNames (Open-Meteo's geocoding API, read on 2026-11-27).
 PLACES: tuple[dict[str, Any], ...] = (
-    {"id": "biarritz", "name": "Biarritz", "lat": 43.4832, "lon": -1.5586, "spot": "auto"},
+    {
+        "id": "biarritz",
+        "name": "Biarritz",
+        "lat": 43.4832,
+        "lon": -1.5586,
+        "spot": "auto",
+        # A sand beach 3 km north-east of the place, and a beach of sand and rock 1.3 km south-west of it.
+        "beaches": ["biarritz-plage-des-corsaires", "biarritz-plage-de-la-cote-des-basques"],
+    },
     {
         "id": "chamonix",
         "name": "Chamonix",
@@ -157,6 +168,28 @@ def mountain_station(
     }
 
 
+def beach_answer(
+    weather_data: Any,
+    near: dict[str, Any],
+    forecast: Any,
+    activities: Any,
+    water: Any,
+    bathing: Any,
+    now_utc: int,
+) -> dict[str, Any]:
+    """`async_beach` of `weather_data.py`, after its reads: the forecast, the verdicts, the water and the bathing site of the
+    spot, trimmed by its helpers to what the Sea page draws."""
+    spot = forecast.get("spot") if isinstance(forecast, dict) and isinstance(forecast.get("spot"), dict) else {}
+    trimmed = weather_data.beach_forecast(forecast, now_utc)
+    return {
+        "spot": {**near, **(trimmed["spot"] if trimmed else {})},
+        "forecast": trimmed,
+        "activities": weather_data.beach_activities(activities, now_utc),
+        "water": weather_data.beach_water(water),
+        "bathing": weather_data.bathing_site(bathing, spot),
+    }
+
+
 async def record(base: str, place: dict[str, Any]) -> dict[str, Any]:
     import aiohttp  # noqa: PLC0415 - only this tool needs it
 
@@ -208,11 +241,33 @@ async def record(base: str, place: dict[str, Any]) -> dict[str, Any]:
             const.DEFAULT_QUAKE_MIN_MAGNITUDE,
         )
         spot = activities = None
-        if place["spot"] == "auto":
+        spots: list[dict[str, Any]] = []
+        if place["spot"] == "auto" or place.get("beaches"):
             spots = weather_data.nearby_spots(await client.surf_spots(), lat, lon)
+        if place["spot"] == "auto":
             if spots and spots[0]["distance_km"] <= auto_spot_km():
                 spot = spots[0]
                 activities = await optional(client.activities(spot["id"]))
+        beaches = []
+        for spot_id in place.get("beaches", []):
+            # As `async_beach`: a spot of the list near the place, then its forecast, and the rest at the spot's own position.
+            near = next((s for s in spots if s["id"] == spot_id), None)
+            if near is None:
+                raise SystemExit(
+                    f"{spot_id} is not among the spots near {place['name']}: the card would not ask for it"
+                )
+            forecast = await optional(client.surf_forecast(spot_id))
+            at: dict[str, Any] = (
+                forecast["spot"] if isinstance(forecast, dict) and isinstance(forecast.get("spot"), dict) else {}
+            )
+            b_lat, b_lon = at.get("lat"), at.get("lon")
+            water = bathing = None
+            if isinstance(b_lat, int | float) and isinstance(b_lon, int | float):
+                water = await optional(read_point(b_lat, b_lon))
+                bathing = await optional(client.bathing_sites(b_lat, b_lon, const.BATHING_ASK_KM))
+            beach_verdicts = await optional(client.activities(spot_id))
+            # Trimmed at the time of the place's read, the card's clock in the demo.
+            beaches.append(beach_answer(weather_data, near, forecast, beach_verdicts, water, bathing, read_utc))
         mountain = []
         for station in place.get("stations", []):
             s_lat, s_lon = station["latitude"], station["longitude"]
@@ -264,6 +319,10 @@ async def record(base: str, place: dict[str, Any]) -> dict[str, Any]:
         "vigilances": {language: answer(language)["warnings"]["vigilances"] for language in (first, *others)},
         # What `vigie/card/mountain` gives for each station of the place, in their order (without its `language`).
         "mountain": mountain,
+        # What `vigie/card/spots` gives (the spots near the place, nearest first; the names of the Sea page's tabs), and what
+        # `vigie/card/beach` gives for each beach of the place, in their order (without its `language`). Only with beaches.
+        "spots": spots if place.get("beaches") else [],
+        "beaches": beaches,
     }
 
 
@@ -288,6 +347,14 @@ def main() -> None:
             f" spot {answer['spot']['name'] if answer['spot'] else 'none'}, warnings {answer['warnings']['max_level']},"
             f" earthquakes {answer['earthquakes']['count']}"
         )
+        for beach in data["beaches"]:
+            forecast, verdicts = beach["forecast"] or {}, beach["activities"] or {}
+            print(
+                f"  {beach['spot'].get('name')}: {len(forecast.get('hours') or [])} hours,"
+                f" {len(verdicts.get('activities') or [])} activities,"
+                f" water {(beach['water'] or {}).get('sea_surface_temperature_c')} °C,"
+                f" bathing site {(beach['bathing'] or {}).get('name')}"
+            )
         for station, kept in zip(place.get("stations", []), data["mountain"], strict=True):
             avalanches = kept["avalanches"] or {}
             print(

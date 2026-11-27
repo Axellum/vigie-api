@@ -1,4 +1,4 @@
-"""Check that the home page of the dashboard card fits the card at every width it takes, on the answers of the online demo.
+"""Check that the home and Sea pages of the dashboard card fit the card at every width it takes, on the answers of the online demo.
 
     python tools/build_card_demo.py _site
     python tools/card_demo_fit.py _site --out fit-captures
@@ -13,6 +13,10 @@ wide (the widget of the Windows app is 300 px, a phone 340 to 400, a column of a
 - a text or a box goes past its left or right edge (the page hides what goes over, so it is cut off without an ellipsis);
 - a text of a block of columns (the hours, the days) goes under its bottom (the gusts of the days did, on 2026-11-27);
 - from 340 px, a text is cut by an ellipsis or two neighbouring columns crowd (`CROWDED` of `tools/card_in_home_assistant.py`).
+
+A place whose card has beaches (Biarritz) then shows its Sea page, each beach in its tab, from 340 to 720 px, judged the same way,
+and a text cut by its ellipsis measured by a Range, to the fraction of a pixel (`CUT`). With two beaches, the row of their tabs
+made it scroll on a phone's card, and words of its tiles were cut (seen on 2026-11-27).
 
 Home Assistant draws its cards in Roboto, and the demo asks for it first; a machine without it draws the card in its own font
 (Segoe UI on Windows, DejaVu Sans on Linux, which is wider and cuts what Home Assistant does not). The script says which font it
@@ -44,6 +48,8 @@ LANGS = ("fr", "en")
 WIDTHS = (300, 320, 340, 360, 390, 420, 480, 560, 720)
 # Narrower, the card may end a long word with an ellipsis (it still fits, and puts nothing past its edges).
 STRICT_FROM = 340
+# The Sea page is measured from a phone's card up (the widget of the Windows app, 300 px, shows the home page only).
+SEA_FROM = 340
 # A text or a bordered box of the page past its left or right edge, measured on the text itself (a cell stretched to its
 # column, or a label box wider than its text, hides where the text ends). A text its box ends with an ellipsis is not past
 # the edge but cut, which the rule of a cut text judges.
@@ -81,12 +87,74 @@ PAST_EDGES = r"""(p) => {
 }"""
 
 
+# A text that ends in an ellipsis on the Sea page: its own width, measured by a Range, is wider than its box, even by a fraction
+# of a pixel (`scrollWidth` is rounded, and missed "pas tous les jours" cut by half a pixel, its ellipsis shown: 2026-11-27).
+CUT = r"""(p) => {
+  const out = [], range = document.createRange();
+  for (const e of p.querySelectorAll('*')) {
+    const s = getComputedStyle(e);
+    if (s.textOverflow !== 'ellipsis' || s.overflowX === 'visible' || !e.textContent.trim()) continue;
+    range.selectNodeContents(e);
+    const box = e.getBoundingClientRect().width - parseFloat(s.borderLeftWidth) - parseFloat(s.borderRightWidth)
+      - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight);
+    const w = range.getBoundingClientRect().width;
+    if (w > box + 0.05) out.push(`cut by ${(w - box).toFixed(1)} px: ` + e.textContent.trim().slice(0, 30));
+  }
+  return out;
+}"""
+
+
 # Whether this machine has Roboto: a text in "Roboto, monospace" as wide as in monospace alone was drawn in the fallback.
 HAS_ROBOTO = r"""() => {
   const c = document.createElement('canvas').getContext('2d'), s = 'mmmmmmmmmmlllliiiiWW 0123456789';
   c.font = '40px monospace'; const mono = c.measureText(s).width;
   c.font = '40px Roboto, monospace'; return Math.abs(c.measureText(s).width - mono) > 0.5;
 }"""
+
+
+def set_width(page: Any, width: int) -> None:
+    """Set the card's width, and wait until it has drawn itself again at it (its ResizeObserver), then measured its page."""
+    page.evaluate("(w) => document.getElementById('frame').style.setProperty('--card-width', w + 'px')", width)
+    page.wait_for_function("(w) => document.querySelector('vigie-card')._width === w", arg=width, timeout=10_000)
+    page.wait_for_timeout(150)
+
+
+# The Sea page drawn for the beach of rank `i` (its answer of `vigie/card/beach` in, its head drawn), not the page of before.
+SHOWN_BEACH = r"""(i) => {
+  const c = document.querySelector('vigie-card');
+  return (c._beachIdx || 0) === i && c._beach?.spot?.id === c._config.beaches[i] && !!c.shadowRoot.querySelector('.page .bh');
+}"""
+
+
+def show_beach(page: Any, i: int) -> None:
+    """Show the beach of rank `i` on the Sea page: its tab when there are several."""
+    tabs = page.locator("vigie-card").locator(".sch")
+    if tabs.count() > i:
+        tabs.nth(i).click()
+    page.wait_for_function(SHOWN_BEACH, arg=i, timeout=10_000)
+    page.wait_for_timeout(150)
+
+
+def judge(
+    page: Any, width: int, label: str, found: list[str], out: Path, problems: list[str], by_range: bool = False
+) -> str:
+    """The page the card shows at this width: `found` and what scrolls, goes over its edges or is cut, kept in `problems`
+    with a capture in `out`. `by_range`: a text cut by its ellipsis is measured by a Range (`CUT`)."""
+    card = page.locator("vigie-card")
+    over = card.locator(".page").evaluate("(p) => p.scrollHeight - p.clientHeight")
+    if over > 0:
+        found.append(f"scrolls by {over} px")
+    edges = card.locator(".page").evaluate(PAST_EDGES)
+    found += [x if x.startswith("under") else f"past the edge, {x}" for x in edges]
+    if width >= STRICT_FROM:
+        found += card.locator(".page").evaluate(CROWDED)
+        if by_range:
+            found += card.locator(".page").evaluate(CUT)
+    if found:
+        problems.append(f"{label}: {'; '.join(found[:4])}")
+        out.mkdir(parents=True, exist_ok=True)
+        page.locator("#frame").screenshot(path=str(out / f"{label}.png"))
+    return "ok" if not found else "NO"
 
 
 class _Quiet(http.server.SimpleHTTPRequestHandler):
@@ -146,44 +214,52 @@ def main(argv: list[str] | None = None) -> int:
                     )
                     page.evaluate("() => document.fonts.ready")
                     row = []
+                    card = page.locator("vigie-card")
                     for width in WIDTHS:
-                        page.evaluate(
-                            "(w) => document.getElementById('frame').style.setProperty('--card-width', w + 'px')", width
-                        )
-                        # The card draws itself again when its width changes (its ResizeObserver), then measures its home page.
-                        page.wait_for_function(
-                            "(w) => document.querySelector('vigie-card')._width === w", arg=width, timeout=10_000
-                        )
-                        page.wait_for_timeout(150)
-                        card = page.locator("vigie-card")
+                        set_width(page, width)
                         shown = card.evaluate("(c) => c._page")
                         found = [] if shown == "home" else [f"the page shown is {shown}, not home"]
-                        over = card.locator(".page").evaluate("(p) => p.scrollHeight - p.clientHeight")
-                        if over > 0:
-                            found.append(f"scrolls by {over} px")
-                        edges = card.locator(".page").evaluate(PAST_EDGES)
-                        found += [x if x.startswith("under") else f"past the edge, {x}" for x in edges]
-                        if width >= STRICT_FROM:
-                            found += card.locator(".page").evaluate(CROWDED)
-                        row.append(f"{width}:{'ok' if not found else 'NO'}")
-                        if found:
-                            label = f"{place}_{lang}_{width}"
-                            problems.append(f"{label}: {'; '.join(found[:4])}")
-                            args.out.mkdir(parents=True, exist_ok=True)
-                            page.locator("#frame").screenshot(path=str(args.out / f"{label}.png"))
+                        row.append(
+                            f"{width}:{judge(page, width, f'{place}_{lang}_{width}', found, args.out, problems)}"
+                        )
                     print(f"{place} {lang}: {' '.join(row)}")
+                    # The Sea page of each beach the card is set to (one tab each), on a phone's card and wider.
+                    beaches = card.evaluate("(c) => (c._config.beaches || []).length")
+                    if beaches:
+                        card.evaluate("(c) => c._go('sea')")
+                        row = []
+                        for width in (w for w in WIDTHS if w >= SEA_FROM):
+                            set_width(page, width)
+                            marks = []
+                            for i in range(beaches):
+                                show_beach(page, i)
+                                found = [] if card.evaluate("(c) => c._page") == "sea" else ["not the Sea page"]
+                                marks.append(
+                                    judge(
+                                        page,
+                                        width,
+                                        f"{place}_{lang}_sea{i + 1}_{width}",
+                                        found,
+                                        args.out,
+                                        problems,
+                                        by_range=True,
+                                    )
+                                )
+                            row.append(f"{width}:{'/'.join(marks)}")
+                        print(f"{place} {lang} sea ({beaches} beaches): {' '.join(row)}")
                     problems += [f"{place}_{lang}: the browser logged {e}" for e in errors]
                     page.close()
             browser.close()
     finally:
         server.shutdown()
     if problems:
-        print(f"\nThe home page does not fit the card ({len(problems)}):", file=sys.stderr)
+        print(f"\nA page does not fit the card ({len(problems)}):", file=sys.stderr)
         for line in problems:
             print(f"  {line}", file=sys.stderr)
         return 1
     print(
-        f"\nThe home page fits the card at {len(WIDTHS)} widths, for {len(PLACES)} places, in {len(LANGS)} languages."
+        f"\nThe home page fits the card at {len(WIDTHS)} widths, for {len(PLACES)} places, in {len(LANGS)} languages;"
+        " so does the Sea page of each beach of the demo, from a phone's card up."
     )
     return 0
 
