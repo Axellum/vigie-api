@@ -1674,7 +1674,14 @@ function beachActivities(c, B, w, rowH) {
   if (!acts.length) return '';
   const from = hourFrom(c), nameW = Math.round(clamp(w * 0.24, 88, 120)), verdW = Math.round(clamp(w * 0.27, 100, 150));
   const grid = `grid-template-columns:${nameW + 8 + verdW}px minmax(0,1fr)`, pair = `grid-template-columns:${nameW}px ${verdW}px`;
-  const ticks = [0, 6, 12, 18].map((i) => `<span style="left:${r1((i / 24) * 100)}%">${c.hourOnly(from + i * 3600)}</span>`).join('');
+  // An hour every quarter of the strip (what the row leaves after its words and its gap of 8 px). Under 30 px a quarter has no
+  // room for "13:00" (English), which went past the edge of a 340 px card on Linux (2026-11-27): the hour alone, as the next
+  // hours do in narrow columns.
+  const quarter = (w - nameW - 8 - verdW - 8) / 4;
+  const ticks = [0, 6, 12, 18].map((i) => {
+    const h = c.hourOnly(from + i * 3600);
+    return `<span style="left:${r1((i / 24) * 100)}%">${quarter < 30 ? h.replace(/:00$/, '') : h}</span>`;
+  }).join('');
   const rows = acts.map((a) => {
     let word, col, why = '';
     if (!a.available) { word = c.t('cannot_judge'); col = P.t3; } else if (!a.verdict) { word = c.t('no_verdict'); col = P.t3; } else {
