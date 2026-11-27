@@ -1,6 +1,45 @@
 /* The demo page around the card. Colours are tokens; the theme follows the choice of the page (data-theme), which is also the
    card's (`hass.themes.darkMode`). The card itself is drawn in Home Assistant's surroundings: its font of 14 px with lines of 1.6
-   and the background of a card, which the card also uses inside its curves. No font is downloaded. */
+   and the background of a card, which the card also uses inside its curves.
+
+   That font is Roboto, served by the demo itself as Home Assistant's frontend serves it: the same files (`roboto-fontface` 0.10.0,
+   Apache License 2.0, in fonts/roboto/ with its licence) and the same declarations, a Roboto installed on the machine first. The
+   card uses the weights 400, 500 and 700 (600 and 800 fall on 700 here). Without it, a machine draws the card in its own font
+   (Segoe UI on Windows), wider, and the Sea page of a phone's card went 16 px past its bottom (2026-11-27). No other site is asked
+   for a font. */
+
+@font-face {
+  font-family: 'Roboto';
+  font-display: swap;
+  src:
+    local('Roboto Regular'),
+    local('Roboto-Regular'),
+    url('fonts/roboto/Roboto-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Roboto';
+  font-display: swap;
+  src:
+    local('Roboto Medium'),
+    local('Roboto-Medium'),
+    url('fonts/roboto/Roboto-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Roboto';
+  font-display: swap;
+  src:
+    local('Roboto Bold'),
+    local('Roboto-Bold'),
+    url('fonts/roboto/Roboto-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+}
 
 :root {
   --bg: #eef2f6;

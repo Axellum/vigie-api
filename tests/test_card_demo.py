@@ -176,12 +176,42 @@ def test_the_built_site_holds_every_file_its_page_asks_for(tmp_path: Path) -> No
     assert local, "the page asks for no local file"
     for ref in local:
         assert (site / ref).is_file(), ref
+    style = (site / "demo.css").read_text(encoding="utf-8")
+    for ref in re.findall(r"url\(\s*['\"]?([^'\")]+)", style):
+        assert not re.match(r"[a-z]+:", ref), f"demo.css asks another site for {ref}"
+        assert (site / ref).is_file(), ref
     script = (site / "demo.js").read_text(encoding="utf-8")
     assert "import('./vigie-card.js')" in script
     assert (site / "vigie-card.js").read_bytes() == CARD.read_bytes()
     for place in recorder.PLACES:
         assert (site / "data" / f"{place['id']}.json").is_file()
     assert (site / ".nojekyll").is_file()
+
+
+def test_the_card_is_drawn_in_roboto_served_by_the_demo_with_its_licence(tmp_path: Path) -> None:
+    # Home Assistant draws its cards in Roboto; a visitor without it saw the Sea page go past the bottom of a phone's card.
+    style = (DEMO / "demo.css").read_text(encoding="utf-8")
+    faces = re.findall(r"@font-face\s*\{([^}]*)\}", style)
+    weights = {}
+    for face in faces:
+        assert re.search(r"font-family:\s*'Roboto'", face)
+        weight = re.search(r"font-weight:\s*(\d+)", face)
+        font = re.search(r"url\('([^']+\.woff2)'\)", face)
+        assert weight and font, face
+        weights[weight.group(1)] = font.group(1)
+    assert sorted(weights) == ["400", "500", "700"]
+    assert re.search(r"\.frame\s*\{[^}]*font-family:\s*Roboto,", style), (
+        "the card's frame no longer asks for Roboto first"
+    )
+    assert "@import" not in style
+    site = tmp_path / "_site"
+    builder.build(site)
+    for ref in weights.values():
+        published = site / ref
+        assert published.read_bytes()[:4] == b"wOF2", ref
+        assert (published.parent / "LICENSE").is_file(), f"{ref} is published without its licence"
+        assert published.name in (DEMO / "fonts" / "roboto" / "NOTICE.md").read_text(encoding="utf-8"), ref
+    assert "Apache License" in (site / "fonts" / "roboto" / "LICENSE").read_text(encoding="utf-8")
 
 
 def test_the_page_asks_nothing_of_an_instance() -> None:
