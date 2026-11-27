@@ -1590,9 +1590,12 @@ function baineWindow(extremes, now, horizon = 24 * 3600) {
 }
 
 const hourFrom = (c) => c.now - (c.now % 3600);
+// The hour an item of the forecast or of the verdicts stands for: the nearest whole hour (the API gives whole hours; a replay
+// moves them by the seconds the clock moved, and a slot is then found all the same).
+const hourOf = (t) => Math.round(t / 3600) * 3600;
 function beachHours(c, B) {
   const from = hourFrom(c);
-  return (Array.isArray(B?.forecast?.hours) ? B.forecast.hours : []).filter((h) => h && num(h.time_utc) && h.time_utc >= from).sort((a, b) => a.time_utc - b.time_utc);
+  return (Array.isArray(B?.forecast?.hours) ? B.forecast.hours : []).filter((h) => h && num(h.time_utc) && hourOf(h.time_utc) >= from).sort((a, b) => a.time_utc - b.time_utc);
 }
 const extremesOf = (B) => (Array.isArray(B?.activities?.tide?.extremes) ? B.activities.tide.extremes : [])
   .filter((e) => e && num(e.time_utc) && (e.kind === 'high' || e.kind === 'low')).sort((a, b) => a.time_utc - b.time_utc);
@@ -1673,7 +1676,7 @@ function beachActivities(c, B, w, rowH) {
       if (a.verdict === 'good' && num(s?.start_utc) && num(s?.end_utc)) why = s.start_utc <= c.now ? c.t('best_until', { b: c.hm(s.end_utc) }) : c.t('best_from', { a: c.hm(s.start_utc), b: c.hm(s.end_utc) });
       else if (a.verdict !== 'good') why = reasonText(c, a.reason);
     }
-    const byTs = new Map((Array.isArray(a.hours) ? a.hours : []).filter((h) => h && num(h.time_utc)).map((h) => [h.time_utc, h]));
+    const byTs = new Map((Array.isArray(a.hours) ? a.hours : []).filter((h) => h && num(h.time_utc)).map((h) => [hourOf(h.time_utc), h]));
     const strip = a.available ? Array.from({ length: 24 }, (_, i) => {
       const h = byTs.get(from + i * 3600), tone = h && h.daylight !== false ? VERDICT_COLOUR[h.verdict] : null;
       return `<i style="background:${tone ? P[tone] : P.filet}"></i>`;
@@ -1697,14 +1700,14 @@ function beachTide(c, B, w, h) {
 
 // The next hours by 3 hours: the waves, their period and the wind, coloured by their strength.
 function beachTable(c, B, cellH) {
-  const P = c.P, from = hourFrom(c), byTs = new Map(beachHours(c, B).map((h) => [h.time_utc, h]));
-  const list = Array.from({ length: 8 }, (_, i) => byTs.get(from + i * 3 * 3600)).filter(Boolean);
+  const P = c.P, from = hourFrom(c), byTs = new Map(beachHours(c, B).map((h) => [hourOf(h.time_utc), h]));
+  const slots = Array.from({ length: 8 }, (_, i) => from + i * 3 * 3600).filter((t) => byTs.has(t)), list = slots.map((t) => byTs.get(t));
   if (list.length < 4) return '';
   const tone = (col, a) => `background:${alpha(col, a)}`;
   const waveBg = (m) => (m >= 4 ? tone(P.rouge, 0.42) : m >= 3 ? tone(P.orange, 0.4) : m >= 2 ? tone(P.jaune, 0.34) : m >= 1 ? tone(P.pluie, 0.3) : tone(P.pluie, 0.14));
   const windBg = (v) => (v >= 80 ? tone(P.rouge, 0.42) : v >= 60 ? tone(P.orange, 0.4) : v >= 40 ? tone(P.jaune, 0.34) : v >= 20 ? tone(P.vent, 0.28) : tone(P.vent, 0.12));
   const cell = (style, inner) => `<span class="c" style="height:${cellH}px;${style}">${inner}</span>`;
-  let s = '<span></span>' + list.map((x, i) => `<span class="h"${i === 0 ? ` style="color:${P.accent}"` : ''}>${c.hourOnly(x.time_utc)}</span>`).join('');
+  let s = '<span></span>' + slots.map((t, i) => `<span class="h"${i === 0 ? ` style="color:${P.accent}"` : ''}>${c.hourOnly(t)}</span>`).join('');
   s += `<span class="l">${c.t('row_waves')}</span>` + list.map((x) => (num(x.waves?.height_m) ? cell(waveBg(x.waves.height_m), c.fmt(x.waves.height_m, 1)) : cell('', '–'))).join('');
   s += `<span class="l">${c.t('row_period')}</span>` + list.map((x) => cell(tone(P.t4, 0.12), num(x.waves?.period_s) ? c.fmt(x.waves.period_s) : '–')).join('');
   s += `<span class="l">${c.t('row_wind')}</span>` + list.map((x) => (num(x.wind?.speed_kmh)
