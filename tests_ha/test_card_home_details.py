@@ -85,6 +85,20 @@ def test_a_home_page_measured_too_tall_is_drawn_with_flatter_curves_never_flatte
     assert heights(render(ANGOULEME, squeeze=500)["home"]) == [192 - 26, 250 - 52]  # no chance per hour, a chance per day
 
 
+def test_the_gusts_of_the_days_have_their_own_line_in_the_columns_and_go_once_the_curves_are_at_their_flattest() -> None:
+    """The line of the gusts under the wind of a day is 16 px of its column (it went past its bottom, seen on 2026-11-27); once
+    both curves are at their flattest and the page is still too tall, the days leave it out (the gusts stay on Details)."""
+    # Angoulême has gusts on two days and a pill of the season, which flattens the curves by 38 px on a narrow card: 40 px more
+    # and both are at their flattest (26 and 52 px), one more and the days leave their gusts out.
+    days = lambda page: text(page).split("jours · max et min", 1)[1]  # noqa: E731
+    home, flattest, over = (render(ANGOULEME, squeeze=s)["home"] for s in (0, 40, 41))
+    assert home.count('class="pc rf"') == 2 and "vent / rafales" in days(home) and "raf." in days(home)
+    assert heights(home) == [192 - 13, 250 + 16 - 25]
+    assert flattest.count('class="pc rf"') == 2 and heights(flattest) == [192 - 26, 250 + 16 - 52]
+    assert 'class="pc rf"' not in over and "rafales" not in days(over) and "raf." not in days(over)
+    assert heights(over) == [192 - 26, 250 - 52]
+
+
 def test_on_a_narrow_card_the_now_block_leaves_out_what_would_be_cut() -> None:
     """Measured on 2026-11-27 with Home Assistant's fonts: the gust of now does not fit under 370 px inside, the humidity under
     340; the gusts to come stay beside."""

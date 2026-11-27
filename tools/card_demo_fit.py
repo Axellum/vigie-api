@@ -11,6 +11,7 @@ wide (the widget of the Windows app is 300 px, a phone 340 to 400, a column of a
 
 - it scrolls (the card is 760 px high in a sections view; `_render` draws its home page again until it fits);
 - a text or a box goes past its left or right edge (the page hides what goes over, so it is cut off without an ellipsis);
+- a text of a block of columns (the hours, the days) goes under its bottom (the gusts of the days did, on 2026-11-27);
 - from 340 px, a text is cut by an ellipsis or two neighbouring columns crowd (`CROWDED` of `tools/card_in_home_assistant.py`).
 
 Home Assistant draws its cards in Roboto, and the demo asks for it first; a machine without it draws the card in its own font
@@ -65,6 +66,16 @@ PAST_EDGES = r"""(p) => {
     const s = getComputedStyle(e);
     if (!(parseFloat(s.borderLeftWidth) || parseFloat(s.borderRightWidth))) continue;
     if (past(e.getBoundingClientRect())) out.push('box: ' + (e.textContent || e.className).trim().slice(0, 30));
+  }
+  // A block of columns (the hours, the days) holds what it says: a text under its bottom crosses the ring of today's column.
+  for (const cols of p.querySelectorAll('.cols')) {
+    const bottom = cols.getBoundingClientRect().bottom, inside = document.createTreeWalker(cols, NodeFilter.SHOW_TEXT);
+    for (let t = inside.nextNode(); t; t = inside.nextNode()) {
+      if (!t.textContent.trim()) continue;
+      range.selectNodeContents(t);
+      const b = range.getBoundingClientRect();
+      if (b.height > 0 && b.bottom > bottom + 0.5) out.push('under its columns: ' + t.textContent.trim().slice(0, 30));
+    }
   }
   return out;
 }"""
@@ -150,7 +161,8 @@ def main(argv: list[str] | None = None) -> int:
                         over = card.locator(".page").evaluate("(p) => p.scrollHeight - p.clientHeight")
                         if over > 0:
                             found.append(f"scrolls by {over} px")
-                        found += [f"past the edge, {x}" for x in card.locator(".page").evaluate(PAST_EDGES)]
+                        edges = card.locator(".page").evaluate(PAST_EDGES)
+                        found += [x if x.startswith("under") else f"past the edge, {x}" for x in edges]
                         if width >= STRICT_FROM:
                             found += card.locator(".page").evaluate(CROWDED)
                         row.append(f"{width}:{'ok' if not found else 'NO'}")
