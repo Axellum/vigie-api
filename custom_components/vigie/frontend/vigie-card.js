@@ -963,7 +963,7 @@ const glowLegend = (c) => `${c.t('night')}<span class="ramp" style="background:l
 
 // The next 24 hours: a column per slot, its icon, the temperature curve, the rain, its chance (when the forecast gives one), the
 // wind, the gusts when they are strong (60 km/h or more, in their colour), the hour. `cut`: a flatter curve, that many px less
-// (the card has a fixed size; at most 20). Colour only where it says something (the "Calme" sketch of 2026-11-27): the
+// (the card has a fixed size; at most 26). Colour only where it says something (the "Calme" sketch of 2026-11-27): the
 // temperatures, the rain, a strong gust; the wind is grey.
 function hoursBlock(c, w, cut = 0) {
   const S = hourSlots(c, w);
@@ -1013,7 +1013,7 @@ function sunHoursText(c, h, tight) {
 // amount), its chance, the strongest wind with its unit (and its direction where the hours of the answer cover the day), the
 // gusts below it, in their colour when strong. Where the answer gives the hours of sunshine of a day, they are said under its
 // icon and tint its column (their share of the daylight); else the cloud cover of its hours, then its weather code. `cut`:
-// flatter curves, that many px less (at most 40).
+// flatter curves, that many px less (at most 52).
 function daysBlock(c, w, nMax, cut = 0) {
   const P = c.P, today = c.dayKey(c.now);
   const list = (Array.isArray(c.point?.daily) ? c.point.daily : []).filter((d) => d && typeof d.date === 'string' && d.date >= today && num(d.tmax) && num(d.tmin)).slice(0, nMax);
@@ -1369,11 +1369,13 @@ function chancesBlock(c, w) {
 // The home page in France (piste B of the sketches, with the rain tile of piste A): now, the rain of the hour, the strongest line
 // of the season, the next 24 hours and the days. The credits are on the other pages. It has to fit the card: with the pill of
 // the season on a narrow card, or when the card measures it too tall (`c.squeeze`, px, see `_render`), the curves of the hours
-// and of the days are flattened, a third and two thirds of what is missing.
+// and of the days are flattened, a third and two thirds of what is missing: 78 px at most, since the line of sunshine of the days
+// (14 px) and a pill of the season on two lines (16 px, "Avalanches · risque 3 (marqué) · Mont-Blanc" under 360 px) came on top
+// of the 60 px it was drawn for (Chamonix scrolled by 13 px from 300 to 380 px wide, and by 3 px at 480).
 function pageHome(c) {
   if (!c.inFrance) return pageHomeWorld(c);
   const W = c.W, season = seasonPill(c, 13, 18, true, '7px 12px');
-  const less = (season && !c.wide ? 38 : 0) + (c.squeeze || 0), cutH = Math.min(20, Math.round(less / 3)), cutD = Math.min(40, less - cutH);
+  const less = (season && !c.wide ? 38 : 0) + (c.squeeze || 0), cutH = Math.min(26, Math.round(less / 3)), cutD = Math.min(52, less - cutH);
   if (c.wide) {
     const left = Math.round(W * 0.52), right = W - left - 20;
     return `<div class="pile" style="gap:10px"><div class="duo" style="grid-template-columns:${left}px ${right}px">${nowBlock(c, left)}` +
@@ -1970,7 +1972,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cu
 .moment .l1{font-weight:700}
 .vent{display:flex;align-items:center;gap:6px;color:var(--vc-t2)}
 .pills{display:grid;gap:8px}
-.puce{display:flex;align-items:center;gap:10px;border-radius:16px;padding:11px 14px;border:1.5px solid;font-weight:700;min-width:0;width:100%;color:var(--vc-texte)}
+.puce{display:flex;box-sizing:border-box;align-items:center;gap:10px;border-radius:16px;padding:11px 14px;border:1.5px solid;font-weight:700;min-width:0;width:100%;color:var(--vc-texte)}
 .puce small{display:block;font-weight:500;color:var(--vc-t2);font-size:13px;margin-top:2px}
 .puce .det{font-weight:500;color:var(--vc-t2)}
 .puce .tx{min-width:0}

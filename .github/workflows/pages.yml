@@ -2,6 +2,8 @@ name: Card demo
 
 # The online demo of the Home Assistant card, on GitHub Pages: the page of demo/, the recorded answers of demo/data/ and the card
 # of the integration as it is on main (tools/build_card_demo.py). A pull request that touches them builds the site; main publishes it.
+# The `fit` job checks on the same site that the home page of the card fits it from 300 to 720 px wide (tools/card_demo_fit.py);
+# it does not hold the publication back.
 
 on:
   push:
@@ -11,6 +13,8 @@ on:
       - custom_components/vigie/frontend/vigie-card.js
       - custom_components/vigie/brand/icon.png
       - tools/build_card_demo.py
+      - tools/card_demo_fit.py
+      - tools/card_in_home_assistant.py
       - .github/workflows/pages.yml
   pull_request:
     paths:
@@ -18,6 +22,8 @@ on:
       - custom_components/vigie/frontend/vigie-card.js
       - custom_components/vigie/brand/icon.png
       - tools/build_card_demo.py
+      - tools/card_demo_fit.py
+      - tools/card_in_home_assistant.py
       - .github/workflows/pages.yml
   workflow_dispatch:
 
@@ -46,6 +52,42 @@ jobs:
         if: github.event_name != 'pull_request'
         with:
           path: _site
+
+  fit:
+    name: The home page fits the card (demo, 300 to 720 px)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Playwright and its Chromium (pinned, as in the Home Assistant workflow)
+        run: |
+          pip install playwright==1.63.0
+          python -m playwright install --with-deps chromium
+
+      # Home Assistant draws its cards in Roboto, which its frontend serves; the demo asks for it first. Without it, Chromium on
+      # Linux falls back to DejaVu Sans, a wider font Home Assistant never shows (31 texts cut on 2026-11-27).
+      - name: Roboto, the font of Home Assistant
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends fonts-roboto
+          fc-list | grep -i "Roboto-Regular"
+
+      - name: The home page at nine widths, at the three places of the demo, in French and in English
+        run: |
+          python tools/build_card_demo.py _site
+          python tools/card_demo_fit.py _site --out fit-captures --need-roboto
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: card-fit-captures
+          path: fit-captures
+          if-no-files-found: ignore
 
   deploy:
     name: Publish the card demo

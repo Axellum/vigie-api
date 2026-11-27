@@ -78,11 +78,11 @@ def heights(html: str) -> list[int]:
 
 def test_a_home_page_measured_too_tall_is_drawn_with_flatter_curves_never_flatter_than_set() -> None:
     """The card measures its home page and draws it again by what it is over (Home Assistant's fonts, a long header): the
-    hours lose a third, the days two thirds, at most 20 and 40 px (the curves stay readable; past that the page scrolls)."""
+    hours lose a third, the days two thirds, at most 26 and 52 px (the curves stay readable; past that the page scrolls)."""
     drawn = heights(render(ANGOULEME)["home"])
     over12 = heights(render(ANGOULEME, squeeze=12)["home"])
     assert over12[0] == drawn[0] - 4 and over12[1] == drawn[1] - 8
-    assert heights(render(ANGOULEME, squeeze=500)["home"]) == [192 - 20, 250 - 40]  # no chance per hour, a chance per day
+    assert heights(render(ANGOULEME, squeeze=500)["home"]) == [192 - 26, 250 - 52]  # no chance per hour, a chance per day
 
 
 def test_on_a_narrow_card_the_now_block_leaves_out_what_would_be_cut() -> None:
