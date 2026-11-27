@@ -383,7 +383,7 @@ beside "now"). It has a fixed size, 760 px high (12 rows and the whole width of 
 resizable): the home page always fits, without a cut text (on a narrow card its curves are flatter, "now" leaves out the gust
 of now, then the humidity, the line under the rain tile takes two lines and the days are said by their name alone), a longer
 page scrolls inside the card. When the names of the pages do not fit their tabs (six pages on a phone), the bar shows their
-icons, each named for the screen readers. Swipe left or right, or use the arrow keys, to change pages. Every page but the home page credits
+icons, each named for the screen readers; a wall screen first drops the icons beside the names. Swipe left or right, or use the arrow keys, to change pages. Every page but the home page credits
 the providers of what it shows, relayed by the instance.
 
 Its limits are those of the data: it shows the **official** level only; the tide is the open sea's, computed by the instance

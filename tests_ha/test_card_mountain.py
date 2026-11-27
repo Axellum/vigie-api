@@ -46,8 +46,10 @@ process.stdout.write(vm.runInContext(`(() => {
   const c = makeContext(i.lang, true, i.width, { point: i.home, warnings: null, tides: null, normals: null }, config);
   c.mountain = i.mountain;
   c.mountainError = i.error || null;
-  return JSON.stringify({ page: pageMountain(c), pages: availablePages(c, PAGE_IDS), stations: stationsOf(config),
-    icons: nav(c, ['home', 'mountain'], 'mountain', true) });
+  const page = pageMountain(c);
+  return JSON.stringify({ page, pages: availablePages(c, PAGE_IDS), stations: stationsOf(config),
+    icons: nav(c, ['home', 'mountain'], 'mountain', true), names: nav(c, ['home', 'mountain'], 'mountain', 'names'),
+    narrow: c.mountainTilesNarrow ? c.mountainTilesNarrow() : null });
 })()`, context));
 """
 
@@ -175,3 +177,30 @@ def test_a_narrow_card_puts_the_avalanches_on_the_whole_width() -> None:
     page = render(station(), width=339)["page"]
     assert 'class="mt mtav" style="grid-column:1 / -1"' in page and "grid-template-columns:repeat(2,minmax(0,1fr))" in page
     assert 'grid-column' not in render(station(), width=480)["page"]
+
+
+def test_the_fresh_snow_is_the_one_of_the_seven_days_shown() -> None:
+    """Seen on a real Home Assistant: "21 cm Tuesday" in the tile, the Tuesday of the next week (11 days ahead), while the seven
+    days under it showed none. The tile reads the days the page shows, with the threshold of their pills (what rounds to 1 cm)."""
+    answer = station()
+    for index, day in enumerate(answer["top"]["daily"]):
+        day["snowfall_cm"] = 21.0 if index == 10 else 0.0
+    words = text(render(answer)["page"])
+    assert "Neige fraîche 0 cm Rien sur 7 jours" in words and "21" not in words.split("Neige fraîche")[1].split("Bulletin")[0]
+    answer["top"]["daily"][3]["snowfall_cm"] = 0.5  # shown "1 cm" in its day's pill: the tile says the same day
+    words = text(render(answer)["page"])
+    assert "Neige fraîche 1 cm" in words and "chance" in words.split("Neige fraîche")[1].split("Bulletin")[0]
+
+
+def test_the_tiles_drawn_again_on_two_rows_when_a_word_is_cut() -> None:
+    """The card measures the tiles once drawn ("considerable" cut in English at 480 px): it draws them again, the avalanches on
+    the whole width and the two others under them."""
+    out = render(station(), lang="en", width=480)
+    assert "data-narrow" not in out["page"]
+    assert 'data-narrow="1"' in out["narrow"] and 'class="mt mtav" style="grid-column:1 / -1"' in out["narrow"]
+    assert "grid-template-columns:repeat(2,minmax(0,1fr))" in out["narrow"] and "considerable" in out["narrow"]
+
+
+def test_a_wide_bar_drops_its_icons_before_its_names() -> None:
+    names = render(station(), width=1144)["names"]
+    assert "<span>Montagne</span>" in names and "<svg" not in names and "aria-label" not in names
