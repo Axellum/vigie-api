@@ -81,7 +81,8 @@ def test_the_two_forecast_requests_carry_every_former_variable() -> None:
 
     assert now["current"].split(",") == FORMER_CURRENT
     assert now["minutely_15"].split(",") == FORMER_MINUTELY_15
-    assert daily["daily"].split(",") == FORMER_DAILY
+    # the hours of sunshine and the fresh snow of the days came later (2026-11-27), in the same request
+    assert daily["daily"].split(",") == [*FORMER_DAILY, "sunshine_duration", "snowfall_sum"]
     assert "daily" not in now and "current" not in daily and "minutely_15" not in daily
 
 
@@ -90,7 +91,7 @@ def test_weight_of_the_forecast_before_and_after_the_split() -> None:
     now = OpenMeteoCollector.request_params("now", 48.85, 2.35)
     daily = OpenMeteoCollector.request_params("daily", 48.85, 2.35)
     # the request as it was: 18 variables, 10 days (the hourly cloud cover came later, with the daily part)
-    single = {k: v for k, v in {**now, **daily}.items() if k not in ("hourly", "forecast_hours")}
+    single = {k: v for k, v in {**now, **daily, "daily": ",".join(FORMER_DAILY)}.items() if k not in ("hourly", "forecast_hours")}
 
     assert collector.call_weight(single) == 1.8
     assert collector.call_weight(now) == 1.1
@@ -101,7 +102,7 @@ def test_the_hourly_cloud_cover_rides_in_the_daily_request_for_free() -> None:
     daily = OpenMeteoCollector.request_params("daily", 48.85, 2.35)
 
     assert daily["hourly"] == "cloud_cover" and daily["forecast_hours"] == "48"
-    assert len(daily["daily"].split(",")) + len(daily["hourly"].split(",")) == 8  # under the 10 variables of one call
+    assert len(daily["daily"].split(",")) + len(daily["hourly"].split(",")) == 10  # the 10 variables of one call, not more
     assert OpenMeteoCollector().call_weight(daily) == 1.0
 
 

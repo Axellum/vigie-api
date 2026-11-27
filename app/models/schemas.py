@@ -166,6 +166,16 @@ class DailyForecast(BaseModel):
     )
     wind_max: Optional[float] = Field(default=None, ge=0.0, description="Maximum wind speed of the day (km/h)")
     uv_max: Optional[float] = Field(default=None, ge=0.0, description="Maximum UV index of the day")
+    sunshine_h: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=24.0,
+        description="Hours of sunshine of the day (Open-Meteo's sunshine duration: direct normal irradiance above 120 W/m2, the WMO "
+        "threshold, calculated from the model's radiation)",
+    )
+    snowfall_cm: Optional[float] = Field(
+        default=None, ge=0.0, description="Fresh snow of the day (cm), as the model gives it (Open-Meteo's snowfall sum)"
+    )
 
 
 class HourlyWeatherPoint(BaseModel):
