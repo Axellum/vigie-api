@@ -289,9 +289,10 @@ Weather Plus Card finds both by itself; in the card of HACF, set `rainForecastEn
 
 - **Next rain** (`sensor.vigie_home_next_rain`, in French `..._prochaine_pluie`; with the weather option): the start of the
   first part of the hour that is not dry, unknown when the whole hour is dry or not known. `forecast_time_ref` is the start of
-  the hour (ISO, UTC) and `1_hour_forecast` the word of each part, keyed by its minutes from that start: in metropolitan France
-  the nine slots of Météo-France PIAF (`"0 min"` to `"25 min"` by 5 minutes, then `"30 min"`, `"40 min"`, `"50 min"`), elsewhere
-  the four 15-minute steps of the forecast model (`"0 min"` to `"45 min"`; a model, not a radar). The words are Météo-France's
+  the hour (ISO, UTC) and `1_hour_forecast` the word of each of the nine parts of the hour, keyed as Météo-France's integration
+  keys them: `"0 min"` to `"25 min"` by 5 minutes, then `"35 min"`, `"45 min"`, `"55 min"` for the three parts of 10 minutes.
+  In metropolitan France the nine slots of Météo-France PIAF; elsewhere the four 15-minute steps of the forecast model spread
+  over them, a part across two steps taking the stronger (a model, not a radar). The words are Météo-France's
   from the rate: below 0.2 mm/h `Temps sec`, below 1.6 `Pluie faible`, below 6 `Pluie modérée`, then `Pluie forte`.
 - **Weather alert** (`sensor.vigie_home_weather_alert`, in French `..._vigilance_meteo`): `green`, `yellow`, `orange` or `red`
   (`green` where the maximum level says `none`, unknown where it is unknown), and one attribute per phenomenon of the warnings

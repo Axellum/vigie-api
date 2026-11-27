@@ -112,8 +112,8 @@ class VigieNextRainSensor(VigieWeatherDataEntity, SensorEntity):
 
     The state is the start of the first part of the hour that is not dry ("Temps sec"), unknown when the whole hour is dry or
     the hour is not known. Attributes `forecast_time_ref` (the start of the hour, ISO, UTC) and `1_hour_forecast`
-    (`{"0 min": "Temps sec", "5 min": "Pluie faible", ...}`): in metropolitan France the nine slots of PIAF, elsewhere the four
-    15-minute steps of the forecast model.
+    (`{"0 min": "Temps sec", "5 min": "Pluie faible", ..., "55 min": ...}`, Météo-France's nine keys): in metropolitan France
+    the nine slots of PIAF, elsewhere the four 15-minute steps of the forecast model spread over them.
     """
 
     _attr_translation_key = "next_rain"

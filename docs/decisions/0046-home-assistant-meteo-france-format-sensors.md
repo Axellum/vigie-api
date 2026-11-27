@@ -30,9 +30,14 @@ attributes would be a contract of two meanings.
    2026-11-27):
    - **Next rain** (`next_rain`, with the weather of the place): a timestamp, the start of the first part of the hour that is
      not dry, unknown when the whole hour is; `forecast_time_ref` (the start of the hour) and `1_hour_forecast`
-     (`"<minutes> min"` → word). In metropolitan France the nine slots of PIAF (5 minutes for the first half hour, then 10;
-     their keys are their real starts, 30, 40 and 50 for the last three); elsewhere the four 15-minute steps of the forecast
-     model, from the start the API gives. The words come from the rate by the bounds of the gateway (`vigie-meteo`,
+     (`"<minutes> min"` → word), always Météo-France's nine keys: `"0 min"` to `"25 min"` by 5 minutes, then `"35 min"`,
+     `"45 min"`, `"55 min"` for the three parts of 10 minutes (30 to 40, 40 to 50, 50 to 60), as in the snapshot of Home
+     Assistant's tests of the integration; the Météo-France card of HACF draws these nine keys and no other. In metropolitan
+     France the nine slots of PIAF, one per key; elsewhere the four 15-minute steps of the forecast model, from the start the
+     API gives, spread over the nine parts (a part across two steps takes the stronger). The state stays the real start of
+     the part (30 minutes for the one keyed 35). *Corrected on 2026-11-27 (the first version keyed the last three 30, 40 and
+     50, and the four steps 0 to 45: the card of HACF then left its rain bar empty).* The words come from the rate by the
+     bounds of the gateway (`vigie-meteo`,
      `rain_slice_from_mm_5min`): below 0.2 mm/h dry, below 1.6 light, below 6 moderate, then heavy.
    - **Weather alert** (`weather_alert`, always): an enum `green` / `yellow` / `orange` / `red` (`green` where the maximum
      level says `none`, unknown where it is unknown); one attribute per phenomenon, Météo-France's word for it and the colour
