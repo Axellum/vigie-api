@@ -170,6 +170,15 @@ h2 {
   border-radius: 6px;
 }
 
+.recorded.note {
+  margin-top: -8px;
+  border-left-color: var(--muted);
+}
+
+.recorded[hidden] {
+  display: none;
+}
+
 .yaml {
   margin: 8px 0;
   padding: 12px;
