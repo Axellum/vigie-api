@@ -230,3 +230,47 @@ def test_details_are_shown_only_where_there_is_something_to_draw() -> None:
     del point["short_term"], point["probabilities"]
     assert "details" in render(point)["pages"]  # in France the nowcast and the hours are enough
     assert "details" not in render(recorded("point_tokyo_2026-11-22.json"))["pages"]
+
+
+def with_sunshine(point: dict[str, Any], hours: list[float | None]) -> dict[str, Any]:
+    """The answer with the hours of sunshine of its days (`sunshine_h`, from 2026-11-27); the recorded answers have none."""
+    out = copy.deepcopy(point)
+    for i, day in enumerate(out["daily"]):
+        day["sunshine_h"] = hours[i] if i < len(hours) else None
+    return out
+
+
+def sun_lines(html: str) -> list[str]:
+    return [text(x) for x in re.findall(r'<span class="ds"[^>]*>(.*?)</span>', html)]
+
+
+def test_the_days_say_their_hours_of_sunshine_under_their_icon_as_the_sketch() -> None:
+    """The "Lueur" sketch: "● 2 h" under the icon of each day; under an hour, in minutes ("0,5 h" in a narrow column)."""
+    point = with_sunshine(ANGOULEME, [2.0, 1.0, 4.2, 0.5, 0.0, 5.0, 7.3])
+    home = render(point, width=412)["home"]
+    assert sun_lines(home) == ["2 h", "1 h", "4 h", "30 min", "0 h", "5 h", "7 h"]
+    assert "soleil · pluie · vent / rafales" in text(home)
+    assert sun_lines(render(point, width=339)["home"])[3] == "0,5 h"
+    assert "sun · rain · wind / gusts" in text(render(point, lang="en")["home"])
+
+
+def test_a_day_whose_sunshine_is_unknown_keeps_an_empty_line_and_a_page_without_any_draws_as_before() -> None:
+    point = with_sunshine(ANGOULEME, [2.0, None, 4.0])
+    lines = sun_lines(render(point)["home"])
+    assert lines[:3] == ["2 h", "", "4 h"] and set(lines[3:]) == {""}
+    before = render(ANGOULEME)["home"]  # the recorded answer: no hours of sunshine at all
+    assert 'class="ds"' not in before and "soleil" not in text(before).split("7 jours")[1]
+    assert heights(before)[1] + 14 == heights(render(point)["home"])[1]  # the line of sunshine: 14 px more for the days
+
+
+def test_the_glow_of_a_day_follows_its_share_of_sunshine_when_the_answer_gives_it() -> None:
+    """Gold for a day of sun, grey for a day without, whatever the cloud cover of its hours says (it is only an estimate)."""
+    def day_columns(point: dict[str, Any]) -> list[str]:
+        return re.findall(r'class="cl" style="([^"]*)"', render(point)["home"])[-7:]
+    def top(style: str) -> tuple[int, int, int, int]:  # the colour at the top of the column, "#rrggbbaa"
+        h = re.search(r"#([0-9a-f]{8}) 0%", style.lower()).group(1)
+        return tuple(int(h[k:k + 2], 16) for k in (0, 2, 4, 6))
+    columns = day_columns(with_sunshine(ANGOULEME, [None, 8.5, 0.0]))
+    sunny, grey = top(columns[1]), top(columns[2])  # 8.5 h of the 9 h of daylight of late November, and 0 h
+    assert sunny[3] > 2 * grey[3]  # the glow of a day of sun is far stronger
+    assert sunny[0] - sunny[2] > 120 and abs(grey[0] - grey[2]) < 40  # and gold, where a day without sun stays grey

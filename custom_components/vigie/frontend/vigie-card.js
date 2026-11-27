@@ -81,7 +81,8 @@ const TEXT = {
     snow_in: 'Neige dans {n}&nbsp;min', snow_now: 'Il neige', int_light: 'faible', int_moderate: 'modérée', int_heavy: 'forte',
     then: '{a}, puis {b}', next_rain: 'Prochaine pluie {d}vers {t}', dry_until: 'Sec jusqu’à {d}{t}',
     hours_by: '24&nbsp;h · par {n}&nbsp;h', hours_each: '24&nbsp;h · heure par heure', night: 'nuit', sun: 'soleil',
-    days_title: '{n} jours · max et min', days_legend: 'pluie · vent', days_legend_gusts: 'pluie · vent / rafales', today_short: 'Auj.',
+    days_title: '{n} jours · max et min', days_legend: 'pluie · vent', days_legend_gusts: 'pluie · vent / rafales',
+    days_legend_sun: 'soleil · pluie · vent', days_legend_sun_gusts: 'soleil · pluie · vent / rafales', sun_h: '{n} h', sun_min: '{n} min', today_short: 'Auj.',
     rain_until: 'La pluie d’ici {t}', noon: 'midi', dry_word: 'Sec', lull: 'Accalmie', light_kind: '{k} faible',
     in_hour: 'Dans l’heure · toutes les {n}&nbsp;min', now_short: 'maint.', radar_piaf: 'radar PIAF',
     quarter_until: 'Jusqu’à {t} · par quart d’heure', gusts_unit: 'rafales km/h', peak_at: '{v} à {t}',
@@ -151,7 +152,8 @@ const TEXT = {
     snow_in: 'Snow in {n}&nbsp;min', snow_now: 'Snowing', int_light: 'light', int_moderate: 'moderate', int_heavy: 'heavy',
     then: '{a}, then {b}', next_rain: 'Next rain {d}around {t}', dry_until: 'Dry until {d}{t}',
     hours_by: '24&nbsp;h · every {n}&nbsp;h', hours_each: '24&nbsp;h · hour by hour', night: 'night', sun: 'sun',
-    days_title: '{n} days · high and low', days_legend: 'rain · wind', days_legend_gusts: 'rain · wind / gusts', today_short: 'Today',
+    days_title: '{n} days · high and low', days_legend: 'rain · wind', days_legend_gusts: 'rain · wind / gusts',
+    days_legend_sun: 'sun · rain · wind', days_legend_sun_gusts: 'sun · rain · wind / gusts', sun_h: '{n} h', sun_min: '{n} min', today_short: 'Today',
     rain_until: 'Rain until {t}', noon: 'noon', dry_word: 'Dry', lull: 'Lull', light_kind: 'Light {k}',
     in_hour: 'Within the hour · every {n}&nbsp;min', now_short: 'now', radar_piaf: 'PIAF radar',
     quarter_until: 'Until {t} · by quarter hour', gusts_unit: 'gusts km/h', peak_at: '{v} at {t}',
@@ -952,16 +954,33 @@ function hoursBlock(c, w, cut = 0) {
   return `<div class="bloc">${s}</div></div>`;
 }
 
+// The hours of daylight of a local day, counted by 10 minutes (a day's share of sun is its hours of sunshine over them).
+function daylightHours(c, date) {
+  const co = c.point?.coordinates;
+  if (!num(co?.lat) || !num(co?.lon)) return null;
+  const start = Date.parse(`${date}T00:00:00Z`) / 1000 - c.offset;
+  let n = 0;
+  for (let k = 0; k < 144; k++) if (sunUp(co.lat, co.lon, start + k * 600 + 300)) n++;
+  return n / 6;
+}
+// The hours of sunshine of a day as the sketches say them: "7 h", "30 min" ("0,5 h" in a narrow column), "0 h".
+function sunHoursText(c, h, tight) {
+  if (h === 0 || h >= 0.95) return c.t('sun_h', { n: c.fmt(Math.round(h)) });
+  return tight ? c.t('sun_h', { n: c.fmt(Math.max(0.1, h), 1) }) : c.t('sun_min', { n: Math.max(10, Math.round(h * 6) * 10) });
+}
+
 // The days: a column per day, tinted by its sun; the highest and lowest as two curves around a band; the rain, its chance, the
-// strongest wind (with the gusts and the direction where the hours of the answer cover the day). `cut`: flatter curves, that many
-// px less (at most 40).
+// strongest wind (with the gusts and the direction where the hours of the answer cover the day). Where the answer gives the hours
+// of sunshine of a day, they are said under its icon and tint its column (their share of the daylight); else the cloud cover of
+// its hours, then its weather code. `cut`: flatter curves, that many px less (at most 40).
 function daysBlock(c, w, nMax, cut = 0) {
   const P = c.P, today = c.dayKey(c.now);
   const list = (Array.isArray(c.point?.daily) ? c.point.daily : []).filter((d) => d && typeof d.date === 'string' && d.date >= today && num(d.tmax) && num(d.tmin)).slice(0, nMax);
   const n = list.length;
   if (n < 2) return '';
   // Under 50 px a column has no room for "Mar 24" nor "0,5 mm" beside its neighbour: the day name alone, smaller amounts.
-  const cw = w / n, tight = cw < 50, hasP = list.some((d) => num(d.rain_probability_pct)), H = (hasP ? 250 : 236) - cut;
+  const cw = w / n, tight = cw < 50, hasP = list.some((d) => num(d.rain_probability_pct));
+  const hasSun = list.some((d) => num(d.sunshine_h)), sh = hasSun ? 14 : 0, H = (hasP ? 250 : 236) + sh - cut; // sh: the line of sunshine
   const hourly = Array.isArray(c.point?.hourly) ? c.point.hourly.filter((h) => h && num(h.time_utc)) : [];
   const info = list.map((d) => {
     const hrs = hourly.filter((h) => c.dayKey(h.time_utc) === d.date && h.time_utc >= c.now - (c.now % 3600));
@@ -969,19 +988,25 @@ function daysBlock(c, w, nMax, cut = 0) {
     const whole = need > 0 && hrs.length >= need - 1; // an hour of slack for the change of time
     // Today the gust is the one of the hours still to come, sometimes below the wind of the whole day: then none (not "33/24").
     const gusts = vals(hrs, 'wind_gust_kmh'), gust = whole && gusts.length ? Math.max(...gusts) : null;
-    return { sun: sunOfHours(hrs.filter((h) => h.is_day === true)) ?? sunOfCode(d.code), gust: num(gust) && !(num(d.wind_max) && gust <= d.wind_max) ? gust : null, deg: whole ? windFrom(hrs) : null };
+    const light = num(d.sunshine_h) ? daylightHours(c, d.date) : null, share = light > 0 ? clamp(d.sunshine_h / light, 0, 1) : null;
+    return { share, sun: share ?? sunOfHours(hrs.filter((h) => h.is_day === true)) ?? sunOfCode(d.code), gust: num(gust) && !(num(d.wind_max) && gust <= d.wind_max) ? gust : null, deg: whole ? windFrom(hrs) : null };
   });
   const lo = Math.floor(Math.min(...list.map((d) => d.tmin))) - 1, hi = Math.ceil(Math.max(...list.map((d) => d.tmax))) + 1;
-  const yOf = (t) => 150 - cut - ((t - lo) / (hi - lo)) * (76 - cut);
+  const yOf = (t) => 150 + sh - cut - ((t - lo) / (hi - lo)) * (76 - cut);
   const mx = list.map((d, i) => ({ x: cw * (i + 0.5), y: yOf(d.tmax) })), mn = list.map((d, i) => ({ x: cw * (i + 0.5), y: yOf(d.tmin) }));
   const maxD = smooth(mx), minD = smooth(mn), band = `${maxD}${smooth(mn.slice().reverse()).replace(/^M/, ' L')} Z`, id = uid();
   const mean = (key) => sum(list.map((d) => d[key])) / n;
-  const legend = c.t(info.some((x) => num(x.gust)) ? 'days_legend_gusts' : 'days_legend');
+  const legend = c.t(`days_legend${hasSun ? '_sun' : ''}${info.some((x) => num(x.gust)) ? '_gusts' : ''}`);
+  const sunLine = (d, i) => {
+    if (!num(d.sunshine_h)) return '<span class="ds"></span>';
+    const k = info[i].share ?? d.sunshine_h / 9, col = k >= 0.45 ? P.icon.soleil : k >= 0.2 ? mix(P.t3, P.icon.soleil, 0.55) : P.t3;
+    return `<span class="ds" style="color:${col}"><i style="background:${col}"></i>${sunHoursText(c, d.sunshine_h, tight)}</span>`;
+  };
   let s = section(c.t('days_title', { n }), legend) + `<div class="cols" style="width:${r1(w)}px;height:${H}px">` +
     list.map((d, i) => column(c, cw * i, cw, H, glow(P, info[i].sun, true), i === 0, 10)).join('');
-  s += cells(n, 3, list.map((d, i) => `<div class="dh"><b style="color:${i === 0 ? P.accent : P.texte}">${i === 0 ? c.t('today_short') : tight ? c.dayName(d.date) : `${c.dayName(d.date)} ${Number(d.date.slice(8))}`}</b>${icon(P, wmoKind(d.code), 30)}</div>`));
+  s += cells(n, 3, list.map((d, i) => `<div class="dh"><b style="color:${i === 0 ? P.accent : P.texte}">${i === 0 ? c.t('today_short') : tight ? c.dayName(d.date) : `${c.dayName(d.date)} ${Number(d.date.slice(8))}`}</b>${icon(P, wmoKind(d.code), 30)}${hasSun ? sunLine(d, i) : ''}</div>`));
   const dot = (p, col) => `<circle cx="${r1(p.x)}" cy="${r1(p.y)}" r="3.75" fill="var(--vc-carte)" stroke="${col}" stroke-width="2.5"/>`;
-  s += `<svg class="ov" style="top:0" width="${r1(w)}" height="${170 - cut}" viewBox="0 0 ${r1(w)} ${170 - cut}" aria-hidden="true"><defs>` +
+  s += `<svg class="ov" style="top:0" width="${r1(w)}" height="${170 + sh - cut}" viewBox="0 0 ${r1(w)} ${170 + sh - cut}" aria-hidden="true"><defs>` +
     `<linearGradient id="${id}b" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${tempColour(P, mean('tmax'))}" stop-opacity=".2"/><stop offset="1" stop-color="${tempColour(P, mean('tmin'))}" stop-opacity=".16"/></linearGradient>` +
     tempStops(P, `${id}x`, list.map((d) => d.tmax), w) + tempStops(P, `${id}n`, list.map((d) => d.tmin), w) + '</defs>' +
     `<path d="${band}" fill="url(#${id}b)"/><path d="${maxD}" fill="none" stroke="url(#${id}x)" stroke-width="4" stroke-linecap="round"/>` +
@@ -989,7 +1014,7 @@ function daysBlock(c, w, nMax, cut = 0) {
     list.map((d, i) => dot(mx[i], tempColour(P, d.tmax)) + dot(mn[i], tempColour(P, d.tmin))).join('') + '</svg>';
   s += list.map((d, i) => `<span class="lb" style="left:${r1(mx[i].x - 22)}px;top:${r1(mx[i].y - 26)}px;width:44px;font-size:15px;color:${tempColour(P, d.tmax)}">${c.fmt(d.tmax)}°</span>` +
     `<span class="lb" style="left:${r1(mn[i].x - 22)}px;top:${r1(mn[i].y + 7)}px;width:44px;font-size:13px;font-weight:500;color:${tempColour(P, d.tmin)}">${c.fmt(d.tmin)}°</span>`).join('');
-  s += cells(n, 176 - cut, list.map((d, i) => {
+  s += cells(n, 176 + sh - cut, list.map((d, i) => {
     const mm = num(d.rain_mm) ? d.rain_mm : null, wet = mm !== null && mm >= 0.5;
     const bh = mm > 0 ? Math.max(4, Math.sqrt(Math.min(mm, 30) / 30) * 24) : 2;
     const txt = mm === null ? '' : wet ? `${mm < 1 ? c.fmt(mm, 1) : c.fmt(mm)}&nbsp;mm` : c.t('dry');
@@ -1719,6 +1744,8 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cu
 .hr{font-size:11px;font-weight:700;white-space:nowrap}
 .dh{display:flex;flex-direction:column;align-items:center;gap:1px}
 .dh b{font-size:13px;white-space:nowrap}
+.dh .ds{display:flex;align-items:center;gap:3px;height:13px;font-size:11px;font-weight:600;white-space:nowrap}
+.dh .ds i{display:block;width:5px;height:5px;border-radius:50%}
 .db{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%}
 .db .bw{height:24px;width:100%;display:flex;align-items:flex-end;justify-content:center}
 .db .bw i{display:block;width:min(26px,55%);border-radius:4px}

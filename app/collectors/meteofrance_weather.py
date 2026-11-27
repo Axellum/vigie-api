@@ -54,7 +54,9 @@ CURRENT_VARIABLES = (
     "pressure_msl,wind_speed_10m,wind_gusts_10m,wind_direction_10m,"
     "precipitation,weather_code"
 )
-DAILY_VARIABLES = "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max"
+# The sunshine duration (from the shortwave radiation) and the snowfall (from the snowfall water equivalent) are calculated by
+# Open-Meteo from fields the gateway's server syncs: read there on 2026-11-27, for the four days the models cover.
+DAILY_VARIABLES = "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,sunshine_duration,snowfall_sum"
 # Hourly variables synced in AROME HD / ARPEGE Europe behind the gateway (no uv_index or precipitation_probability).
 HOURLY_VARIABLES = (
     "temperature_2m,apparent_temperature,dew_point_2m,"

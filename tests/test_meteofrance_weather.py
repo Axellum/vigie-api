@@ -75,6 +75,8 @@ def gateway_daily() -> dict[str, Any]:
             "temperature_2m_min": [12.2, 11.5, 8.0, 7.2, *NULLS],
             "precipitation_sum": [4.7, 17.4, 2.25, 13.6, *NULLS],
             "wind_speed_10m_max": [29.6, 33.1, 40.0, 26.7, *NULLS],
+            "sunshine_duration": [0.0, 1800.0, 14_544.0, 31_200.0, *NULLS],  # seconds, calculated by Open-Meteo from the radiation
+            "snowfall_sum": [0.0, 0.0, 0.0, 2.45, *NULLS],
         },
     }
 
@@ -102,6 +104,8 @@ def public_days() -> dict[str, Any]:
                 "precipitation_probability_max": [10 * (i + 1) for i in range(10)],
                 "wind_speed_10m_max": [20.0] * 10,
                 "uv_index_max": [0.8 + i / 10 for i in range(10)],
+                "sunshine_duration": [7200.0] * 10,
+                "snowfall_sum": [1.0] * 10,
             },
             "hourly": {"time": ["2026-11-18T08:00"], "cloud_cover": [40]},
         }
@@ -336,6 +340,9 @@ def test_the_days_the_models_cover_keep_their_values_and_the_rest_comes_from_the
     assert first.uv_max == 1.2 and days[1].uv_max == 1.0  # Météo-France's UV maxima of today and tomorrow (1.18 and 1.01, one decimal)
     assert third.uv_max == pytest.approx(1.0)  # the day after tomorrow: the public API's
     assert (fifth.tmax, fifth.code) == (18.0, 3)  # the fifth day: the public API's
+    # the hours of sunshine and the fresh snow: the models' (seconds turned into hours) for their days, then the public API's
+    assert [d.sunshine_h for d in days[:5]] == [0.0, 0.5, 4.0, 8.7, 2.0]
+    assert [d.snowfall_cm for d in days[:5]] == [0.0, 0.0, 0.0, 2.5, 1.0]
     assert bundle["hourly_cloud_cover"] == [(1_794_990_000, 40.0)]
 
 
@@ -436,3 +443,14 @@ def test_an_expired_public_entry_older_than_the_models_first_day_is_not_added() 
     old = {"daily_10d": [d.model_copy(update={"date": "2026-11-16"}) for d in public_days()["daily_10d"][:1]], "hourly_cloud_cover": []}
     bundle = merge_france_bundle(france(), old, None, *VANNES, now_epoch())
     assert [d.date for d in bundle["daily_10d"]][0] == "2026-11-18"
+
+
+def test_the_sunshine_of_a_day_is_said_in_hours_and_what_open_meteo_did_not_give_stays_unknown() -> None:
+    """Open-Meteo gives the sunshine duration in seconds (more than 24 hours cannot be, read as a whole day) and the snowfall in cm."""
+    payload = {
+        "utc_offset_seconds": 0,
+        "daily": {"time": ["2026-11-27", "2026-11-28", "2026-11-29"], "sunshine_duration": [29_094.04, 90_000, None], "snowfall_sum": [0.0, 12.04, None]},
+    }
+    days = OpenMeteoCollector.parse_daily(payload)["daily_10d"]
+    assert [d.sunshine_h for d in days] == [8.1, 24.0, None]
+    assert [d.snowfall_cm for d in days] == [0.0, 12.0, None]

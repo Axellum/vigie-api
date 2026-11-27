@@ -220,7 +220,7 @@ The number of calls to the providers must not grow with the number of clients. W
   key. A watched zone read by a frame and by a web page used to cost two calls.
 - **The forecast in two requests.** Open-Meteo weighs a request by its variables: the single forecast
   request (18 variables) weighed 1.8 calls. The current conditions and the 15-minute rain (11
-  variables, refreshed every 15 minutes) and the daily forecast (7 variables, every hour) are now
+  variables, refreshed every 15 minutes) and the daily forecast (10 variables with the hourly cloud cover, every hour) are now
   separate requests with their own cache entries; the weight of each request is computed from the
   published rule in `app/collectors/weights.py` (see `data-sources.md`).
 - **The weather of France from the Météo-France models** (optional, [ADR 0028](decisions/0028-weather-of-france-from-the-meteo-france-models.md)).

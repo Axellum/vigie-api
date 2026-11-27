@@ -221,6 +221,14 @@ def _non_negative(value: Any, digits: int = 1) -> Optional[float]:
     return round(max(0.0, number), digits)
 
 
+def _sunshine_hours(seconds: Any) -> Optional[float]:
+    """Open-Meteo's sunshine duration of a day (seconds) in hours, one decimal, at most 24; ``None`` when not given."""
+    number = optional_float(seconds)
+    if number is None:
+        return None
+    return round(min(24.0, max(0.0, number) / 3600), 1)
+
+
 def _rounded(value: Any, digits: int = 1) -> Optional[float]:
     """Round a provider number that may legitimately be negative (temperatures), or ``None``."""
     number = optional_float(value)
@@ -269,9 +277,9 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
     DAILY_VARIABLES = (
         "weather_code,temperature_2m_max,temperature_2m_min,"
         "precipitation_sum,precipitation_probability_max,"
-        "wind_speed_10m_max,uv_index_max"
+        "wind_speed_10m_max,uv_index_max,sunshine_duration,snowfall_sum"
     )
-    # The hourly cloud cover of the next hours, asked with the daily forecast: 8 variables in all, the weight stays 1.0.
+    # The hourly cloud cover of the next hours, asked with the daily forecast: 10 variables in all, the weight stays 1.0.
     HOURLY_VARIABLES = "cloud_cover"
     HOURLY_FORECAST_HOURS = 48
     # Full hourly series for non-compact ``/v1/point`` charts (17 variables, weight 1.7; 72 forecast + 24 past hours).
@@ -519,6 +527,8 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
         probs = daily.get("precipitation_probability_max") or []
         winds = daily.get("wind_speed_10m_max") or []
         uvs = daily.get("uv_index_max") or []
+        suns = daily.get("sunshine_duration") or []  # seconds
+        snows = daily.get("snowfall_sum") or []  # cm
 
         def at(values: list[Any], idx: int) -> Any:
             return values[idx] if idx < len(values) else None
@@ -539,6 +549,8 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
                     rain_probability_pct=_clamped_int(at(probs, idx), 0, 100),
                     wind_max=_non_negative(at(winds, idx)),
                     uv_max=_non_negative(at(uvs, idx)),
+                    sunshine_h=_sunshine_hours(at(suns, idx)),
+                    snowfall_cm=_non_negative(at(snows, idx)),
                 )
             )
 
