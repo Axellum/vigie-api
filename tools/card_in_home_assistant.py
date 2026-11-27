@@ -8,16 +8,16 @@ replays the answers recorded for Biarritz (``python tools/fake_instance.py --rep
 3. puts the card on a dashboard of its own, under a banner that says the data are a replay;
 4. opens the dashboard in Chromium (Playwright) at a phone width and a wall width, in the dark and the light themes, goes
    through every page of the card by its bar (the Mountain page with a station at Chamonix: its weather is simulated at
-   its two altitudes, see ``tools/fake_instance.py``), and saves a capture of each; then opens the card's editor, adds a
-   station, gives it its top altitude, and removes it.
+   its two altitudes, see ``tools/fake_instance.py``; the Sea page with the beach of the spot recorded), and saves a capture of
+   each; then opens the card's editor, adds a station, gives it its top altitude, and removes it.
 
 With ``--card-from /local/vigie/vigie-card.js`` it also fails when the frontend loaded the card from anywhere else (ADR 0044:
 the dashboard resource the integration lists where the www folder is served), and says whether it came compressed.
 
 It fails when the frontend did not load the card, when the card shows no page or an error (then a capture
 ``echec_<width>_<theme>.png`` and what the card and Home Assistant said are kept), when a page of the card is missing,
-when its home page does not fit the card (760 px high: it must not scroll, with Home Assistant's own fonts and line height)
-or cuts a text (an ellipsis) or crowds two neighbouring columns (their texts less than 3 px apart),
+when its home page or the Sea page of its beach does not fit the card (760 px high: it must not scroll, with Home Assistant's
+own fonts and line height) or cuts a text (an ellipsis) or crowds two neighbouring columns (their texts less than 3 px apart),
 when the editor does not draw all its fields or its stations do not change the card's configuration, or when the browser
 logs an error of the card (or any uncaught error while
 the editor is open). The other errors of Home Assistant's frontend are printed, with the elements their file names. Standard library and Playwright only; it never talks to anything but the
@@ -50,6 +50,8 @@ STATION = {"name": "Chamonix", "latitude": 45.92, "longitude": 6.87, "base_m": 1
 # What the Mountain page draws of a station when the instance gave its weather at both altitudes and its bulletin (its titles
 # are in capitals on the screen, and "24 h" holds a no-break space: compared without case, every space a space).
 MOUNTAIN_WORDS = ("iso 0", "avalanches", "24 h · en haut et en bas", "bulletin d’avalanches")
+# What the Sea page draws of the beach of the spot recorded (its forecast, its verdicts and its bathing site).
+SEA_WORDS = ("plage des corsaires", "vagues", "qualité de l’eau", "activités", "marée · 24 h", "les prochaines heures")
 # What is cut or crowded in a page of the card: a text ended by an ellipsis, or the texts of two neighbouring columns less
 # than 3 px apart (measured on the text itself: a cell stretched to its column hides where its text ends).
 CROWDED = r"""(p) => {
@@ -88,7 +90,7 @@ FIND_CARDS = """() => {
     return found;
 }"""
 BANNER = (
-    "**SIMULATION** — réponses de l'API enregistrées le 22/11/2026 et rejouées à l'heure du test "
+    "**SIMULATION** — réponses de l'API enregistrées les 22 et 27/11/2026 et rejouées à l'heure du test "
     "(`tools/fake_instance.py --replay`) : ce n'est pas la météo du jour."
 )
 
@@ -331,14 +333,22 @@ def main(argv: list[str] | None = None) -> int:
                         problems.append(f"{name}/{page_id}: empty or in error: {text[:120]!r}")
                     if page_id == "mountain" and (absent := [w for w in MOUNTAIN_WORDS if w not in re.sub(r"\s", " ", text.lower())]):
                         problems.append(f"{name}/{theme}/mountain: no {absent} in {text[:160]!r}")
+                    if page_id == "sea":  # the beach is asked when the page is drawn: its answer replaces the page of before
+                        try:
+                            card.locator(".page .bts").wait_for(timeout=30_000)
+                        except PlaywrightTimeout:
+                            pass  # said just below
+                        text = card.locator(".page").inner_text()
+                        if absent := [w for w in SEA_WORDS if w not in re.sub(r"\s", " ", text.lower())]:
+                            problems.append(f"{name}/{theme}/sea: no {absent} in {text[:160]!r}")
                     card.screenshot(path=str(args.out / f"{name}_{theme}_{page_id}.png"))
-                    if page_id == "home":  # the home page fits the card of fixed height without scrolling
+                    if page_id in ("home", "sea"):  # these pages fit the card of fixed height without scrolling
                         over = card.locator(".page").evaluate("(p) => p.scrollHeight - p.clientHeight")
                         if over > 0:
-                            problems.append(f"{name}/{theme}/home: {over} px taller than the card, it scrolls")
+                            problems.append(f"{name}/{theme}/{page_id}: {over} px taller than the card, it scrolls")
                         crowded = card.locator(".page").evaluate(CROWDED)
                         if crowded:
-                            problems.append(f"{name}/{theme}/home: {'; '.join(crowded[:4])}")
+                            problems.append(f"{name}/{theme}/{page_id}: {'; '.join(crowded[:4])}")
                 if dark and name == "wall":  # the editor of the card, in Home Assistant's own form
                     phase[0] = "editor"
                     page.set_viewport_size({"width": width, "height": 3400})  # the whole editor, down to its second station (a map each)
