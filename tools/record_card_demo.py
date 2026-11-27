@@ -6,14 +6,17 @@
 For each place of `PLACES` (public places: a beach, a mountain town, a city centre; never anyone's home), it asks the instance
 what the integration asks for the card (the same routes, the same parameters: the integration's own client, `api.py`), puts the
 answers together as the WebSocket command `vigie/card/data` gives them to the card (`websocket.py`), and writes
-`demo/data/<id>.json`. The demo page then plays the part of Home Assistant and sets the card's clock to the time of the read.
+`demo/data/<id>.json`. A place with `stations` also gets, for each, what `vigie/card/mountain` gives the Mountain page (the
+weather at its top and at its base, each at its own altitude, and its avalanche bulletin). The demo page then plays the part of
+Home Assistant and sets the card's clock to the time of the read.
 
 The integration's modules are loaded from `custom_components/vigie` as they are, without Home Assistant: `api.py`, `const.py`,
-`models.py` and `quakes.py` do not import it; for `weather_data.py` (whose two helpers choose the nearest station and spots),
-the few names it imports from Home Assistant and astral are stand-ins that are never called. The two small parts of
-`websocket.py` that need Home Assistant to load (the answer's shape, the earthquakes' summary) are written again here, and
-`tests/test_card_demo.py` checks their keys against that file. Needs aiohttp and yarl (Home Assistant's own client libraries):
-`pip install aiohttp yarl`.
+`models.py` and `quakes.py` do not import it; for `weather_data.py` (whose helpers choose the nearest station and spots and
+trim the answers of the Mountain page), the few names it imports from Home Assistant and astral are stand-ins that are never
+called. The small parts that need Home Assistant to load (the answer's shape and the earthquakes' summary of `websocket.py`,
+the station's shape of `weather_data.py`) are written again here, and `tests/test_card_demo.py` checks their keys against those
+files. Needs aiohttp and yarl (Home Assistant's own client libraries): `pip install aiohttp yarl`. An instance that ignores
+the altitude of `GET /v1/point?elevation=` is refused: its top and base would be the same weather.
 """
 
 from __future__ import annotations
@@ -34,11 +37,29 @@ INTEGRATION = ROOT / "custom_components" / "vigie"
 OUT = ROOT / "demo" / "data"
 PUBLIC_INSTANCE = "https://vigie.auxfilsdesidees.fr"
 LANGUAGES = ("fr", "en")
+# `GET /v1/point` costs the instance calls to a provider: the public one allows 10 a minute per address.
+POINT_SPACING_S = 7
+POINT_RETRY_S = 20
+POINT_TRIES = 4
 
 # Public places only. `spot`: what the card is set to (`auto`: the nearest spot within 20 km, as the editor offers).
+# `stations`: the Mountain page's, as the card's editor writes them. Each is a village at the foot of a public lift, with the
+# altitude of the summit it climbs to; positions and altitudes from GeoNames (Open-Meteo's geocoding API, read on 2026-11-27).
 PLACES: tuple[dict[str, Any], ...] = (
     {"id": "biarritz", "name": "Biarritz", "lat": 43.4832, "lon": -1.5586, "spot": "auto"},
-    {"id": "chamonix", "name": "Chamonix", "lat": 45.9237, "lon": 6.8694, "spot": "none"},
+    {
+        "id": "chamonix",
+        "name": "Chamonix",
+        "lat": 45.9237,
+        "lon": 6.8694,
+        "spot": "none",
+        "stations": [
+            # Chamonix-Mont-Blanc (1,060 m) and Le Brévent (2,524 m)
+            {"name": "Brévent", "latitude": 45.9238, "longitude": 6.8693, "base_m": 1060, "top_m": 2524},
+            # Argentière (1,245 m) and the Aiguille des Grands Montets (3,295 m)
+            {"name": "Grands Montets", "latitude": 45.9826, "longitude": 6.9268, "base_m": 1245, "top_m": 3295},
+        ],
+    },
     {"id": "tokyo", "name": "Tokyo", "lat": 35.6812, "lon": 139.7671, "spot": "none"},
 )
 
@@ -116,6 +137,26 @@ def quakes_summary(data: Any) -> dict[str, Any]:
     }
 
 
+def mountain_station(
+    weather_data: Any, top: Any, base: Any, avalanches: Any, station: dict[str, Any]
+) -> dict[str, Any]:
+    """`async_mountain` of `weather_data.py`, after its three reads: the top, the base and the bulletin, trimmed by its helpers."""
+    top_point = weather_data.mountain_point(top, station["top_m"])
+    base_point = weather_data.mountain_point(base, station.get("base_m"))
+    return {
+        "top": top_point,
+        "base": base_point,
+        "avalanches": weather_data.mountain_avalanches(avalanches),
+        "elevation_ignored": (top_point is None and isinstance(top, dict) and isinstance(top.get("daily"), list))
+        or (
+            base_point is None
+            and station.get("base_m") is not None
+            and isinstance(base, dict)
+            and isinstance(base.get("daily"), list)
+        ),
+    }
+
+
 async def record(base: str, place: dict[str, Any]) -> dict[str, Any]:
     import aiohttp  # noqa: PLC0415 - only this tool needs it
 
@@ -134,7 +175,21 @@ async def record(base: str, place: dict[str, Any]) -> dict[str, Any]:
     headers = {"User-Agent": "vigie-api card demo recorder (+https://github.com/Axellum/vigie-api)"}
     async with aiohttp.ClientSession(headers=headers) as session:
         client = api.VigieClient(session, base)
-        point = await client.point(lat, lon)
+
+        async def read_point(*args: Any, **kwargs: Any) -> Any:
+            """`GET /v1/point` within the limit of the public instance for one address (10 a minute, 120 an hour, shared
+            with whatever else reads it from the same address): spaced, and asked again a little later after a 429."""
+            for attempt in range(POINT_TRIES):
+                await asyncio.sleep(POINT_SPACING_S if attempt == 0 else POINT_RETRY_S)
+                try:
+                    return await client.point(*args, **kwargs)
+                except api.VigieResponseError as err:
+                    if "HTTP 429" not in str(err) or attempt == POINT_TRIES - 1:
+                        raise
+                    print(f"  429 from {base}: asking again in {POINT_RETRY_S} s")
+            raise AssertionError("unreachable")
+
+        point = await read_point(lat, lon)
         read_utc = int(time.time())
         tides = await optional(client.tides(lat, lon))
         normals = await optional(client.climate_normals(lat, lon))
@@ -158,6 +213,21 @@ async def record(base: str, place: dict[str, Any]) -> dict[str, Any]:
             if spots and spots[0]["distance_km"] <= auto_spot_km():
                 spot = spots[0]
                 activities = await optional(client.activities(spot["id"]))
+        mountain = []
+        for station in place.get("stations", []):
+            s_lat, s_lon = station["latitude"], station["longitude"]
+            answer_of_station = mountain_station(
+                weather_data,
+                await optional(read_point(s_lat, s_lon, elevation_m=station["top_m"], marine=False)),
+                await optional(read_point(s_lat, s_lon, elevation_m=station.get("base_m"), marine=False)),
+                await optional(client.avalanches(s_lat, s_lon)),
+                station,
+            )
+            if answer_of_station["elevation_ignored"] or answer_of_station["top"] is None:
+                raise SystemExit(
+                    f"{base} ignores the altitude of GET /v1/point?elevation=: deploy a newer vigie-api first"
+                )
+            mountain.append(answer_of_station)
 
     def answer(language: str) -> dict[str, Any]:
         """What `vigie/card/data` gives the card, in one language (only the warnings' texts depend on it)."""
@@ -186,12 +256,14 @@ async def record(base: str, place: dict[str, Any]) -> dict[str, Any]:
     first, *others = LANGUAGES
     recorded = answer(first)
     return {
-        "place": {key: place[key] for key in ("id", "name", "lat", "lon", "spot")},
+        "place": place,
         "recorded_utc": read_utc,
         "instance": base,
         "answer": recorded,
         # The warnings' texts in each language; the rest of the answer is the same in every language.
         "vigilances": {language: answer(language)["warnings"]["vigilances"] for language in (first, *others)},
+        # What `vigie/card/mountain` gives for each station of the place, in their order (without its `language`).
+        "mountain": mountain,
     }
 
 
@@ -216,6 +288,13 @@ def main() -> None:
             f" spot {answer['spot']['name'] if answer['spot'] else 'none'}, warnings {answer['warnings']['max_level']},"
             f" earthquakes {answer['earthquakes']['count']}"
         )
+        for station, kept in zip(place.get("stations", []), data["mountain"], strict=True):
+            avalanches = kept["avalanches"] or {}
+            print(
+                f"  {station['name']}: top {kept['top']['coordinates'].get('elevation_m')} m,"
+                f" base {(kept['base'] or {}).get('coordinates', {}).get('elevation_m')} m,"
+                f" avalanches {avalanches.get('status')} {avalanches.get('max_danger_level')}"
+            )
 
 
 if __name__ == "__main__":
