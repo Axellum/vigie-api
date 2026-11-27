@@ -31,6 +31,8 @@ STATION_WIND_PATH = "/v1/stations/wind"
 SPOTS_PATH = "/v1/surf/spots"
 ACTIVITIES_PATH = "/v1/activities"
 FOREST_FIRE_PATH = "/v1/forest-fire"
+# The stations of the card's Mountain page: their avalanche bulletin.
+AVALANCHES_PATH = "/v1/avalanches"
 
 # Decimals of the position sent to the API: about one metre. The stream rounds a followed point to four.
 POSITION_DECIMALS = 5
@@ -143,9 +145,15 @@ class VigieClient:
     def _position(self, lat: float, lon: float) -> dict[str, str]:
         return {"lat": f"{lat:.{POSITION_DECIMALS}f}", "lon": f"{lon:.{POSITION_DECIMALS}f}"}
 
-    async def point(self, lat: float, lon: float) -> Any:
-        """``GET /v1/point``, the full answer (not the compact one of the screens) with the sea: the raw JSON."""
-        params = {**self._position(lat, lon), "compact": "false", "marine": "true", "device_type": POINT_DEVICE_TYPE}
+    async def point(self, lat: float, lon: float, *, elevation_m: int | None = None, marine: bool = True) -> Any:
+        """``GET /v1/point``, the full answer (not the compact one of the screens): the raw JSON.
+
+        ``marine``: with the sea (the place of the entry); a station of the mountain asks without it. ``elevation_m``: the weather
+        at that altitude instead of the one of the model's cell (an instance older than this parameter ignores it, and says so by
+        leaving ``coordinates.elevation_m`` out)."""
+        params = {**self._position(lat, lon), "compact": "false", "marine": "true" if marine else "false", "device_type": POINT_DEVICE_TYPE}
+        if elevation_m is not None:
+            params["elevation"] = str(elevation_m)
         return await self._get_json(POINT_PATH, params, WEATHER_TIMEOUT_S)
 
     async def tides(self, lat: float, lon: float) -> Any:
@@ -173,6 +181,10 @@ class VigieClient:
 
         An instance older than this route answers 404 (``VigieNotFoundError``)."""
         return await self._get_json(FOREST_FIRE_PATH, self._position(lat, lon), WEATHER_TIMEOUT_S)
+
+    async def avalanches(self, lat: float, lon: float) -> Any:
+        """``GET /v1/avalanches`` at a point: the official bulletins in force there (an instance older than this route answers 404)."""
+        return await self._get_json(AVALANCHES_PATH, self._position(lat, lon), WEATHER_TIMEOUT_S)
 
     def stream_url(self) -> str:
         """The WebSocket address of the push stream."""

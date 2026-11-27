@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 SERVER_UTC = 1_792_505_748
@@ -255,3 +256,25 @@ def forest_fire(
         "note": None,
         "attribution": FOREST_FIRE_CREDIT,
     }
+
+
+# The fresh snow of the days of a station (cm), as the sketch of the Mountain page shows them; None after the 7th day.
+STATION_SNOW = [15.0, 8.0, 0.0, 0.0, 20.0, 2.0, 0.0]
+
+
+def station_point(point: dict[str, Any], elevation_m: int | None, shift_c: float, *, freezing: bool = True) -> dict[str, Any]:
+    """A recorded answer of ``/v1/point?compact=false`` as asked at ``elevation_m`` (``GET /v1/point?elevation=``, not recorded
+    yet): its temperatures moved by ``shift_c``, the freezing level of its hours (1 500 m, then 10 m higher each hour) and the
+    fresh snow of its days (``STATION_SNOW``). The rest stays as it came."""
+    raw = json.loads(json.dumps(point))
+    raw["coordinates"]["elevation_m"] = elevation_m
+    for index, hour in enumerate(raw.get("hourly") or []):
+        if isinstance(hour.get("temp_c"), (int, float)):
+            hour["temp_c"] = round(hour["temp_c"] + shift_c, 1)
+        hour["freezing_level_m"] = 1500 + 10 * index if freezing else None
+    for index, day in enumerate(raw.get("daily") or []):
+        for key in ("tmax", "tmin"):
+            if isinstance(day.get(key), (int, float)):
+                day[key] = round(day[key] + shift_c, 1)
+        day["snowfall_cm"] = STATION_SNOW[index] if index < len(STATION_SNOW) else None
+    return raw

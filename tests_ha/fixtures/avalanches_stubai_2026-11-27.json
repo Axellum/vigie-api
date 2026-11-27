@@ -1,0 +1,183 @@
+{
+  "version": "1.3.0",
+  "server_utc": "2026-11-27T12:25:41.316216Z",
+  "query": {
+    "lat": 47.13,
+    "lon": 11.27
+  },
+  "status": "active",
+  "covered_by": "euregio_avalanche",
+  "note": "1 active Euregio CAAML v6 bulletin(s) matched for AT-07-14-03.",
+  "region_id": "AT-07-14-03",
+  "region_name": "AT-07-14-03",
+  "max_danger_level": 2,
+  "max_danger_label": "moderate",
+  "bulletins": [
+    {
+      "bulletin_id": "7c549e35-926b-4d80-98fa-6ef560f159ac",
+      "source": "euregio_avalanche",
+      "lang": "en",
+      "publication_time": "2026-11-26T16:00:00Z",
+      "valid_from": "2026-11-26T16:00:00Z",
+      "valid_until": "2026-11-27T16:00:00Z",
+      "next_update": null,
+      "unscheduled": false,
+      "is_expired": false,
+      "max_danger_level": 2,
+      "max_danger_label": "moderate",
+      "regions": [
+        {
+          "region_id": "AT-07-02-02",
+          "name": "Lechtal Alps East"
+        },
+        {
+          "region_id": "AT-07-14-01",
+          "name": "Kauner Ridge"
+        },
+        {
+          "region_id": "AT-07-10",
+          "name": "Verwall Mountains Central"
+        },
+        {
+          "region_id": "AT-07-11",
+          "name": "Verwall Mountains East"
+        },
+        {
+          "region_id": "AT-07-01",
+          "name": "Allgäu Alps East"
+        },
+        {
+          "region_id": "AT-07-03",
+          "name": "Mieming Mountains"
+        },
+        {
+          "region_id": "AT-07-15",
+          "name": "Tuxer Alps West"
+        },
+        {
+          "region_id": "AT-07-16",
+          "name": "Tuxer Alps East"
+        },
+        {
+          "region_id": "AT-07-07",
+          "name": "Lechtal Alps West"
+        },
+        {
+          "region_id": "AT-07-14-04",
+          "name": "Kalkkögel"
+        },
+        {
+          "region_id": "AT-07-08",
+          "name": "Lechtal Alps Central"
+        },
+        {
+          "region_id": "AT-07-14-05",
+          "name": "Serles Ridge"
+        },
+        {
+          "region_id": "AT-07-09",
+          "name": "Grieskogel Mountains"
+        },
+        {
+          "region_id": "AT-07-14-02",
+          "name": "Kühtai - Geigen Ridge"
+        },
+        {
+          "region_id": "AT-07-14-03",
+          "name": "Sellrain - Alpein Mountains"
+        },
+        {
+          "region_id": "AT-07-04-01",
+          "name": "Karwendel Mountains West"
+        }
+      ],
+      "danger_ratings": [
+        {
+          "main_value": "low",
+          "level": 1,
+          "valid_time_period": "all_day",
+          "elevation": {
+            "lower_bound": null,
+            "upper_bound": "2400"
+          },
+          "subdivision": null
+        },
+        {
+          "main_value": "moderate",
+          "level": 2,
+          "valid_time_period": "all_day",
+          "elevation": {
+            "lower_bound": "2400",
+            "upper_bound": null
+          },
+          "subdivision": null
+        }
+      ],
+      "avalanche_problems": [
+        {
+          "problem_type": "persistent_weak_layers",
+          "danger_rating_value": "moderate",
+          "danger_level": 2,
+          "valid_time_period": "all_day",
+          "elevation": {
+            "lower_bound": "2400",
+            "upper_bound": "2900"
+          },
+          "aspects": [
+            "N",
+            "W",
+            "NE",
+            "NW",
+            "E"
+          ],
+          "snowpack_stability": "poor",
+          "frequency": "few",
+          "avalanche_size": 2,
+          "avalanche_type": "slab",
+          "core_zone_text": null,
+          "comment": null
+        },
+        {
+          "problem_type": "wind_slab",
+          "danger_rating_value": "low",
+          "danger_level": 1,
+          "valid_time_period": "all_day",
+          "elevation": {
+            "lower_bound": "2200",
+            "upper_bound": null
+          },
+          "aspects": [
+            "N",
+            "W",
+            "NE",
+            "NW",
+            "E"
+          ],
+          "snowpack_stability": "poor",
+          "frequency": "few",
+          "avalanche_size": 1,
+          "avalanche_type": "slab",
+          "core_zone_text": null,
+          "comment": null
+        }
+      ],
+      "avalanche_activity_highlights": "Weak layers in the old snowpack necessitate caution. This applies in particular between approximately 2400 and 2900 m. Fresh wind slabs at high altitudes.",
+      "avalanche_activity_comment": "Weak layers in the old snowpack can be released even by individual winter sport participants. This applies in particular on very steep west, north and east facing slopes between approximately 2400 and 2900 m. Caution is to be exercised in particular in gullies and bowls, and behind abrupt changes in the terrain. Avalanches are rather small. In addition the fresh wind slabs should be taken into account. Such avalanche prone locations are to be found in steep terrain above approximately 2200 m and adjacent to ridgelines. They are mostly small. They are clearly recognisable to the trained eye. Along the border with Vorarlberg individual gliding avalanches are possible, but they will be mostly small. The Avalanche Warning Service currently has only a small amount of information that has been collected in the field, so that the avalanche danger should be investigated especially thoroughly in the relevant locality.",
+      "snowpack_highlights": null,
+      "snowpack_comment": "Under the various new snow and snow-drift layers that formed in the middle of November you find between approximately 2400 and 2900 m in some places a weak layer consisting of facets. Whumpfing sounds and the formation of shooting cracks when stepping on the snowpack can indicate the danger. In many areas 10 to 20 cm of snow fell on Thursday,, and locally even larger amounts. The wind has transported the new snow. This applies in particular at high altitudes and in high Alpine regions. The fresh wind slabs are lying on soft layers.",
+      "tendency": [
+        {
+          "tendency_type": "steady",
+          "valid_from": "2026-11-27T16:00:00Z",
+          "valid_until": "2026-11-28T16:00:00Z",
+          "highlights": "The avalanche danger will persist.",
+          "comment": null
+        }
+      ],
+      "bulletin_url": "https://avalanche.report/bulletin/latest",
+      "attribution": "Avalanche.report — Avalanche Warning Service Tirol, Südtirol, Trentino (https://avalanche.report). CC BY 4.0 DEED"
+    }
+  ],
+  "stale": false,
+  "attribution": "Avalanche.report — Avalanche Warning Service Tirol, Südtirol, Trentino (https://avalanche.report). CC BY 4.0 DEED"
+}

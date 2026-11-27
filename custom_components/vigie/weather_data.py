@@ -5,7 +5,9 @@ reads the tide (``/v1/tides``; 404 inland, then nothing is asked again for hours
 (``/v1/climate/normals``; France and its overseas territories only) and, where the normals exist, the wind measured by the
 nearest Météo-France station (``/v1/stations/wind``) and the forest fire danger of the department (``/v1/forest-fire``, every
 hour; Météo-France publishes it from June to September). The spots and their verdicts are read when the card asks for them
-(``/v1/surf/spots``, ``/v1/activities/{spot}``), and kept for a while.
+(``/v1/surf/spots``, ``/v1/activities/{spot}``), and kept for a while. So are the stations of the card's Mountain page: the
+weather at their top and at their base (``/v1/point?elevation=``) and their avalanche bulletin (``/v1/avalanches``), trimmed
+to what the page draws.
 
 Nothing here makes up a weather value: what the API did not give stays unknown. The few numbers worked out here (a sum of the
 rain steps of the next hour, the strongest gust among the next hours, the next high water) are read from the answer as it is,
@@ -14,9 +16,11 @@ and their attributes say which part of it they come from.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import math
 import time
+from collections import OrderedDict
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -36,6 +40,8 @@ from .const import (
     FOREST_FIRE_REFRESH,
     MAX_LISTED_SPOTS,
     MAX_SPOT_DISTANCE_KM,
+    MAX_STATIONS,
+    MOUNTAIN_REFRESH,
     NORMALS_REFRESH,
     SPOTS_REFRESH,
     STATION_BOX_DEG,
@@ -296,6 +302,76 @@ class _Slow:
         return self.value
 
 
+# What the Mountain page draws of an answer of `/v1/point` (the rest of it, the sea, the air, the nowcast, is not sent to the card).
+_POINT_KEEP = ("coordinates", "utc_offset_s", "server_utc", "weather_provider", "weather_attribution")
+_CURRENT_KEEP = ("temp_c", "feels_like_c", "weather_code", "wind_kmh", "wind_deg", "gust_kmh")
+_HOUR_KEEP = (
+    "time_utc", "temp_c", "precipitation_mm", "precipitation_probability_pct", "weather_code", "is_day", "wind_kmh", "wind_deg",
+    "wind_gust_kmh", "freezing_level_m",
+)
+_DAY_KEEP = ("date", "code", "tmin", "tmax", "rain_mm", "rain_probability_pct", "snowfall_cm", "wind_max", "sunshine_h")
+# And of an answer of `/v1/avalanches`: the bulletins in force, without their long texts.
+_AVALANCHE_KEEP = ("status", "covered_by", "region_id", "region_name", "max_danger_level", "max_danger_label", "stale", "attribution")
+_BULLETIN_KEEP = (
+    "source", "lang", "valid_from", "valid_until", "max_danger_level", "danger_ratings", "avalanche_activity_highlights", "bulletin_url",
+    "attribution",
+)
+_PROBLEM_KEEP = ("problem_type", "danger_level", "valid_time_period", "elevation", "aspects")
+_TENDENCY_KEEP = ("tendency_type", "valid_from", "highlights")
+
+
+def _pick(item: Any, keys: tuple[str, ...]) -> dict[str, Any]:
+    return {key: item[key] for key in keys if key in item} if isinstance(item, dict) else {}
+
+
+def mountain_point(answer: Any, elevation_m: int | None) -> dict[str, Any] | None:
+    """What the Mountain page draws of an answer of ``/v1/point`` asked at ``elevation_m``: ``None`` when it is not one, or when
+    the instance did not take the altitude (an instance older than the parameter answers at the altitude of its cell, which
+    would draw the base and the top alike)."""
+    if not isinstance(answer, dict) or not isinstance(answer.get("daily"), list):
+        return None
+    coordinates = answer.get("coordinates")
+    if elevation_m is not None and (not isinstance(coordinates, dict) or coordinates.get("elevation_m") != elevation_m):
+        return None
+    hourly = answer.get("hourly")
+    return {
+        **_pick(answer, _POINT_KEEP),
+        "current": _pick(answer.get("current"), _CURRENT_KEEP),
+        "hourly": [_pick(hour, _HOUR_KEEP) for hour in hourly if isinstance(hour, dict)] if isinstance(hourly, list) else None,
+        "daily": [_pick(day, _DAY_KEEP) for day in answer["daily"] if isinstance(day, dict)],
+    }
+
+
+def mountain_avalanches(answer: Any) -> dict[str, Any] | None:
+    """What the Mountain page draws of an answer of ``/v1/avalanches``: its status and the bulletins in force, without their
+    long texts (the page links to the official bulletin)."""
+    if not isinstance(answer, dict) or not isinstance(answer.get("status"), str):
+        return None
+    bulletins = answer.get("bulletins") if isinstance(answer.get("bulletins"), list) else []
+    return {
+        **_pick(answer, _AVALANCHE_KEEP),
+        "bulletins": [
+            {
+                **_pick(bulletin, _BULLETIN_KEEP),
+                "avalanche_problems": [_pick(problem, _PROBLEM_KEEP) for problem in bulletin.get("avalanche_problems") or [] if isinstance(problem, dict)],
+                "tendency": [_pick(tendency, _TENDENCY_KEEP) for tendency in bulletin.get("tendency") or [] if isinstance(tendency, dict)],
+            }
+            for bulletin in bulletins
+            if isinstance(bulletin, dict) and not bulletin.get("is_expired")
+        ],
+    }
+
+
+class _Station:
+    """A station of the Mountain page: its top, its base and its avalanche bulletin, each kept for ``MOUNTAIN_REFRESH``."""
+
+    def __init__(self) -> None:
+        self.top = _Slow(MOUNTAIN_REFRESH)
+        self.base = _Slow(MOUNTAIN_REFRESH)
+        self.avalanches = _Slow(MOUNTAIN_REFRESH)
+        self.lock = asyncio.Lock()  # two screens asking at once: one read
+
+
 class VigieWeatherCoordinator(DataUpdateCoordinator[WeatherData]):
     """Reads the weather of the place of the entry, and what the card shows, every 10 minutes."""
 
@@ -309,6 +385,7 @@ class VigieWeatherCoordinator(DataUpdateCoordinator[WeatherData]):
         self._spots = _Slow(SPOTS_REFRESH)
         self._forest_fire = _Slow(FOREST_FIRE_REFRESH)
         self._activities: dict[str, _Slow] = {}
+        self._stations: OrderedDict[tuple[float, float, int | None, int], _Station] = OrderedDict()
 
     async def _async_update_data(self) -> WeatherData:
         try:
@@ -353,6 +430,30 @@ class VigieWeatherCoordinator(DataUpdateCoordinator[WeatherData]):
         slow = self._activities.setdefault(spot_id, _Slow(ACTIVITIES_REFRESH))
         answer = await slow.get(lambda: self.client.activities(spot_id))
         return answer if isinstance(answer, dict) else None
+
+    async def async_mountain(self, lat: float, lon: float, base_m: int | None, top_m: int) -> dict[str, Any]:
+        """A station of the Mountain page: the weather at its top and at its base (``None``: at the altitude of the model's cell),
+        and its avalanche bulletin, read every ``MOUNTAIN_REFRESH`` at most. A part that could not be read is ``None``."""
+        key = (round(lat, 4), round(lon, 4), base_m, top_m)
+        station = self._stations.pop(key, None) or _Station()
+        self._stations[key] = station
+        while len(self._stations) > MAX_STATIONS:
+            self._stations.popitem(last=False)
+        async with station.lock:
+            top, base, avalanches = await asyncio.gather(
+                station.top.get(lambda: self.client.point(lat, lon, elevation_m=top_m, marine=False)),
+                station.base.get(lambda: self.client.point(lat, lon, elevation_m=base_m, marine=False)),
+                station.avalanches.get(lambda: self.client.avalanches(lat, lon)),
+            )
+        top_point, base_point = mountain_point(top, top_m), mountain_point(base, base_m)
+        return {
+            "top": top_point,
+            "base": base_point,
+            "avalanches": mountain_avalanches(avalanches),
+            # The instance answered, but without the altitude asked: older than `GET /v1/point?elevation=`.
+            "elevation_ignored": (top_point is None and isinstance(top, dict) and isinstance(top.get("daily"), list))
+            or (base_point is None and base_m is not None and isinstance(base, dict) and isinstance(base.get("daily"), list)),
+        }
 
 
 def utc_datetime(timestamp: int) -> datetime:

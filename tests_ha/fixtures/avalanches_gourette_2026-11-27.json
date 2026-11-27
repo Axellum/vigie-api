@@ -1,0 +1,106 @@
+{
+  "version": "1.3.0",
+  "server_utc": "2026-11-27T12:25:34.281458Z",
+  "query": {
+    "lat": 42.96,
+    "lon": -0.335
+  },
+  "status": "active",
+  "covered_by": "meteofrance_bra",
+  "note": "1 active Météo-France BRA bulletin(s) matched for massif Aspe Ossau.",
+  "region_id": "FR-BRA-65",
+  "region_name": "Aspe Ossau",
+  "max_danger_level": 2,
+  "max_danger_label": "moderate",
+  "bulletins": [
+    {
+      "bulletin_id": "FR-BRA-65-2026-11-26T16:00:00",
+      "source": "meteofrance_bra",
+      "lang": "fr",
+      "publication_time": "2026-11-26T15:04:00Z",
+      "valid_from": "2026-11-26T15:00:00Z",
+      "valid_until": "2026-11-27T17:00:00Z",
+      "next_update": null,
+      "unscheduled": false,
+      "is_expired": false,
+      "max_danger_level": 2,
+      "max_danger_label": "moderate",
+      "regions": [
+        {
+          "region_id": "FR-BRA-65",
+          "name": "Aspe Ossau"
+        }
+      ],
+      "danger_ratings": [
+        {
+          "main_value": "moderate",
+          "level": 2,
+          "valid_time_period": "all_day",
+          "elevation": null,
+          "subdivision": null
+        }
+      ],
+      "avalanche_problems": [
+        {
+          "problem_type": "new_snow",
+          "danger_rating_value": null,
+          "danger_level": null,
+          "valid_time_period": null,
+          "elevation": null,
+          "aspects": [
+            "N",
+            "NE",
+            "E",
+            "SE",
+            "S",
+            "SW"
+          ],
+          "snowpack_stability": null,
+          "frequency": null,
+          "avalanche_size": null,
+          "avalanche_type": null,
+          "core_zone_text": null,
+          "comment": null
+        },
+        {
+          "problem_type": "wet_snow",
+          "danger_rating_value": null,
+          "danger_level": null,
+          "valid_time_period": null,
+          "elevation": null,
+          "aspects": [
+            "N",
+            "NE",
+            "E",
+            "SE",
+            "S",
+            "SW"
+          ],
+          "snowpack_stability": null,
+          "frequency": null,
+          "avalanche_size": null,
+          "avalanche_type": null,
+          "core_zone_text": null,
+          "comment": null
+        }
+      ],
+      "avalanche_activity_highlights": "Indice de risque limité.",
+      "avalanche_activity_comment": "Départs spontanés : En neige humide, plaques de fond possibles\nDéclenchements skieurs : Structures de plaques faciles à déclencher",
+      "snowpack_highlights": "PLAQUES A VENT, DEPARTS SPONTANES EN NEIGE HUMIDE",
+      "snowpack_comment": "Déclenchements provoqués : Dans les versants Nord, Est et Sud, des plaques sont en place, encore facilement déclenchables, plutôt au-dessus de 1800m, à proximité des crêtes. Elles se stabilisent par tassement au soleil, mais persistent à l'ombre. Elles peuvent donner lieu à des avalanches de taille moyenne, et leur identification peut être rendue difficile par le faible travail du vent. L'épaisseur d'accumulation peut être un indicateur de leur présence.\n\nDéparts spontanés : Des départs sont attendus, à proximité des rochers au fil de l'ensoleillement, en général de petite taille. Des plaques de fond, plutôt de taille moyenne, sont possibles dans les pentes herbeuses.\n\nEnneigement : Aspect hivernal avec de la neige au sol à partir de 1300 m. On devrait pouvoir chausser les skis au-dessus de 1500 m. Pas de sous-couche sous 1700m en Nord, pas de sous-couche en sud.\n\nQualité de la neige : Neige fraîche peu travaillée par le vent. Probablement croûtée sous 1600m, s'humidifiant au fil de l'ensoleillement, n'évoluant pas en nord.",
+      "tendency": [
+        {
+          "tendency_type": null,
+          "valid_from": "2026-11-27T23:00:00Z",
+          "valid_until": null,
+          "highlights": "Indice de risque limité",
+          "comment": "Stabilisation des plaques par tassement, assez lent au-dessus de 1800m."
+        }
+      ],
+      "bulletin_url": "https://meteofrance.com/meteo-montagne",
+      "attribution": "Météo-France, bulletin d'estimation du risque d'avalanche (BRA, https://meteofrance.com/meteo-montagne). Licence Ouverte 2.0 (Etalab)"
+    }
+  ],
+  "stale": false,
+  "attribution": "Météo-France, bulletin d'estimation du risque d'avalanche (BRA, https://meteofrance.com/meteo-montagne). Licence Ouverte 2.0 (Etalab)"
+}

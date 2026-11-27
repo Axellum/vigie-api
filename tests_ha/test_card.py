@@ -60,7 +60,7 @@ async def test_the_card_is_served_and_loaded_with_the_version(hass: HomeAssistan
 def test_the_card_asks_only_commands_that_exist() -> None:
     asked = set(re.findall(r"type: '(vigie/[a-z/_]+)'", SOURCE))
     registered = set(re.findall(r'vol\.Required\("type"\): "(vigie/[a-z/_]+)"', (COMPONENT / "websocket.py").read_text(encoding="utf-8")))
-    assert asked == {"vigie/card/data", "vigie/card/entries", "vigie/card/spots"} and asked <= registered
+    assert asked == {"vigie/card/data", "vigie/card/entries", "vigie/card/spots", "vigie/card/mountain"} and asked <= registered
 
 
 def test_the_card_defines_its_elements_once() -> None:
