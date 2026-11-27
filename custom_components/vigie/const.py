@@ -71,6 +71,13 @@ POINT_DEVICE_TYPE: Final = "generic"
 STATION_BOX_DEG: Final = 0.3
 MAX_SPOT_DISTANCE_KM: Final = 60.0
 MAX_LISTED_SPOTS: Final = 12
+# The stations of the card's Mountain page: their top, their base and their avalanche bulletin are read when the card asks,
+# and kept as long as the weather of the place; at most MAX_STATIONS stations are kept (the oldest asked goes first).
+MOUNTAIN_REFRESH: Final = WEATHER_INTERVAL
+MAX_STATIONS: Final = 6
+# The altitudes the API accepts for a point (`GET /v1/point?elevation=`), in metres.
+MIN_ELEVATION_M: Final = -500
+MAX_ELEVATION_M: Final = 9000
 
 # Time given to an answer. The first read of a country can fetch a feed and up to 40 CAP documents.
 HEALTH_TIMEOUT_S: Final = 10

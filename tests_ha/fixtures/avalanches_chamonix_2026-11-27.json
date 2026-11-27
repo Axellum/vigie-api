@@ -1,0 +1,123 @@
+{
+  "version": "1.3.0",
+  "server_utc": "2026-11-27T12:25:24.993884Z",
+  "query": {
+    "lat": 45.92,
+    "lon": 6.87
+  },
+  "status": "active",
+  "covered_by": "meteofrance_bra",
+  "note": "1 active Météo-France BRA bulletin(s) matched for massif Mont-Blanc.",
+  "region_id": "FR-BRA-3",
+  "region_name": "Mont-Blanc",
+  "max_danger_level": 3,
+  "max_danger_label": "considerable",
+  "bulletins": [
+    {
+      "bulletin_id": "FR-BRA-3-2026-11-26T16:00:00",
+      "source": "meteofrance_bra",
+      "lang": "fr",
+      "publication_time": "2026-11-26T14:42:00Z",
+      "valid_from": "2026-11-26T15:00:00Z",
+      "valid_until": "2026-11-27T17:00:00Z",
+      "next_update": null,
+      "unscheduled": false,
+      "is_expired": false,
+      "max_danger_level": 3,
+      "max_danger_label": "considerable",
+      "regions": [
+        {
+          "region_id": "FR-BRA-3",
+          "name": "Mont-Blanc"
+        }
+      ],
+      "danger_ratings": [
+        {
+          "main_value": "moderate",
+          "level": 2,
+          "valid_time_period": "all_day",
+          "elevation": {
+            "lower_bound": null,
+            "upper_bound": 2700
+          },
+          "subdivision": null
+        },
+        {
+          "main_value": "considerable",
+          "level": 3,
+          "valid_time_period": "all_day",
+          "elevation": {
+            "lower_bound": 2700,
+            "upper_bound": null
+          },
+          "subdivision": null
+        }
+      ],
+      "avalanche_problems": [
+        {
+          "problem_type": "wind_slab",
+          "danger_rating_value": null,
+          "danger_level": null,
+          "valid_time_period": null,
+          "elevation": null,
+          "aspects": [
+            "N",
+            "NE",
+            "E",
+            "SE",
+            "S",
+            "SW",
+            "W",
+            "NW"
+          ],
+          "snowpack_stability": null,
+          "frequency": null,
+          "avalanche_size": null,
+          "avalanche_type": null,
+          "core_zone_text": null,
+          "comment": null
+        },
+        {
+          "problem_type": "gliding_snow",
+          "danger_rating_value": null,
+          "danger_level": null,
+          "valid_time_period": null,
+          "elevation": null,
+          "aspects": [
+            "N",
+            "NE",
+            "E",
+            "SE",
+            "S",
+            "SW",
+            "W",
+            "NW"
+          ],
+          "snowpack_stability": null,
+          "frequency": null,
+          "avalanche_size": null,
+          "avalanche_type": null,
+          "core_zone_text": null,
+          "comment": null
+        }
+      ],
+      "avalanche_activity_highlights": "Au-dessus de 2700m indice de risque marqué, plus bas indice limité.",
+      "avalanche_activity_comment": "Départs spontanés : Plaques de fond.\nDéclenchements skieurs : Plaques à vent en haute montagne.",
+      "snowpack_highlights": "Instabilités en altitude dans la neige ventée.",
+      "snowpack_comment": "Déclenchements provoqués :\n* En haute-montagne, au-dessus de 2700m, des plaques à vent se forment tout au long de la journée sous le vent de Nord. Ces plaques sont présentes dans la neige récente et plus on monte en altitude, plus elles sont nombreuses. Taille 2, parfois 3 (moyenne à grande).\n* Facteur aggravant : Dans les rares secteurs où une couche fragile est enfouie dans le manteau neigeux, celle-ci pourrait être sollicité dans le cas d'une avalanche en cascade et engendrer une plus grande avalanche.\n* Observables : Fissures sous les skis, zone d'accumulations, ...\n* Sous 2700m, on peut retrouver quelques plaques à vent mais celles-ci sont principalement cantonnées près des crêtes. Les avalanches concernées sont plutôt de taille 2 (moyenne).\n\nDéparts spontanés :\n* Sous 2500m, des avalanches de glissement sont possibles à toutes heures du jour et de la nuit. Elles sont possibles sur les terrains lisses, comme les dalles rocheuses, les vires ou les pentes herbeuses. Taille 1 à 2 (petite à moyenne).\n* En haute-montagne, une plaque à vent pourrait céder naturellement sous la surcharge liée au transport par le vent. Taille 1 à 2 (petite à moyenne).\n\nEnneigement :\nPour la saison, l’enneigement est excédentaire à toutes altitudes. On peut chausser les skis au-dessus de 1300 m.\nPrésence de grosses corniches et congères.\n\nQualité de la neige ce jeudi matin :\n* Sous 1800 m : neige dense, un peu alourdie en surface. Cette neige est croutée en surface mais s'humidifie très rapidement avec le soleil.\n* Entre 1800 et 3000 m : neige froide, assez dense, parfois travaillée par le vent. Toutefois, cette neige reste d'aspect poudreux.\n* Au-dessus de 3000 m : La neige est froide et légère. Cependant, le travail du vent se fait sentir et on retrouve une alternance de neige légère et dure.\nSur les sommets, les crêtes peuvent être décapées avec le fort vent des derniers épisodes.",
+      "tendency": [
+        {
+          "tendency_type": null,
+          "valid_from": "2026-11-27T23:00:00Z",
+          "valid_until": null,
+          "highlights": "Indice de risque marqué",
+          "comment": "Le vent continue de souffler en matinée. De nouvelles plaques continuent de se former, laissant ainsi un risque marqué tout au long de la journée."
+        }
+      ],
+      "bulletin_url": "https://meteofrance.com/meteo-montagne",
+      "attribution": "Météo-France, bulletin d'estimation du risque d'avalanche (BRA, https://meteofrance.com/meteo-montagne). Licence Ouverte 2.0 (Etalab)"
+    }
+  ],
+  "stale": false,
+  "attribution": "Météo-France, bulletin d'estimation du risque d'avalanche (BRA, https://meteofrance.com/meteo-montagne). Licence Ouverte 2.0 (Etalab)"
+}

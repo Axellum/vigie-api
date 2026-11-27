@@ -265,9 +265,16 @@ danger of the department (`/v1/forest-fire`, Météo-France, June to September).
 spot (`/v1/activities/{spot_id}`, read only when a card asks for a spot within 60 km, and kept 30 minutes) go to the dashboard
 card, not to entities: they are too large for the attributes of a state.
 
-**For the card**, the integration answers three commands on Home Assistant's own WebSocket: `vigie/card/entries` and
-`vigie/card/spots` (for the card's editor) and `vigie/card/data` (what the card shows for one entry, with the verdicts of
-`spot`, an identifier or `auto` for the nearest spot within 20 km). The card never calls the instance itself.
+**For the card**, the integration answers four commands on Home Assistant's own WebSocket: `vigie/card/entries` and
+`vigie/card/spots` (for the card's editor), `vigie/card/data` (what the card shows for one entry, with the verdicts of
+`spot`, an identifier or `auto` for the nearest spot within 20 km) and `vigie/card/mountain` (a station of the Mountain page:
+`lat`, `lon`, `top_m` and the optional `base_m`). The card never calls the instance itself.
+
+**A station of the Mountain page** is read only when a card asks for it: three requests to the instance, the weather at its top
+and at its base (`/v1/point?elevation=`, without the sea) and its avalanche bulletin (`/v1/avalanches`), kept 10 minutes and
+shared by every screen; at most 6 stations are kept. The answers are trimmed to what the page draws. An instance older than
+`elevation` answers at the altitude of its forecast cell: the integration then says so (`elevation_ignored`) rather than draw the
+same weather as the top and the base.
 
 ## The dashboard card
 
@@ -296,13 +303,23 @@ Add it like any card: edit a dashboard, *Add card*, "Vigie". Its editor sets eve
 type: custom:vigie-card
 entry_id: 0123456789abcdef   # optional: the Vigie entry (the first one with the weather option when left out)
 name: Home                   # optional: the name shown (else the name of the entry, without "Vigie")
-pages: [home, details, alerts, sea, normal]   # optional: the pages shown, in this order
+pages: [home, details, alerts, sea, mountain, normal]   # optional: the pages shown, in this order
 start_page: home             # optional: the page it opens on
 idle: return                 # return: back to the opening page after a minute untouched; cycle: the next page every 20 s; none
 spot: auto                   # auto: the nearest spot within 20 km; none; or the id of a spot (the editor lists the spots within 60 km)
 weather_entity: weather.home # optional, outside France: the weather entity of the home page
 icon_style: meridien         # the weather icons: meridien (the screen's, the default), line, duo or badge
+stations:                    # optional: the stations of the Mountain page, at most 6
+  - name: Gourette           # the name shown
+    latitude: 42.96          # the position (the editor sets it on a map)
+    longitude: -0.335
+    base_m: 1350             # optional: the altitude of the base, in metres (else the altitude of the forecast cell)
+    top_m: 2400              # the altitude of the top, in metres
 ```
+
+**Why both altitudes**: a forecast cell is about 5 km wide, and in the mountains its altitude can be far from a station's
+(measured on 2026-11-27: the cell of Gourette sits 320 m above the village and is 2.6 °C colder). The Mountain page asks the
+weather of the top and of the base each at its own altitude.
 
 **The weather icons** are the icon set of the Vigie family ([ADR 0045](decisions/0045-home-assistant-card-weather-icons.md)), the drawings of the Meridien screen, in
 four styles: *Meridien*, the screen's own shapes; *Line*, an outline; *Duo*, the outline filled with its colour at a third;
@@ -315,6 +332,7 @@ Assistant, like the rest of the card, and the hours of the night show the moon.
 | Details | The rain until tomorrow noon in a few periods (dry, rain, light rain, lull, each with its end), then the next hour by 5 minutes (radar nowcast), the next hours by quarter hour (AROME-PI: precipitation, gusts; hail and visibility), 48 hours hour by hour in the same tinted columns, and the chances per 3 hours (PE-AROME: rain of 1 mm, gusts of 56 km/h, storm; snow, gusts of 93 km/h and hail when a window has some). Within the hour the nowcast and AROME-PI can disagree; the card shows both, each in its block. | France |
 | Alerts | The official level, one row per phenomenon with its end on a timeline, the headline of the issuer as it was issued, the link to its bulletin; in France the river sections under warning nearby (Vigicrues); the lines of the season (below); the earthquakes nearby. | Everywhere |
 | Sea | The tide of the next 24 hours (high and low waters; in France the estimated coefficient), the waves, and the verdicts of the spot for surf, kite, boat and shore fishing, with the reason when it is not "good". | Near the coast |
+| Mountain | The stations chosen in the editor, as chips; for the one shown: a sentence (the next snow or rain of the 24 hours at the top, down to the base or not, then the next fine day), the avalanche danger, the freezing level now and where it goes over 3 days, the next fresh snow at the top; the avalanche bulletin in force (its levels by altitude, the aspects of its problems on a rose, the problems, the trend or what comes next, the link to the official bulletin); the next 24 hours at the top and at the base (two temperature curves around 0°, the precipitation in white for snow and blue for rain, split when it snows up high and rains down low: estimated from the temperature of the hour, the page says so); the next 7 days at the top (fresh snow, highest and lowest, wind). | With a station; the bulletins where Vigie relays one (French massifs, Switzerland, Tyrol) |
 | Normal? | Today's highest and lowest against the normals of the month (nearest Météo-France station), the forecast gusts against the record of the month, the wind measured now nearby. | France |
 
 **The lines of the season** are shown only when there is something to say, the strongest first, each with its source and
@@ -330,7 +348,7 @@ official page:
 The colours follow each source's own levels; none of them is an official warning level.
 
 **A page with nothing for the place is not shown**, even ticked: inland there is no Sea page, outside France no Details nor
-Normal?. Outside France, the home page shows the weather of the weather entity chosen in the editor (the weather integration you
+Normal?, without a station no Mountain page. Outside France, the home page shows the weather of the weather entity chosen in the editor (the weather integration you
 already use), said as such; without one, it shows the warnings, the earthquakes and the tide.
 
 It follows the language of Home Assistant (French or English) and its dark mode (two themes of the Vigie family); its
@@ -338,7 +356,8 @@ background is the dashboard's. From 640 px wide it takes the layout of a wall sc
 beside "now"). It has a fixed size, 760 px high (12 rows and the whole width of a section of the sections view, not
 resizable): the home page always fits, without a cut text (on a narrow card its curves are flatter, "now" leaves out the gust
 of now, then the humidity, the line under the rain tile takes two lines and the days are said by their name alone), a longer
-page scrolls inside the card. Swipe left or right, or use the arrow keys, to change pages. Every page but the home page credits
+page scrolls inside the card. When the names of the pages do not fit their tabs (six pages on a phone), the bar shows their
+icons, each named for the screen readers. Swipe left or right, or use the arrow keys, to change pages. Every page but the home page credits
 the providers of what it shows, relayed by the instance.
 
 Its limits are those of the data: it shows the **official** level only; the tide is the open sea's, computed by the instance

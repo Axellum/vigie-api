@@ -8,6 +8,9 @@ card's demand, and kept for 30 minutes.
 - ``vigie/card/data``: what the card shows for one entry (``entry_id``; the first entry with the option when it is left out),
   with the verdicts of ``spot`` (an identifier, or ``auto`` for the nearest spot within ``AUTO_SPOT_KM``).
 - ``vigie/card/spots``: the spots near the place of an entry, for the card's editor.
+- ``vigie/card/mountain``: a station of the Mountain page (``lat``, ``lon``, ``top_m``, and ``base_m``, the altitude of the model's
+  cell when it is left out): the weather at its top and at its base, and its avalanche bulletin, read when the card asks and
+  kept for 10 minutes.
 """
 
 from __future__ import annotations
@@ -19,7 +22,7 @@ from homeassistant.components import websocket_api
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
 
-from .const import CONF_WEATHER_AND_CARD, DEFAULT_WEATHER_AND_CARD, DOMAIN
+from .const import CONF_WEATHER_AND_CARD, DEFAULT_WEATHER_AND_CARD, DOMAIN, MAX_ELEVATION_M, MIN_ELEVATION_M
 from .coordinator import VigieConfigEntry
 
 # "auto": the nearest spot, only when it is this close to the place (a spot farther away is not "the sea of the place").
@@ -32,6 +35,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_entries)
     websocket_api.async_register_command(hass, ws_card_data)
     websocket_api.async_register_command(hass, ws_spots)
+    websocket_api.async_register_command(hass, ws_mountain)
 
 
 def _loaded(hass: HomeAssistant) -> list[VigieConfigEntry]:
@@ -68,6 +72,31 @@ async def ws_spots(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
         connection.send_error(msg["id"], "not_found", "No Vigie entry with the option Weather and card")
         return
     connection.send_result(msg["id"], await entry.runtime_data.weather.async_spots())  # type: ignore[union-attr]
+
+
+_ALTITUDE = vol.All(vol.Coerce(int), vol.Range(min=MIN_ELEVATION_M, max=MAX_ELEVATION_M))
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "vigie/card/mountain",
+        vol.Optional("entry_id"): str,
+        vol.Required("lat"): vol.All(vol.Coerce(float), vol.Range(min=-90, max=90)),
+        vol.Required("lon"): vol.All(vol.Coerce(float), vol.Range(min=-180, max=180)),
+        vol.Required("top_m"): _ALTITUDE,
+        vol.Optional("base_m"): vol.Any(None, _ALTITUDE),
+    }
+)
+@websocket_api.async_response
+async def ws_mountain(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """A station of the Mountain page, read through the entry (its instance, its cache)."""
+    entry = _entry(hass, msg.get("entry_id"))
+    if entry is None or not _with_weather(entry):
+        connection.send_error(msg["id"], "not_found", "No Vigie entry with the option Weather and card")
+        return
+    weather = entry.runtime_data.weather
+    station = await weather.async_mountain(msg["lat"], msg["lon"], msg.get("base_m"), msg["top_m"])  # type: ignore[union-attr]
+    connection.send_result(msg["id"], {"language": hass.config.language, **station})
 
 
 def _quakes(entry: VigieConfigEntry) -> dict[str, Any] | None:

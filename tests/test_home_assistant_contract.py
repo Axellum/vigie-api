@@ -24,6 +24,7 @@ import pytest
 from pydantic import BaseModel
 
 from app.models.activities import ActivitiesForecast
+from app.models.avalanches import AvalancheResponse
 from app.models.climate import ClimateNormalsResponse
 from app.models.earthquakes import EarthquakesResponse
 from app.models.forest_fire import ForestFireResponse
@@ -49,6 +50,7 @@ WEATHER_MODELS: dict[str, type[BaseModel]] = {
     "spots_": SurfSpots,
     "activities_": ActivitiesForecast,
     "forestfire_": ForestFireResponse,
+    "avalanches_": AvalancheResponse,
 }
 WEATHER_FIXTURES = sorted(path for prefix in WEATHER_MODELS for path in (ROOT / "tests_ha" / "fixtures").glob(f"{prefix}*.json"))
 
@@ -73,6 +75,16 @@ def test_the_hours_builder_makes_hours_of_the_api() -> None:
     raw["hourly"] = payloads.hourly(raw["server_utc"], [(14.9, 70.0, 0.4, 61, True), (12.0, None, None, 3, False)])
     response = PointResponse.model_validate(raw)
     assert raw["hourly"] == [json.loads(hour.model_dump_json()) for hour in response.hourly or []]  # every field, and none more
+
+
+def test_the_station_builder_of_the_integration_tests_makes_answers_of_the_api() -> None:
+    """``payloads.station_point``: a recorded point as asked at an altitude (``GET /v1/point?elevation=``), with the freezing level
+    of its hours and the fresh snow of its days, is an answer of the API."""
+    raw = payloads.station_point(json.loads((ROOT / "tests_ha" / "fixtures" / "point_chamonix_2026-11-22.json").read_text(encoding="utf-8")), 2400, -8.0)
+    response = PointResponse.model_validate(raw)
+    assert response.coordinates.elevation_m == 2400
+    assert [hour.freezing_level_m for hour in response.hourly or []] == [hour["freezing_level_m"] for hour in raw["hourly"]]
+    assert [day.snowfall_cm for day in response.daily] == [day["snowfall_cm"] for day in raw["daily"]]
 
 
 @pytest.mark.parametrize("path", PREALERT_FIXTURES, ids=lambda p: p.name)
@@ -193,6 +205,17 @@ def test_the_replay_serves_the_recorded_answers_moved_to_now() -> None:
     assert abs(VigilancesResponse.model_validate(answer).server_utc - later) < 60  # read a few seconds after the point
     assert replay.answer("/v1/earthquakes", now=later)["generated_utc"] == later  # read hours after the point: moved from its own read
     assert replay.answer("/v1/experimental/prealert", now=later) is None  # nothing recorded: the fake instance answers 404
+    # A station of the Mountain page: the point of Chamonix at the altitude asked, the hours with a freezing level; the bulletin's
+    # times, texts, moved from its own read.
+    top = PointResponse.model_validate(replay.answer("/v1/point", now=later, elevation_m=2400))
+    base = PointResponse.model_validate(replay.answer("/v1/point", now=later, elevation_m=1350))
+    assert top.coordinates.elevation_m == 2400 and base.coordinates.elevation_m == 1350
+    assert all(high.temp_c < low.temp_c and high.freezing_level_m == low.freezing_level_m for high, low in zip(top.hourly or [], base.hourly or [], strict=True))
+    bulletin = json.loads((ROOT / "tests_ha" / "fixtures" / fake_instance.REPLAY_ROUTES["/v1/avalanches"]).read_text(encoding="utf-8"))
+    moved_bulletin = AvalancheResponse.model_validate(replay.answer("/v1/avalanches", now=later)).bulletins[0]
+    read = datetime.datetime.fromisoformat(bulletin["server_utc"].replace("Z", "+00:00"))
+    until = datetime.datetime.fromisoformat(bulletin["bulletins"][0]["valid_until"].replace("Z", "+00:00"))
+    assert moved_bulletin.valid_until == until + datetime.timedelta(seconds=later - int(read.timestamp()))
 
 
 def test_the_fake_instance_refuses_what_is_not_a_phenomenon_or_a_level() -> None:
