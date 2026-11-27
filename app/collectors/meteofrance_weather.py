@@ -37,11 +37,11 @@ import httpx
 
 from app.attribution import OPEN_METEO_WEATHER, credit_text, merge_credits
 from app.collectors.base import SELF_HOSTED_CONNECTION, BaseCollector
-from app.collectors.grid import DEFAULT_FORECAST_GRID_DEG, coord_str, snap_to_grid
+from app.collectors.grid import DEFAULT_FORECAST_GRID_DEG, coord_str, elevation_key, snap_to_grid
 from app.collectors.meteo_gateway import in_piaf_box
 from app.collectors.meteofrance_uv import UvGrids, uv_now
 from app.collectors.weather import MAX_FORECAST_DAYS, OpenMeteoCollector
-from app.models.schemas import CurrentWeather, DailyForecast
+from app.models.schemas import CurrentWeather, DailyForecast, HourlyWeatherPoint
 
 TOGGLE_ENV = "VIGIE_METEO_GATEWAY_WEATHER"
 MODELS = "meteofrance_seamless"
@@ -104,9 +104,11 @@ class MeteoFranceWeatherCollector(BaseCollector[dict[str, Any]]):
         self.grid_deg = grid_deg
 
     @staticmethod
-    def request_params(part: str, lat: float, lon: float) -> dict[str, str]:
-        """Query parameters of the ``now`` or the ``daily`` request at ``lat, lon`` (Open-Meteo's)."""
+    def request_params(part: str, lat: float, lon: float, elevation_m: Optional[int] = None) -> dict[str, str]:
+        """Query parameters of the ``now`` or the ``daily`` request at ``lat, lon`` (Open-Meteo's), at ``elevation_m`` metres when given."""
         params = {"latitude": coord_str(lat), "longitude": coord_str(lon), "timezone": "auto", "models": MODELS}
+        if elevation_m is not None:
+            params["elevation"] = str(elevation_m)
         if part == "daily":
             params["daily"] = DAILY_VARIABLES
             params["forecast_days"] = str(MAX_FORECAST_DAYS)
@@ -119,21 +121,29 @@ class MeteoFranceWeatherCollector(BaseCollector[dict[str, Any]]):
             params["forecast_minutely_15"] = "4"
         return params
 
-    def cache_keys_for(self, lat: float, lon: float) -> tuple[str, str]:
+    def cache_keys_for(self, lat: float, lon: float, elevation_m: Optional[int] = None) -> tuple[str, str]:
         s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
-        cell = f"{coord_str(s_lat)},{coord_str(s_lon)}"
+        cell = f"{coord_str(s_lat)},{coord_str(s_lon)}{elevation_key(elevation_m)}"
         return f"mf-now:{cell}", f"mf-daily:{cell}"
 
-    async def fetch_point(self, lat: float, lon: float) -> dict[str, Any]:
+    async def fetch_point(self, lat: float, lon: float, elevation_m: Optional[int] = None) -> dict[str, Any]:
         """The weather of a point: ``utc_offset_s``, ``current``, ``rain_next_60m`` and its start, and ``daily`` (the complete
         days only).
 
         Raises when the gateway cannot give the current conditions or the days: the caller falls back to Open-Meteo's public API."""
         s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
-        now_key, daily_key = self.cache_keys_for(lat, lon)
+        now_key, daily_key = self.cache_keys_for(lat, lon, elevation_m)
         now, daily = await asyncio.gather(
-            self.fetch(now_key, lat=s_lat, lon=s_lon, part="now", allow_stale_on_error=False),
-            self.fetch(daily_key, lat=s_lat, lon=s_lon, part="daily", ttl_seconds=DAILY_TTL_SECONDS, allow_stale_on_error=False),
+            self.fetch(now_key, lat=s_lat, lon=s_lon, part="now", elevation_m=elevation_m, allow_stale_on_error=False),
+            self.fetch(
+                daily_key,
+                lat=s_lat,
+                lon=s_lon,
+                part="daily",
+                elevation_m=elevation_m,
+                ttl_seconds=DAILY_TTL_SECONDS,
+                allow_stale_on_error=False,
+            ),
             return_exceptions=True,
         )
         for part in (now, daily):
@@ -153,7 +163,7 @@ class MeteoFranceWeatherCollector(BaseCollector[dict[str, Any]]):
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> dict[str, Any]:
         kwargs.pop("previous", None)
         part = str(kwargs.get("part", "now"))
-        params = self.request_params(part, float(kwargs["lat"]), float(kwargs["lon"]))
+        params = self.request_params(part, float(kwargs["lat"]), float(kwargs["lon"]), kwargs.get("elevation_m"))
         response = await self._get(client, f"{self.base_url}/v1/forecast", params=params)
         response.raise_for_status()
         if response.headers.get("X-Cache-Status") == "stale":
@@ -244,5 +254,32 @@ def merge_france_bundle(
         "daily_10d": [days[date] for date in sorted(days)],
         "hourly_cloud_cover": list((public_daily or {}).get("hourly_cloud_cover", [])),
         "hourly_all": list(france.get("hourly_all") or []),
+    }
+
+
+def with_freezing_level(bundle: Optional[dict[str, Any]], public_hourly: Optional[Mapping[str, Any]]) -> Optional[dict[str, Any]]:
+    """``bundle`` with the freezing level (iso 0) of Open-Meteo's hourly part (``public_hourly``) set on its hours of the same start.
+
+    The Météo-France models give no freezing level: Open-Meteo's (its global models') completes their hours, and its credit is added.
+    ``bundle`` unchanged when the hourly part is missing or has no freezing level."""
+    if bundle is None or not public_hourly or not bundle.get("hourly_all"):
+        return bundle
+    levels = {
+        point.time_utc: point.freezing_level_m
+        for point in public_hourly.get("hourly_all") or []
+        if isinstance(point, HourlyWeatherPoint) and point.freezing_level_m is not None
+    }
+    hours = [
+        point.model_copy(update={"freezing_level_m": levels[point.time_utc]})
+        if point.freezing_level_m is None and point.time_utc in levels
+        else point
+        for point in bundle["hourly_all"]
+    ]
+    if all(new is old for new, old in zip(hours, bundle["hourly_all"], strict=True)):
+        return bundle
+    return {
+        **bundle,
+        "hourly_all": hours,
+        "attribution": merge_credits(bundle.get("attribution"), credit_text(*OPEN_METEO_WEATHER)),
     }
 

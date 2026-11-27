@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import math
 import os
+from typing import Optional
 
 DEFAULT_FORECAST_GRID_DEG = 0.05
 DEFAULT_AIR_QUALITY_GRID_DEG = 0.1
@@ -72,6 +73,16 @@ def snap_to_grid(lat: float, lon: float, step_deg: float) -> tuple[float, float]
         snapped_lon += 360.0
     # ``+ 0.0`` turns a negative zero into 0.0 so that the cache key never reads "-0.0000".
     return round(snapped_lat, 4) + 0.0, round(snapped_lon, 4) + 0.0
+
+
+# The altitudes a point's weather can be asked for (m above sea level): the shores of the Dead Sea, a little above Everest.
+MIN_ELEVATION_M = -500
+MAX_ELEVATION_M = 9000
+
+
+def elevation_key(elevation_m: Optional[int]) -> str:
+    """The end of a cache key for weather asked at ``elevation_m`` metres: empty when no altitude was asked (the cell's own)."""
+    return "" if elevation_m is None else f"@{elevation_m}m"
 
 
 def coord_str(value: float) -> str:

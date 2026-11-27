@@ -126,11 +126,11 @@ def _open_meteo_router(hourly_payload: dict[str, Any] | None = None, *, fail_hou
 def test_open_meteo_hourly_request_params_and_weight() -> None:
     collector = OpenMeteoCollector()
     params = OpenMeteoCollector.request_params("hourly", 48.85, 2.35)
-    assert len(params["hourly"].split(",")) == 17
+    assert len(params["hourly"].split(",")) == 18
     assert params["forecast_hours"] == "72"
     assert params["past_hours"] == "24"
     assert "current" not in params and "daily" not in params and "minutely_15" not in params
-    assert collector.call_weight(params) == 1.7
+    assert collector.call_weight(params) == 1.8
 
 
 def test_open_meteo_parse_hourly_and_split_at_now() -> None:
@@ -187,7 +187,7 @@ async def test_open_meteo_hourly_world_point_compact_vs_full(sim_clock: SimClock
         air_quality=OpenMeteoAirQualityCollector(http_client=aqi_provider.client()),
     )
 
-    # Compact profile stays lean and never sends the 17-variable hourly request.
+    # Compact profile stays lean and never sends the 18-variable hourly request.
     compact_point = await service.build_point_response(40.71, -74.01, compact=True)
     assert compact_point.hourly is None
     assert compact_point.pressure_history is None
@@ -273,9 +273,11 @@ async def test_france_gateway_populates_hourly_and_pressure_history_without_fabr
     # Météo-France models do not provide UV index or precipitation probability: stay null.
     assert all(h.uv_index is None and h.precipitation_probability_pct is None for h in point.hourly)
     assert all(h.temp_c is not None and h.pressure_hpa is not None and h.shortwave_wm2 is not None for h in point.hourly)
-    # Gateway received only 2 requests (now + daily/hourly); public Open-Meteo was NOT asked for om-hourly!
+    # Gateway received only 2 requests (now + daily/hourly); public Open-Meteo is asked for its hourly part once, for the
+    # freezing level the models do not give (this sample answers without one: the hours keep none).
     assert gateway.count == 2
-    assert len(public.with_param("past_hours")) == 0
+    assert len(public.with_param("past_hours")) == 1
+    assert all(h.freezing_level_m is None for h in point.hourly)
     daily_req = next(r for r in gateway.requests if "daily" in r.url.params)
     assert daily_req.url.params["hourly"] == MF_HOURLY_VARIABLES
     assert daily_req.url.params["forecast_hours"] == "72"

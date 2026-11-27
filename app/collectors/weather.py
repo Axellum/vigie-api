@@ -47,6 +47,7 @@ from app.collectors.base import (
 from app.collectors.grid import (
     DEFAULT_FORECAST_GRID_DEG,
     coord_str,
+    elevation_key,
     grid_step_from_env,
     snap_to_grid,
 )
@@ -282,14 +283,15 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
     # The hourly cloud cover of the next hours, asked with the daily forecast: 10 variables in all, the weight stays 1.0.
     HOURLY_VARIABLES = "cloud_cover"
     HOURLY_FORECAST_HOURS = 48
-    # Full hourly series for non-compact ``/v1/point`` charts (17 variables, weight 1.7; 72 forecast + 24 past hours).
+    # Full hourly series for non-compact ``/v1/point`` charts (18 variables, weight 1.8; 72 forecast + 24 past hours). The last one,
+    # the freezing level (iso 0), also completes the hours of the Météo-France models, which have none (``with_freezing_level``).
     # Kept as its own 6-hour cache (global NWP runs are 6-hourly) so compact displays and snapshots never pay for it.
     HOURLY_DETAIL_VARIABLES = (
         "temperature_2m,apparent_temperature,dew_point_2m,"
         "precipitation,precipitation_probability,"
         "wind_speed_10m,wind_gusts_10m,wind_direction_10m,"
         "cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high,"
-        "pressure_msl,uv_index,shortwave_radiation,weather_code,is_day"
+        "pressure_msl,uv_index,shortwave_radiation,weather_code,is_day,freezing_level_height"
     )
     HOURLY_DETAIL_HOURS = 72
     HOURLY_PAST_HOURS = 24
@@ -319,47 +321,57 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
             else grid_step_from_env("VIGIE_GRID_FORECAST_DEG", DEFAULT_FORECAST_GRID_DEG)
         )
 
-    def cache_keys_for(self, lat: float, lon: float) -> tuple[str, str]:
-        """Cache keys of the "now" and the "daily" parts of a point: its cell on the forecast grid (no number of days)."""
+    def cache_keys_for(self, lat: float, lon: float, elevation_m: Optional[int] = None) -> tuple[str, str]:
+        """Cache keys of the "now" and the "daily" parts of a point: its cell on the forecast grid (no number of days), and the
+        altitude asked when there is one."""
         s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
-        cell = f"{coord_str(s_lat)},{coord_str(s_lon)}"
+        cell = f"{coord_str(s_lat)},{coord_str(s_lon)}{elevation_key(elevation_m)}"
         return f"om-now:{cell}", f"om-daily:{cell}"
 
-    def hourly_cache_key_for(self, lat: float, lon: float) -> str:
+    def hourly_cache_key_for(self, lat: float, lon: float, elevation_m: Optional[int] = None) -> str:
         """Cache key of the detailed hourly series (72h forecast + 24h past pressure) for non-compact ``/v1/point``."""
         s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
-        return f"om-hourly:{coord_str(s_lat)},{coord_str(s_lon)}"
+        return f"om-hourly:{coord_str(s_lat)},{coord_str(s_lon)}{elevation_key(elevation_m)}"
 
-    def get_stale_point(self, lat: float, lon: float) -> Optional[dict[str, Any]]:
+    def get_stale_point(self, lat: float, lon: float, elevation_m: Optional[int] = None) -> Optional[dict[str, Any]]:
         """Return the last cached forecast of a point, even if its TTL has expired.
 
         ``None`` when the current conditions were never cached; a missing daily forecast is unknown (empty).
         """
-        now_key, daily_key = self.cache_keys_for(lat, lon)
+        now_key, daily_key = self.cache_keys_for(lat, lon, elevation_m)
         now = self._get_stale_cache(now_key)
         if now is None:
             return None
         daily = self._get_stale_cache(daily_key) or {"utc_offset_s": None, "daily_10d": []}
         return self._merge_parts(now, daily)
 
-    async def fetch_point(self, lat: float, lon: float, allow_stale_on_error: bool = False) -> dict[str, Any]:
+    async def fetch_point(
+        self, lat: float, lon: float, allow_stale_on_error: bool = False, elevation_m: Optional[int] = None
+    ) -> dict[str, Any]:
         """Fetch the full forecast (``MAX_FORECAST_DAYS`` days) near the coordinates, snapped to the forecast grid.
 
         Both parts are needed: when one of them cannot be had, the error is raised so that the caller
         falls back to another provider. A part served from an expired entry because the call budget is
         used up makes the whole bundle stale (``bundle["stale"]``, and the provider name says so).
+        ``elevation_m``: the altitude the weather is asked for (Open-Meteo's ``elevation``); ``None``, the cell's own.
         """
         s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
-        now_key, daily_key = self.cache_keys_for(lat, lon)
+        now_key, daily_key = self.cache_keys_for(lat, lon, elevation_m)
         now, daily = await asyncio.gather(
             self.fetch_ex(
-                now_key, lat=s_lat, lon=s_lon, part="now", allow_stale_on_error=allow_stale_on_error
+                now_key,
+                lat=s_lat,
+                lon=s_lon,
+                part="now",
+                elevation_m=elevation_m,
+                allow_stale_on_error=allow_stale_on_error,
             ),
             self.fetch_ex(
                 daily_key,
                 lat=s_lat,
                 lon=s_lon,
                 part="daily",
+                elevation_m=elevation_m,
                 ttl_seconds=self.DAILY_TTL_SECONDS,
                 allow_stale_on_error=allow_stale_on_error,
             ),
@@ -384,7 +396,7 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
         )
         return list(daily.get("hourly_cloud_cover", [])), daily.get("utc_offset_s")
 
-    async def fetch_daily(self, lat: float, lon: float) -> dict[str, Any]:
+    async def fetch_daily(self, lat: float, lon: float, elevation_m: Optional[int] = None) -> dict[str, Any]:
         """The "daily" part alone: ``utc_offset_s``, ``daily_10d`` (14 days, a name kept from when it was 10) and ``hourly_cloud_cover`` (48 hours).
 
         For the points whose current conditions come from another provider (Météo-France in France): the rain probability, the
@@ -392,25 +404,37 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
         fails; with nothing cached the error is raised."""
         s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
         return await self.fetch(
-            self.cache_keys_for(lat, lon)[1], lat=s_lat, lon=s_lon, part="daily", ttl_seconds=self.DAILY_TTL_SECONDS
+            self.cache_keys_for(lat, lon, elevation_m)[1],
+            lat=s_lat,
+            lon=s_lon,
+            part="daily",
+            elevation_m=elevation_m,
+            ttl_seconds=self.DAILY_TTL_SECONDS,
         )
 
-    async def fetch_hourly(self, lat: float, lon: float, allow_stale_on_error: bool = True) -> dict[str, Any]:
+    async def fetch_hourly(
+        self, lat: float, lon: float, allow_stale_on_error: bool = True, elevation_m: Optional[int] = None
+    ) -> dict[str, Any]:
         """Detailed hourly weather series (24h past + 72h forecast) for non-compact ``/v1/point``, cached 6 hours."""
         s_lat, s_lon = snap_to_grid(lat, lon, self.grid_deg)
         return await self.fetch(
-            self.hourly_cache_key_for(lat, lon),
+            self.hourly_cache_key_for(lat, lon, elevation_m),
             lat=s_lat,
             lon=s_lon,
             part="hourly",
+            elevation_m=elevation_m,
             ttl_seconds=self.HOURLY_TTL_SECONDS,
             allow_stale_on_error=allow_stale_on_error,
         )
 
     @staticmethod
-    def request_params(part: str, lat: float, lon: float) -> dict[str, str]:
-        """Query parameters of the "now", "daily", or "hourly" request at ``lat, lon``."""
+    def request_params(part: str, lat: float, lon: float, elevation_m: Optional[int] = None) -> dict[str, str]:
+        """Query parameters of the "now", "daily", or "hourly" request at ``lat, lon``, at ``elevation_m`` metres when given."""
         params = {"latitude": coord_str(lat), "longitude": coord_str(lon), "timezone": "auto"}
+        if elevation_m is not None:
+            # Open-Meteo corrects the temperature for this altitude and picks the grid cell of the nearest height
+            # (https://open-meteo.com/en/docs, ``elevation`` and ``cell_selection``); without it, the altitude of the point asked.
+            params["elevation"] = str(elevation_m)
         if part == "daily":
             params["daily"] = OpenMeteoCollector.DAILY_VARIABLES
             params["forecast_days"] = str(MAX_FORECAST_DAYS)
@@ -432,7 +456,7 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
 
     async def _collect(self, client: httpx.AsyncClient, **kwargs: Any) -> dict[str, Any]:
         part = str(kwargs.get("part", "now"))
-        params = self.request_params(part, float(kwargs["lat"]), float(kwargs["lon"]))
+        params = self.request_params(part, float(kwargs["lat"]), float(kwargs["lon"]), kwargs.get("elevation_m"))
         resp = await get_open_meteo(self, client, self.BASE_URL, DEFAULT_OPEN_METEO_FORECAST_URL, params)
         resp.raise_for_status()
         payload = resp.json()
@@ -622,6 +646,7 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
         shortwaves = col("shortwave_radiation")
         codes = col("weather_code")
         is_days = col("is_day")
+        freezing_levels = col("freezing_level_height")
 
         points: list[HourlyWeatherPoint] = []
         for idx, stamp in enumerate(times):
@@ -629,6 +654,7 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
             if epoch is None:
                 continue
             wd = optional_float(at(wind_dirs, idx))
+            freezing = optional_float(at(freezing_levels, idx))
             point = HourlyWeatherPoint(
                 time_utc=epoch,
                 temp_c=_rounded(at(temps, idx)),
@@ -648,6 +674,7 @@ class OpenMeteoCollector(BaseCollector[dict[str, Any]]):
                 shortwave_wm2=_non_negative(at(shortwaves, idx)),
                 weather_code=_clamped_int(at(codes, idx), 0, 99),
                 is_day=_optional_bool(at(is_days, idx)),
+                freezing_level_m=None if freezing is None else int(round(freezing)),
             )
             if all(
                 v is None
@@ -710,18 +737,21 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
         lon: float,
         allow_stale_on_error: bool = True,
         utc_offset_s: Optional[int] = None,
+        elevation_m: Optional[int] = None,
     ) -> dict[str, Any]:
         """Fetch the fallback forecast near the coordinates (snapped to the forecast grid).
 
         ``utc_offset_s`` (the zone configuration) is only used to group the hourly series
-        into local calendar days; MET Norway does not report the local offset.
+        into local calendar days; MET Norway does not report the local offset. ``elevation_m``: MET Norway's
+        ``altitude`` (whole metres, used to correct the temperature); ``None``, its own terrain model.
         """
         lat_r, lon_r = snap_to_grid(lat, lon, self.grid_deg)
         fetched = await self.fetch_ex(
-            cache_key=f"metno:{coord_str(lat_r)},{coord_str(lon_r)}:{utc_offset_s}",
+            cache_key=f"metno:{coord_str(lat_r)},{coord_str(lon_r)}{elevation_key(elevation_m)}:{utc_offset_s}",
             lat=lat_r,
             lon=lon_r,
             utc_offset_s=utc_offset_s,
+            elevation_m=elevation_m,
             allow_stale_on_error=allow_stale_on_error,
         )
         return as_stale_bundle(fetched.value) if fetched.stale else fetched.value
@@ -741,12 +771,10 @@ class MetNorwayCollector(BaseCollector[dict[str, Any]]):
         if previous is not None and previous.validators and previous.validators.get("Last-Modified"):
             headers["If-Modified-Since"] = previous.validators["Last-Modified"]
 
-        resp = await self._get(
-            client,
-            self.BASE_URL,
-            params={"lat": coord_str(lat), "lon": coord_str(lon)},
-            headers=headers,
-        )
+        params = {"lat": coord_str(lat), "lon": coord_str(lon)}
+        if kwargs.get("elevation_m") is not None:
+            params["altitude"] = str(int(kwargs["elevation_m"]))
+        resp = await self._get(client, self.BASE_URL, params=params, headers=headers)
         lifetime = response_lifetime_s(resp)
         if resp.status_code == 304:
             if previous is None:

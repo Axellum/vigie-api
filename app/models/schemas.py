@@ -133,6 +133,11 @@ class GPSCoordinates(BaseModel):
     lon: float = Field(..., ge=-180.0, le=180.0, description="WGS84 longitude in decimal degrees")
     sog_knots: Optional[float] = Field(default=None, ge=0.0, description="Speed over ground (knots)")
     cog_deg: Optional[float] = Field(default=None, ge=0.0, lt=360.0, description="Course over ground (degrees)")
+    elevation_m: Optional[int] = Field(
+        default=None,
+        description="Altitude (m) the weather was asked for (`elevation`, rounded to the metre); null when none was asked: the weather "
+        "is then the one of the forecast cell, at its own altitude",
+    )
 
 
 class CurrentWeather(BaseModel):
@@ -201,6 +206,12 @@ class HourlyWeatherPoint(BaseModel):
     shortwave_wm2: Optional[float] = Field(default=None, ge=0.0, description="Shortwave solar radiation (W/m2)")
     weather_code: Optional[int] = Field(default=None, ge=0, le=99, description="WMO weather interpretation code")
     is_day: Optional[bool] = Field(default=None, description="True during local daylight, False at night, null when unknown")
+    freezing_level_m: Optional[int] = Field(
+        default=None,
+        description="Freezing level (iso 0): the altitude of the 0 °C isotherm, in m above sea level, as Open-Meteo gives it from its "
+        "global models (also on the hours of the Météo-France models, which have none). When the air is below 0 °C down to the "
+        "ground, the models give a height near their own ground. Null when no model gives it (MET Norway)",
+    )
 
 
 class PressureHistoryPoint(BaseModel):

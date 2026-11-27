@@ -126,6 +126,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app import __version__, clock
 from app.collectors.base import CollectorUnavailableError
+from app.collectors.grid import MAX_ELEVATION_M, MIN_ELEVATION_M
 from app.collectors.meteofrance_radar import AREAS as RADAR_AREAS
 from app.collectors.meteofrance_radar import TRANSPARENT_PNG, tile_touches
 from app.collectors.meteofrance_rain_field import LEVEL_IDS as RAIN_FIELD_LEVELS
@@ -781,6 +782,15 @@ async def get_point_weather_and_hazards(
         le=NEARBY_RADIUS_MAX_KM,
         description="Radius (km) of the `fires_nearby` summary of active fires (NASA FIRMS; null when the instance turned the source off)",
     ),
+    elevation: Optional[float] = Query(
+        default=None,
+        ge=MIN_ELEVATION_M,
+        le=MAX_ELEVATION_M,
+        description="Altitude (m) the weather is computed for, rounded to the metre (the top of a ski area, a mountain hut): the "
+        "current conditions, the days and the hours of the place at that height. Without it, the weather of the forecast cell "
+        "(about 5 km) at the cell's own altitude, which in the mountains can be hundreds of metres from the point's. The other "
+        "blocks (rain of the next hour, short term, probabilities, air, hazards) stay those of the place.",
+    ),
 ) -> PointResponse:
     """Weather at one position (15-minute rain, marine, river discharge, air, space weather), nearby hazards and the fires detected nearby."""
     return await aggregator.build_point_response(
@@ -794,6 +804,7 @@ async def get_point_weather_and_hazards(
         max_hazards=max_hazards,
         compact=compact,
         fire_radius_km=fire_radius_km,
+        elevation_m=None if elevation is None else int(round(elevation)),
     )
 
 

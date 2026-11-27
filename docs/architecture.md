@@ -213,7 +213,12 @@ The number of calls to the providers must not grow with the number of clients. W
   Clients in the same cell share one call and one cache entry. The client keeps its exact position:
   the response reports it and the distances to the hazards use it. Open-Meteo applies its own
   elevation correction to the requested point, so the temperature near a hill is the one of the cell
-  centre, not of the exact spot: this is the price of the shared cell.
+  centre, not of the exact spot: this is the price of the shared cell. In the mountains the gap is
+  large (measured on 2026-11-27 on the Open-Meteo world instance: a village at 2,308 m in a cell whose
+  centre is at 2,900 m, 3 °C colder; one at 1,356 m in a cell at 1,676 m, 2.6 °C colder). A client
+  that knows its altitude sends it (`GET /v1/point?elevation=`): every provider of the weather is
+  asked at that altitude (Open-Meteo and the gateway `elevation`, MET Norway `altitude`), the cache
+  key ends with `@<metres>m`, and the cell is still shared by the clients at the same altitude.
 - **One cache entry per position, whatever the number of days.** The forecast is always asked for
   the longest length any route returns (14 days) and cached once per cell. The compact profiles
   (5 days: the frame, `compact=true`) slice the answer; the number of days is not part of any cache
@@ -227,7 +232,8 @@ The number of calls to the providers must not grow with the number of clients. W
   For a point in the box around metropolitan France and Corsica, `AggregatorService._france_bundle` asks the vigie-meteo gateway
   (current conditions, 15-minute rain, four days), Open-Meteo's daily part (rain probability, later days, cloud cover) and the UV grid
   of Météo-France together, and `merge_france_bundle` joins them field by field. Any failure of the gateway returns to the Open-Meteo
-  path below; a failure of the two others only leaves out what they would have given.
+  path below; a failure of the two others only leaves out what they would have given. With the hours (`compact=false`), Open-Meteo's
+  hourly part is asked too, for the freezing level the models do not give (`with_freezing_level`).
 - **A call budget per source.** Every request goes through `BaseCollector._get`, which counts it
   (and its weight) over a sliding window of 24 hours. A provider with a published quota (Open-Meteo,
   MET Norway, RainViewer; `app/collectors/budget.py`) never gets a request that would exceed it:
