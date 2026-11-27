@@ -8,6 +8,9 @@ card's demand, and kept for 30 minutes.
 - ``vigie/card/data``: what the card shows for one entry (``entry_id``; the first entry with the option when it is left out),
   with the verdicts of ``spot`` (an identifier, or ``auto`` for the nearest spot within ``AUTO_SPOT_KM``).
 - ``vigie/card/spots``: the spots near the place of an entry, for the card's editor.
+- ``vigie/card/beach``: a beach of the Sea page (``spot``, one of the spots near the place): its forecast hour by hour, its
+  verdicts, the water at its cell and its monitored bathing site, read when the card asks and kept for 30 minutes (the
+  bathing site, a class over four years, for a day).
 - ``vigie/card/mountain``: a station of the Mountain page (``lat``, ``lon``, ``top_m``, and ``base_m``, the altitude of the model's
   cell when it is left out): the weather at its top and at its base, and its avalanche bulletin, read when the card asks and
   kept for 10 minutes.
@@ -35,6 +38,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_entries)
     websocket_api.async_register_command(hass, ws_card_data)
     websocket_api.async_register_command(hass, ws_spots)
+    websocket_api.async_register_command(hass, ws_beach)
     websocket_api.async_register_command(hass, ws_mountain)
 
 
@@ -72,6 +76,21 @@ async def ws_spots(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
         connection.send_error(msg["id"], "not_found", "No Vigie entry with the option Weather and card")
         return
     connection.send_result(msg["id"], await entry.runtime_data.weather.async_spots())  # type: ignore[union-attr]
+
+
+@websocket_api.websocket_command({vol.Required("type"): "vigie/card/beach", vol.Optional("entry_id"): str, vol.Required("spot"): str})
+@websocket_api.async_response
+async def ws_beach(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """A beach of the Sea page, read through the entry (its instance, its cache); ``not_found`` for a spot not near the place."""
+    entry = _entry(hass, msg.get("entry_id"))
+    if entry is None or not _with_weather(entry):
+        connection.send_error(msg["id"], "not_found", "No Vigie entry with the option Weather and card")
+        return
+    beach = await entry.runtime_data.weather.async_beach(msg["spot"])  # type: ignore[union-attr]
+    if beach is None:
+        connection.send_error(msg["id"], "not_found", "No such spot near the place of the entry")
+        return
+    connection.send_result(msg["id"], {"language": hass.config.language, **beach})
 
 
 _ALTITUDE = vol.All(vol.Coerce(int), vol.Range(min=MIN_ELEVATION_M, max=MAX_ELEVATION_M))

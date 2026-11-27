@@ -5,9 +5,10 @@ reads the tide (``/v1/tides``; 404 inland, then nothing is asked again for hours
 (``/v1/climate/normals``; France and its overseas territories only) and, where the normals exist, the wind measured by the
 nearest Météo-France station (``/v1/stations/wind``) and the forest fire danger of the department (``/v1/forest-fire``, every
 hour; Météo-France publishes it from June to September). The spots and their verdicts are read when the card asks for them
-(``/v1/surf/spots``, ``/v1/activities/{spot}``), and kept for a while. So are the stations of the card's Mountain page: the
-weather at their top and at their base (``/v1/point?elevation=``) and their avalanche bulletin (``/v1/avalanches``), trimmed
-to what the page draws.
+(``/v1/surf/spots``, ``/v1/activities/{spot}``), and kept for a while. So are the beaches of the card's Sea page: the forecast
+of the spot (``/v1/surf/spots/{spot}``), the water at its cell (``/v1/point`` with the sea) and its monitored bathing site
+(``/v1/sea/places``); and the stations of the card's Mountain page: the weather at their top and at their base
+(``/v1/point?elevation=``) and their avalanche bulletin (``/v1/avalanches``). Each is trimmed to what its page draws.
 
 Nothing here makes up a weather value: what the API did not give stays unknown. The few numbers worked out here (a sum of the
 rain steps of the next hour, the strongest gust among the next hours, the next high water) are read from the answer as it is,
@@ -36,8 +37,14 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .api import VigieClient, VigieError, VigieNotFoundError
 from .const import (
     ACTIVITIES_REFRESH,
+    BATHING_ASK_KM,
+    BATHING_NEAR_KM,
+    BATHING_REFRESH,
+    BEACH_HOURS,
+    BEACH_REFRESH,
     DOMAIN,
     FOREST_FIRE_REFRESH,
+    MAX_BEACHES,
     MAX_LISTED_SPOTS,
     MAX_SPOT_DISTANCE_KM,
     MAX_STATIONS,
@@ -362,6 +369,130 @@ def mountain_avalanches(answer: Any) -> dict[str, Any] | None:
     }
 
 
+# --------------------------------------------------------------------------------------------------------------- beaches
+# What the Sea page draws of a beach. The spot: its place, its facing and bottom (the coast of the baïnes), its lifeguards.
+_SPOT_KEEP = ("id", "name", "place", "lat", "lon", "facing_deg", "bottom", "beach_surface", "lifeguarded")
+_SEA_HOUR_KEEP = ("time_utc", "daylight", "waves", "swell", "wind", "tide")
+_FORECAST_KEEP = ("generated_utc", "swell_model", "stale", "attribution")
+_ACTIVITY_KEEP = ("id", "available", "verdict", "reason", "best_slot")
+_ACTIVITY_HOUR_KEEP = ("time_utc", "daylight", "verdict", "reason")
+_ACTIVITIES_KEEP = ("generated_utc", "sun", "vigilance", "stale", "attribution")
+_WATER_KEEP = ("sea_surface_temperature_c", "sea_state_label", "wave_height_m", "stale", "attribution")
+_BATHING_KEEP = ("id", "name", "commune", "quality", "lat", "lon", "ref")
+# Closer than this, a bathing site is the beach's whatever its side; farther, one behind the beach (within 45 degrees of straight
+# inland) is a lake or a pond, not the sea of the beach (the rule of the site, vigie-web `src/lib/sea/bathing.ts`).
+_SAME_PLACE_KM = 0.2
+_INLAND_DEG = 135.0
+
+
+def _in_window(time_utc: Any, now_utc: int) -> bool:
+    return isinstance(time_utc, int | float) and now_utc - 3600 <= time_utc <= now_utc + BEACH_HOURS * 3600
+
+
+def beach_forecast(answer: Any, now_utc: int) -> dict[str, Any] | None:
+    """What the Sea page draws of an answer of ``/v1/surf/spots/{spot}``: the spot, and its hours from the one under way to
+    ``BEACH_HOURS`` ahead (waves, swell, wind and how it blows to the shore, tide), without the ratings of the surf page."""
+    if not isinstance(answer, dict) or not isinstance(answer.get("hours"), list):
+        return None
+    return {
+        **_pick(answer, _FORECAST_KEEP),
+        "spot": _pick(answer.get("spot"), _SPOT_KEEP),
+        "hours": [
+            _pick(hour, _SEA_HOUR_KEEP)
+            for hour in answer["hours"]
+            if isinstance(hour, dict) and _in_window(hour.get("time_utc"), now_utc)
+        ],
+    }
+
+
+def beach_activities(answer: Any, now_utc: int) -> dict[str, Any] | None:
+    """What the Sea page draws of an answer of ``/v1/activities/{spot}``: each verdict and its hours of the window, the high and
+    low waters of the next day and a half with the estimated coefficients, the sun, the coastal warnings."""
+    if not isinstance(answer, dict) or not isinstance(answer.get("activities"), list):
+        return None
+    tide = answer.get("tide") if isinstance(answer.get("tide"), dict) else {}
+    extremes = tide.get("extremes") if isinstance(tide.get("extremes"), list) else []
+    coefficients = tide.get("coefficients_estimated")
+    return {
+        **_pick(answer, _ACTIVITIES_KEEP),
+        "activities": [
+            {
+                **_pick(activity, _ACTIVITY_KEEP),
+                "hours": [
+                    _pick(hour, _ACTIVITY_HOUR_KEEP)
+                    for hour in activity.get("hours") or []
+                    if isinstance(hour, dict) and _in_window(hour.get("time_utc"), now_utc)
+                ],
+            }
+            for activity in answer["activities"]
+            if isinstance(activity, dict)
+        ],
+        "tide": {
+            "extremes": [
+                extreme
+                for extreme in extremes
+                if isinstance(extreme, dict)
+                and isinstance(extreme.get("time_utc"), int | float)
+                and now_utc - 12 * 3600 <= extreme["time_utc"] <= now_utc + 36 * 3600
+            ],
+            "coefficients_estimated": coefficients if isinstance(coefficients, list) else None,
+        },
+    }
+
+
+def beach_water(answer: Any) -> dict[str, Any] | None:
+    """The sea of an answer of ``/v1/point`` asked at the beach: the temperature of the water and the state of the sea of the
+    ocean model at its cell (not a measure at the beach); ``None`` without the sea."""
+    marine = answer.get("marine") if isinstance(answer, dict) else None
+    return (_pick(marine, _WATER_KEEP) or None) if isinstance(marine, dict) else None
+
+
+def bearing_deg(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Initial bearing from the first point to the second, in degrees from north."""
+    p1, p2, dl = math.radians(lat1), math.radians(lat2), math.radians(lon2 - lon1)
+    y = math.sin(dl) * math.cos(p2)
+    x = math.cos(p1) * math.sin(p2) - math.sin(p1) * math.cos(p2) * math.cos(dl)
+    return (math.degrees(math.atan2(y, x)) + 360) % 360
+
+
+def bathing_site(answer: Any, spot: dict[str, Any]) -> dict[str, Any] | None:
+    """The monitored bathing site of a beach in an answer of ``/v1/sea/places``: the nearest within ``BATHING_NEAR_KM`` of the
+    spot, leaving out one behind the beach when the spot's facing is known (the list does not say whether its water is the sea
+    or a lake), with the class of its water and the credit; ``None`` when there is none."""
+    places = answer.get("places") if isinstance(answer, dict) else None
+    lat, lon, facing = _number(spot.get("lat")), _number(spot.get("lon")), _number(spot.get("facing_deg"))
+    if not isinstance(places, list) or lat is None or lon is None:
+        return None
+    best: tuple[float, dict[str, Any]] | None = None
+    for place in places:
+        if not isinstance(place, dict) or place.get("type") != "bathing":
+            continue
+        p_lat, p_lon = _number(place.get("lat")), _number(place.get("lon"))
+        if p_lat is None or p_lon is None:
+            continue
+        km = distance_km(lat, lon, p_lat, p_lon)
+        if km > BATHING_NEAR_KM or (best is not None and km >= best[0]):
+            continue
+        if facing is not None and km > _SAME_PLACE_KM:
+            off = abs(((bearing_deg(lat, lon, p_lat, p_lon) - facing + 540) % 360) - 180)
+            if off > _INLAND_DEG:
+                continue
+        best = (km, place)
+    if best is None:
+        return None
+    return {**_pick(best[1], _BATHING_KEEP), "distance_km": round(best[0], 1), "attribution": answer.get("attribution")}
+
+
+class _Beach:
+    """A beach of the Sea page: its forecast and its water, kept as long as its verdicts, and its bathing site, kept a day."""
+
+    def __init__(self) -> None:
+        self.forecast = _Slow(BEACH_REFRESH)
+        self.water = _Slow(BEACH_REFRESH)
+        self.bathing = _Slow(BATHING_REFRESH)
+        self.lock = asyncio.Lock()  # two screens asking at once: one read
+
+
 class _Station:
     """A station of the Mountain page: its top, its base and its avalanche bulletin, each kept for ``MOUNTAIN_REFRESH``."""
 
@@ -386,6 +517,7 @@ class VigieWeatherCoordinator(DataUpdateCoordinator[WeatherData]):
         self._forest_fire = _Slow(FOREST_FIRE_REFRESH)
         self._activities: dict[str, _Slow] = {}
         self._stations: OrderedDict[tuple[float, float, int | None, int], _Station] = OrderedDict()
+        self._beaches: OrderedDict[str, _Beach] = OrderedDict()
 
     async def _async_update_data(self) -> WeatherData:
         try:
@@ -430,6 +562,39 @@ class VigieWeatherCoordinator(DataUpdateCoordinator[WeatherData]):
         slow = self._activities.setdefault(spot_id, _Slow(ACTIVITIES_REFRESH))
         answer = await slow.get(lambda: self.client.activities(spot_id))
         return answer if isinstance(answer, dict) else None
+
+    async def async_beach(self, spot_id: str) -> dict[str, Any] | None:
+        """A beach of the Sea page: a spot near the place (``None`` for one that is not), its forecast hour by hour, its verdicts,
+        the water at its cell and its monitored bathing site, trimmed to what the page draws. A part that could not be read is
+        ``None``."""
+        near = next((spot for spot in await self.async_spots() if spot["id"] == spot_id), None)
+        if near is None:
+            return None
+        beach = self._beaches.pop(spot_id, None) or _Beach()
+        self._beaches[spot_id] = beach
+        while len(self._beaches) > MAX_BEACHES:
+            self._beaches.popitem(last=False)
+        async with beach.lock:
+            forecast = await beach.forecast.get(lambda: self.client.surf_forecast(spot_id))
+            spot = forecast.get("spot") if isinstance(forecast, dict) and isinstance(forecast.get("spot"), dict) else {}
+            lat, lon = _number(spot.get("lat")), _number(spot.get("lon"))
+            if lat is not None and lon is not None:
+                water, bathing, activities = await asyncio.gather(
+                    beach.water.get(lambda: self.client.point(lat, lon)),
+                    beach.bathing.get(lambda: self.client.bathing_sites(lat, lon, BATHING_ASK_KM)),
+                    self.async_activities(spot_id),
+                )
+            else:
+                water, bathing, activities = None, None, await self.async_activities(spot_id)
+        now = int(time.time())
+        trimmed = beach_forecast(forecast, now)
+        return {
+            "spot": {**near, **(trimmed["spot"] if trimmed else {})},
+            "forecast": trimmed,
+            "activities": beach_activities(activities, now),
+            "water": beach_water(water),
+            "bathing": bathing_site(bathing, spot),
+        }
 
     async def async_mountain(self, lat: float, lon: float, base_m: int | None, top_m: int) -> dict[str, Any]:
         """A station of the Mountain page: the weather at its top and at its base (``None``: at the altitude of the model's cell),

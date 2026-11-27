@@ -75,6 +75,16 @@ MAX_LISTED_SPOTS: Final = 12
 # and kept as long as the weather of the place; at most MAX_STATIONS stations are kept (the oldest asked goes first).
 MOUNTAIN_REFRESH: Final = WEATHER_INTERVAL
 MAX_STATIONS: Final = 6
+# The beaches of the card's Sea page (spots of the list above, chosen in the editor): the forecast of the spot hour by hour
+# (`/v1/surf/spots/{id}`) and the water at its cell (`/v1/point` with the sea) are kept as long as its verdicts; its monitored
+# bathing site (`/v1/sea/places`, a class over four years) for a day. At most MAX_BEACHES beaches are kept (the oldest asked
+# goes first). A bathing site counts as the beach's own within BATHING_NEAR_KM (the site's rule, vigie-web `bathing.ts`).
+BEACH_REFRESH: Final = ACTIVITIES_REFRESH
+BATHING_REFRESH: Final = timedelta(hours=24)
+MAX_BEACHES: Final = 6
+BEACH_HOURS: Final = 27
+BATHING_ASK_KM: Final = 2.0
+BATHING_NEAR_KM: Final = 1.0
 # The altitudes the API accepts for a point (`GET /v1/point?elevation=`), in metres.
 MIN_ELEVATION_M: Final = -500
 MAX_ELEVATION_M: Final = 9000

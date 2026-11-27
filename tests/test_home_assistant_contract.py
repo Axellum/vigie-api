@@ -1,7 +1,8 @@
 """The Home Assistant integration (``custom_components/vigie``) reads ``GET /v1/vigilances``, ``GET /v1/earthquakes``, when its
 experimental option is ticked ``GET /v1/experimental/prealert``, and when its option "Weather and card" is ticked (ADR 0042)
 ``GET /v1/point``, ``/v1/tides``, ``/v1/climate/normals``, ``/v1/stations/wind``, ``/v1/surf/spots`` and
-``/v1/activities/{spot_id}`` and ``/v1/forest-fire``: keep what it reads true.
+``/v1/activities/{spot_id}`` and ``/v1/forest-fire``, and for the card's Sea page ``/v1/surf/spots/{spot_id}`` and
+``/v1/sea/places``: keep what it reads true.
 
 The integration is tested in its own environment (``tests_ha/``, Python and Home Assistant of their own, see
 ``docs/home-assistant.md``). Here, in the API's own CI, the answers its tests use are checked against the API's
@@ -30,8 +31,9 @@ from app.models.earthquakes import EarthquakesResponse
 from app.models.forest_fire import ForestFireResponse
 from app.models.prealert import PrealertResponse
 from app.models.schemas import PointResponse, SeverityLevel
+from app.models.sea_places import PlaceList
 from app.models.stations import StationWindMap
-from app.models.surf import SurfSpots
+from app.models.surf import SurfForecast, SurfSpots
 from app.models.tides import TidesResponse
 from app.models.vigilance import VigilanceCoverage, VigilancePhenomenon, VigilancesResponse
 from tests_ha import payloads
@@ -48,6 +50,8 @@ WEATHER_MODELS: dict[str, type[BaseModel]] = {
     "normals_": ClimateNormalsResponse,
     "stationwind_": StationWindMap,
     "spots_": SurfSpots,
+    "surfspot_": SurfForecast,
+    "seaplaces_": PlaceList,
     "activities_": ActivitiesForecast,
     "forestfire_": ForestFireResponse,
     "avalanches_": AvalancheResponse,

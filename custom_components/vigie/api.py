@@ -33,6 +33,8 @@ ACTIVITIES_PATH = "/v1/activities"
 FOREST_FIRE_PATH = "/v1/forest-fire"
 # The stations of the card's Mountain page: their avalanche bulletin.
 AVALANCHES_PATH = "/v1/avalanches"
+# The beaches of the card's Sea page: the monitored bathing sites near a spot (its forecast is `SPOTS_PATH/{spot_id}`).
+SEA_PLACES_PATH = "/v1/sea/places"
 
 # Decimals of the position sent to the API: about one metre. The stream rounds a followed point to four.
 POSITION_DECIMALS = 5
@@ -175,6 +177,17 @@ class VigieClient:
     async def activities(self, spot_id: str) -> Any:
         """``GET /v1/activities/{spot_id}``: the verdicts of a spot, hour by hour, with its tide and the coastal warnings."""
         return await self._get_json(f"{ACTIVITIES_PATH}/{quote(spot_id, safe='')}", None, WEATHER_TIMEOUT_S)
+
+    async def surf_forecast(self, spot_id: str) -> Any:
+        """``GET /v1/surf/spots/{spot_id}?days=2``: the forecast of a spot hour by hour (waves, swell, wind and how it blows to the
+        shore, tide), and the spot's facing, bottom and lifeguards."""
+        return await self._get_json(f"{SPOTS_PATH}/{quote(spot_id, safe='')}", {"days": "2"}, WEATHER_TIMEOUT_S)
+
+    async def bathing_sites(self, lat: float, lon: float, radius_km: float) -> Any:
+        """``GET /v1/sea/places?type=bathing`` around a point: the monitored bathing sites, nearest first, with the class of their
+        water over four years (the French coast; an instance older than this route answers 404)."""
+        params = {"type": "bathing", "near_lat": f"{lat:.{POSITION_DECIMALS}f}", "near_lon": f"{lon:.{POSITION_DECIMALS}f}", "radius_km": f"{radius_km:g}", "limit": "20"}
+        return await self._get_json(SEA_PLACES_PATH, params, WEATHER_TIMEOUT_S)
 
     async def forest_fire(self, lat: float, lon: float) -> Any:
         """``GET /v1/forest-fire``: the forest fire danger of the department of a point (Météo-France, June to September).

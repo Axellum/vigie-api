@@ -21,9 +21,10 @@ Point a second entry of the integration at it (another name, any place), watch i
 entry. The real instance and the real warnings are not touched. It has no authentication: run it on a trusted network.
 
 With ``--replay tests_ha/fixtures`` it also serves the routes of the option "Weather and card" (ADR 0042): the real answers
-recorded for Biarritz on 2026-11-22 (the weather, the tide, the normals, the wind measured, the spots and the verdicts of one
-spot, the warnings in force then, and the earthquakes near it, read later that day), every time in them moved by as much as
-the clock moved since the read, so "now" falls where it fell. A station of the card's Mountain page gets the point recorded at
+recorded for Biarritz on 2026-11-22 (the weather, the tide, the normals, the wind measured, the spots, the warnings in force
+then, and the earthquakes near it, read later that day), and for one spot, the Plage des Corsaires, on 2026-11-27 (its verdicts,
+its forecast hour by hour and the bathing sites near it: a beach of the card's Sea page), every time in them moved by as much
+as the clock moved since its read, so "now" falls where it fell. A station of the card's Mountain page gets the point recorded at
 Chamonix that day, simulated at the altitude it asks (``elevation``: see ``at_altitude``), and the avalanche bulletin recorded
 there on 2026-11-27. This is how the dashboard card is tried in a real Home
 Assistant, and the integration installed in a fresh one (the ``card`` and ``install`` jobs of the workflow), with nothing
@@ -170,7 +171,9 @@ REPLAY_ROUTES = {
     "/v1/climate/normals": "normals_biarritz_2026-11-22.json",
     "/v1/stations/wind": "stationwind_biarritz_2026-11-22.json",
     "/v1/surf/spots": "spots_2026-11-22.json",
-    "/v1/activities/biarritz-plage-des-corsaires": "activities_biarritz-plage-des-corsaires_2026-11-22.json",
+    "/v1/activities/biarritz-plage-des-corsaires": "activities_biarritz-plage-des-corsaires_2026-11-27.json",
+    "/v1/surf/spots/biarritz-plage-des-corsaires": "surfspot_biarritz-plage-des-corsaires_2026-11-27.json",
+    "/v1/sea/places": "seaplaces_biarritz-plage-des-corsaires_2026-11-27.json",
     "/v1/earthquakes": "earthquakes_biarritz_2026-11-22.json",
     "/v1/forest-fire": "forestfire_biarritz_2026-11-22.json",
     "/v1/avalanches": "avalanches_chamonix_2026-11-27.json",
@@ -178,7 +181,14 @@ REPLAY_ROUTES = {
 REPLAY_VIGILANCES = "vigilances_biarritz_2026-11-22.json"
 # A route read apart from the others: moved from its own time of reading (the key that holds it), not from the point's.
 # The bulletin writes its times as texts (``2026-11-27T17:00:00Z``): they are moved, from its own read, as texts.
-REPLAY_OWN_READ = {"/v1/earthquakes": "generated_utc", "/v1/forest-fire": "checked_at_utc", "/v1/avalanches": "server_utc"}
+REPLAY_OWN_READ = {
+    "/v1/earthquakes": "generated_utc",
+    "/v1/forest-fire": "checked_at_utc",
+    "/v1/avalanches": "server_utc",
+    # The beach of the Sea page: its forecast and its verdicts, read together, keep their tides in step.
+    "/v1/activities/biarritz-plage-des-corsaires": "generated_utc",
+    "/v1/surf/spots/biarritz-plage-des-corsaires": "generated_utc",
+}
 # The point a station of the Mountain page asks at an altitude (``GET /v1/point?elevation=``).
 REPLAY_MOUNTAIN = "point_chamonix_2026-11-22.json"
 LAPSE_C_PER_M = 0.0065  # the standard atmosphere: 6.5 °C less for each 1 000 m higher
