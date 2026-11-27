@@ -1,7 +1,8 @@
 // The online demo of the Home Assistant card: the card of the integration (`vigie-card.js`, copied next to this page when it is
 // published), drawn without Home Assistant. The page plays the part of Home Assistant for it, as the widget page of vigie-web
-// does: a `hass` object with the language and the theme, whose `callWS` answers the card's command `vigie/card/data` with an
-// answer recorded by `tools/record_card_demo.py` (`data/<place>.json`). The card's clock starts at the time of that record
+// does: a `hass` object with the language and the theme, whose `callWS` answers the card's commands `vigie/card/data` and
+// `vigie/card/mountain` (a station of the Mountain page) with answers recorded by `tools/record_card_demo.py`
+// (`data/<place>.json`). The card's clock starts at the time of that record
 // and runs from there, so "now", "the next hours" and "the rain in the hour" read as they did then. Nothing is asked of a
 // Vigie instance from this page.
 
@@ -19,7 +20,7 @@ const PLACES = [
     },
   },
 ];
-const PAGES = ['home', 'details', 'alerts', 'sea', 'normal'];
+const PAGES = ['home', 'details', 'alerts', 'sea', 'mountain', 'normal'];
 const CARD_HEIGHT = 760; // the fixed size of the card in a sections view: 12 rows of the grid
 
 // ---- the card's clock: the time of the record, running ----------------------------------------------------------------------
@@ -96,13 +97,26 @@ function fakeHass() {
       if (message?.type === 'vigie/card/data') return answerOf(current, state.lang);
       if (message?.type === 'vigie/card/entries') return [{ entry_id: current.answer.entry_id, title: current.place.name }];
       if (message?.type === 'vigie/card/spots') return current.answer.spot ? [current.answer.spot] : [];
+      if (message?.type === 'vigie/card/mountain') {
+        // The station the card asks for, found by what it sends: its position and its altitudes.
+        const stations = current.place.stations || [];
+        const i = stations.findIndex(
+          (s) =>
+            s.latitude === message.lat &&
+            s.longitude === message.lon &&
+            s.top_m === message.top_m &&
+            (s.base_m ?? null) === (message.base_m ?? null)
+        );
+        if (i < 0 || !current.mountain?.[i]) throw { code: 'not_found' };
+        return { language: state.lang, ...current.mountain[i] };
+      }
       throw { code: 'unknown_command' };
     },
   };
 }
 
 function configOf(rec) {
-  return {
+  const config = {
     type: 'custom:vigie-card',
     entry_id: rec.answer.entry_id,
     name: rec.place.name,
@@ -110,6 +124,8 @@ function configOf(rec) {
     spot: rec.place.spot,
     idle: 'none',
   };
+  if (rec.place.stations?.length) config.stations = rec.place.stations;
+  return config;
 }
 
 // ---- the page's own words ---------------------------------------------------------------------------------------------------
@@ -170,6 +186,14 @@ function yaml(config) {
     `spot: ${config.spot}`,
     `idle: ${config.idle}`,
   ];
+  if (config.stations) {
+    lines.push('stations:');
+    for (const s of config.stations) {
+      lines.push(`  - name: ${s.name}`, `    latitude: ${s.latitude}`, `    longitude: ${s.longitude}`);
+      if (s.base_m != null) lines.push(`    base_m: ${s.base_m}`);
+      lines.push(`    top_m: ${s.top_m}`);
+    }
+  }
   document.getElementById('yaml').textContent = lines.join('\n');
 }
 

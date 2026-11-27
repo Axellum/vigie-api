@@ -19,6 +19,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 DEMO = ROOT / "demo"
 WEBSOCKET = ROOT / "custom_components" / "vigie" / "websocket.py"
+WEATHER_DATA = ROOT / "custom_components" / "vigie" / "weather_data.py"
 CARD = ROOT / "custom_components" / "vigie" / "frontend" / "vigie-card.js"
 
 
@@ -34,12 +35,12 @@ recorder = _tool("record_card_demo")
 builder = _tool("build_card_demo")
 
 
-def _function(name: str) -> ast.AST:
-    tree = ast.parse(WEBSOCKET.read_text(encoding="utf-8"))
+def _function(name: str, path: Path = WEBSOCKET) -> ast.AST:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name == name:
             return node
-    raise AssertionError(f"{name} not found in websocket.py")
+    raise AssertionError(f"{name} not found in {path.name}")
 
 
 def _keys(node: ast.Dict) -> set[str]:
@@ -62,7 +63,9 @@ def test_each_place_of_the_recorder_has_its_answers_and_no_other_file_is_there()
     records = _records()
     assert sorted(records) == sorted(place["id"] for place in recorder.PLACES)
     for place in recorder.PLACES:
-        assert records[place["id"]]["place"] == {key: place[key] for key in ("id", "name", "lat", "lon", "spot")}
+        assert records[place["id"]]["place"] == place, (
+            f"{place['id']}: record it again with `python tools/record_card_demo.py`"
+        )
 
 
 def test_the_page_offers_exactly_the_recorded_places() -> None:
@@ -93,6 +96,34 @@ def test_a_recorded_answer_has_the_shape_the_integration_gives_the_card(place: s
     assert record["instance"].startswith("https://") or record["instance"].startswith("http://localhost")
     assert isinstance(record["recorded_utc"], int) and record["recorded_utc"] > 1_700_000_000
     assert answer["point"] is not None and answer["read_utc"] is not None
+
+
+def test_each_station_has_its_answer_with_the_shape_the_integration_gives_the_mountain_page() -> None:
+    expected = _keys(_dict_with(_function("async_mountain", WEATHER_DATA), "elevation_ignored"))
+    stations_seen = 0
+    for record in _records().values():
+        stations = record["place"].get("stations", [])
+        assert len(record["mountain"]) == len(stations)
+        for station, answer in zip(stations, record["mountain"], strict=True):
+            stations_seen += 1
+            assert set(answer) == expected, (
+                f"vigie/card/mountain changed ({sorted(expected ^ set(answer))}): update mountain_station in "
+                "tools/record_card_demo.py, then record again"
+            )
+            # Read at the altitudes asked: the top and the base are not the same weather.
+            assert answer["elevation_ignored"] is False
+            assert answer["top"]["coordinates"]["elevation_m"] == station["top_m"]
+            if station.get("base_m") is not None:
+                assert answer["base"]["coordinates"]["elevation_m"] == station["base_m"]
+    assert stations_seen, "no place has a station: the Mountain page is not in the demo"
+
+
+def test_the_stations_are_what_the_card_reads() -> None:
+    for place in recorder.PLACES:
+        for station in place.get("stations", []):
+            assert set(station) <= {"name", "latitude", "longitude", "base_m", "top_m"}
+            assert -90 <= station["latitude"] <= 90 and -180 <= station["longitude"] <= 180
+            assert isinstance(station["top_m"], int) and station["top_m"] > station.get("base_m", 0)
 
 
 def test_the_spot_of_a_record_is_within_the_distance_the_card_uses() -> None:
