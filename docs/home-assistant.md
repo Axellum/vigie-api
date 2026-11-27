@@ -269,16 +269,23 @@ danger of the department (`/v1/forest-fire`, Météo-France, June to September).
 spot (`/v1/activities/{spot_id}`, read only when a card asks for a spot within 60 km, and kept 30 minutes) go to the dashboard
 card, not to entities: they are too large for the attributes of a state.
 
-**For the card**, the integration answers four commands on Home Assistant's own WebSocket: `vigie/card/entries` and
+**For the card**, the integration answers five commands on Home Assistant's own WebSocket: `vigie/card/entries` and
 `vigie/card/spots` (for the card's editor), `vigie/card/data` (what the card shows for one entry, with the verdicts of
-`spot`, an identifier or `auto` for the nearest spot within 20 km) and `vigie/card/mountain` (a station of the Mountain page:
-`lat`, `lon`, `top_m` and the optional `base_m`). The card never calls the instance itself.
+`spot`, an identifier or `auto` for the nearest spot within 20 km), `vigie/card/beach` (a beach of the Sea page: `spot`, one
+of the spots within 60 km) and `vigie/card/mountain` (a station of the Mountain page: `lat`, `lon`, `top_m` and the optional
+`base_m`). The card never calls the instance itself.
 
 **A station of the Mountain page** is read only when a card asks for it: three requests to the instance, the weather at its top
 and at its base (`/v1/point?elevation=`, without the sea) and its avalanche bulletin (`/v1/avalanches`), kept 10 minutes and
 shared by every screen; at most 6 stations are kept. The answers are trimmed to what the page draws. An instance older than
 `elevation` answers at the altitude of its forecast cell: the integration then says so (`elevation_ignored`) rather than draw the
 same weather as the top and the base.
+
+**A beach of the Sea page** (a spot within 60 km, ticked in the editor, or the one of `spot` when none is) is read only when a
+card shows the Sea page: its forecast hour by hour (`/v1/surf/spots/{spot_id}?days=2`), the water at its cell (`/v1/point`
+with the sea), the monitored bathing sites within 2 km (`/v1/sea/places`, France: the class of their water over four years)
+and its verdicts (`/v1/activities/{spot_id}`), kept 30 minutes (the bathing sites a day) and shared by every screen; at most 6
+beaches are kept. The answers are trimmed to what the page draws.
 
 ### For the cards written for Météo-France's integration (two sensors)
 
@@ -334,6 +341,8 @@ pages: [home, details, alerts, sea, mountain, normal]   # optional: the pages sh
 start_page: home             # optional: the page it opens on
 idle: return                 # return: back to the opening page after a minute untouched; cycle: the next page every 20 s; none
 spot: auto                   # auto: the nearest spot within 20 km; none; or the id of a spot (the editor lists the spots within 60 km)
+beaches:                     # optional: the beaches of the Sea page, at most 6, each a chip (without them: the spot above)
+  - biarritz-plage-des-corsaires   # the id of a spot within 60 km (the editor lists them, to tick)
 weather_entity: weather.home # optional, outside France: the weather entity of the home page
 icon_style: meridien         # the weather icons: meridien (the screen's, the default), line, duo or badge
 stations:                    # optional: the stations of the Mountain page, at most 6
@@ -358,7 +367,7 @@ Assistant, like the rest of the card, and the hours of the night show the moon.
 | Home | Now (icon, temperature in its colour, feels like, humidity, the strongest gust to come, the pressure and its trend, the air quality and the UV, sunrise and sunset), the rain of the next hour in 12 bars of 5 minutes (radar nowcast, else AROME-PI; it opens Details), the strongest line of the season (it opens Alerts), the next 24 hours by 2 hours (by 3 on a narrow card, hour by hour on a wide one) and the next 7 days (10 on a wall screen). The hours and the days are columns tinted by their sun (grey to gold, navy at night; the current hour and today ringed), with the temperature, the rain and the wind; the days as two curves, highest and lowest, the rain of each day as a gauge and its amount, its wind in km/h and its gusts on a line of their own. Colour only where it says something: a temperature in the colour of its value, the rain, a gust of 60 km/h or more; the wind itself is grey. When the answer gives the hours of sunshine of a day (`sunshine_h`), the day says them under its icon and its column is tinted by their share of the daylight; a day without them keeps the estimate from the cloud cover. The hours need an instance that gives them (API ADR 0040). The warning is the pill of the header, named by its phenomenon. | Everywhere; outside France see below |
 | Details | The rain until tomorrow noon in a few periods (dry, rain, light rain, lull, each with its end), then the next hour by 5 minutes (radar nowcast), the next hours by quarter hour (AROME-PI: precipitation, gusts; hail and visibility), 48 hours hour by hour in the same tinted columns, and the chances per 3 hours (PE-AROME: rain of 1 mm, gusts of 56 km/h, storm; snow, gusts of 93 km/h and hail when a window has some). Within the hour the nowcast and AROME-PI can disagree; the card shows both, each in its block. | France |
 | Alerts | The official level, one row per phenomenon with its end on a timeline, the headline of the issuer as it was issued, the link to its bulletin; in France the river sections under warning nearby (Vigicrues); the lines of the season (below); the earthquakes nearby. | Everywhere |
-| Sea | The tide of the next 24 hours (high and low waters; in France the estimated coefficient), the waves, and the verdicts of the spot for surf, kite, boat and shore fishing, with the reason when it is not "good". | Near the coast |
+| Sea | The beaches ticked in the editor, as chips (else the spot of `spot`); for the one shown: the tide (rising or falling, the next high or low water, in France the estimated coefficient) and the temperature of the water; the waves and the state of the sea, the swell and the wind (onshore or offshore) of the hour; on the ocean beaches from Charente-Maritime to the Basque Country, when the current of the baïnes is the strongest (three hours each side of low water, the rule of the Vigie site); in France the class of the water of the nearest monitored bathing site and whether the beach is lifeguarded in season; the sunset or sunrise on the tiles left; the verdicts for surf, kite, boat and shore fishing with their best slot or their reason, hour by hour over 24 hours; the tide of 24 hours; the waves, their period and the wind every 3 hours. Without a beach answer, the tide of the place, its sea and the verdicts of its spot. | Near the coast |
 | Mountain | The stations chosen in the editor, as chips; for the one shown: a sentence (the next snow or rain of the 24 hours at the top, down to the base or not, then the next fine day), the avalanche danger, the freezing level now and where it goes over 3 days, the next fresh snow at the top; the avalanche bulletin in force (its levels by altitude, the aspects of its problems on a rose, the problems, the trend or what comes next, the link to the official bulletin); the next 24 hours at the top and at the base (two temperature curves around 0°, the precipitation in white for snow and blue for rain, split when it snows up high and rains down low: estimated from the temperature of the hour, the page says so); the next 7 days at the top (fresh snow, highest and lowest, wind). | With a station; the bulletins where Vigie relays one (French massifs, Switzerland, Tyrol) |
 | Normal? | Today's highest and lowest against the normals of the month (nearest Météo-France station), the forecast gusts against the record of the month, the wind measured now nearby. | France |
 
@@ -389,7 +398,8 @@ the providers of what it shows, relayed by the instance.
 
 Its limits are those of the data: it shows the **official** level only; the tide is the open sea's, computed by the instance
 (in a bay the real tide can come an hour or more later, and it is not for navigation); the verdicts of a spot are rules of
-Vigie, not a safety advice; "milder" or "cooler than normal" is a rule of the card (more than 1 °C from the normals on average),
+Vigie, not a safety advice; so is the time of the baïnes (no official text draws where they are); the class of a bathing site is
+the one of its last four seasons, not the water of the day, and a beach "lifeguarded in season" is not every day; "milder" or "cooler than normal" is a rule of the card (more than 1 °C from the normals on average),
 not of Météo-France. A value the data do not give is not drawn.
 
 ## Push and poll
@@ -413,7 +423,8 @@ rhythm allows (see "Calls to the providers" in the README).
 
 The weather of the place has no push: it is read every 10 minutes. With its option ticked, one place costs the instance about
 144 reads of `/v1/point` a day, 144 of `/v1/stations/wind` in France, 24 of `/v1/forest-fire` in France, 4 of `/v1/tides`, 2 of
-`/v1/climate/normals`, 1 of `/v1/surf/spots`, and at most 48 of `/v1/activities` per spot a card shows (ADR 0042). These answers are cached by the instance too.
+`/v1/climate/normals`, 1 of `/v1/surf/spots`, and at most 48 of `/v1/activities` per spot a card shows (ADR 0042); a beach a
+card shows on its Sea page adds at most 48 reads of `/v1/surf/spots/{spot_id}` and of `/v1/point`, and 1 of `/v1/sea/places`. These answers are cached by the instance too.
 
 ## Try it without waiting for a warning
 

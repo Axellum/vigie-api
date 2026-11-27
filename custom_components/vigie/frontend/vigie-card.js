@@ -3,6 +3,7 @@
 // where it can, ADR 0044), and it asks its data of Home Assistant (WebSocket command `vigie/card/data`), never of the instance; the
 // last answer is kept, so the card draws at once while it asks again. A value the data does not give is not drawn:
 // no empty box, no guess. The Mountain page asks for the stations chosen in the editor the same way (`vigie/card/mountain`).
+// The Sea page asks for its beaches the same way (`vigie/card/beach`).
 // Colours: the "Sombre uni" and "Clair" themes of the Vigie family, chosen by the dark mode of Home
 // Assistant (the background of the card stays the dashboard's own). Weather icons: the icon set of the Vigie family (ADR 0045), in
 // the style chosen in the editor (`icon_style`), coloured by the same themes.
@@ -151,6 +152,15 @@ const TEXT = {
     fire_note: 'Météo des forêts : un danger pour tout le département, publié de juin à septembre.', dept: 'Département : {n}',
     dir_from: ['du nord', 'du nord-est', 'd’est', 'du sud-est', 'du sud', 'du sud-ouest', 'd’ouest', 'du nord-ouest'],
     dir_to: ['au nord', 'au nord-est', 'à l’est', 'au sud-est', 'au sud', 'au sud-ouest', 'à l’ouest', 'au nord-ouest'],
+    beach_n: 'Plage {n}', high_at: 'pleine mer {t}', low_at: 'basse mer {t}', swell_k: 'Houle', wind_k: 'Vent', wind_onshore: 'de mer',
+    wind_offshore: 'de terre', wind_cross_shore: 'le long de la côte', baines: 'Baïnes', baines_now: 'En cours', baines_until: 'jusqu’à {t}',
+    baines_tip: 'Courant des baïnes le plus fort de {a} à {b} (basse mer à {low})', water_quality: 'Qualité de l’eau', water_quality_short: 'Qualité',
+    quality_excellent: 'Excellente', quality_good: 'Bonne', quality_sufficient: 'Suffisante', quality_poor: 'Insuffisante', quality_unclassified: 'Non classée',
+    quality_d: 'classe sur 4 ans', guard_k: 'Plage surveillée', guard_v: 'En saison', guard_d: 'pas tous les jours', sunset_k: 'Coucher du soleil',
+    sunrise_k: 'Lever du soleil', sunrise_d: 'lever {t}', sunset_d: 'coucher {t}', activities: 'Activités', next_24h: 'dans les 24&nbsp;h',
+    best_from: 'au mieux {a}–{b}', best_until: 'au mieux jusqu’à {b}', tide_24: 'Marée · 24&nbsp;h', tide_nav: 'pas pour la navigation',
+    next_hours: 'Les prochaines heures', every_3h: 'toutes les 3&nbsp;h', row_waves: 'Vagues <small>m</small>', row_period: 'Période <small>s</small>',
+    row_wind: 'Vent <small>km/h</small>', bathing_source: 'ministère de la Santé (data.gouv.fr)',
   },
   en: {
     page_home: 'Home', page_details: 'Details', page_alerts: 'Alerts', page_sea: 'Sea', page_mountain: 'Mountain', page_normal: 'Normal?',
@@ -237,6 +247,15 @@ const TEXT = {
     fire_note: 'Météo des forêts: a danger for the whole department, published from June to September.', dept: 'Department: {n}',
     dir_from: ['from the north', 'from the north-east', 'from the east', 'from the south-east', 'from the south', 'from the south-west', 'from the west', 'from the north-west'],
     dir_to: ['to the north', 'to the north-east', 'to the east', 'to the south-east', 'to the south', 'to the south-west', 'to the west', 'to the north-west'],
+    beach_n: 'Beach {n}', high_at: 'high water {t}', low_at: 'low water {t}', swell_k: 'Swell', wind_k: 'Wind', wind_onshore: 'onshore',
+    wind_offshore: 'offshore', wind_cross_shore: 'cross-shore', baines: 'Rip currents', baines_now: 'Now', baines_until: 'until {t}',
+    baines_tip: 'Strongest rip current from {a} to {b} (low water at {low})', water_quality: 'Water quality', water_quality_short: 'Quality',
+    quality_excellent: 'Excellent', quality_good: 'Good', quality_sufficient: 'Sufficient', quality_poor: 'Poor', quality_unclassified: 'Unclassified',
+    quality_d: 'class over 4 years', guard_k: 'Lifeguarded beach', guard_v: 'In season', guard_d: 'not every day', sunset_k: 'Sunset',
+    sunrise_k: 'Sunrise', sunrise_d: 'sunrise {t}', sunset_d: 'sunset {t}', activities: 'Activities', next_24h: 'next 24&nbsp;h',
+    best_from: 'best {a}–{b}', best_until: 'best until {b}', tide_24: 'Tide · 24&nbsp;h', tide_nav: 'not for navigation',
+    next_hours: 'The next hours', every_3h: 'every 3&nbsp;h', row_waves: 'Waves <small>m</small>', row_period: 'Period <small>s</small>',
+    row_wind: 'Wind <small>km/h</small>', bathing_source: 'French Ministry of Health (data.gouv.fr)',
   },
 };
 const PHENOMENON = {
@@ -306,7 +325,9 @@ const REASON = {
 const EDITOR_TEXT = {
   fr: { entry_id: 'Lieu (entrée Vigie)', name: 'Nom affiché', pages: 'Pages affichées et leur ordre', pages_help: 'Glisser une ligne ou utiliser les flèches pour changer l’ordre. Une page sans donnée pour le lieu ne s’affiche pas, même cochée.',
     start_page: 'Page d’ouverture', idle: 'Écran qu’on ne touche pas', idle_return: 'Retour à la page d’ouverture après une minute', idle_cycle: 'Faire défiler les pages toutes les 20 secondes',
-    idle_none: 'Rester sur la page choisie', spot: 'Spot de la page Mer', spot_auto: 'Le plus proche (moins de 20 km)', spot_none: 'Aucun',
+    idle_none: 'Rester sur la page choisie', beaches: 'Plages de la page Mer',
+    beaches_help: 'Jusqu’à 6 spots à moins de 60 km, chacun dans un onglet de la page Mer ; sans plage cochée, la page Mer montre le spot ci-dessous.',
+    spot: 'Sans plage cochée : spot de la page Mer', spot_auto: 'Le plus proche (moins de 20 km)', spot_none: 'Aucun',
     weather_entity: 'Hors de France : entité météo de la maison', weather_entity_help: 'Pour l’accueil d’un lieu hors de France ; sans elle, l’accueil montre les alertes, les séismes et la marée.',
     icon_style: 'Style des icônes météo', icon_style_help: 'Les icônes de l’écran Meridien, en quatre styles ; leurs couleurs suivent le thème clair ou sombre.',
     icons_meridien: 'Meridien (celles de l’écran)', icons_line: 'Trait', icons_duo: 'Duo', icons_badge: 'Pastille',
@@ -315,7 +336,9 @@ const EDITOR_TEXT = {
     up: 'Monter', down: 'Descendre', no_form: 'L’éditeur visuel ne s’est pas chargé : la carte se règle aussi en YAML (voir la documentation).' },
   en: { entry_id: 'Place (Vigie entry)', name: 'Name shown', pages: 'Pages shown and their order', pages_help: 'Drag a row or use the arrows to change the order. A page with no data for the place is not shown, even ticked.',
     start_page: 'Opening page', idle: 'Screen nobody touches', idle_return: 'Back to the opening page after a minute', idle_cycle: 'Go through the pages every 20 seconds',
-    idle_none: 'Stay on the page chosen', spot: 'Spot of the Sea page', spot_auto: 'The nearest (within 20 km)', spot_none: 'None',
+    idle_none: 'Stay on the page chosen', beaches: 'Beaches of the Sea page',
+    beaches_help: 'Up to 6 spots within 60 km, each in a tab of the Sea page; with no beach ticked, the Sea page shows the spot below.',
+    spot: 'With no beach ticked: spot of the Sea page', spot_auto: 'The nearest (within 20 km)', spot_none: 'None',
     weather_entity: 'Outside France: weather entity of the home', weather_entity_help: 'For the home page of a place outside France; without it the home page shows the warnings, the earthquakes and the tide.',
     icon_style: 'Style of the weather icons', icon_style_help: 'The icons of the Meridien screen, in four styles; their colours follow the light or dark theme.',
     icons_meridien: 'Meridien (the screen’s)', icons_line: 'Line', icons_duo: 'Duo', icons_badge: 'Badge',
@@ -1514,7 +1537,224 @@ function frieze(c, groups, w) {
   return `<div style="max-width:${w}px">${s}${ax}</svg></div>`;
 }
 
+// ------------------------------------------------------------------------------------------------------------------ the sea
+// The Sea page (sketch "Mer · sous-menu des plages" of 2026-11-27, without the flag of the beach, which no open source gives):
+// the beaches chosen in the editor (`beaches`, spots near the place), or without them the spot of `spot` (the nearest within
+// 20 km by default), each asked with `vigie/card/beach`: its name, the tide and the water, six tiles (waves, swell, wind, the
+// baïnes, the class of the water, the lifeguards or the sun), the verdicts of the activities hour by hour, the tide of 24 hours
+// and the next hours by 3 hours. A tile without its value is not drawn. Without a beach, while the spot of `spot` is asked, or
+// with an integration that does not answer `vigie/card/beach` (the online demo): the page of before, the tide of the place, its
+// sea and the verdicts of its spot.
+const MAX_BEACHES = 6;
+const beachesOf = (config) => [...new Set((Array.isArray(config?.beaches) ? config.beaches : []).filter((b) => typeof b === 'string' && b))].slice(0, MAX_BEACHES);
+// The beaches of the page, with the names the card knows of them (the spots of the editor's list, or the spot of the data).
+function beachList(config, data, spots) {
+  const ids = beachesOf(config), known = Array.isArray(spots) ? spots : [];
+  if (ids.length) return ids.map((id) => ({ id, name: known.find((s) => s && s.id === id)?.name || null }));
+  if (config?.spot === 'none') return [];
+  const s = data?.spot;
+  return s && typeof s.id === 'string' ? [{ id: s.id, name: s.name || null }] : [];
+}
+const beachKey = (config, id) => `b|${config?.entry_id || ''}|${id}`;
+// "Plage des Corsaires" -> "Corsaires" in the chips; the whole name under them.
+function shortBeach(name) {
+  if (typeof name !== 'string' || !name.trim()) return null;
+  const s = name.trim().replace(/^(plages?|beach)\s+(de\s+la\s+|de\s+l['’]\s*|des\s+|du\s+|de\s+|d['’]\s*)?/i, '').trim();
+  return s ? cap(s) : name.trim();
+}
+const beachName = (c, b, i) => b?.name || c.t('beach_n', { n: i + 1 });
+
+// The Douglas scale of the API (`classify_sea_state_douglas`), from the height of the waves at the spot.
+const seaState = (m) => (m < 0.1 ? 'CALM' : m < 0.5 ? 'SMOOTH' : m < 1.25 ? 'MODERATE' : m < 2.5 ? 'ROUGH' : m < 4 ? 'VERY_ROUGH' : m < 6 ? 'HIGH' : 'PHENOMENAL');
+const QUALITY_TONE = { excellent: 'vert', good: 'vert', sufficient: 'jaune', poor: 'rouge', unclassified: 't3' };
+// Credited by the spot's own data (its lifeguards, the nature of its bottom), on this page only.
+const SEA_PROVIDERS = ['GIP Littoral', 'Shom'];
+
+// The baïnes (the rule of the Vigie site, vigie-web `src/lib/sea/bathing.ts`; no official text draws where they are): the ocean
+// beaches from Charente-Maritime to the Basque Country, facing the open Atlantic and not on rock; their current runs the
+// strongest from three hours before to three hours after low water (the prefecture of Charente-Maritime: "the first three
+// hours of the rising tide and the last three hours of the falling tide").
+function onBaineCoast(s) {
+  if (!(num(s?.lat) && num(s?.lon) && s.lat >= 43.35 && s.lat <= 46.4 && s.lon <= -1)) return false;
+  if (!num(s.facing_deg) || s.facing_deg < 200 || s.facing_deg > 340) return false;
+  return s.bottom !== 'rock';
+}
+function baineWindow(extremes, now, horizon = 24 * 3600) {
+  const lows = (Array.isArray(extremes) ? extremes : []).filter((e) => e && e.kind === 'low' && num(e.time_utc)).sort((a, b) => a.time_utc - b.time_utc);
+  for (const low of lows) {
+    const from = low.time_utc - 3 * 3600, to = low.time_utc + 3 * 3600;
+    if (to <= now) continue;
+    return from - now > horizon ? null : { low, from, to, now: from <= now };
+  }
+  return null;
+}
+
+const hourFrom = (c) => c.now - (c.now % 3600);
+function beachHours(c, B) {
+  const from = hourFrom(c);
+  return (Array.isArray(B?.forecast?.hours) ? B.forecast.hours : []).filter((h) => h && num(h.time_utc) && h.time_utc >= from).sort((a, b) => a.time_utc - b.time_utc);
+}
+const extremesOf = (B) => (Array.isArray(B?.activities?.tide?.extremes) ? B.activities.tide.extremes : [])
+  .filter((e) => e && num(e.time_utc) && (e.kind === 'high' || e.kind === 'low')).sort((a, b) => a.time_utc - b.time_utc);
+
+// The name, the tide (rising or falling, the next high or low water, the coefficient where there is one) and the water.
+function beachHead(c, B, name, H0) {
+  const next = extremesOf(B).find((e) => e.time_utc > c.now);
+  const trend = H0?.tide?.trend === 'rising' || H0?.tide?.trend === 'falling' ? H0.tide.trend : next ? (next.kind === 'high' ? 'rising' : 'falling') : null;
+  const parts = [];
+  if (trend) parts.push(c.t(trend === 'rising' ? 'sea_rising' : 'sea_falling'));
+  if (next) parts.push(c.t(next.kind === 'high' ? 'high_at' : 'low_at', { t: c.hm(next.time_utc) }));
+  const coefs = (Array.isArray(B?.activities?.tide?.coefficients_estimated) ? B.activities.tide.coefficients_estimated : []).filter((k) => k && num(k.brest_high_water_utc) && num(k.value));
+  if (coefs.length) parts.push(c.t('coef', { c: [...coefs].sort((a, b) => Math.abs(a.brest_high_water_utc - c.now) - Math.abs(b.brest_high_water_utc - c.now))[0].value }));
+  const sst = B?.water?.sea_surface_temperature_c;
+  const water = num(sst) ? `<div class="beau"><small>${c.t('water')}</small><b>${c.fmt(sst)}°</b></div>` : '';
+  return `<div class="bh"><div class="bht"><b>${esc(name)}</b>${parts.length ? `<span>${parts.join(' · ')}</span>` : ''}</div>${water}</div>`;
+}
+
+// The six tiles: what the sea, the swell and the wind do in the hour under way, then the baïnes, the class of the water and the
+// lifeguards, the sun on the tiles left. `level`: the shorter words, when the card measured a word cut (1: without the
+// directions in words, the arrows keep them; 2: without the state of the sea either, and the shorter names).
+function beachTiles(c, B, H0, level = 0) {
+  const P = c.P, tiles = [], tight = level >= 2;
+  const dir = (deg) => (level < 1 && num(deg) ? c.t('dir_from')[c.sector(deg)] : '');
+  const line = (...parts) => parts.filter(Boolean).join(' · ');
+  const tile = (k, v, d, col = P.texte, deg = null, tip = '') => `<div class="bt"${tip ? ` title="${tip}"` : ''}><span class="k">${k}</span>` +
+    `<b class="v" style="color:${col}">${num(deg) ? arrow(13, deg, col) : ''}<span>${v}</span></b>${d ? `<span class="d">${d}</span>` : ''}</div>`;
+  const wv = H0?.waves;
+  if (num(wv?.height_m)) {
+    tiles.push(tile(tight ? c.t('waves') : `${c.t('waves')} · ${c.t(`sea_${seaState(wv.height_m)}`)}`, `${c.fmt(wv.height_m, 1)}&nbsp;m`,
+      line(num(wv.period_s) && `${c.fmt(wv.period_s)}&nbsp;s`, dir(wv.from_deg)), P.texte, wv.from_deg));
+  }
+  const sw = H0?.swell;
+  if (num(sw?.height_m)) tiles.push(tile(c.t('swell_k'), `${c.fmt(sw.height_m, 1)}&nbsp;m`, line(num(sw.period_s) && `${c.fmt(sw.period_s)}&nbsp;s`, dir(sw.from_deg)), P.texte, sw.from_deg));
+  const wd = H0?.wind;
+  if (num(wd?.speed_kmh)) {
+    const rel = { onshore: ['wind_onshore', P.orange], offshore: ['wind_offshore', P.vert], cross_shore: ['wind_cross_shore', P.t2] }[wd.relative];
+    const k = rel && !(tight && wd.relative === 'cross_shore') ? `${c.t('wind_k')} <b style="color:${rel[1]}">${c.t(rel[0])}</b>` : c.t('wind_k');
+    const gc = num(wd.gust_kmh) ? gustColour(P, wd.gust_kmh) : null;
+    const g = num(wd.gust_kmh) ? `${c.t('gusts')} <b${gc ? ` style="color:${gc}"` : ''}>${c.fmt(wd.gust_kmh)}</b>` : '';
+    tiles.push(tile(k, `${c.fmt(wd.speed_kmh)}&nbsp;${c.t('kmh')}`, line(g, dir(wd.from_deg)), P.vent, wd.from_deg));
+  }
+  if (onBaineCoast(B?.spot)) {
+    const w = baineWindow(extremesOf(B), c.now);
+    if (w) {
+      tiles.push(tile(c.t('baines'), w.now ? c.t('baines_now') : c.t('from', { t: c.hm(w.from) }), c.t('baines_until', { t: c.hm(w.to) }), w.now ? P.orange : P.jaune, null,
+        c.t('baines_tip', { a: c.hm(w.from), b: c.hm(w.to), low: c.hm(w.low.time_utc) })));
+    }
+  }
+  const q = B?.bathing?.quality;
+  if (QUALITY_TONE[q]) {
+    tiles.push(tile(tight ? c.t('water_quality_short') : c.t('water_quality'), c.t(`quality_${q}`), c.t('quality_d'), P[QUALITY_TONE[q]], null,
+      esc([B.bathing.name, B.bathing.commune].filter((x) => typeof x === 'string' && x).join(', '))));
+  }
+  if (B?.spot?.lifeguarded === true) tiles.push(tile(c.t('guard_k'), c.t('guard_v'), c.t('guard_d')));
+  if (tiles.length < 6) {
+    const days = (Array.isArray(B?.activities?.sun) ? B.activities.sun : []).filter((d) => d && num(d.sunrise_utc) && num(d.sunset_utc)).sort((a, b) => a.sunrise_utc - b.sunrise_utc);
+    const today = days.find((d) => d.sunrise_utc <= c.now && c.now < d.sunset_utc), next = days.find((d) => d.sunrise_utc > c.now);
+    if (today) tiles.push(tile(c.t('sunset_k'), c.hm(today.sunset_utc), next ? c.t('sunrise_d', { t: c.hm(next.sunrise_utc) }) : '', P.icon.soleil));
+    else if (next) tiles.push(tile(c.t('sunrise_k'), c.hm(next.sunrise_utc), c.t('sunset_d', { t: c.hm(next.sunset_utc) }), P.icon.soleil));
+  }
+  return tiles.length ? `<div class="bts" data-level="${level}">${tiles.join('')}</div>` : '';
+}
+
+// The verdicts of the activities: each verdict with its best slot or why it is not good, and the 24 hours from the one under way,
+// the night dark (the verdicts are for the daylight). `rowH`: the height of a row (the card has a fixed size).
+function beachActivities(c, B, w, rowH) {
+  const P = c.P, acts = (Array.isArray(B?.activities?.activities) ? B.activities.activities : []).filter((a) => a && TEXT.en[`act_${a.id}`]);
+  if (!acts.length) return '';
+  const from = hourFrom(c), nameW = Math.round(clamp(w * 0.24, 88, 120)), verdW = Math.round(clamp(w * 0.27, 100, 150));
+  const grid = `grid-template-columns:${nameW + 8 + verdW}px minmax(0,1fr)`, pair = `grid-template-columns:${nameW}px ${verdW}px`;
+  const ticks = [0, 6, 12, 18].map((i) => `<span style="left:${r1((i / 24) * 100)}%">${c.hourOnly(from + i * 3600)}</span>`).join('');
+  const rows = acts.map((a) => {
+    let word, col, why = '';
+    if (!a.available) { word = c.t('cannot_judge'); col = P.t3; } else if (!a.verdict) { word = c.t('no_verdict'); col = P.t3; } else {
+      word = c.t(`verdict_${a.verdict}`); col = P[VERDICT_COLOUR[a.verdict]] || P.t3;
+      const s = a.best_slot;
+      if (a.verdict === 'good' && num(s?.start_utc) && num(s?.end_utc)) why = s.start_utc <= c.now ? c.t('best_until', { b: c.hm(s.end_utc) }) : c.t('best_from', { a: c.hm(s.start_utc), b: c.hm(s.end_utc) });
+      else if (a.verdict !== 'good') why = reasonText(c, a.reason);
+    }
+    const byTs = new Map((Array.isArray(a.hours) ? a.hours : []).filter((h) => h && num(h.time_utc)).map((h) => [h.time_utc, h]));
+    const strip = a.available ? Array.from({ length: 24 }, (_, i) => {
+      const h = byTs.get(from + i * 3600), tone = h && h.daylight !== false ? VERDICT_COLOUR[h.verdict] : null;
+      return `<i style="background:${tone ? P[tone] : P.filet}"></i>`;
+    }).join('') : '';
+    // Not judged here: no hours, the words on the whole row.
+    const words = `<span class="bw"${why ? ` title="${why}"` : ''}${a.available ? '' : ' style="grid-column:1 / -1"'}>` +
+      `<span class="bl" style="${a.available ? pair : `grid-template-columns:${nameW}px minmax(0,1fr)`}"><span class="an">${esc(c.t(`act_${a.id}`))}</span>` +
+      `<b style="color:${col}">${word}</b></span>${why ? `<small>${why}</small>` : ''}</span>`;
+    return `<div class="bact" style="${grid};height:${rowH}px">${words}${a.available ? `<span class="bstrip">${strip}</span>` : ''}</div>`;
+  }).join('');
+  return `<div class="bloc" style="gap:0"><div class="bact hd" style="${grid}"><span class="bl" style="${pair}"><b>${c.t('activities')}</b>` +
+    `<span>${c.t('next_24h')}</span></span><span class="bticks">${ticks}</span></div>${rows}<div class="note" style="margin-top:4px">${c.t('rules_note')}</div></div>`;
+}
+
+// The tide of the next 24 hours at the beach: its height hour by hour (the forecast) and its high and low waters (the verdicts').
+function beachTide(c, B, w, h) {
+  const heights = beachHours(c, B).filter((x) => num(x.tide?.height_m)).map((x) => ({ time_utc: x.time_utc, height_m: x.tide.height_m }));
+  const curve = tideCurve(c, { heights, extremes: extremesOf(B) }, w, h);
+  return curve ? `<div class="bloc">${section(c.t('tide_24'), c.t('tide_nav'))}${curve}</div>` : '';
+}
+
+// The next hours by 3 hours: the waves, their period and the wind, coloured by their strength.
+function beachTable(c, B, cellH) {
+  const P = c.P, from = hourFrom(c), byTs = new Map(beachHours(c, B).map((h) => [h.time_utc, h]));
+  const list = Array.from({ length: 8 }, (_, i) => byTs.get(from + i * 3 * 3600)).filter(Boolean);
+  if (list.length < 4) return '';
+  const tone = (col, a) => `background:${alpha(col, a)}`;
+  const waveBg = (m) => (m >= 4 ? tone(P.rouge, 0.42) : m >= 3 ? tone(P.orange, 0.4) : m >= 2 ? tone(P.jaune, 0.34) : m >= 1 ? tone(P.pluie, 0.3) : tone(P.pluie, 0.14));
+  const windBg = (v) => (v >= 80 ? tone(P.rouge, 0.42) : v >= 60 ? tone(P.orange, 0.4) : v >= 40 ? tone(P.jaune, 0.34) : v >= 20 ? tone(P.vent, 0.28) : tone(P.vent, 0.12));
+  const cell = (style, inner) => `<span class="c" style="height:${cellH}px;${style}">${inner}</span>`;
+  let s = '<span></span>' + list.map((x, i) => `<span class="h"${i === 0 ? ` style="color:${P.accent}"` : ''}>${c.hourOnly(x.time_utc)}</span>`).join('');
+  s += `<span class="l">${c.t('row_waves')}</span>` + list.map((x) => (num(x.waves?.height_m) ? cell(waveBg(x.waves.height_m), c.fmt(x.waves.height_m, 1)) : cell('', '–'))).join('');
+  s += `<span class="l">${c.t('row_period')}</span>` + list.map((x) => cell(tone(P.t4, 0.12), num(x.waves?.period_s) ? c.fmt(x.waves.period_s) : '–')).join('');
+  s += `<span class="l">${c.t('row_wind')}</span>` + list.map((x) => (num(x.wind?.speed_kmh)
+    ? cell(windBg(x.wind.speed_kmh), `${num(x.wind.from_deg) ? arrow(9, x.wind.from_deg, P.texte) : ''}${c.fmt(x.wind.speed_kmh)}`) : cell('', '–'))).join('');
+  return `<div class="bloc">${section(c.t('next_hours'), c.t('every_3h'))}<div class="btab" style="grid-template-columns:62px repeat(${list.length},minmax(0,1fr))">${s}</div></div>`;
+}
+
 function pageSea(c) {
+  const list = beachList(c.config, c.data, c.spots), chosen = beachesOf(c.config).length > 0;
+  const B = c.beach, ready = !!(B && (B.forecast || B.activities));
+  if (!list.length || c.beachError === 'unknown_command' || (!chosen && !ready)) return pageSeaHome(c);
+  const i = clamp(c.config._beach || 0, 0, list.length - 1), name = (ready && B.spot?.name) || beachName(c, list[i], i);
+  const chipName = (x, j) => (j === i && ready && B.spot?.name ? shortBeach(B.spot.name) : shortBeach(x.name)) || c.t('beach_n', { n: j + 1 });
+  const chips = list.length > 1 ? `<div class="schs" role="tablist">${list.map((x, j) => `<button role="tab" aria-selected="${j === i}" class="sch${j === i ? ' on' : ''}" data-beach="${j}">${esc(chipName(x, j))}</button>`).join('')}</div>` : '';
+  if (!ready) {
+    const words = c.beachError || B ? c.t('error') : c.t('loading');
+    return `<div class="pile" style="gap:10px">${chips}<div class="bh"><div class="bht"><b>${esc(name)}</b></div></div><div class="vide">${words}</div></div>`;
+  }
+  const H0 = beachHours(c, B)[0] || null;
+  // The card has a fixed size: on a phone, the tide, the rows of the activities (two lines need 30 px), the cells of the table
+  // and last the gaps between the blocks give back what the page is over (`c.squeeze`, measured by the card).
+  const nActs = Array.isArray(B.activities?.activities) ? B.activities.activities.length : 0;
+  let over = c.wide ? 0 : c.squeeze || 0;
+  const tideCut = clamp(over, 0, 24);
+  over -= tideCut;
+  const rowCut = nActs ? clamp(Math.ceil(over / nActs), 0, 4) : 0;
+  over -= rowCut * nActs;
+  const cellCut = clamp(Math.ceil(over / 3), 0, 4);
+  over -= cellCut * 3;
+  const gap = 8 - clamp(Math.ceil(over / 5), 0, 2);
+  const rowH = c.wide ? 44 : 34 - rowCut, tideH = c.wide ? 190 : 84 - tideCut, cellH = c.wide ? 30 : 20 - cellCut;
+  const names = providers(B.forecast?.attribution, B.activities?.attribution, B.water?.attribution);
+  const spotCredit = [B.forecast?.attribution, B.activities?.attribution].filter((x) => typeof x === 'string').join(' ');
+  names.push(...SEA_PROVIDERS.filter((p) => spotCredit.includes(p)));
+  if (QUALITY_TONE[B.bathing?.quality]) names.push(c.t('bathing_source'));
+  const credit = foot(c, names);
+  c.beachTilesAt = (level) => beachTiles(c, B, H0, level);  // drawn again by the card when a word of the tiles is cut
+  const tiles = beachTiles(c, B, H0, c.tilesLevel || 0);
+  const left = (w) => beachHead(c, B, name, H0) + tiles + beachActivities(c, B, w, rowH);
+  const right = (w) => beachTide(c, B, w, tideH) + beachTable(c, B, cellH);
+  if (c.wide) {
+    const half = Math.floor((c.W - 28) / 2);
+    return `<div class="pile" style="gap:12px">${chips}<div class="duo" style="grid-template-columns:${half}px ${half}px;align-items:start;gap:28px">` +
+      `<div class="pile" style="gap:12px">${left(half)}</div><div class="pile" style="gap:16px">${right(half)}</div></div></div>${credit}`;
+  }
+  return `<div class="pile" style="gap:${gap}px">${chips}${left(c.W)}${right(c.W)}</div>${credit}`;
+}
+
+// The page of before: the tide of the place, its sea and the verdicts of its spot.
+function pageSeaHome(c) {
   const P = c.P, tides = c.data?.tides, marine = c.point?.marine;
   const left = (w) => (tides ? tideBlock(c, w) : '') + seaLine(c, marine);
   const spot = spotBlock(c);
@@ -1935,7 +2175,7 @@ function availablePages(c, wanted) {
     details: !!(pt?.short_term?.steps?.length || pt?.probabilities?.short_range?.windows?.length ||
       (c.inFrance && (nowcastFirst(c) !== null || currentHours(c).length >= 12))),
     alerts: true,
-    sea: !!(d?.tides || (d?.spot && d?.activities)),
+    sea: !!(d?.tides || (d?.spot && d?.activities)) || beachesOf(c.config).length > 0,
     mountain: stationsOf(c.config).length > 0,
     normal: c.normals?.status === 'available',
   };
@@ -2118,6 +2358,36 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cu
 .mj .sn{height:19px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;padding:0 6px;white-space:nowrap}
 .mj .tt{display:flex;flex-direction:column;align-items:center;font-size:12px;line-height:1.2;white-space:nowrap}
 .mj .tt b{font-size:14px}
+.bh{display:flex;align-items:center;gap:12px;min-width:0}
+.bht{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
+.bht b{font-size:19px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bht span{font-size:12.5px;color:var(--vc-t2);line-height:1.25}
+.beau{display:flex;flex-direction:column;align-items:flex-end;flex:none;line-height:1.05}
+.beau small{font-size:11px;color:var(--vc-t3)}
+.beau b{font-size:26px;font-weight:700;color:var(--vc-pluie)}
+.bts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.bt{border:1.5px solid var(--vc-filet);border-radius:12px;padding:6px 8px;min-width:0;display:flex;flex-direction:column;gap:1px}
+.bt .k{font-size:11px;color:var(--vc-t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bt .v{display:flex;align-items:center;gap:4px;font-size:15px;font-weight:700;min-width:0}
+.bt .v span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.bt .d{font-size:11px;color:var(--vc-t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bact{display:grid;align-items:center;column-gap:8px;min-width:0;border-top:1px solid var(--vc-filet)}
+.bact.hd{height:18px;border-top:0;margin-bottom:2px}
+.bl{display:grid;column-gap:8px;align-items:baseline;min-width:0}
+.bact.hd .bl>b{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--vc-t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bact.hd .bl>span{font-size:10.5px;color:var(--vc-t4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bticks{position:relative;height:13px}
+.bticks span{position:absolute;top:0;font-size:10px;font-weight:700;color:var(--vc-t3);white-space:nowrap}
+.bw{display:flex;flex-direction:column;justify-content:center;min-width:0;line-height:1.15}
+.bw .an,.bw .bl>b{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bw small{font-size:11px;color:var(--vc-t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bstrip{display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:1px;height:14px}
+.bstrip i{display:block;border-radius:2px}
+.btab{display:grid;gap:3px;align-items:center}
+.btab .h{font-size:10px;font-weight:700;color:var(--vc-t3);text-align:center;white-space:nowrap}
+.btab .l{font-size:11px;font-weight:700;color:var(--vc-t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btab .l small{font-size:10px;font-weight:500;color:var(--vc-t3)}
+.btab .c{border-radius:5px;display:flex;align-items:center;justify-content:center;gap:2px;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;min-width:0}
 `;
 
 // -------------------------------------------------------------------------------------------------------------------- card
@@ -2130,6 +2400,7 @@ class VigieCard extends HTMLElement {
     const pages = Array.isArray(config.pages) ? config.pages.filter((p) => PAGE_IDS.includes(p)) : PAGE_IDS;
     if (!pages.length) throw new Error(`pages: at least one of ${PAGE_IDS.join(', ')}`);
     if (config.stations !== undefined && !Array.isArray(config.stations)) throw new Error('stations: a list of {name, latitude, longitude, base_m, top_m}');
+    if (config.beaches !== undefined && !Array.isArray(config.beaches)) throw new Error('beaches: a list of spot ids (the spots near the place)');
     this._config = { ...config, _pages: pages };
     if (!this._page || !pages.includes(this._page)) this._page = pages.includes(config.start_page) ? config.start_page : pages[0];
     const key = lastKey(this._config);
@@ -2169,6 +2440,57 @@ class VigieCard extends HTMLElement {
     }
     const now = this._stationNow();
     if (now && stationKey(this._config, now) !== key) { this._fetchMountain(); return; } // another station was chosen meanwhile
+    this._render();
+  }
+
+  // The beach of the Sea page shown (its rank in the list): a beach of the configuration, or the spot of the data.
+  _beachNow() {
+    if (!(this._config?._pages || []).includes('sea')) return null;
+    const list = beachList(this._config, this._data, this._spotNames);
+    if (!list.length) return null;
+    this._beachIdx = clamp(this._beachIdx || 0, 0, list.length - 1);
+    return list[this._beachIdx];
+  }
+
+  // A beach of the Sea page, asked like the card's data: the last answer is kept, so the page draws at once.
+  async _fetchBeach() {
+    const b = this._beachNow();
+    if (!this._hass || !b) return;
+    const key = beachKey(this._config, b.id);
+    if (key !== this._bKey) { this._bKey = key; this._beach = lastAnswer(key); this._bError = null; }
+    if (this._askingBeach) return;
+    const msg = { type: 'vigie/card/beach', spot: b.id };
+    if (this._config.entry_id) msg.entry_id = this._config.entry_id;
+    this._askingBeach = true;
+    try {
+      const data = await this._hass.callWS(msg);
+      keepAnswer(key, data);
+      if (key === this._bKey) { this._beach = data; this._bError = null; }
+    } catch (err) {
+      if (key === this._bKey) this._bError = err?.code || 'error';
+    } finally {
+      this._askingBeach = false;
+    }
+    const now = this._beachNow();
+    if (now && beachKey(this._config, now.id) !== key) { this._fetchBeach(); return; } // another beach was chosen meanwhile
+    this._render();
+  }
+
+  // The names of the beaches chosen, for their chips: the spots near the place, as the editor lists them.
+  async _fetchSpotNames() {
+    const entry = this._config?.entry_id || '';
+    if (!this._hass || !beachesOf(this._config).length || this._askingSpots || this._spotsFor === entry) return;
+    const msg = { type: 'vigie/card/spots' };
+    if (entry) msg.entry_id = entry;
+    this._askingSpots = true;
+    try {
+      this._spotNames = await this._hass.callWS(msg);
+      this._spotsFor = entry;
+    } catch (err) {
+      this._spotNames = null;
+    } finally {
+      this._askingSpots = false;
+    }
     this._render();
   }
 
@@ -2215,6 +2537,8 @@ class VigieCard extends HTMLElement {
   async _fetch() {
     if (!this._hass || !this._config) return;
     this._fetchMountain();
+    this._fetchBeach();
+    this._fetchSpotNames();
     if (this._asking) return;
     const key = this._dataKey;
     const spot = this._config.spot === 'none' ? null : this._config.spot || 'auto';
@@ -2232,6 +2556,9 @@ class VigieCard extends HTMLElement {
     }
     if (key !== this._dataKey) { this._fetch(); return; } // the editor changed the entry or the spot meanwhile
     this._render();
+    // The spot of the data is the beach of the Sea page when none is chosen: asked once the data says which it is.
+    const b = this._beachNow();
+    if (b && (beachKey(this._config, b.id) !== this._bKey || (!this._beach && !this._bError))) this._fetchBeach();
   }
 
   // Outside France, the home page shows the weather entity of the home chosen in the editor, with its days.
@@ -2281,6 +2608,8 @@ class VigieCard extends HTMLElement {
       this.shadowRoot.innerHTML = `<style>${STYLE}</style><ha-card><div class="root" part="content"></div></ha-card>`;
       const root = this.shadowRoot.querySelector('.root');
       root.addEventListener('click', (ev) => {
+        const bt = ev.target.closest('[data-beach]');
+        if (bt) { ev.stopPropagation(); this._beachIdx = Number(bt.dataset.beach) || 0; this._touched = Date.now(); this._fetchBeach(); this._render(); return; }
         const st = ev.target.closest('[data-station]');
         if (st) { ev.stopPropagation(); this._station = Number(st.dataset.station) || 0; this._touched = Date.now(); this._fetchMountain(); this._render(); return; }
         const el = ev.target.closest('[data-go]'); if (el) { ev.stopPropagation(); this._go(el.dataset.go); }
@@ -2303,10 +2632,15 @@ class VigieCard extends HTMLElement {
     const lang = this._lang || 'en';
     const S = this._stationNow();
     if (S && stationKey(this._config, S) !== this._mKey) { this._mKey = stationKey(this._config, S); this._mountain = lastAnswer(this._mKey); this._mError = null; }
-    const config = { ...this._config, _weatherState: this._entity || null, _forecast: this._forecast || [], _station: this._station || 0 };
+    const Bn = this._beachNow();
+    if (Bn && beachKey(this._config, Bn.id) !== this._bKey) { this._bKey = beachKey(this._config, Bn.id); this._beach = lastAnswer(this._bKey); this._bError = null; }
+    const config = { ...this._config, _weatherState: this._entity || null, _forecast: this._forecast || [], _station: this._station || 0, _beach: this._beachIdx || 0 };
     const c = makeContext(lang, !!this._dark, width, this._data, config);
     c.mountain = S ? this._mountain : null;
     c.mountainError = S ? this._mError : null;
+    c.beach = Bn ? this._beach : null;
+    c.beachError = Bn ? this._bError : null;
+    c.spots = this._spotNames || null;
     const P = c.P;
     const vars = { carte: null, texte: P.texte, t2: P.t2, t3: P.t3, t4: P.t4, filet: P.filet, accent: P.accent, sur: P.sur, pluie: P.pluie, vent: P.vent, creux: P.creux, piste: this._dark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.03)' };
     root.style.cssText = Object.entries(vars).filter(([, v]) => v).map(([k, v]) => `--vc-${k}:${v}`).join(';') + `;--vc-pad:${c.pad}px`;
@@ -2344,6 +2678,14 @@ class VigieCard extends HTMLElement {
     // whole width, the others under them.
     const tiles = root.querySelector('.mts:not([data-narrow])');
     if (tiles && c.mountainTilesNarrow && [...tiles.querySelectorAll('.k,.v')].some((e) => e.scrollWidth > e.clientWidth + 0.5)) tiles.outerHTML = c.mountainTilesNarrow();
+    // The tiles of the Sea page cut a word (a longer word in English, a wider font): drawn again with shorter words, a level at a
+    // time (the directions in words first, then the state of the sea and the long names).
+    for (let i = 0; i < 2 && c.beachTilesAt; i++) {
+      const seaTiles = root.querySelector('.bts');
+      if (!seaTiles || ![...seaTiles.querySelectorAll('.k,.v>span,.d')].some((e) => e.scrollWidth > e.clientWidth + 0.5)) break;
+      c.tilesLevel = (c.tilesLevel || 0) + 1;
+      seaTiles.outerHTML = c.beachTilesAt(c.tilesLevel);
+    }
     // The home page fits the card without scrolling: drawn a few px too tall (fonts, a long header, a pill of the season), it is
     // drawn again with flatter curves, by what it is over as measured here, at most three times (the blocks round their
     // heights; nothing to measure while the card is hidden).
@@ -2359,6 +2701,14 @@ class VigieCard extends HTMLElement {
       if (over <= 0) break;
       c.squeeze = (c.squeeze || 0) + over;
       try { page.innerHTML = pageHome(c); } catch (err) { console.error('Vigie card:', err); break; }
+    }
+    // The Sea page of a beach fits a phone's card the same way: the rows of its activities, its tide and its table give back
+    // what it is over.
+    for (let i = 0; i < 3 && this._page === 'sea' && !c.wide && page.querySelector('.bts,.bact'); i++) {
+      const over = page.scrollHeight - page.clientHeight;
+      if (over <= 0) break;
+      c.squeeze = (c.squeeze || 0) + over;
+      try { page.innerHTML = pageSea(c); } catch (err) { console.error('Vigie card:', err); break; }
     }
   }
 }
@@ -2396,7 +2746,7 @@ class VigieCardEditor extends HTMLElement {
   }
   _t(key) { return EDITOR_TEXT[this._lang || 'en'][key] ?? key; }
   _changed(config) {
-    const clean = Object.fromEntries(Object.entries(config).filter(([k, v]) => !k.startsWith('_') && v !== undefined && v !== '' && v !== null));
+    const clean = Object.fromEntries(Object.entries(config).filter(([k, v]) => !k.startsWith('_') && v !== undefined && v !== '' && v !== null && !(Array.isArray(v) && !v.length)));
     const before = this._config?.entry_id;
     this._config = clean;
     this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: clean }, bubbles: true, composed: true }));
@@ -2434,20 +2784,22 @@ class VigieCardEditor extends HTMLElement {
     const entries = (this._entries || []).filter((e) => e.weather_and_card);
     const spots = this._spots || [];
     const order = this._order();
+    const spotLabel = (s) => `${s.name || s.id}${s.place ? `, ${s.place}` : ''} (${String(s.distance_km).replace('.', lang === 'fr' ? ',' : '.')} km)`;
     this._form.hass = this._hass;
     this._form.schema = [
       { name: 'entry_id', selector: { select: { mode: 'dropdown', options: entries.map((e) => ({ value: e.entry_id, label: e.title })) } } },
       { name: 'name', selector: { text: {} } },
       { name: 'start_page', selector: { select: { mode: 'dropdown', options: order.filter((p) => this._shown().includes(p)).map((p) => ({ value: p, label: T[`page_${p}`] })) } } },
       { name: 'idle', selector: { select: { mode: 'dropdown', options: ['return', 'cycle', 'none'].map((v) => ({ value: v, label: this._t(`idle_${v}`) })) } } },
+      { name: 'beaches', selector: { select: { multiple: true, mode: 'list', options: spots.map((s) => ({ value: s.id, label: spotLabel(s) })) } } },
       { name: 'spot', selector: { select: { mode: 'dropdown', options: [{ value: 'auto', label: this._t('spot_auto') }, { value: 'none', label: this._t('spot_none') },
-        ...spots.map((s) => ({ value: s.id, label: `${s.name || s.id}${s.place ? `, ${s.place}` : ''} (${String(s.distance_km).replace('.', lang === 'fr' ? ',' : '.')} km)` }))] } } },
+        ...spots.map((s) => ({ value: s.id, label: spotLabel(s) }))] } } },
       { name: 'weather_entity', selector: { entity: { domain: 'weather' } } },
       { name: 'icon_style', selector: { select: { mode: 'dropdown', options: ICON_STYLES.map((v) => ({ value: v, label: this._t(`icons_${v}`) })) } } },
     ];
-    this._form.data = { idle: 'return', spot: 'auto', start_page: 'home', icon_style: 'meridien', ...this._config };
+    this._form.data = { idle: 'return', spot: 'auto', beaches: [], start_page: 'home', icon_style: 'meridien', ...this._config };
     this._form.computeLabel = (s) => this._t(s.name);
-    this._form.computeHelper = (s) => (s.name === 'weather_entity' || s.name === 'icon_style' ? this._t(`${s.name}_help`) : undefined);
+    this._form.computeHelper = (s) => (['weather_entity', 'icon_style', 'beaches'].includes(s.name) ? this._t(`${s.name}_help`) : undefined);
   }
   // The stations of the Mountain page: one small form each (rebuilt only when their number changes, so typing keeps its focus).
   _renderStations() {
