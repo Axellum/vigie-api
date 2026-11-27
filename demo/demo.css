@@ -1,0 +1,199 @@
+/* The demo page around the card. Colours are tokens; the theme follows the choice of the page (data-theme), which is also the
+   card's (`hass.themes.darkMode`). The card itself is drawn in Home Assistant's surroundings: its font of 14 px with lines of 1.6
+   and the background of a card, which the card also uses inside its curves. No font is downloaded. */
+
+:root {
+  --bg: #eef2f6;
+  --surface: #ffffff;
+  --text: #17212b;
+  --muted: #56636f;
+  --line: #d5dde5;
+  --accent: #1e7f5c;
+  --accent-text: #ffffff;
+  --code-bg: #f4f7f9;
+  --ha-card-background: #ffffff;
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #0f161d;
+  --surface: #17212b;
+  --text: #e7edf2;
+  --muted: #9aa9b6;
+  --line: #2a3744;
+  --accent: #3fbf8e;
+  --accent-text: #0f161d;
+  --code-bg: #111a22;
+  --ha-card-background: #19232e;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 Roboto, 'Segoe UI', system-ui, sans-serif;
+}
+
+a {
+  color: var(--accent);
+}
+
+.page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px 16px 32px;
+}
+
+.top {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.logo {
+  flex: none;
+  border-radius: 10px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  line-height: 1.25;
+}
+
+h2 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+}
+
+.lead {
+  margin: 6px 0 0;
+  color: var(--muted);
+  max-width: 70ch;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin: 22px 0 18px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.choices button {
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.choices button[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.choices button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.stage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.frame {
+  flex: none;
+  width: min(var(--card-width, 480px), 100%);
+  height: var(--card-height, 760px);
+  background: var(--ha-card-background);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  font-family: Roboto, 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.frame vigie-card {
+  display: block;
+  height: 100%;
+}
+
+.failed {
+  margin: 24px 16px;
+  color: var(--muted);
+}
+
+.side {
+  flex: 1 1 280px;
+  min-width: 0;
+  max-width: 460px;
+}
+
+.recorded {
+  margin: 0 0 18px;
+  max-width: 70ch;
+  padding: 10px 12px;
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  border-radius: 6px;
+}
+
+.yaml {
+  margin: 8px 0;
+  padding: 12px;
+  background: var(--code-bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.small {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.foot {
+  margin-top: 32px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.foot p {
+  margin: 4px 0;
+}

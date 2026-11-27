@@ -23,6 +23,7 @@ PUBLIC_FILES = sorted(
         *(path for path in (ROOT / "scripts").glob("*") if path.is_file()),  # not __pycache__
         *ROOT.glob("changelog.d/*.md"),
         *ROOT.glob("sources.d/*.md"),
+        *(ROOT / "demo").glob("*.*"),  # the online demo of the card (its page, script and style)
         ROOT / "Dockerfile",
         ROOT / "pyproject.toml",
         *(ROOT / ".github").rglob("*.yml"),

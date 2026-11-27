@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vigie card demo</title>
+    <meta name="description" content="The Vigie card for Home Assistant, without Home Assistant, on answers of the Vigie API recorded at public places." />
+    <link rel="icon" href="icon.png" />
+    <link rel="stylesheet" href="demo.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="top">
+        <img class="logo" src="icon.png" alt="" width="40" height="40" />
+        <div>
+          <h1 data-fr="Carte Vigie pour Home Assistant" data-en="Vigie card for Home Assistant">Carte Vigie pour Home Assistant</h1>
+          <p
+            class="lead"
+            data-fr="La vraie carte de l’intégration Vigie, sans Home Assistant&nbsp;: cette page joue son rôle et lui donne des réponses de l’API Vigie enregistrées sur trois lieux publics."
+            data-en="The real card of the Vigie integration, without Home Assistant: this page plays its part and gives it answers of the Vigie API recorded at three public places."
+          ></p>
+        </div>
+      </header>
+
+      <section class="controls" aria-label="Réglages">
+        <div class="group" role="group" data-label-fr="Lieu" data-label-en="Place">
+          <span class="label"></span>
+          <div class="choices" id="places"></div>
+        </div>
+        <div class="group" role="group" data-label-fr="Thème" data-label-en="Theme">
+          <span class="label"></span>
+          <div class="choices" id="themes">
+            <button type="button" data-value="dark" data-fr="Sombre" data-en="Dark"></button>
+            <button type="button" data-value="light" data-fr="Clair" data-en="Light"></button>
+          </div>
+        </div>
+        <div class="group" role="group" data-label-fr="Langue" data-label-en="Language">
+          <span class="label"></span>
+          <div class="choices" id="languages">
+            <button type="button" data-value="fr">Français</button>
+            <button type="button" data-value="en">English</button>
+          </div>
+        </div>
+        <div class="group" role="group" data-label-fr="Largeur" data-label-en="Width">
+          <span class="label"></span>
+          <div class="choices" id="widths">
+            <button type="button" data-value="360" data-fr="Téléphone" data-en="Phone"></button>
+            <button type="button" data-value="480" data-fr="Section" data-en="Section"></button>
+            <button type="button" data-value="720" data-fr="Large" data-en="Wide"></button>
+          </div>
+        </div>
+      </section>
+
+      <p class="recorded" id="recorded"></p>
+
+      <div class="stage">
+        <div class="frame" id="frame">
+          <p class="failed" id="failed" hidden data-fr="La carte ne s’est pas chargée." data-en="The card did not load."></p>
+        </div>
+
+        <aside class="side">
+          <h2 data-fr="Dans Home Assistant" data-en="In Home Assistant"></h2>
+          <p
+            data-fr="La carte vient avec l’intégration Vigie&nbsp;: pas de ressource à ajouter. Modifier un tableau de bord, Ajouter une carte, «&nbsp;Vigie&nbsp;», ou en YAML&nbsp;:"
+            data-en="The card comes with the Vigie integration: no resource to add. Edit a dashboard, Add card, “Vigie”, or in YAML:"
+          ></p>
+          <pre class="yaml"><code id="yaml"></code></pre>
+          <p>
+            <a
+              href="https://github.com/Axellum/vigie-api/blob/main/docs/home-assistant.md"
+              data-fr="Installer l’intégration et toutes les options de la carte"
+              data-en="Install the integration, and every option of the card"
+            ></a>
+          </p>
+          <p
+            class="small"
+            data-fr="Les pages se choisissent dans la barre de la carte ou d’un glissement. Les crédits des données sont dans les pages de la carte."
+            data-en="Pick a page in the card's bar or with a swipe. The credits of the data are in the card's pages."
+          ></p>
+        </aside>
+      </div>
+
+      <footer class="foot">
+        <p
+          data-fr="Projet personnel, fait avec l’IA, partagé au cas où il servirait. Rien n’est en direct ici."
+          data-en="A personal project, made with AI, shared in case it helps. Nothing here is live."
+        ></p>
+        <p><a href="https://github.com/Axellum/vigie-api">github.com/Axellum/vigie-api</a></p>
+      </footer>
+    </main>
+    <script type="module" src="demo.js"></script>
+  </body>
+</html>

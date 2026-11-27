@@ -276,6 +276,9 @@ community's Météo-France card. It ships with the integration (`custom_componen
 **no resource to add by hand**, and it always matches the integration that feeds it. After an update of the integration, a
 reload of the page is enough.
 
+To see it before installing anything: the [online demo](https://axellum.github.io/vigie-api/), this card on answers of the API
+recorded at three public places (`demo/`; `python tools/record_card_demo.py` records them again).
+
 How the frontend gets it ([ADR 0044](decisions/0044-home-assistant-card-as-a-dashboard-resource.md)): where the dashboards keep
 their resources in storage (the default) and the configuration has a `www` folder, the integration copies the card to
 `www/vigie/` (with a compressed copy) and lists it itself in *Settings, Dashboards, Resources* as

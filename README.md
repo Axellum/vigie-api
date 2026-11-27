@@ -9,6 +9,9 @@ one API: JSON, GeoJSON, OASIS CAP 1.2, or a compact text frame for small screens
 ([vigie-web](https://github.com/Axellum/vigie-web)). [Try it](#try-it) · [Endpoints](#endpoints) ·
 [Run your own](#run) · [Home Assistant](#home-assistant) · [Licence and data](#licence-data-and-credits)
 
+**Card demo: [axellum.github.io/vigie-api](https://axellum.github.io/vigie-api/)**, the Home Assistant card without Home
+Assistant, on answers of the API recorded at three public places.
+
 | The website, [vigie-web](https://github.com/Axellum/vigie-web) | A screen without Home Assistant, [vigie-display](https://github.com/Axellum/vigie-display) |
 | :---: | :---: |
 | ![The world map of the Vigie website: the point of the moment, the alerts the strongest first, the hazards on the map](docs/images/website-en.png) | ![The Vigie screen on a Waveshare ESP32-P4 7-inch display: world map of the hazards, alert list and local weather](docs/images/display-en.png) |

@@ -9,6 +9,9 @@ et servis par une seule API : JSON, GeoJSON, OASIS CAP 1.2, ou une trame texte c
 API ([vigie-web](https://github.com/Axellum/vigie-web)). [Essayer](#essayer) · [Points d'accès](#points-daccès) ·
 [Lancer la vôtre](#lancer) · [Home Assistant](#home-assistant) · [Licence et données](#licence-données-et-crédits)
 
+**Démo de la carte : [axellum.github.io/vigie-api](https://axellum.github.io/vigie-api/)**, la carte Home Assistant sans
+Home Assistant, sur des réponses de l'API enregistrées en trois lieux publics.
+
 | Le site, [vigie-web](https://github.com/Axellum/vigie-web) | Un écran sans Home Assistant, [vigie-display](https://github.com/Axellum/vigie-display) |
 | :---: | :---: |
 | ![La carte du monde du site Vigie : le point du moment, les alertes les plus fortes d'abord, les dangers sur la carte](docs/images/website-fr.png) | ![L'écran Vigie sur une Waveshare ESP32-P4 de 7 pouces : carte des dangers, liste des alertes et météo locale](docs/images/display-fr.png) |
