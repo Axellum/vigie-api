@@ -181,10 +181,19 @@ def test_colour_only_where_it_says_something() -> None:
 
 
 def test_on_narrow_day_columns_the_wind_keeps_its_unit_and_loses_its_arrow() -> None:
-    """339 px, the dashboard of the author: "↖ 11 km/h" came within 3 px of its neighbour; the direction is in the hours."""
+    """339 px, the dashboard of the author: "↖ 11 km/h" came within 3 px of its neighbour; on a 412 px phone "↖ 28 km/h"
+    touched the ring of today's column. The arrow only where the line stays 4 px off it; the direction is in the hours."""
+    def arrows(point: dict[str, Any], width: int) -> list[bool]:
+        found = [re.search(r'<span class="vt2">(.*?)</span>', c) for c in day_cells(render(point, width=width)["home"])]
+        return [m is not None and "<svg" in m.group(1) for m in found]
+
     cells = day_cells(render(ANGOULEME, width=339)["home"])
-    assert day_wind(cells[1]) == "13 km/h" and all("<svg" not in re.search(r'<span class="vt2">(.*?)</span>', c).group(1) for c in cells)
-    assert "<svg" in re.search(r'<span class="vt2">(.*?)</span>', day_cells(render(ANGOULEME, width=412)["home"])[1]).group(1)
+    assert day_wind(cells[1]) == "13 km/h"
+    assert not any(arrows(ANGOULEME, 339)) and not any(arrows(ANGOULEME, 412))
+    assert arrows(ANGOULEME, 480)[1]
+    gale = copy.deepcopy(ANGOULEME)
+    gale["daily"][1]["wind_max"] = 105  # "↖ 105 km/h" is 7 px wider
+    assert not arrows(gale, 480)[1] and day_wind(day_cells(render(gale, width=480)["home"])[1]) == "105 km/h"
 
 
 def test_the_redrawn_pages_set_their_own_line_height_and_the_rain_tile_drops_the_times_it_has_no_room_for() -> None:

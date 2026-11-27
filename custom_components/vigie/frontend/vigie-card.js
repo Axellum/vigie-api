@@ -981,9 +981,11 @@ function daysBlock(c, w, nMax, cut = 0) {
   const list = (Array.isArray(c.point?.daily) ? c.point.daily : []).filter((d) => d && typeof d.date === 'string' && d.date >= today && num(d.tmax) && num(d.tmin)).slice(0, nMax);
   const n = list.length;
   if (n < 2) return '';
-  // Under 50 px a column has no room for "Mar 24" nor "0,5 mm" beside its neighbour: the day name alone, smaller amounts, the wind
-  // with its unit but without its arrow (its direction is in the hours and on Details).
+  // Under 50 px a column has no room for "Mar 24" nor "0,5 mm" beside its neighbour: the day name alone, smaller amounts.
+  // "↖ 28 km/h" is 50 px wide (57 with three digits): its arrow only where it stays 4 px off the ring of today's column (a
+  // 412 px phone has 54 px columns); else the wind with its unit alone (its direction is in the hours and on Details).
   const cw = w / n, tight = cw < 50, hasP = list.some((d) => num(d.rain_probability_pct));
+  const roomy = (v) => cw >= (v >= 100 ? 66 : 58);
   const hasSun = list.some((d) => num(d.sunshine_h)), sh = hasSun ? 14 : 0, H = (hasP ? 250 : 236) + sh - cut; // sh: the line of sunshine
   const hourly = Array.isArray(c.point?.hourly) ? c.point.hourly.filter((h) => h && num(h.time_utc)) : [];
   const info = list.map((d) => {
@@ -1026,7 +1028,7 @@ function daysBlock(c, w, nMax, cut = 0) {
     const g = num(info[i].gust) ? gustColour(P, info[i].gust) : null;
     return `<div class="db"><div class="bw"><span class="gauge">${fill ? `<i style="width:${r1(fill)}%;background:${rainColour(P, mm / 6)}"></i>` : ''}</span></div>` +
       `<b style="color:${wet ? P.pluieFaible : P.t3}">${txt}</b>` + (hasP ? `<span class="pc">${num(d.rain_probability_pct) ? `${d.rain_probability_pct}&nbsp;%` : ''}</span>` : '') +
-      `<span class="vt2">${num(info[i].deg) && !tight ? arrow(9, info[i].deg, P.t3) : ''}${num(d.wind_max) ? `${c.fmt(d.wind_max)}<small>${c.t('kmh')}</small>` : ''}</span>` +
+      `<span class="vt2">${num(info[i].deg) && roomy(d.wind_max) ? arrow(9, info[i].deg, P.t3) : ''}${num(d.wind_max) ? `${c.fmt(d.wind_max)}<small>${c.t('kmh')}</small>` : ''}</span>` +
       (num(info[i].gust) ? `<span class="pc rf"${g ? ` style="color:${g};font-weight:700"` : ''}>${c.t('gusts_abbr')} ${c.fmt(info[i].gust)}</span>` : '') + '</div>';
   }));
   return `<div class="bloc${tight ? ' serre' : ''}">${s}</div></div>`;
