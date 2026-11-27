@@ -13,7 +13,9 @@ wide (the widget of the Windows app is 300 px, a phone 340 to 400, a column of a
 - a text or a box goes past its left or right edge (the page hides what goes over, so it is cut off without an ellipsis);
 - from 340 px, a text is cut by an ellipsis or two neighbouring columns crowd (`CROWDED` of `tools/card_in_home_assistant.py`).
 
-A capture of the card is kept in `--out` for each failure. The `card` job of the Home Assistant workflow stays the reference
+Home Assistant draws its cards in Roboto, and the demo asks for it first; a machine without it draws the card in its own font
+(Segoe UI on Windows, DejaVu Sans on Linux, which is wider and cuts what Home Assistant does not). The script says which font it
+measured in; `--need-roboto` (the CI, which installs it) fails without it. A capture of the card is kept in `--out` for each failure. The `card` job of the Home Assistant workflow stays the reference
 in Home Assistant's own frontend (Biarritz, 390 and 1280 px); this one covers the widths and the places that job does not
 (Chamonix scrolled by 13 px from 300 to 380 px wide, and Tokyo's pill went 30 px past the edge, at every width: seen on
 2026-11-27). Standard library and Playwright only; nothing leaves this machine.
@@ -68,6 +70,14 @@ PAST_EDGES = r"""(p) => {
 }"""
 
 
+# Whether this machine has Roboto: a text in "Roboto, monospace" as wide as in monospace alone was drawn in the fallback.
+HAS_ROBOTO = r"""() => {
+  const c = document.createElement('canvas').getContext('2d'), s = 'mmmmmmmmmmlllliiiiWW 0123456789';
+  c.font = '40px monospace'; const mono = c.measureText(s).width;
+  c.font = '40px Roboto, monospace'; return Math.abs(c.measureText(s).width - mono) > 0.5;
+}"""
+
+
 class _Quiet(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002 (the base's name)  the requests of the page are not news
         pass
@@ -85,6 +95,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("site", type=Path, help="the folder written by tools/build_card_demo.py")
     parser.add_argument("--out", type=Path, default=Path("fit-captures"), help="where the captures of the failures go")
+    parser.add_argument(
+        "--need-roboto", action="store_true", help="fail when Roboto, Home Assistant's font, is missing"
+    )
     args = parser.parse_args(argv)
     if not (args.site / "vigie-card.js").is_file():
         print(
@@ -96,6 +109,18 @@ def main(argv: list[str] | None = None) -> int:
     try:
         with sync_playwright() as pw:
             browser = pw.chromium.launch()
+            probe = browser.new_page()
+            roboto = probe.evaluate(HAS_ROBOTO)
+            probe.close()
+            if not roboto:
+                note = "Roboto, the font of Home Assistant, is missing here: the card is measured in this machine's own font"
+                if args.need_roboto:
+                    print(f"{note} (on Linux: apt-get install fonts-roboto)", file=sys.stderr)
+                    browser.close()
+                    return 2
+                print(f"({note})")
+            else:
+                print("(the card is measured in Roboto, the font of Home Assistant)")
             for place in PLACES:
                 for lang in LANGS:
                     page = browser.new_page(viewport={"width": 1300, "height": 1100})
