@@ -23,7 +23,9 @@ entry. The real instance and the real warnings are not touched. It has no authen
 With ``--replay tests_ha/fixtures`` it also serves the routes of the option "Weather and card" (ADR 0042): the real answers
 recorded for Biarritz on 2026-11-22 (the weather, the tide, the normals, the wind measured, the spots and the verdicts of one
 spot, the warnings in force then, and the earthquakes near it, read later that day), every time in them moved by as much as
-the clock moved since the read, so "now" falls where it fell. This is how the dashboard card is tried in a real Home
+the clock moved since the read, so "now" falls where it fell. A station of the card's Mountain page gets the point recorded at
+Chamonix that day, simulated at the altitude it asks (``elevation``: see ``at_altitude``), and the avalanche bulletin recorded
+there on 2026-11-27. This is how the dashboard card is tried in a real Home
 Assistant, and the integration installed in a fresh one (the ``card`` and ``install`` jobs of the workflow), with nothing
 left unanswered. What it serves is a replay of an old read, not today's weather: say so wherever it is shown.
 """
@@ -34,6 +36,7 @@ import argparse
 import copy
 import datetime
 import json
+import re
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -170,10 +173,17 @@ REPLAY_ROUTES = {
     "/v1/activities/biarritz-plage-des-corsaires": "activities_biarritz-plage-des-corsaires_2026-11-22.json",
     "/v1/earthquakes": "earthquakes_biarritz_2026-11-22.json",
     "/v1/forest-fire": "forestfire_biarritz_2026-11-22.json",
+    "/v1/avalanches": "avalanches_chamonix_2026-11-27.json",
 }
 REPLAY_VIGILANCES = "vigilances_biarritz_2026-11-22.json"
 # A route read apart from the others: moved from its own time of reading (the key that holds it), not from the point's.
-REPLAY_OWN_READ = {"/v1/earthquakes": "generated_utc", "/v1/forest-fire": "checked_at_utc"}
+# The bulletin writes its times as texts (``2026-11-27T17:00:00Z``): they are moved, from its own read, as texts.
+REPLAY_OWN_READ = {"/v1/earthquakes": "generated_utc", "/v1/forest-fire": "checked_at_utc", "/v1/avalanches": "server_utc"}
+# The point a station of the Mountain page asks at an altitude (``GET /v1/point?elevation=``).
+REPLAY_MOUNTAIN = "point_chamonix_2026-11-22.json"
+LAPSE_C_PER_M = 0.0065  # the standard atmosphere: 6.5 °C less for each 1 000 m higher
+REFERENCE_M = 1000  # the altitude the replay takes the recorded temperatures for: its own choice, not a reading
+ISO_TIME = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$")
 
 
 def _moved(value: Any, seconds: int, days: int, dated: bool = False) -> Any:
@@ -194,6 +204,40 @@ def _moved(value: Any, seconds: int, days: int, dated: bool = False) -> Any:
     return value
 
 
+def _iso(value: str) -> datetime.datetime:
+    return datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _moved_texts(value: Any, seconds: int) -> Any:
+    """``value`` with every time written as a text in UTC (``2026-11-27T17:00:00Z``) moved by ``seconds``."""
+    if isinstance(value, dict):
+        return {key: _moved_texts(item, seconds) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_moved_texts(item, seconds) for item in value]
+    if isinstance(value, str) and ISO_TIME.match(value):
+        return (_iso(value) + datetime.timedelta(seconds=seconds)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return value
+
+
+def at_altitude(point: dict[str, Any], elevation_m: int) -> dict[str, Any]:
+    """``point`` as the API answers it at ``elevation_m`` (``GET /v1/point?elevation=``), simulated: its temperatures moved by
+    the standard lapse rate from ``REFERENCE_M``, and the freezing level of each hour where that rate brings its temperature to
+    0 °C. A simulation for the Mountain page of the card, not the weather up there."""
+    shift = -LAPSE_C_PER_M * (elevation_m - REFERENCE_M)
+    point["coordinates"]["elevation_m"] = elevation_m
+    if isinstance((current := point.get("current")), dict) and isinstance(current.get("temp_c"), (int, float)):
+        current["temp_c"] = round(current["temp_c"] + shift, 1)
+    for hour in point.get("hourly") or []:
+        if isinstance(hour.get("temp_c"), (int, float)):
+            hour["freezing_level_m"] = max(0, int(round(REFERENCE_M + hour["temp_c"] / LAPSE_C_PER_M, -1)))
+            hour["temp_c"] = round(hour["temp_c"] + shift, 1)
+    for day in point.get("daily") or []:
+        for key in ("tmax", "tmin"):
+            if isinstance(day.get(key), (int, float)):
+                day[key] = round(day[key] + shift, 1)
+    return point
+
+
 class Replay:
     """Recorded answers served again, their times moved to now (``--replay``)."""
 
@@ -203,6 +247,7 @@ class Replay:
 
         self._answers = {route: read(name) for route, name in REPLAY_ROUTES.items()}
         self._vigilances = read(REPLAY_VIGILANCES)
+        self._mountain = read(REPLAY_MOUNTAIN)
         point = self._answers["/v1/point"]
         self.read_utc: int = point["server_utc"]
         self._offset: int = point.get("utc_offset_s") or 0
@@ -213,13 +258,19 @@ class Replay:
         local = lambda t: datetime.datetime.fromtimestamp(t + self._offset, tz=datetime.timezone.utc).date()  # noqa: E731
         return seconds, (local(now) - local(read_utc)).days
 
-    def answer(self, route: str, now: Optional[int] = None) -> Optional[Any]:
-        """The recorded answer of ``route`` moved to ``now``; None when nothing was recorded for it."""
+    def answer(self, route: str, now: Optional[int] = None, elevation_m: Optional[int] = None) -> Optional[Any]:
+        """The recorded answer of ``route`` moved to ``now``; None when nothing was recorded for it. The point asked at an
+        altitude (``elevation_m``) is the one of the Mountain page (``at_altitude``)."""
+        now = int(time.time()) if now is None else now
+        if route == "/v1/point" and elevation_m is not None:
+            return at_altitude(_moved(copy.deepcopy(self._mountain), *self._shift(now, self._mountain["server_utc"])), elevation_m)
         if route not in self._answers:
             return None
         recorded = self._answers[route]
-        read_utc = recorded[REPLAY_OWN_READ[route]] if route in REPLAY_OWN_READ else None
-        return _moved(copy.deepcopy(recorded), *self._shift(int(time.time()) if now is None else now, read_utc))
+        read = recorded[REPLAY_OWN_READ[route]] if route in REPLAY_OWN_READ else None
+        if isinstance(read, str):
+            return _moved_texts(copy.deepcopy(recorded), now - int(_iso(read).timestamp()))
+        return _moved(copy.deepcopy(recorded), *self._shift(now, read))
 
     def vigilances(self, scenario: Scenario, now: Optional[int] = None) -> dict[str, Any]:
         """The warnings recorded then, moved to ``now``, and the simulated ones of ``scenario`` after them."""
@@ -256,7 +307,8 @@ def make_handler(scenario: Scenario, replay: Optional[Replay] = None) -> type[Ba
                     if replay is not None:
                         return self._send(200, replay.vigilances(scenario))
                     return self._send(200, vigilances(scenario, lat, lon, float(query.get("river_radius_km", 5.0))))
-                if method == "GET" and replay is not None and (recorded := replay.answer(url.path)) is not None:
+                elevation = int(query["elevation"]) if "elevation" in query else None
+                if method == "GET" and replay is not None and (recorded := replay.answer(url.path, elevation_m=elevation)) is not None:
                     return self._send(200, recorded)
                 if method == "GET" and url.path == "/fake":
                     return self._send(200, {"warnings": [{key: w[key] for key in ("id", "level", "phenomenon", "event")} for w in scenario.warnings()]})

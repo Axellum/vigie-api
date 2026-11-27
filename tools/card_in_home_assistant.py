@@ -7,7 +7,9 @@ replays the answers recorded for Biarritz (``python tools/fake_instance.py --rep
 2. adds the Vigie entry through its config flow, pointed at the fake instance;
 3. puts the card on a dashboard of its own, under a banner that says the data are a replay;
 4. opens the dashboard in Chromium (Playwright) at a phone width and a wall width, in the dark and the light themes, goes
-   through every page of the card by its bar, and saves a capture of each; then opens the card's editor.
+   through every page of the card by its bar (the Mountain page with a station at Chamonix: its weather is simulated at
+   its two altitudes, see ``tools/fake_instance.py``), and saves a capture of each; then opens the card's editor, adds a
+   station, gives it its top altitude, and removes it.
 
 With ``--card-from /local/vigie/vigie-card.js`` it also fails when the frontend loaded the card from anywhere else (ADR 0044:
 the dashboard resource the integration lists where the www folder is served), and says whether it came compressed.
@@ -16,7 +18,8 @@ It fails when the frontend did not load the card, when the card shows no page or
 ``echec_<width>_<theme>.png`` and what the card and Home Assistant said are kept), when a page of the card is missing,
 when its home page does not fit the card (760 px high: it must not scroll, with Home Assistant's own fonts and line height)
 or cuts a text (an ellipsis) or crowds two neighbouring columns (their texts less than 3 px apart),
-when the editor does not draw all its fields, or when the browser logs an error of the card (or any uncaught error while
+when the editor does not draw all its fields or its stations do not change the card's configuration, or when the browser
+logs an error of the card (or any uncaught error while
 the editor is open). The other errors of Home Assistant's frontend are printed, with the elements their file names. Standard library and Playwright only; it never talks to anything but the
 Home Assistant and the fake instance on this machine.
 
@@ -41,7 +44,11 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
 PLACE = {"latitude": 43.48, "longitude": -1.56}  # Biarritz, a public place: the place of the recorded answers
 WIDTHS = {"phone": (390, 1100), "wall": (1280, 900)}
-PAGES = ("home", "details", "alerts", "sea", "normal")
+PAGES = ("home", "details", "alerts", "sea", "mountain", "normal")
+# A station of the Mountain page, at a public place (the replay answers every station with the point recorded at Chamonix).
+STATION = {"name": "Chamonix", "latitude": 45.92, "longitude": 6.87, "base_m": 1350, "top_m": 2400}
+# What the Mountain page draws of a station when the instance gave its weather at both altitudes and its bulletin.
+MOUNTAIN_WORDS = ("Iso 0", "Avalanches", "24 h · en haut et en bas", "Bulletin d’avalanches")
 # What is cut or crowded in a page of the card: a text ended by an ellipsis, or the texts of two neighbouring columns less
 # than 3 px apart (measured on the text itself: a cell stretched to its column hides where its text ends).
 CROWDED = r"""(p) => {
@@ -187,6 +194,34 @@ def near(page: Page, error: str) -> str:
     return f"\n    near: {', '.join(names[:20]) or 'no element name'}\n    code: {source[max(0, column - 200) : column + 60]!r}"
 
 
+def edit_stations(page: Page, out: Path) -> list[str]:
+    """The stations of the editor, in Home Assistant's own form: the station given draws its position on a map and its two
+    altitudes; "add a station" adds one at the place of Home Assistant, its top altitude typed in its box, and "remove" takes it
+    away, each change given to Home Assistant as the card's configuration. What went wrong, or nothing."""
+    stations = page.locator("vigie-card-editor .station")
+    configs = "() => window.__configs.map((c) => c.stations || [])"
+    try:
+        stations.first.locator("ha-selector-location").wait_for(timeout=30_000)
+        if stations.first.locator("ha-selector-number").count() != 2:
+            return ["the editor does not draw the two altitudes of a station"]
+        page.locator("vigie-card-editor #st-add").click()
+        stations.nth(1).locator("ha-selector-number").nth(1).locator("input").wait_for(timeout=30_000)
+        added = page.evaluate(configs)[-1]
+        if len(added) != 2 or (added[1].get("latitude"), added[1].get("longitude")) != (PLACE["latitude"], PLACE["longitude"]):
+            return [f"the station added is not at the place of Home Assistant: {added}"]
+        stations.nth(1).locator("ha-selector-number").nth(1).locator("input").fill("2000")
+        page.wait_for_function("() => (window.__configs.at(-1).stations || [])[1]?.top_m === 2000", timeout=10_000)
+        page.wait_for_timeout(1500)  # the map of the new station drawn
+        page.locator("#editeur").screenshot(path=str(out / "wall_sombre_editeur_stations.png"))
+        stations.nth(1).locator(".bar button").click()
+        page.wait_for_function("() => (window.__configs.at(-1).stations || []).length === 1", timeout=10_000)
+        if page.evaluate(configs)[-1] != [STATION] or stations.count() != 1:
+            return [f"removing the station added left {page.evaluate(configs)[-1]}"]
+    except PlaywrightTimeout as err:
+        return [f"the stations of the editor: {err.message.splitlines()[0]} (configurations given: {page.evaluate(configs)})"]
+    return []
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("--ha", default="http://127.0.0.1:8123")
@@ -230,7 +265,7 @@ def main(argv: list[str] | None = None) -> int:
                               "show_in_sidebar": True, "require_admin": False})
                     ws(page, {"type": "lovelace/config/save", "url_path": DASHBOARD, "config": {"title": "Vigie", "views": [{
                         "title": "Vigie", "path": "carte", "panel": True,
-                        "cards": [{"type": "vertical-stack", "cards": [{"type": "markdown", "content": BANNER}, {"type": "custom:vigie-card", "spot": SPOT}]}],
+                        "cards": [{"type": "vertical-stack", "cards": [{"type": "markdown", "content": BANNER}, {"type": "custom:vigie-card", "spot": SPOT, "stations": [STATION]}]}],
                     }]}})
                 page.goto(f"{args.ha}/{DASHBOARD}/carte")
                 page.wait_for_function(connected, timeout=60_000)
@@ -291,6 +326,8 @@ def main(argv: list[str] | None = None) -> int:
                     text = card.locator(".page").inner_text()
                     if not text.strip() or "ne répondent pas" in text:
                         problems.append(f"{name}/{page_id}: empty or in error: {text[:120]!r}")
+                    if page_id == "mountain" and (absent := [w for w in MOUNTAIN_WORDS if w not in text]):
+                        problems.append(f"{name}/{theme}/mountain: no {absent} in {text[:160]!r}")
                     card.screenshot(path=str(args.out / f"{name}_{theme}_{page_id}.png"))
                     if page_id == "home":  # the home page fits the card of fixed height without scrolling
                         over = card.locator(".page").evaluate("(p) => p.scrollHeight - p.clientHeight")
@@ -301,25 +338,28 @@ def main(argv: list[str] | None = None) -> int:
                             problems.append(f"{name}/{theme}/home: {'; '.join(crowded[:4])}")
                 if dark and name == "wall":  # the editor of the card, in Home Assistant's own form
                     phase[0] = "editor"
-                    page.set_viewport_size({"width": width, "height": 1500})  # the whole editor, down to its last field
+                    page.set_viewport_size({"width": width, "height": 2200})  # the whole editor, down to its last station
                     page.evaluate("""async () => {
                         const holder = document.createElement('div');
                         holder.id = 'editeur';
                         holder.style.cssText = 'position:fixed;inset:20px auto auto 20px;width:520px;padding:16px;z-index:9999;' +
                           'background:var(--card-background-color,#1c1c1c);border-radius:12px';
                         const editor = document.createElement('vigie-card-editor');
-                        editor.setConfig({ type: 'custom:vigie-card', spot: 'auto' });
+                        window.__configs = [];  // what the editor gives Home Assistant, change after change
+                        editor.addEventListener('config-changed', (ev) => window.__configs.push(ev.detail.config));
+                        editor.setConfig({ type: 'custom:vigie-card', spot: 'auto', stations: [STATION] });
                         editor.hass = document.querySelector('home-assistant').hass;
                         holder.appendChild(editor);
                         // Inside Home Assistant's own tree, where its dialogs open: its pickers take their words from a
                         // context the `home-assistant` element provides (under <body> the entity picker throws).
                         document.querySelector('home-assistant').shadowRoot.appendChild(holder);
-                    }""")
-                    page.locator("vigie-card-editor ha-form").wait_for(timeout=30_000)
+                    }""".replace("[STATION]", json.dumps([STATION])))
+                    page.locator("vigie-card-editor ha-form").first.wait_for(timeout=30_000)
                     try:  # its last field, the weather entity of the home, in Home Assistant's own entity picker
                         page.locator("vigie-card-editor ha-entity-picker").wait_for(timeout=30_000)
                     except PlaywrightTimeout:
                         problems.append(f"{name}/{theme}: the editor does not draw its field of the weather entity")
+                    problems.extend(f"{name}/{theme}: {problem}" for problem in edit_stations(page, args.out))
                     page.wait_for_timeout(1500)
                     page.locator("#editeur").screenshot(path=str(args.out / "wall_sombre_editeur.png"))
                 # Home Assistant logs errors of its own in a container without hardware (Bluetooth, USB...): only the
@@ -336,7 +376,7 @@ def main(argv: list[str] | None = None) -> int:
     if problems:
         print("PROBLEMS:\n" + "\n".join(problems), file=sys.stderr)
         return 1
-    print("The card loads, shows its five pages and logs no error, at both widths and in both themes.")
+    print(f"The card loads, shows its {len(PAGES)} pages and logs no error, at both widths and in both themes.")
     return 0
 
 
