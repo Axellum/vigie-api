@@ -924,7 +924,9 @@ function hourSlots(c, w) {
 const glowLegend = (c) => `${c.t('night')}<span class="ramp" style="background:linear-gradient(to right,${alpha(c.P.lueurNuit, 0.55)} 0%,${alpha(c.P.lueurNuit, 0.55)} 22%,${alpha(c.P.lueurCouvert, 0.45)} 30%,${alpha(c.P.lueurSoleil, 0.85)} 100%)"></span>${c.t('sun')}`;
 
 // The next 24 hours: a column per slot, its icon, the temperature curve, the rain, its chance (when the forecast gives one), the
-// wind and the gusts, the hour. `cut`: a flatter curve, that many px less (the card has a fixed size; at most 20).
+// wind, the gusts when they are strong (60 km/h or more, in their colour), the hour. `cut`: a flatter curve, that many px less
+// (the card has a fixed size; at most 20). Colour only where it says something (the "Calme" sketch of 2026-11-27): the
+// temperatures, the rain, a strong gust; the wind is grey.
 function hoursBlock(c, w, cut = 0) {
   const S = hourSlots(c, w);
   if (!S) return '';
@@ -947,7 +949,7 @@ function hoursBlock(c, w, cut = 0) {
   if (hasP) s += cells(n, 144 - cut, list.map((x) => `<span class="pc">${num(x.p) ? `${x.p}&nbsp;%` : ''}</span>`));
   s += cells(n, yWind, list.map((x) => {
     const g = num(x.gust) ? gustColour(P, x.gust) : null;
-    return `<div class="vt"><span>${num(x.deg) ? arrow(11, x.deg, P.vent) : ''}${c.fmt(x.wind)}</span>${num(x.gust) ? `<small style="color:${g || P.t3};font-weight:${g ? 700 : 400}">${c.fmt(x.gust)}</small>` : ''}</div>`;
+    return `<div class="vt"><span>${num(x.deg) ? arrow(11, x.deg, P.t3) : ''}${c.fmt(x.wind)}</span>${g ? `<small style="color:${g};font-weight:700">${c.fmt(x.gust)}</small>` : ''}</div>`;
   }));
   // Under 36 px a column has no room for "21:00" (English): the hour alone, the title says what the row is.
   s += cells(n, H - 17, list.map((x, i) => `<span class="hr" style="color:${i === 0 ? P.accent : P.t2}">${cw < 36 ? c.hourOnly(x.ts).replace(/:00$/, '') : c.hourOnly(x.ts)}</span>`));
@@ -969,16 +971,18 @@ function sunHoursText(c, h, tight) {
   return tight ? c.t('sun_h', { n: c.fmt(Math.max(0.1, h), 1) }) : c.t('sun_min', { n: Math.max(10, Math.round(h * 6) * 10) });
 }
 
-// The days: a column per day, tinted by its sun; the highest and lowest as two curves around a band; the rain, its chance, the
-// strongest wind (with the gusts and the direction where the hours of the answer cover the day). Where the answer gives the hours
-// of sunshine of a day, they are said under its icon and tint its column (their share of the daylight); else the cloud cover of
-// its hours, then its weather code. `cut`: flatter curves, that many px less (at most 40).
+// The days: a column per day, tinted by its sun; the highest and lowest as two curves around a band; the rain (a gauge and its
+// amount), its chance, the strongest wind with its unit (and its direction where the hours of the answer cover the day), the
+// gusts below it, in their colour when strong. Where the answer gives the hours of sunshine of a day, they are said under its
+// icon and tint its column (their share of the daylight); else the cloud cover of its hours, then its weather code. `cut`:
+// flatter curves, that many px less (at most 40).
 function daysBlock(c, w, nMax, cut = 0) {
   const P = c.P, today = c.dayKey(c.now);
   const list = (Array.isArray(c.point?.daily) ? c.point.daily : []).filter((d) => d && typeof d.date === 'string' && d.date >= today && num(d.tmax) && num(d.tmin)).slice(0, nMax);
   const n = list.length;
   if (n < 2) return '';
-  // Under 50 px a column has no room for "Mar 24" nor "0,5 mm" beside its neighbour: the day name alone, smaller amounts.
+  // Under 50 px a column has no room for "Mar 24" nor "0,5 mm" beside its neighbour: the day name alone, smaller amounts, the wind
+  // with its unit but without its arrow (its direction is in the hours and on Details).
   const cw = w / n, tight = cw < 50, hasP = list.some((d) => num(d.rain_probability_pct));
   const hasSun = list.some((d) => num(d.sunshine_h)), sh = hasSun ? 14 : 0, H = (hasP ? 250 : 236) + sh - cut; // sh: the line of sunshine
   const hourly = Array.isArray(c.point?.hourly) ? c.point.hourly.filter((h) => h && num(h.time_utc)) : [];
@@ -1016,11 +1020,14 @@ function daysBlock(c, w, nMax, cut = 0) {
     `<span class="lb" style="left:${r1(mn[i].x - 22)}px;top:${r1(mn[i].y + 7)}px;width:44px;font-size:13px;font-weight:500;color:${tempColour(P, d.tmin)}">${c.fmt(d.tmin)}°</span>`).join('');
   s += cells(n, 176 + sh - cut, list.map((d, i) => {
     const mm = num(d.rain_mm) ? d.rain_mm : null, wet = mm !== null && mm >= 0.5;
-    const bh = mm > 0 ? Math.max(4, Math.sqrt(Math.min(mm, 30) / 30) * 24) : 2;
+    // The rain as a gauge filled up to 30 mm (a square root, so that a few mm still show), the same width every day.
+    const fill = wet ? Math.max(12, Math.sqrt(Math.min(mm, 30) / 30) * 100) : 0;
     const txt = mm === null ? '' : wet ? `${mm < 1 ? c.fmt(mm, 1) : c.fmt(mm)}&nbsp;mm` : c.t('dry');
-    return `<div class="db"><div class="bw"><i style="height:${r1(bh)}px;background:${wet ? rainColour(P, mm / 6) : P.creux}"></i></div>` +
+    const g = num(info[i].gust) ? gustColour(P, info[i].gust) : null;
+    return `<div class="db"><div class="bw"><span class="gauge">${fill ? `<i style="width:${r1(fill)}%;background:${rainColour(P, mm / 6)}"></i>` : ''}</span></div>` +
       `<b style="color:${wet ? P.pluieFaible : P.t3}">${txt}</b>` + (hasP ? `<span class="pc">${num(d.rain_probability_pct) ? `${d.rain_probability_pct}&nbsp;%` : ''}</span>` : '') +
-      `<span class="vt2">${num(info[i].deg) ? arrow(11, info[i].deg, P.vent) : ''}${num(d.wind_max) ? c.fmt(d.wind_max) : ''}${num(info[i].gust) ? `<small>/${c.fmt(info[i].gust)}</small>` : ''}</span></div>`;
+      `<span class="vt2">${num(info[i].deg) && !tight ? arrow(9, info[i].deg, P.t3) : ''}${num(d.wind_max) ? `${c.fmt(d.wind_max)}<small>${c.t('kmh')}</small>` : ''}</span>` +
+      (num(info[i].gust) ? `<span class="pc rf"${g ? ` style="color:${g};font-weight:700"` : ''}>${c.t('gusts_abbr')} ${c.fmt(info[i].gust)}</span>` : '') + '</div>';
   }));
   return `<div class="bloc${tight ? ' serre' : ''}">${s}</div></div>`;
 }
@@ -1069,7 +1076,7 @@ const AQI_TONE = ['vert', 'vert', 'jaune', 'orange', 'rouge', 'rouge'];
 function nowFacts(c) {
   const P = c.P, cur = c.point?.current || {}, out = [];
   const peak = gustPeak(c);
-  if (peak) out.push(c.t('gust_peak', { v: `<b style="color:${gustColour(P, peak.v) || P.vent}">${c.fmt(peak.v)}</b>`, t: c.hm(peak.at) }));
+  if (peak) out.push(c.t('gust_peak', { v: `<b style="color:${gustColour(P, peak.v) || P.texte}">${c.fmt(peak.v)}</b>`, t: c.hm(peak.at) }));
   if (num(cur.pressure_hpa)) { const tr = pressureTrend(c); out.push(`<b style="color:${P.texte}">${c.fmt(cur.pressure_hpa)}</b>&nbsp;hPa${tr ? ` ${tr}` : ''}`); }
   const air = [];
   if (num(cur.aqi_eu)) { const i = AQI_FROM.filter((b) => cur.aqi_eu >= b).length; air.push(c.t('air', { w: `<b style="color:${P[AQI_TONE[i]]}">${c.t('aqi_word')[i]}</b>` })); }
@@ -1085,7 +1092,7 @@ function nowFacts(c) {
 // Now: icon, temperature in its colour, the weather, feeling and humidity, the wind; beside it the gusts to come, the pressure, the
 // air and the UV, the sun. So that nothing is cut on a narrow card (measured on 2026-11-27 with Home Assistant's fonts): under
 // 370 px inside, the gust of now is left out (the gusts to come stay beside); under 340, the humidity too, and the icon and the
-// temperature are smaller.
+// temperature are smaller. The wind and the gusts are in the colour of the text, a gust of 60 km/h or more in its own.
 function nowBlock(c, w) {
   const P = c.P, m = momentOfPoint(c), cur = c.point?.current || {}, less = Math.max(c.nowLess || 0, w < 340 ? 2 : w < 370 ? 1 : 0);
   const narrow = less >= 1, narrower = less >= 2;
@@ -1093,7 +1100,7 @@ function nowBlock(c, w) {
   const k = clamp(w / 448, narrower ? 0.72 : 0.8, c.wide ? 1.25 : 1), fs = k < 0.9 ? 11 : 12;
   const hum = num(cur.humidity_pct) && !narrower ? `${c.fmt(cur.humidity_pct)}&nbsp;%` : '';
   const feels = [num(m.feels) ? c.t('feels', { t: c.fmt(m.feels) }) : '', hum].filter(Boolean).join(' · ');
-  const wind = num(m.wind) ? `<span class="nl">${num(m.deg) ? arrow(13, m.deg, P.vent) : ''}<span><b style="color:${P.vent}">${c.fmt(m.wind)}</b>&nbsp;km/h${num(m.gust) && !narrow ? ` · ${c.t('gusts_abbr')} <b style="color:${P.vent}">${c.fmt(m.gust)}</b>` : ''}</span></span>` : '';
+  const wind = num(m.wind) ? `<span class="nl">${num(m.deg) ? arrow(13, m.deg, P.vent) : ''}<span><b style="color:${P.texte}">${c.fmt(m.wind)}</b>&nbsp;km/h${num(m.gust) && !narrow ? ` · ${c.t('gusts_abbr')} <b style="color:${gustColour(P, m.gust) || P.texte}">${c.fmt(m.gust)}</b>` : ''}</span></span>` : '';
   const facts = nowFacts(c);
   return `<div class="now" style="min-height:${Math.round(68 * k)}px">${icon(P, m.kind, Math.round(54 * k))}` +
     (num(m.temp) ? `<span class="temp" style="font-size:${Math.round(52 * k)}px;color:${tempColour(P, m.temp)}">${c.fmt(m.temp)}°</span>` : '') +
@@ -1739,7 +1746,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cu
 .pl i{display:block;width:min(18px,70%);border-radius:4px}
 .pc{font-size:10px;color:var(--vc-t3);white-space:nowrap}
 .vt{display:flex;flex-direction:column;align-items:center;line-height:1.25}
-.vt span{display:flex;align-items:center;gap:2px;font-size:12px;font-weight:700;color:var(--vc-vent)}
+.vt span{display:flex;align-items:center;gap:2px;font-size:12px;font-weight:700;color:var(--vc-t2)}
 .vt small{font-size:10px}
 .hr{font-size:11px;font-weight:700;white-space:nowrap}
 .dh{display:flex;flex-direction:column;align-items:center;gap:1px}
@@ -1747,12 +1754,13 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cu
 .dh .ds{display:flex;align-items:center;gap:3px;height:13px;font-size:11px;font-weight:600;white-space:nowrap}
 .dh .ds i{display:block;width:5px;height:5px;border-radius:50%}
 .db{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%}
-.db .bw{height:24px;width:100%;display:flex;align-items:flex-end;justify-content:center}
-.db .bw i{display:block;width:min(26px,55%);border-radius:4px}
+.db .bw{height:8px;width:100%;display:flex;align-items:center;justify-content:center}
+.gauge{display:block;width:70%;height:5px;border-radius:3px;background:var(--vc-creux);overflow:hidden}
+.gauge i{display:block;height:100%;border-radius:3px}
 .db b{font-size:12px;white-space:nowrap}
-.vt2{display:flex;align-items:center;gap:2px;margin-top:3px;font-size:12px;font-weight:700;color:var(--vc-vent);white-space:nowrap}
-.vt2 small{font-size:10px;font-weight:400;color:var(--vc-t3)}
-.serre .db b{font-size:11px}.serre .vt2{font-size:11px;gap:1px}.serre .vt2 small{font-size:9px}
+.vt2{display:flex;align-items:center;gap:2px;margin-top:3px;font-size:12px;font-weight:700;color:var(--vc-t2);white-space:nowrap}
+.vt2 small{font-size:9px;font-weight:500;color:var(--vc-t3);margin-left:2px}
+.serre .db b{font-size:11px}.serre .vt2{font-size:11px;gap:1px}.serre .vt2 small{font-size:8px;margin-left:1px}
 .chipsr{display:flex;flex-wrap:wrap;gap:6px}
 .pp{height:28px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 9px;border-radius:14px;border:1px solid;font-size:13px;font-weight:700;color:var(--vc-texte);white-space:nowrap}
 .pp i{width:8px;height:8px;border-radius:4px;flex:none}

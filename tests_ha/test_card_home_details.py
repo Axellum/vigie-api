@@ -91,7 +91,8 @@ def test_on_a_narrow_card_the_now_block_leaves_out_what_would_be_cut() -> None:
     wide = text(render(ANGOULEME, width=412)["home"])  # 380 px inside, the phone of the author
     assert "ressenti 8° · 83 %" in wide and "raf. 22" in wide
     narrow = text(render(ANGOULEME, width=374)["home"])
-    assert "ressenti 8° · 83 %" in narrow and "raf." not in narrow and "Rafales 26 vers 21 h 30" in narrow
+    now = narrow.split("24 h")[0]  # the days say their gusts ("raf. 25") since the "Calme" sketch
+    assert "ressenti 8° · 83 %" in narrow and "raf." not in now and "Rafales 26 vers 21 h 30" in narrow
     narrower = text(render(ANGOULEME, width=360)["home"])
     assert "ressenti 8°" in narrower and "83 %" not in narrower.split("Rafales")[0]
 
@@ -127,11 +128,63 @@ def test_on_narrow_hour_columns_english_says_the_hour_alone() -> None:
     assert hours(render(ANGOULEME, width=412)["home"])[:2] == ["21 h", "23 h"]
 
 
+def day_cells(html: str) -> list[str]:
+    """The bottom of each day column: the rain, its chance, the wind, the gusts."""
+    return html.split('<div class="db">')[1:]
+
+
+def day_wind(cell: str) -> str:
+    return text(re.search(r'<span class="vt2">(.*?)</span>', cell).group(1))
+
+
+def day_gust(cell: str) -> str | None:
+    found = re.search(r'<span class="pc rf"[^>]*>(.*?)</span>', cell)
+    return text(found.group(1)) if found else None
+
+
 def test_the_gust_of_today_is_left_out_when_below_the_wind_of_the_whole_day() -> None:
-    """Today the gust is the one of the hours still to come, the wind the highest of the whole day: "33/24" read wrong."""
-    winds = re.findall(r'<span class="vt2">(.*?)</span></div>', render(ANGOULEME)["home"])
-    assert text(winds[0]) == "33" and "<small>" not in winds[0]
-    assert text(winds[1]).replace(" ", "") == "13/25"
+    """Today the gust is the one of the hours still to come, the wind the highest of the whole day: "33/24" read wrong. The wind
+    says its unit and the gust goes on its own line (the "Calme" sketch chosen on 2026-11-27)."""
+    cells = day_cells(render(ANGOULEME)["home"])
+    assert day_wind(cells[0]) == "33 km/h" and day_gust(cells[0]) is None
+    assert day_wind(cells[1]) == "13 km/h" and day_gust(cells[1]) == "raf. 25"
+    assert day_gust(day_cells(render(ANGOULEME, lang="en")["home"])[1]) == "gusts 25"
+
+
+def test_colour_only_where_it_says_something() -> None:
+    """The "Calme" sketch: the temperatures keep the colour of their value, the wind is grey, a gust has a colour only from
+    60 km/h (yellow, orange from 80), the rain of a day is a gauge of the same width every day."""
+    home = render(ANGOULEME, width=412)["home"]
+    now = home.split('class="tuile"')[0]
+    assert '<b style="color:#F4F7FA">12</b>&nbsp;km/h' in now  # the wind of now in the colour of the text
+    assert "raf. <b style=\"color:#F4F7FA\">22</b>" in now and 'Rafales <b style="color:#F4F7FA">26</b>' in now
+    assert re.search(r'font-size:\d+px;color:#[0-9a-f]{6}">[0-9]+°', now)  # the temperature in its colour (a mix of the ramp)
+    hours = home.split('class="cols"')[1]
+    assert "<small" not in "".join(re.findall(r'<div class="vt">(.*?)</div>', hours))  # gusts of 18 to 26 km/h: left out
+    cells = day_cells(home)
+    assert all('<span class="gauge">' in cell for cell in cells) and 'class="bw"><i' not in home
+    wet = [cell for cell in cells if "mm</b>" in cell]
+    assert wet and all('<span class="gauge"><i style="width:' in cell for cell in wet)
+    assert '<span class="gauge"></span>' in "".join(cell for cell in cells if "sec</b>" in cell)
+    css = CARD_FILE.read_text(encoding="utf-8")
+    assert re.search(r"\n\.vt span\{[^}]*color:var\(--vc-t2\)", css) and re.search(r"\n\.vt2\{[^}]*color:var\(--vc-t2\)", css)
+    # A strong gust, of an hour and of a day, in its colour.
+    point = copy.deepcopy(ANGOULEME)
+    for h in point["hourly"][:2]:
+        h["wind_gust_kmh"] = 85.0
+    for h in point["hourly"]:
+        if h["time_utc"] >= 1_795_388_400 + 3 * 3600 and h["time_utc"] < 1_795_388_400 + 6 * 3600:
+            h["wind_gust_kmh"] = 66.0
+    stormy = render(point, width=412)["home"]
+    assert '<small style="color:#FFA24D;font-weight:700">85</small>' in stormy.split('class="cols"')[1]
+    assert re.search(r'<span class="pc rf" style="color:#FFD25C;font-weight:700">raf\. 66</span>', stormy)
+
+
+def test_on_narrow_day_columns_the_wind_keeps_its_unit_and_loses_its_arrow() -> None:
+    """339 px, the dashboard of the author: "↖ 11 km/h" came within 3 px of its neighbour; the direction is in the hours."""
+    cells = day_cells(render(ANGOULEME, width=339)["home"])
+    assert day_wind(cells[1]) == "13 km/h" and all("<svg" not in re.search(r'<span class="vt2">(.*?)</span>', c).group(1) for c in cells)
+    assert "<svg" in re.search(r'<span class="vt2">(.*?)</span>', day_cells(render(ANGOULEME, width=412)["home"])[1]).group(1)
 
 
 def test_the_redrawn_pages_set_their_own_line_height_and_the_rain_tile_drops_the_times_it_has_no_room_for() -> None:
