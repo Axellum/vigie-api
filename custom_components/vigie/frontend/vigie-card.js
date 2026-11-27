@@ -1036,8 +1036,9 @@ function sunHoursText(c, h, tight) {
 // amount), its chance, the strongest wind with its unit (and its direction where the hours of the answer cover the day), the
 // gusts below it, in their colour when strong. Where the answer gives the hours of sunshine of a day, they are said under its
 // icon and tint its column (their share of the daylight); else the cloud cover of its hours, then its weather code. `cut`:
-// flatter curves, that many px less (at most 52).
-function daysBlock(c, w, nMax, cut = 0) {
+// flatter curves, that many px less (at most 52); `rest`: px still missing with the curves at their flattest, which leaves out the
+// line of the gusts.
+function daysBlock(c, w, nMax, cut = 0, rest = 0) {
   const P = c.P, today = c.dayKey(c.now);
   const list = (Array.isArray(c.point?.daily) ? c.point.daily : []).filter((d) => d && typeof d.date === 'string' && d.date >= today && num(d.tmax) && num(d.tmin)).slice(0, nMax);
   const n = list.length;
@@ -1047,7 +1048,7 @@ function daysBlock(c, w, nMax, cut = 0) {
   // 412 px phone has 54 px columns); else the wind with its unit alone (its direction is in the hours and on Details).
   const cw = w / n, tight = cw < 50, hasP = list.some((d) => num(d.rain_probability_pct));
   const roomy = (v) => cw >= (v >= 100 ? 66 : 58);
-  const hasSun = list.some((d) => num(d.sunshine_h)), sh = hasSun ? 14 : 0, H = (hasP ? 250 : 236) + sh - cut; // sh: the line of sunshine
+  const hasSun = list.some((d) => num(d.sunshine_h)), sh = hasSun ? 14 : 0; // sh: the line of sunshine
   const hourly = Array.isArray(c.point?.hourly) ? c.point.hourly.filter((h) => h && num(h.time_utc)) : [];
   const info = list.map((d) => {
     const hrs = hourly.filter((h) => c.dayKey(h.time_utc) === d.date && h.time_utc >= c.now - (c.now % 3600));
@@ -1058,12 +1059,15 @@ function daysBlock(c, w, nMax, cut = 0) {
     const light = num(d.sunshine_h) ? daylightHours(c, d.date) : null, share = light > 0 ? clamp(d.sunshine_h / light, 0, 1) : null;
     return { share, sun: share ?? sunOfHours(hrs.filter((h) => h.is_day === true)) ?? sunOfCode(d.code), gust: num(gust) && !(num(d.wind_max) && gust <= d.wind_max) ? gust : null, deg: whole ? windFrom(hrs) : null };
   });
+  // The line of the gusts under the wind (14 px and its gap) where a day has some: without it, it went past the bottom of the
+  // columns (seen on 2026-11-27 in Biarritz, 5 px past, the ring of today's column across it).
+  const hasG = rest <= 0 && info.some((x) => num(x.gust)), H = (hasP ? 250 : 236) + sh + (hasG ? 16 : 0) - cut;
   const lo = Math.floor(Math.min(...list.map((d) => d.tmin))) - 1, hi = Math.ceil(Math.max(...list.map((d) => d.tmax))) + 1;
   const yOf = (t) => 150 + sh - cut - ((t - lo) / (hi - lo)) * (76 - cut);
   const mx = list.map((d, i) => ({ x: cw * (i + 0.5), y: yOf(d.tmax) })), mn = list.map((d, i) => ({ x: cw * (i + 0.5), y: yOf(d.tmin) }));
   const maxD = smooth(mx), minD = smooth(mn), band = `${maxD}${smooth(mn.slice().reverse()).replace(/^M/, ' L')} Z`, id = uid();
   const mean = (key) => sum(list.map((d) => d[key])) / n;
-  const legend = c.t(`days_legend${hasSun ? '_sun' : ''}${info.some((x) => num(x.gust)) ? '_gusts' : ''}`);
+  const legend = c.t(`days_legend${hasSun ? '_sun' : ''}${hasG ? '_gusts' : ''}`);
   const sunLine = (d, i) => {
     if (!num(d.sunshine_h)) return '<span class="ds"></span>';
     const k = info[i].share ?? d.sunshine_h / 9, col = k >= 0.45 ? P.icon.soleil : k >= 0.2 ? mix(P.t3, P.icon.soleil, 0.55) : P.t3;
@@ -1090,7 +1094,7 @@ function daysBlock(c, w, nMax, cut = 0) {
     return `<div class="db"><div class="bw"><span class="gauge">${fill ? `<i style="width:${r1(fill)}%;background:${rainColour(P, mm / 6)}"></i>` : ''}</span></div>` +
       `<b style="color:${wet ? P.pluieFaible : P.t3}">${txt}</b>` + (hasP ? `<span class="pc">${num(d.rain_probability_pct) ? `${d.rain_probability_pct}&nbsp;%` : ''}</span>` : '') +
       `<span class="vt2">${num(info[i].deg) && roomy(d.wind_max) ? arrow(9, info[i].deg, P.t3) : ''}${num(d.wind_max) ? `${c.fmt(d.wind_max)}<small>${c.t('kmh')}</small>` : ''}</span>` +
-      (num(info[i].gust) ? `<span class="pc rf"${g ? ` style="color:${g};font-weight:700"` : ''}>${c.t('gusts_abbr')} ${c.fmt(info[i].gust)}</span>` : '') + '</div>';
+      (hasG && num(info[i].gust) ? `<span class="pc rf"${g ? ` style="color:${g};font-weight:700"` : ''}>${c.t('gusts_abbr')} ${c.fmt(info[i].gust)}</span>` : '') + '</div>';
   }));
   return `<div class="bloc${tight ? ' serre' : ''}">${s}</div></div>`;
 }
@@ -1394,17 +1398,19 @@ function chancesBlock(c, w) {
 // the season on a narrow card, or when the card measures it too tall (`c.squeeze`, px, see `_render`), the curves of the hours
 // and of the days are flattened, a third and two thirds of what is missing: 78 px at most, since the line of sunshine of the days
 // (14 px) and a pill of the season on two lines (16 px, "Avalanches · risque 3 (marqué) · Mont-Blanc" under 360 px) came on top
-// of the 60 px it was drawn for (Chamonix scrolled by 13 px from 300 to 380 px wide, and by 3 px at 480).
+// of the 60 px it was drawn for (Chamonix scrolled by 13 px from 300 to 380 px wide, and by 3 px at 480). Past that (the line of
+// the gusts of the days on top, 16 px), the days leave out that line: the gusts stay on the Details page.
 function pageHome(c) {
   if (!c.inFrance) return pageHomeWorld(c);
   const W = c.W, season = seasonPill(c, 13, 18, true, '7px 12px');
   const less = (season && !c.wide ? 38 : 0) + (c.squeeze || 0), cutH = Math.min(26, Math.round(less / 3)), cutD = Math.min(52, less - cutH);
+  const rest = less - cutH - cutD;
   if (c.wide) {
     const left = Math.round(W * 0.52), right = W - left - 20;
     return `<div class="pile" style="gap:10px"><div class="duo" style="grid-template-columns:${left}px ${right}px">${nowBlock(c, left)}` +
-      `<div class="pile" style="gap:8px">${rainTile(c, right)}${season}</div></div>${hoursBlock(c, W, cutH)}${daysBlock(c, W, 10, cutD)}</div>`;
+      `<div class="pile" style="gap:8px">${rainTile(c, right)}${season}</div></div>${hoursBlock(c, W, cutH)}${daysBlock(c, W, 10, cutD, rest)}</div>`;
   }
-  return `<div class="pile" style="gap:8px">${nowBlock(c, W)}${rainTile(c, W)}${season}${hoursBlock(c, W, cutH)}${daysBlock(c, W, 7, cutD)}</div>`;
+  return `<div class="pile" style="gap:8px">${nowBlock(c, W)}${rainTile(c, W)}${season}${hoursBlock(c, W, cutH)}${daysBlock(c, W, 7, cutD, rest)}</div>`;
 }
 
 // Outside France: the weather of the home's own entity when one is chosen; else the warnings, the earthquakes and the tide.
@@ -2287,7 +2293,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cu
 .lb2.dn{font-weight:700;color:var(--vc-t2)}
 .pl{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;height:38px;width:100%;font-size:10px;font-weight:700}
 .pl i{display:block;width:min(18px,70%);border-radius:4px}
-.pc{font-size:10px;color:var(--vc-t3);white-space:nowrap}
+.pc{font-size:10px;color:var(--vc-t3);white-space:nowrap}.rf{line-height:14px}
 .vt{display:flex;flex-direction:column;align-items:center;line-height:1.25}
 .vt span{display:flex;align-items:center;gap:2px;font-size:12px;font-weight:700;color:var(--vc-t2)}
 .vt small{font-size:10px}
