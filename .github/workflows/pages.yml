@@ -1,0 +1,64 @@
+name: Card demo
+
+# The online demo of the Home Assistant card, on GitHub Pages: the page of demo/, the recorded answers of demo/data/ and the card
+# of the integration as it is on main (tools/build_card_demo.py). A pull request that touches them builds the site; main publishes it.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - demo/**
+      - custom_components/vigie/frontend/vigie-card.js
+      - custom_components/vigie/brand/icon.png
+      - tools/build_card_demo.py
+      - .github/workflows/pages.yml
+  pull_request:
+    paths:
+      - demo/**
+      - custom_components/vigie/frontend/vigie-card.js
+      - custom_components/vigie/brand/icon.png
+      - tools/build_card_demo.py
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build the card demo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Put the site together
+        run: python tools/build_card_demo.py _site
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
+        if: github.event_name != 'pull_request'
+        with:
+          path: _site
+
+  deploy:
+    name: Publish the card demo
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
