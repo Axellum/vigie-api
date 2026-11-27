@@ -268,9 +268,18 @@ wire('themes', 'theme');
 wire('languages', 'lang');
 wire('widths', 'width', Number);
 
+// The three weights of Roboto the card uses (demo.css), loaded before it is drawn: the card draws its home page again when the
+// fonts that were loading as it was put on the page are there, not those it asks for afterwards (its weight 500, on a first
+// visit), and a page measured in another font is drawn for that font. A font that does not load leaves the card in the
+// machine's own.
+const fonts = Promise.all(['400', '500', '700'].map((w) => document.fonts?.load(`${w} 14px Roboto`))).catch((err) =>
+  console.warn('Roboto did not load:', err)
+);
+
 draw();
 import('./vigie-card.js')
   .then(() => customElements.whenDefined('vigie-card'))
+  .then(() => fonts)
   .then(() => {
     card = document.createElement('vigie-card');
     frame.append(card);

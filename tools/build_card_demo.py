@@ -2,9 +2,10 @@
 
     python tools/build_card_demo.py _site
 
-The page, its script and style and the recorded answers come from `demo/`; the card itself is the integration's file
+The page, its script and style, the recorded answers and the font come from `demo/`; the card itself is the integration's file
 (`custom_components/vigie/frontend/vigie-card.js`), copied as it is, so the demo always shows the card of the commit it is built
-from; the icon is the integration's.
+from; the icon is the integration's. The font is Roboto in the weights the card uses (`demo/fonts/roboto/`, with its licence),
+the files Home Assistant's frontend serves: the demo serves it itself, so that no visitor's browser asks another site for it.
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ DEMO = ROOT / "demo"
 CARD = ROOT / "custom_components" / "vigie" / "frontend" / "vigie-card.js"
 ICON = ROOT / "custom_components" / "vigie" / "brand" / "icon.png"
 PAGE_FILES = ("index.html", "demo.js", "demo.css")
+FONTS = DEMO / "fonts"
 
 
 def build(out: Path) -> list[Path]:
@@ -33,6 +35,10 @@ def build(out: Path) -> list[Path]:
         written.append(Path(shutil.copy2(DEMO / name, out / name)))
     for path in data:
         written.append(Path(shutil.copy2(path, out / "data" / path.name)))
+    for path in sorted(p for p in FONTS.rglob("*") if p.is_file()):
+        target = out / path.relative_to(DEMO)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        written.append(Path(shutil.copy2(path, target)))
     written.append(Path(shutil.copy2(CARD, out / "vigie-card.js")))
     written.append(Path(shutil.copy2(ICON, out / "icon.png")))
     (out / ".nojekyll").write_text("", encoding="utf-8")

@@ -523,9 +523,11 @@ That job sees the home page at one place (Biarritz) and one phone width. The **`
 (`pages.yml`, `tools/card_demo_fit.py`) covers the others, without Home Assistant: on the demo's answers (a beach, the mountains
 with a pill of the season, a place abroad), in French and in English, from 300 to 720 px wide, the home page must not scroll nor
 put a text or a box past its edges nor a text under the bottom of its columns, and from 340 px it must not cut a text nor crowd
-two columns. It measures in Roboto, the font Home Assistant draws its cards in (the job installs `fonts-roboto`; without it
-Chromium on Linux falls back to a wider font and cuts what Home Assistant does not). Its captures of a failure are the artifact `card-fit-captures`. Locally, with Playwright
-installed (the script says which font it measured in; `--need-roboto` fails without Roboto):
+two columns. It measures in Roboto, the font Home Assistant draws its cards in, which the demo serves itself (the files of
+Home Assistant's frontend, in `demo/fonts/roboto/`), on a machine without a Roboto of its own, as most visitors' (without
+any Roboto, Chromium on Linux falls back to a wider font and cuts what Home Assistant does not). Its captures of a failure
+are the artifact `card-fit-captures`. Locally, with Playwright
+installed (the script says which font it measured in, and whether the demo served it; `--need-roboto` fails without Roboto):
 
 ```
 python tools/build_card_demo.py _site
