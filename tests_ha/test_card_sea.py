@@ -130,6 +130,21 @@ def test_in_english_and_wide() -> None:
     assert "Tide · 24 h not for navigation" in words and "The next hours every 3 h" in words and "French Ministry of Health" in words
 
 
+def ticks(page: str) -> list[str]:
+    """The hours above the strips of the activities."""
+    found = re.search(r'<span class="bticks">((?:<span[^>]*>[^<]*</span>)*)</span>', page)
+    assert found, "no hours above the activities"
+    return re.findall(r">([^<]*)</span>", found.group(1))
+
+
+def test_the_hours_above_the_activities_fit_a_phone_in_english() -> None:
+    # A quarter of the strip under 30 px has the hour alone: "13:00" went past the edge of a 340 px card on Linux (2026-11-27).
+    assert ticks(render(beach(), lang="en", width=340)["page"]) == ["18", "00", "06", "12"]
+    assert ticks(render(beach(), lang="en", width=360)["page"]) == ["18:00", "00:00", "06:00", "12:00"]
+    assert ticks(render(beach(), lang="en", width=1144)["page"]) == ["18:00", "00:00", "06:00", "12:00"]
+    assert ticks(render(beach(), lang="fr", width=340)["page"]) == ["18 h", "0 h", "6 h", "12 h"]
+
+
 def test_the_second_beach_the_waiting_and_the_errors() -> None:
     assert 'class="sch on" data-beach="1"' in render(beach(), index=1)["page"]
     waiting = render(None, index=1)
