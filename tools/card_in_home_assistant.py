@@ -48,7 +48,7 @@ PAGES = ("home", "details", "alerts", "sea", "mountain", "normal")
 # A station of the Mountain page, at a public place (the replay answers every station with the point recorded at Chamonix).
 STATION = {"name": "Chamonix", "latitude": 45.92, "longitude": 6.87, "base_m": 1350, "top_m": 2400}
 # What the Mountain page draws of a station when the instance gave its weather at both altitudes and its bulletin (its titles
-# are in capitals on the screen: compared without case).
+# are in capitals on the screen, and "24 h" holds a no-break space: compared without case, every space a space).
 MOUNTAIN_WORDS = ("iso 0", "avalanches", "24 h · en haut et en bas", "bulletin d’avalanches")
 # What is cut or crowded in a page of the card: a text ended by an ellipsis, or the texts of two neighbouring columns less
 # than 3 px apart (measured on the text itself: a cell stretched to its column hides where its text ends).
@@ -329,7 +329,7 @@ def main(argv: list[str] | None = None) -> int:
                     text = card.locator(".page").inner_text()
                     if not text.strip() or "ne répondent pas" in text:
                         problems.append(f"{name}/{page_id}: empty or in error: {text[:120]!r}")
-                    if page_id == "mountain" and (absent := [w for w in MOUNTAIN_WORDS if w not in text.lower()]):
+                    if page_id == "mountain" and (absent := [w for w in MOUNTAIN_WORDS if w not in re.sub(r"\s", " ", text.lower())]):
                         problems.append(f"{name}/{theme}/mountain: no {absent} in {text[:160]!r}")
                     card.screenshot(path=str(args.out / f"{name}_{theme}_{page_id}.png"))
                     if page_id == "home":  # the home page fits the card of fixed height without scrolling
@@ -341,7 +341,7 @@ def main(argv: list[str] | None = None) -> int:
                             problems.append(f"{name}/{theme}/home: {'; '.join(crowded[:4])}")
                 if dark and name == "wall":  # the editor of the card, in Home Assistant's own form
                     phase[0] = "editor"
-                    page.set_viewport_size({"width": width, "height": 2200})  # the whole editor, down to its last station
+                    page.set_viewport_size({"width": width, "height": 3400})  # the whole editor, down to its second station (a map each)
                     page.evaluate("""async () => {
                         const holder = document.createElement('div');
                         holder.id = 'editeur';
