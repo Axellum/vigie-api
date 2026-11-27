@@ -183,6 +183,18 @@ def test_a_phone_gives_back_what_the_page_is_over() -> None:
     page = render(beach(), squeeze=60)["page"]
     assert ';height:30px"' in page and 'height="60"' in page and "height:16px;" in page and 'class="pile" style="gap:6px"' in page
     assert ';height:44px"' in render(beach(), width=1144, squeeze=60)["page"]  # a wide card does not need it
+    assert "padding-block" not in page
+
+
+def test_with_two_beaches_their_tabs_and_the_tiles_give_back_the_rest() -> None:
+    """The row of the tabs of two beaches left a phone's card 10 px over once the tide, the rows, the cells and the gaps had
+    given back all they can (2026-11-27): the tabs then give 2 px for each px of their padding (3 at most), and the two rows of
+    tiles 4 px for each (2 at most)."""
+    page = render(beach(), squeeze=80)["page"]
+    assert 'class="pile" style="gap:6px"' in page and 'height="60"' in page
+    assert page.count('style="padding-block:2px"') == 2 and page.count('style="padding-block:4px"') == 6
+    alone = render(beach(), beaches=(SPOT,), squeeze=80)["page"]  # one beach: no tabs, the tiles give the rest
+    assert 'class="schs"' not in alone and alone.count('style="padding-block:4px"') == 6
 
 
 def test_the_shorter_words_of_the_tiles() -> None:
@@ -193,6 +205,10 @@ def test_the_shorter_words_of_the_tiles() -> None:
     assert 'data-level="0"' in out["page"] and "Waves · moderate" in out["page"] and "from the north-west" in out["page"]
     assert 'data-level="1"' in first and "Waves · moderate" in first and "from the north-west" not in first and "Water quality" in first
     assert 'data-level="2"' in second and "Waves · " not in second and ">Quality<" in second
+    # The lifeguards and the class of the water, cut on a phone's card in English and at 720 px in French (2026-11-27).
+    assert ">Lifeguarded beach<" in out["page"] and ">class over 4 years<" in out["page"] and ">not every day<" in out["page"]
+    assert ">Lifeguards<" in second and ">over 4 years<" in second and ">some days<" in second
+    assert ">Surveillance<" in render(beach())["levels"][1] and ">selon les jours<" in render(beach())["levels"][1]
 
 
 def moved(value: Any, seconds: int) -> Any:
