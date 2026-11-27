@@ -8,7 +8,16 @@
 const PLACES = [
   { id: 'biarritz', fr: 'Biarritz · plage', en: 'Biarritz · beach' },
   { id: 'chamonix', fr: 'Chamonix · montagne', en: 'Chamonix · mountains' },
-  { id: 'tokyo', fr: 'Tokyo · monde', en: 'Tokyo · world' },
+  {
+    id: 'tokyo',
+    fr: 'Tokyo · monde',
+    en: 'Tokyo · world',
+    // What the card does outside France, said where a visitor would otherwise miss the weather.
+    note: {
+      fr: 'Hors de France, l’Accueil montre la météo d’une entité météo de Home Assistant (option « Hors de France : entité météo de la maison ») ; sans elle, comme ici, il montre les alertes, les séismes et la marée. Les pages Détails et Normal ? viennent de Météo-France : la carte les cache ici.',
+      en: 'Outside France, the home page shows the weather of a Home Assistant weather entity (the option “Outside France: weather entity of the home”); without one, as here, it shows the warnings, the earthquakes and the tide. The Details and Normal? pages come from Météo-France: the card hides them here.',
+    },
+  },
 ];
 const PAGES = ['home', 'details', 'alerts', 'sea', 'normal'];
 const CARD_HEIGHT = 760; // the fixed size of the card in a sections view: 12 rows of the grid
@@ -183,6 +192,10 @@ async function draw({ placeChanged = false } = {}) {
     return;
   }
   recordedLine(rec);
+  const note = PLACES.find((p) => p.id === state.place)?.note;
+  const noteBox = document.getElementById('note');
+  noteBox.textContent = note ? note[state.lang] : '';
+  noteBox.hidden = !note;
   const config = configOf(rec);
   yaml(config);
   if (!card) return;

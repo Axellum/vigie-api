@@ -66,7 +66,7 @@ def test_each_place_of_the_recorder_has_its_answers_and_no_other_file_is_there()
 
 
 def test_the_page_offers_exactly_the_recorded_places() -> None:
-    offered = re.findall(r"\{ id: '([a-z]+)'", (DEMO / "demo.js").read_text(encoding="utf-8"))
+    offered = re.findall(r"\bid: '([a-z]+)'", (DEMO / "demo.js").read_text(encoding="utf-8"))
     assert sorted(offered) == sorted(_records())
 
 
