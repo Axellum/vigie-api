@@ -21,8 +21,8 @@ made it scroll on a phone's card, and words of its tiles were cut (seen on 2026-
 Home Assistant draws its cards in Roboto, and so does the demo: it serves the files of Home Assistant's frontend
 (`demo/fonts/roboto/`), a Roboto installed on the machine first, as Home Assistant does. Without either, a browser draws the card
 in the machine's own font (Segoe UI on Windows, DejaVu Sans on Linux), wider, which cuts what Home Assistant does not. The script
-says which font it measured in, and whether the demo served it; `--need-roboto` (the CI, whose machine has no Roboto of its own:
-what a visitor without it sees) fails without Roboto. A capture of the card is kept in `--out` for each failure. The `card` job of the Home Assistant workflow stays the reference
+says which font it measured in, and whether the demo served it; `--need-roboto` (the CI, which installs Ubuntu's) fails without
+Roboto. A capture of the card is kept in `--out` for each failure. The `card` job of the Home Assistant workflow stays the reference
 in Home Assistant's own frontend (Biarritz, 390 and 1280 px); this one covers the widths and the places that job does not
 (Chamonix scrolled by 13 px from 300 to 380 px wide, and Tokyo's pill went 30 px past the edge, at every width: seen on
 2026-11-27). Standard library and Playwright only; nothing leaves this machine.

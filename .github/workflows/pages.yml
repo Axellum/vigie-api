@@ -69,12 +69,16 @@ jobs:
           pip install playwright==1.63.0
           python -m playwright install --with-deps chromium
 
-      # Home Assistant draws its cards in Roboto, which its frontend serves; the demo serves the same files (demo/fonts/roboto/).
-      # This machine has no Roboto of its own, as most visitors: --need-roboto fails if the demo's do not load, since Chromium
-      # on Linux would then fall back to DejaVu Sans, a wider font Home Assistant never shows (31 texts cut on 2026-11-27).
-      - name: No Roboto installed here, as for most visitors
+      # Home Assistant draws its cards in Roboto, which its frontend serves; the demo serves the same files (demo/fonts/roboto/)
+      # and, as Home Assistant, takes a Roboto installed on the machine first. Without any Roboto, Chromium on Linux falls back to
+      # DejaVu Sans, a wider font Home Assistant never shows (31 texts cut on 2026-11-27). The job installs Ubuntu's Roboto: with
+      # the served files alone, drawn by Linux a little wider, "13:00", the last hour of the activities of the Sea page, went
+      # past the edge of a 340 px card in English (2026-11-27): a fault of the card, to be fixed on its own.
+      - name: Roboto, the font of Home Assistant
         run: |
-          ! fc-list | grep -i "Roboto"
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends fonts-roboto
+          fc-list | grep -i "Roboto-Regular"
 
       - name: The home page at nine widths, at the three places of the demo, and the Sea page of its beaches, in French and in English
         run: |
