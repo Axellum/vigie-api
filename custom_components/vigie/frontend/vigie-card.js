@@ -156,7 +156,7 @@ const TEXT = {
     wind_offshore: 'de terre', wind_cross_shore: 'le long de la côte', baines: 'Baïnes', baines_now: 'En cours', baines_until: 'jusqu’à {t}',
     baines_tip: 'Courant des baïnes le plus fort de {a} à {b} (basse mer à {low})', water_quality: 'Qualité de l’eau', water_quality_short: 'Qualité',
     quality_excellent: 'Excellente', quality_good: 'Bonne', quality_sufficient: 'Suffisante', quality_poor: 'Insuffisante', quality_unclassified: 'Non classée',
-    quality_d: 'classe sur 4 ans', guard_k: 'Plage surveillée', guard_v: 'En saison', guard_d: 'pas tous les jours', sunset_k: 'Coucher du soleil',
+    quality_d: 'classe sur 4 ans', quality_d_short: 'sur 4 ans', guard_k: 'Plage surveillée', guard_k_short: 'Surveillance', guard_v: 'En saison', guard_d: 'pas tous les jours', guard_d_short: 'selon les jours', sunset_k: 'Coucher du soleil',
     sunrise_k: 'Lever du soleil', sunrise_d: 'lever {t}', sunset_d: 'coucher {t}', activities: 'Activités', next_24h: 'dans les 24&nbsp;h',
     best_from: 'au mieux {a}–{b}', best_until: 'au mieux jusqu’à {b}', tide_24: 'Marée · 24&nbsp;h', tide_nav: 'pas pour la navigation',
     next_hours: 'Les prochaines heures', every_3h: 'toutes les 3&nbsp;h', row_waves: 'Vagues <small>m</small>', row_period: 'Période <small>s</small>',
@@ -251,7 +251,7 @@ const TEXT = {
     wind_offshore: 'offshore', wind_cross_shore: 'cross-shore', baines: 'Rip currents', baines_now: 'Now', baines_until: 'until {t}',
     baines_tip: 'Strongest rip current from {a} to {b} (low water at {low})', water_quality: 'Water quality', water_quality_short: 'Quality',
     quality_excellent: 'Excellent', quality_good: 'Good', quality_sufficient: 'Sufficient', quality_poor: 'Poor', quality_unclassified: 'Unclassified',
-    quality_d: 'class over 4 years', guard_k: 'Lifeguarded beach', guard_v: 'In season', guard_d: 'not every day', sunset_k: 'Sunset',
+    quality_d: 'class over 4 years', quality_d_short: 'over 4 years', guard_k: 'Lifeguarded beach', guard_k_short: 'Lifeguards', guard_v: 'In season', guard_d: 'not every day', guard_d_short: 'some days', sunset_k: 'Sunset',
     sunrise_k: 'Sunrise', sunrise_d: 'sunrise {t}', sunset_d: 'sunset {t}', activities: 'Activities', next_24h: 'next 24&nbsp;h',
     best_from: 'best {a}–{b}', best_until: 'best until {b}', tide_24: 'Tide · 24&nbsp;h', tide_nav: 'not for navigation',
     next_hours: 'The next hours', every_3h: 'every 3&nbsp;h', row_waves: 'Waves <small>m</small>', row_period: 'Period <small>s</small>',
@@ -1622,12 +1622,13 @@ function beachHead(c, B, name, H0) {
 
 // The six tiles: what the sea, the swell and the wind do in the hour under way, then the baïnes, the class of the water and the
 // lifeguards, the sun on the tiles left. `level`: the shorter words, when the card measured a word cut (1: without the
-// directions in words, the arrows keep them; 2: without the state of the sea either, and the shorter names).
-function beachTiles(c, B, H0, level = 0) {
+// directions in words, the arrows keep them; 2: without the state of the sea either, and the shorter names). `pad`: the padding
+// above and below the words of a tile (less on a phone's card that is over, see `pageSea`).
+function beachTiles(c, B, H0, level = 0, pad = 6) {
   const P = c.P, tiles = [], tight = level >= 2;
   const dir = (deg) => (level < 1 && num(deg) ? c.t('dir_from')[c.sector(deg)] : '');
   const line = (...parts) => parts.filter(Boolean).join(' · ');
-  const tile = (k, v, d, col = P.texte, deg = null, tip = '') => `<div class="bt"${tip ? ` title="${tip}"` : ''}><span class="k">${k}</span>` +
+  const tile = (k, v, d, col = P.texte, deg = null, tip = '') => `<div class="bt"${pad < 6 ? ` style="padding-block:${pad}px"` : ''}${tip ? ` title="${tip}"` : ''}><span class="k">${k}</span>` +
     `<b class="v" style="color:${col}">${num(deg) ? arrow(13, deg, col) : ''}<span>${v}</span></b>${d ? `<span class="d">${d}</span>` : ''}</div>`;
   const wv = H0?.waves;
   if (num(wv?.height_m)) {
@@ -1653,10 +1654,10 @@ function beachTiles(c, B, H0, level = 0) {
   }
   const q = B?.bathing?.quality;
   if (QUALITY_TONE[q]) {
-    tiles.push(tile(tight ? c.t('water_quality_short') : c.t('water_quality'), c.t(`quality_${q}`), c.t('quality_d'), P[QUALITY_TONE[q]], null,
+    tiles.push(tile(tight ? c.t('water_quality_short') : c.t('water_quality'), c.t(`quality_${q}`), c.t(tight ? 'quality_d_short' : 'quality_d'), P[QUALITY_TONE[q]], null,
       esc([B.bathing.name, B.bathing.commune].filter((x) => typeof x === 'string' && x).join(', '))));
   }
-  if (B?.spot?.lifeguarded === true) tiles.push(tile(c.t('guard_k'), c.t('guard_v'), c.t('guard_d')));
+  if (B?.spot?.lifeguarded === true) tiles.push(tile(c.t(tight ? 'guard_k_short' : 'guard_k'), c.t('guard_v'), c.t(tight ? 'guard_d_short' : 'guard_d')));
   if (tiles.length < 6) {
     const days = (Array.isArray(B?.activities?.sun) ? B.activities.sun : []).filter((d) => d && num(d.sunrise_utc) && num(d.sunset_utc)).sort((a, b) => a.sunrise_utc - b.sunrise_utc);
     const today = days.find((d) => d.sunrise_utc <= c.now && c.now < d.sunset_utc), next = days.find((d) => d.sunrise_utc > c.now);
@@ -1727,14 +1728,16 @@ function pageSea(c) {
   if (!list.length || c.beachError === 'unknown_command' || (!chosen && !ready)) return pageSeaHome(c);
   const i = clamp(c.config._beach || 0, 0, list.length - 1), name = (ready && B.spot?.name) || beachName(c, list[i], i);
   const chipName = (x, j) => (j === i && ready && B.spot?.name ? shortBeach(B.spot.name) : shortBeach(x.name)) || c.t('beach_n', { n: j + 1 });
-  const chips = list.length > 1 ? `<div class="schs" role="tablist">${list.map((x, j) => `<button role="tab" aria-selected="${j === i}" class="sch${j === i ? ' on' : ''}" data-beach="${j}">${esc(chipName(x, j))}</button>`).join('')}</div>` : '';
+  const tabs = (cut = 0) => (list.length > 1 ? `<div class="schs" role="tablist">${list.map((x, j) => `<button role="tab" aria-selected="${j === i}" class="sch${j === i ? ' on' : ''}" data-beach="${j}"${cut ? ` style="padding-block:${5 - cut}px"` : ''}>${esc(chipName(x, j))}</button>`).join('')}</div>` : '');
   if (!ready) {
+    const chips = tabs();
     const words = c.beachError || B ? c.t('error') : c.t('loading');
     return `<div class="pile" style="gap:10px">${chips}<div class="bh"><div class="bht"><b>${esc(name)}</b></div></div><div class="vide">${words}</div></div>`;
   }
   const H0 = beachHours(c, B)[0] || null;
-  // The card has a fixed size: on a phone, the tide, the rows of the activities (two lines need 30 px), the cells of the table
-  // and last the gaps between the blocks give back what the page is over (`c.squeeze`, measured by the card).
+  // The card has a fixed size: on a phone, the tide, the rows of the activities (two lines need 30 px), the cells of the table,
+  // the gaps between the blocks, and last the tabs of the beaches and the tiles (their padding) give back what the page is over
+  // (`c.squeeze`, measured by the card). With two beaches, the row of their tabs left a phone's card 10 px over (2026-11-27).
   const nActs = Array.isArray(B.activities?.activities) ? B.activities.activities.length : 0;
   let over = c.wide ? 0 : c.squeeze || 0;
   const tideCut = clamp(over, 0, 24);
@@ -1743,15 +1746,21 @@ function pageSea(c) {
   over -= rowCut * nActs;
   const cellCut = clamp(Math.ceil(over / 3), 0, 4);
   over -= cellCut * 3;
-  const gap = 8 - clamp(Math.ceil(over / 5), 0, 2);
+  const gapCut = clamp(Math.ceil(over / 5), 0, 2);
+  over -= gapCut * 5;
+  const gap = 8 - gapCut;
+  const tabCut = list.length > 1 ? clamp(Math.ceil(over / 2), 0, 3) : 0;
+  over -= tabCut * 2;
+  const tilePad = 6 - clamp(Math.ceil(over / 4), 0, 2);  // two rows of tiles: 4 px for each px of padding
+  const chips = tabs(tabCut);
   const rowH = c.wide ? 44 : 34 - rowCut, tideH = c.wide ? 190 : 84 - tideCut, cellH = c.wide ? 30 : 20 - cellCut;
   const names = providers(B.forecast?.attribution, B.activities?.attribution, B.water?.attribution);
   const spotCredit = [B.forecast?.attribution, B.activities?.attribution].filter((x) => typeof x === 'string').join(' ');
   names.push(...SEA_PROVIDERS.filter((p) => spotCredit.includes(p)));
   if (QUALITY_TONE[B.bathing?.quality]) names.push(c.t('bathing_source'));
   const credit = foot(c, names);
-  c.beachTilesAt = (level) => beachTiles(c, B, H0, level);  // drawn again by the card when a word of the tiles is cut
-  const tiles = beachTiles(c, B, H0, c.tilesLevel || 0);
+  c.beachTilesAt = (level) => beachTiles(c, B, H0, level, tilePad);  // drawn again by the card when a word of the tiles is cut
+  const tiles = beachTiles(c, B, H0, c.tilesLevel || 0, tilePad);
   const left = (w) => beachHead(c, B, name, H0) + tiles + beachActivities(c, B, w, rowH);
   const right = (w) => beachTide(c, B, w, tideH) + beachTable(c, B, cellH);
   if (c.wide) {
@@ -2688,10 +2697,12 @@ class VigieCard extends HTMLElement {
     const tiles = root.querySelector('.mts:not([data-narrow])');
     if (tiles && c.mountainTilesNarrow && [...tiles.querySelectorAll('.k,.v')].some((e) => e.scrollWidth > e.clientWidth + 0.5)) tiles.outerHTML = c.mountainTilesNarrow();
     // The tiles of the Sea page cut a word (a longer word in English, a wider font): drawn again with shorter words, a level at a
-    // time (the directions in words first, then the state of the sea and the long names).
+    // time (the directions in words first, then the state of the sea and the long names). A word is measured by its own width:
+    // `scrollWidth` is rounded and missed "pas tous les jours" cut by half a pixel, its ellipsis shown (seen on 2026-11-27).
+    const wider = (e) => { const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect().width > e.getBoundingClientRect().width + 0.05; };
     for (let i = 0; i < 2 && c.beachTilesAt; i++) {
       const seaTiles = root.querySelector('.bts');
-      if (!seaTiles || ![...seaTiles.querySelectorAll('.k,.v>span,.d')].some((e) => e.scrollWidth > e.clientWidth + 0.5)) break;
+      if (!seaTiles || ![...seaTiles.querySelectorAll('.k,.v>span,.d')].some(wider)) break;
       c.tilesLevel = (c.tilesLevel || 0) + 1;
       seaTiles.outerHTML = c.beachTilesAt(c.tilesLevel);
     }
