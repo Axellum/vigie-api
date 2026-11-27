@@ -214,7 +214,7 @@ def hourly(start_utc: int, rows: list[tuple[float | None, float | None, float | 
     first = start_utc - start_utc % 3600
     fields = (
         "feels_like_c", "dew_point_c", "precipitation_probability_pct", "wind_kmh", "wind_deg", "cloud_cover_pct", "cloud_low_pct",
-        "cloud_mid_pct", "cloud_high_pct", "pressure_hpa", "uv_index", "shortwave_wm2",
+        "cloud_mid_pct", "cloud_high_pct", "pressure_hpa", "uv_index", "shortwave_wm2", "freezing_level_m",
     )
     return [
         {

@@ -66,7 +66,7 @@ words of the issuing services left as they are, the national services listed in 
 | --- | --- |
 | `GET /v1/embedded/frame` | Compact text frame for the displays ([contract](docs/embedded-frame.md)); with `spot=<surf spot id>` it also carries that spot's activities (`SEA`, `ACT`, `CRIT` lines). |
 | `GET /v1/snapshot` | Watched zones (weather) and world hazards, compact JSON. |
-| `GET /v1/point?lat=&lon=` | Weather at one GPS position, marine (`marine=true`), river discharge, air quality, space weather, nearby hazards. |
+| `GET /v1/point?lat=&lon=` | Weather at one GPS position, marine (`marine=true`), river discharge, air quality, space weather, nearby hazards. `elevation=` computes the weather at that altitude (the top of a ski area). |
 | `GET /v1/geojson/hazards` | Active hazards as GeoJSON (RFC 7946): one point each. `has_forecast` says whether a storm or a tsunami has a forecast; `near_places` and `derived` say what an earthquake, a volcanic event or a wildfire is close to (calculated by Vigie). See "Places near a hazard" below. |
 | `GET /v1/geojson/hazards/{id}/forecast` | The forecast of a hazard as GeoJSON: the cone, track and positions of a tropical cyclone, the epicentre and arrival times of a tsunami. See "Storms and tsunamis" below. |
 | `GET /v1/earthquakes?lat=&lon=` | The earthquakes (USGS and EMSC, merged) within `radius_km` of a position over the last `hours`, the strongest first, with their distance; `min_magnitude` filters them. No weather provider is asked. Not an official warning. |

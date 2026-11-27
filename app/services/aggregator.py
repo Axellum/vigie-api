@@ -106,6 +106,7 @@ from app.collectors.meteofrance_weather import (
     in_france_box,
     merge_france_bundle,
     meteo_weather_enabled_from_env,
+    with_freezing_level,
 )
 from app.collectors.meteofrance_wind_field import MeteoFranceWindFieldCollector, wind_field_key_from_env
 from app.collectors.metservice import MetServiceCollector, metservice_enabled_from_env
@@ -1049,11 +1050,18 @@ class AggregatorService:
         return [collector.get_health() for collector in self.get_all_collectors()]
 
     async def fetch_weather_with_fallback(
-        self, lat: float, lon: float, utc_offset_s: Optional[int] = None, include_hourly: bool = False
+        self,
+        lat: float,
+        lon: float,
+        utc_offset_s: Optional[int] = None,
+        include_hourly: bool = False,
+        elevation_m: Optional[int] = None,
     ) -> tuple[Optional[dict[str, Any]], bool]:
         """The weather of a GPS point (``_fetch_weather_sources``), with the rain of the next hour from Météo-France PIAF when
         the gateway is configured and answers for the point (``_with_piaf_rain``)."""
-        bundle, fallback_used = await self._fetch_weather_sources(lat, lon, utc_offset_s, include_hourly=include_hourly)
+        bundle, fallback_used = await self._fetch_weather_sources(
+            lat, lon, utc_offset_s, include_hourly=include_hourly, elevation_m=elevation_m
+        )
         return await self._with_piaf_rain(bundle, lat, lon), fallback_used
 
     async def _with_piaf_rain(self, bundle: Optional[dict[str, Any]], lat: float, lon: float) -> Optional[dict[str, Any]]:
@@ -1075,20 +1083,24 @@ class AggregatorService:
         out["attribution"] = merge_credits(bundle.get("attribution"), credit_text(*RAIN_PIAF))
         return out
 
-    async def _france_bundle(self, lat: float, lon: float) -> Optional[dict[str, Any]]:
+    async def _france_bundle(
+        self, lat: float, lon: float, elevation_m: Optional[int] = None, include_hourly: bool = False
+    ) -> Optional[dict[str, Any]]:
         """The weather of a point in France from the Météo-France models (``merge_france_bundle``); ``None`` when this is not
         configured, the point is outside the box, or the gateway cannot give it: Open-Meteo's public API then gives the weather.
 
         Open-Meteo's daily part (rain probability, the days after the fourth, the hourly cloud cover) and Météo-France's UV grid
-        complete it; when either fails the bundle is still returned, without what it would have given."""
+        complete it; when either fails the bundle is still returned, without what it would have given. With ``include_hourly``,
+        Open-Meteo's hourly part gives the freezing level of the hours (``with_freezing_level``): the models have none."""
         if self.meteofrance_weather is None or not in_france_box(lat, lon):
             return None
-        # The three are asked together: a cold point costs the slowest of them, not their sum. Open-Meteo's daily part is the one
-        # the public fallback below would ask for anyway (same cache entry), so nothing is wasted when the gateway fails.
-        france, public_daily, uv = await asyncio.gather(
-            self.meteofrance_weather.fetch_point(lat, lon),
-            _or_none(self.open_meteo.fetch_daily(lat, lon)),
+        # Asked together: a cold point costs the slowest of them, not their sum. Open-Meteo's daily and hourly parts are the ones
+        # the public fallback below would ask for anyway (same cache entries), so nothing is wasted when the gateway fails.
+        france, public_daily, uv, public_hourly = await asyncio.gather(
+            self.meteofrance_weather.fetch_point(lat, lon, elevation_m=elevation_m),
+            _or_none(self.open_meteo.fetch_daily(lat, lon, elevation_m=elevation_m)),
             self._uv_grids(),
+            _or_none(self.open_meteo.fetch_hourly(lat, lon, elevation_m=elevation_m)) if include_hourly else _none_coro(),
             return_exceptions=True,
         )
         if isinstance(france, BaseException):
@@ -1097,7 +1109,8 @@ class AggregatorService:
             public_daily = None
         if isinstance(uv, BaseException):
             uv = None
-        return merge_france_bundle(france, public_daily, uv, lat, lon, clock.wall())
+        bundle = merge_france_bundle(france, public_daily, uv, lat, lon, clock.wall())
+        return with_freezing_level(bundle, public_hourly if isinstance(public_hourly, dict) else None)
 
     async def _overseas_bundle(self, lat: float, lon: float) -> Optional[dict[str, Any]]:
         """The weather of a point of the overseas territories from AROME-OM (``merge_overseas_bundle``); ``None`` when this is not configured,
@@ -1121,7 +1134,12 @@ class AggregatorService:
         return await self.meteofrance_uv.uv_grids() if self.meteofrance_uv is not None else None
 
     async def _fetch_weather_sources(
-        self, lat: float, lon: float, utc_offset_s: Optional[int] = None, include_hourly: bool = False
+        self,
+        lat: float,
+        lon: float,
+        utc_offset_s: Optional[int] = None,
+        include_hourly: bool = False,
+        elevation_m: Optional[int] = None,
     ) -> tuple[Optional[dict[str, Any]], bool]:
         """Fetch the weather of a GPS point: Open-Meteo, then MET Norway, then the stale cache.
 
@@ -1137,9 +1155,12 @@ class AggregatorService:
         When the Open-Meteo call budget is used up, Open-Meteo hands back its expired entry: MET Norway
         is asked first, and that expired entry (marked stale) is served only when MET Norway has no
         fresh answer either.
+
+        ``elevation_m``: the altitude the weather is computed for (every provider is asked for it); ``None``, the altitude of the
+        forecast cell. AROME-OM is then left aside: its gateway route takes no altitude, Open-Meteo gives the weather instead.
         """
-        france = await self._france_bundle(lat, lon)
-        if france is None:
+        france = await self._france_bundle(lat, lon, elevation_m=elevation_m, include_hourly=include_hourly)
+        if france is None and elevation_m is None:
             france = await self._overseas_bundle(lat, lon)
         if france is not None:
             self.last_weather_fallback_used = False
@@ -1149,13 +1170,13 @@ class AggregatorService:
         hourly_res: Any = None
         if include_hourly:
             point_res, hourly_res = await asyncio.gather(
-                self.open_meteo.fetch_point(lat, lon, allow_stale_on_error=False),
-                _or_none(self.open_meteo.fetch_hourly(lat, lon)),
+                self.open_meteo.fetch_point(lat, lon, allow_stale_on_error=False, elevation_m=elevation_m),
+                _or_none(self.open_meteo.fetch_hourly(lat, lon, elevation_m=elevation_m)),
                 return_exceptions=True,
             )
         else:
             try:
-                point_res = await self.open_meteo.fetch_point(lat, lon, allow_stale_on_error=False)
+                point_res = await self.open_meteo.fetch_point(lat, lon, allow_stale_on_error=False, elevation_m=elevation_m)
             except Exception as exc:
                 point_res = exc
 
@@ -1168,7 +1189,7 @@ class AggregatorService:
                 return bundle, False
             try:
                 relay = await self.met_norway.fetch_point(
-                    lat, lon, allow_stale_on_error=False, utc_offset_s=utc_offset_s
+                    lat, lon, allow_stale_on_error=False, utc_offset_s=utc_offset_s, elevation_m=elevation_m
                 )
             except Exception:
                 relay = None
@@ -1178,14 +1199,14 @@ class AggregatorService:
 
         try:
             bundle = await self.met_norway.fetch_point(
-                lat, lon, allow_stale_on_error=True, utc_offset_s=utc_offset_s
+                lat, lon, allow_stale_on_error=True, utc_offset_s=utc_offset_s, elevation_m=elevation_m
             )
             self.last_weather_fallback_used = True
             return bundle, True
         except Exception:
             pass
 
-        stale = self.open_meteo.get_stale_point(lat, lon)
+        stale = self.open_meteo.get_stale_point(lat, lon, elevation_m)
         if stale is not None:
             self.last_weather_fallback_used = True
             return as_stale_bundle(stale), True
@@ -1809,8 +1830,10 @@ class AggregatorService:
         max_hazards: Optional[int] = None,
         compact: bool = True,
         fire_radius_km: float = NEARBY_RADIUS_DEFAULT_KM,
+        elevation_m: Optional[int] = None,
     ) -> PointResponse:
-        """Build the ``/v1/point`` response for a GPS device (boat, M5Stack Tab5, vehicle)."""
+        """Build the ``/v1/point`` response for a GPS device (boat, M5Stack Tab5, vehicle). ``elevation_m``: the altitude of the
+        weather (current, days, hours); the other blocks stay those of the place."""
         include_marine = bool(marine or device_type == DeviceType.MARINE)
         # The radar of the area the point lies in: metropolitan France, or an overseas mosaic (ADR 0037); none elsewhere.
         radar_area = RADAR_FRANCE if in_france_box(lat, lon) else overseas_area_of(lat, lon)
@@ -1832,7 +1855,7 @@ class AggregatorService:
             short_term,
             probabilities,
         ) = await asyncio.gather(
-            self.fetch_weather_with_fallback(lat, lon, include_hourly=not compact),
+            self.fetch_weather_with_fallback(lat, lon, include_hourly=not compact, elevation_m=elevation_m),
             self.collect_and_fuse_hazards(),
             self.get_space_weather_safe(),
             self.get_flood_risk_safe(lat, lon),
@@ -1954,6 +1977,7 @@ class AggregatorService:
                 lon=round(lon, 4),
                 sog_knots=sog_knots,
                 cog_deg=cog_deg,
+                elevation_m=elevation_m,
             ),
             utc_offset_s=weather_bundle.get("utc_offset_s") if weather_bundle else None,
             weather_provider=str(weather_bundle["provider_name"]) if weather_bundle else None,
