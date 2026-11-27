@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 import shutil
 import subprocess
 from typing import Any
@@ -192,3 +193,24 @@ def test_the_shorter_words_of_the_tiles() -> None:
     assert 'data-level="0"' in out["page"] and "Waves · moderate" in out["page"] and "from the north-west" in out["page"]
     assert 'data-level="1"' in first and "Waves · moderate" in first and "from the north-west" not in first and "Water quality" in first
     assert 'data-level="2"' in second and "Waves · " not in second and ">Quality<" in second
+
+
+def moved(value: Any, seconds: int) -> Any:
+    """``value`` with every epoch (a key ending in ``_utc``) moved by ``seconds``, as the fake instance of the workflow replays it."""
+    if isinstance(value, dict):
+        return {k: v + seconds if k.endswith("_utc") and isinstance(v, int) else moved(v, seconds) for k, v in value.items()}
+    if isinstance(value, list):
+        return [moved(v, seconds) for v in value]
+    return value
+
+
+@pytest.mark.parametrize("seconds", [1380, -600])
+def test_hours_off_the_hour_find_their_slot(seconds: int) -> None:
+    """A replay moves the hours by the seconds the clock moved since the read: each is the slot of its nearest whole hour, so
+    the 24 hours of the activities and the table of the next hours are drawn as with the hours of the API (2026-11-27 in CI:
+    no table and grey hours)."""
+    strips = lambda page: re.findall(r'<i style="background:([^"]+)"', page)  # noqa: E731
+    cells = lambda page: text(page).split("Les prochaines heures")[1]  # noqa: E731
+    page, shifted = render(beach())["page"], render(moved(beach(), seconds))["page"]
+    assert strips(shifted) == strips(page) and len(set(strips(page))) > 1
+    assert cells(shifted).split("Données")[0] == cells(page).split("Données")[0]
