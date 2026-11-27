@@ -74,6 +74,15 @@
           "red": "Red"
         }
       },
+      "weather_alert": {
+        "name": "Weather alert",
+        "state": {
+          "green": "Green",
+          "yellow": "Yellow",
+          "orange": "Orange",
+          "red": "Red"
+        }
+      },
       "strongest_earthquake": {
         "name": "Strongest earthquake"
       },
@@ -88,6 +97,9 @@
       },
       "rain_next_hour": {
         "name": "Rain in the next hour"
+      },
+      "next_rain": {
+        "name": "Next rain"
       },
       "strongest_gust_next_hours": {
         "name": "Strongest gust, next hours"

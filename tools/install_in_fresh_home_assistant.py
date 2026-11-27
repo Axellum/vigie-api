@@ -42,9 +42,9 @@ DASHBOARD = "essai-installation"  # no "vigie" in its address, which would pass 
 PUBLIC_INSTANCE = "https://vigie.auxfilsdesidees.fr"  # what the form suggests (docs/home-assistant.md, "Configure")
 CONNECTED = "() => document.querySelector('home-assistant')?.hass?.connected === true"
 # What the documentation lists for one entry with the option "Weather of the place and dashboard card", on by default:
-# maximum level, strongest earthquake, rain in the next hour, strongest gust, next high tide; warning active; vigilance and
-# earthquake events; the weather of the place.
-EXPECTED = {"sensor": 5, "binary_sensor": 1, "event": 2, "weather": 1}
+# maximum level, weather alert, strongest earthquake, rain in the next hour, next rain, strongest gust, next high tide; warning
+# active; vigilance and earthquake events; the weather of the place.
+EXPECTED = {"sensor": 7, "binary_sensor": 1, "event": 2, "weather": 1}
 # The dialogs open on the screen, with their text, through the shadow roots of Home Assistant's elements.
 OPEN_DIALOGS = r"""() => {
     const found = [];
