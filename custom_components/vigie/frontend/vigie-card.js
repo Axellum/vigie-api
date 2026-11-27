@@ -47,6 +47,7 @@ const PALETTES = {
     vert: '#6FE3B0', jaune: '#FFD25C', orange: '#FFA24D', rouge: '#FF6B5E', inconnu: '#A3B1C0',
     vent: '#7FD1FF', pluie: '#58B4FF', pluieFaible: '#7FD1FF', pluieForte: '#3A8CF0',
     ramp: ['#7FB2FF', '#5CD6FF', '#7BE495', '#FFC94A', '#FF6B4A'],
+    lueurNuit: '#6F8FE0', lueurCouvert: '#A9B6C4', lueurSoleil: '#FFC94A', lueurA: 1, creux: '#3A4654',
     icon: { soleil: '#FFC83D', lune: '#EFE9CF', nuage: '#E3EAF2', nuageSombre: '#8F9DB2', eau: '#58B4FF', neige: '#FFFFFF', eclair: '#FFD93D', brume: '#AAB6C4' },
   },
   light: {
@@ -54,6 +55,7 @@ const PALETTES = {
     vert: '#1B8A5A', jaune: '#8A6400', orange: '#B45309', rouge: '#C22F2F', inconnu: '#4F5C6A',
     vent: '#0F78B0', pluie: '#1E78D6', pluieFaible: '#4A9BE8', pluieForte: '#155DB0',
     ramp: ['#2F6FDB', '#0A88B8', '#2E9E55', '#C77A00', '#D0391E'],
+    lueurNuit: '#4A68C4', lueurCouvert: '#8C9AAA', lueurSoleil: '#F0B400', lueurA: 0.8, creux: '#C9D1DA',
     icon: { soleil: '#F2A900', lune: '#B9A642', nuage: '#B8C3CF', nuageSombre: '#7D8B9B', eau: '#1E78D6', neige: '#7FA6CC', eclair: '#E0A800', brume: '#8C99A8' },
   },
 };
@@ -71,17 +73,23 @@ const TEXT = {
     updated: 'Mis à jour à {t}', feels: 'ressenti {t}°', gusts: 'rafales', kmh: 'km/h',
     warning: 'Vigilance {level}', level_yellow: 'jaune', level_orange: 'orange', level_red: 'rouge',
     rain_in: 'Pluie dans {n}&nbsp;min', rain_now: 'Il pleut', rain_none: 'Pas de pluie dans l’heure',
-    mm_hour: '{mm}&nbsp;mm dans l’heure', until: 'jusqu’à {t}', from: 'dès {t}',
+    until: 'jusqu’à {t}', from: 'dès {t}',
     no_warning: 'Aucune vigilance en cours', warnings_unknown: 'Vigilances inconnues', dry: 'sec',
-    data: 'Données', relayed: 'relayées par Vigie',
-    next_hours: 'Les {n} prochaines heures', rain: 'Pluie', gust_lbl: 'Rafales', step15: 'pas de 15&nbsp;min',
+    data: 'Données', relayed: 'relayées par Vigie', warning_of: '{p} {level}',
+    gusts_abbr: 'raf.', gust_peak: 'Rafales {v} vers {t}', air: 'Air {w}', uv: 'UV {v}',
+    aqi_word: ['bon', 'assez bon', 'moyen', 'dégradé', 'mauvais', 'très mauvais'],
+    snow_in: 'Neige dans {n}&nbsp;min', snow_now: 'Il neige', int_light: 'faible', int_moderate: 'modérée', int_heavy: 'forte',
+    then: '{a}, puis {b}', next_rain: 'Prochaine pluie {d}vers {t}', dry_until: 'Sec jusqu’à {d}{t}',
+    hours_by: '24&nbsp;h · par {n}&nbsp;h', hours_each: '24&nbsp;h · heure par heure', night: 'nuit', sun: 'soleil',
+    days_title: '{n} jours · max et min', days_legend: 'pluie · vent', days_legend_gusts: 'pluie · vent / rafales', today_short: 'Auj.',
+    rain_until: 'La pluie d’ici {t}', noon: 'midi', dry_word: 'Sec', lull: 'Accalmie', light_kind: '{k} faible',
+    in_hour: 'Dans l’heure · toutes les {n}&nbsp;min', now_short: 'maint.', radar_piaf: 'radar PIAF',
+    quarter_until: 'Jusqu’à {t} · par quart d’heure', gusts_unit: 'rafales km/h', peak_at: '{v} à {t}',
+    h48: '{n}&nbsp;h · heure par heure', h48_legend: 'mm · chance de pluie · vent', h48_legend_nop: 'mm · vent', chance: 'chance',
     hail: 'Grêle', hail_none: 'non', hail_small_hail: 'petite grêle', hail_hail: 'grêle',
     visibility: 'Visibilité', vis_none: 'bonne', vis_reduced: 'réduite', vis_very_reduced: 'très réduite',
-    gust93: 'Rafales de 93&nbsp;km/h et plus : <b>{p}&nbsp;%</b> d’ici {t}',
-    chances: 'Chances par {h}&nbsp;h', legend_rain: 'pluie', legend_gust: 'rafales ≥&nbsp;56&nbsp;km/h',
-    precip_in: '{kind} dans <em>{n}&nbsp;min</em>, {how}jusqu’à&nbsp;{t}', precip_at: '{kind} à <em>{at}</em>, {how}jusqu’à&nbsp;{t}',
-    precip_now: '{kind} {how}jusqu’à&nbsp;<em>{t}</em>', precip_none: 'Pas de pluie d’ici&nbsp;{t}', on_and_off: 'par&nbsp;moments ',
-    gusts_at: 'Rafales à <em>{v}&nbsp;km/h</em> vers&nbsp;{t}',
+    chances: 'Chances par {h}&nbsp;h', chances_src: '{n} scénarios PE-AROME · fin du créneau', chances_src_plain: 'PE-AROME · fin du créneau',
+    pe_rain: 'Pluie ≥&nbsp;1&nbsp;mm', pe_gust56: 'Rafales ≥&nbsp;56', pe_gust93: 'Rafales ≥&nbsp;93', pe_storm: 'Orage', pe_snow: 'Neige ≥&nbsp;1&nbsp;mm', pe_hail: 'Grêle',
     kind_rain: 'Pluie', kind_drizzle: 'Bruine', kind_freezing: 'Pluie verglaçante', kind_snow: 'Neige', kind_wet_snow: 'Neige mouillée',
     kind_rain_snow: 'Pluie et neige', kind_ice_pellets: 'Granules de glace', kind_snow_pellets: 'Neige roulée', kind_hail: 'Grêle',
     kind_unknown: 'Précipitations',
@@ -135,17 +143,23 @@ const TEXT = {
     updated: 'Updated at {t}', feels: 'feels like {t}°', gusts: 'gusts', kmh: 'km/h',
     warning: '{level} warning', level_yellow: 'Yellow', level_orange: 'Orange', level_red: 'Red',
     rain_in: 'Rain in {n}&nbsp;min', rain_now: 'Raining', rain_none: 'No rain in the next hour',
-    mm_hour: '{mm}&nbsp;mm in the hour', until: 'until {t}', from: 'from {t}',
+    until: 'until {t}', from: 'from {t}',
     no_warning: 'No warning in force', warnings_unknown: 'Warnings unknown', dry: 'dry',
-    data: 'Data', relayed: 'relayed by Vigie',
-    next_hours: 'The next {n} hours', rain: 'Rain', gust_lbl: 'Gusts', step15: '15-minute steps',
+    data: 'Data', relayed: 'relayed by Vigie', warning_of: '{level} {p}',
+    gusts_abbr: 'gusts', gust_peak: 'Gusts {v} around {t}', air: 'Air {w}', uv: 'UV {v}',
+    aqi_word: ['good', 'fair', 'moderate', 'poor', 'very poor', 'extremely poor'],
+    snow_in: 'Snow in {n}&nbsp;min', snow_now: 'Snowing', int_light: 'light', int_moderate: 'moderate', int_heavy: 'heavy',
+    then: '{a}, then {b}', next_rain: 'Next rain {d}around {t}', dry_until: 'Dry until {d}{t}',
+    hours_by: '24&nbsp;h · every {n}&nbsp;h', hours_each: '24&nbsp;h · hour by hour', night: 'night', sun: 'sun',
+    days_title: '{n} days · high and low', days_legend: 'rain · wind', days_legend_gusts: 'rain · wind / gusts', today_short: 'Today',
+    rain_until: 'Rain until {t}', noon: 'noon', dry_word: 'Dry', lull: 'Lull', light_kind: 'Light {k}',
+    in_hour: 'Within the hour · every {n}&nbsp;min', now_short: 'now', radar_piaf: 'PIAF radar',
+    quarter_until: 'Until {t} · by quarter hour', gusts_unit: 'gusts km/h', peak_at: '{v} at {t}',
+    h48: '{n}&nbsp;h · hour by hour', h48_legend: 'mm · chance of rain · wind', h48_legend_nop: 'mm · wind', chance: 'chance',
     hail: 'Hail', hail_none: 'no', hail_small_hail: 'small hail', hail_hail: 'hail',
     visibility: 'Visibility', vis_none: 'good', vis_reduced: 'reduced', vis_very_reduced: 'very reduced',
-    gust93: 'Gusts of 93&nbsp;km/h or more: <b>{p}&nbsp;%</b> until {t}',
-    chances: 'Chances per {h}&nbsp;h', legend_rain: 'rain', legend_gust: 'gusts ≥&nbsp;56&nbsp;km/h',
-    precip_in: '{kind} in <em>{n}&nbsp;min</em>, {how}until&nbsp;{t}', precip_at: '{kind} at <em>{at}</em>, {how}until&nbsp;{t}',
-    precip_now: '{kind} {how}until&nbsp;<em>{t}</em>', precip_none: 'No rain until&nbsp;{t}', on_and_off: 'on&nbsp;and&nbsp;off ',
-    gusts_at: 'Gusts of <em>{v}&nbsp;km/h</em> around&nbsp;{t}',
+    chances: 'Chances per {h}&nbsp;h', chances_src: '{n} PE-AROME scenarios · end of the window', chances_src_plain: 'PE-AROME · end of the window',
+    pe_rain: 'Rain ≥&nbsp;1&nbsp;mm', pe_gust56: 'Gusts ≥&nbsp;56', pe_gust93: 'Gusts ≥&nbsp;93', pe_storm: 'Thunderstorm', pe_snow: 'Snow ≥&nbsp;1&nbsp;mm', pe_hail: 'Hail',
     kind_rain: 'Rain', kind_drizzle: 'Drizzle', kind_freezing: 'Freezing rain', kind_snow: 'Snow', kind_wet_snow: 'Wet snow',
     kind_rain_snow: 'Rain and snow', kind_ice_pellets: 'Ice pellets', kind_snow_pellets: 'Snow pellets', kind_hail: 'Hail',
     kind_unknown: 'Precipitation',
@@ -582,8 +596,9 @@ function header(c, onAlerts) {
   const name = esc(c.config.name || placeName(c.data?.title));
   let right;
   if (LEVEL_COLOUR[level]) {
-    const col = c.P[LEVEL_COLOUR[level]];
-    right = `<button class="pastille" data-go="alerts" style="background:${col};color:${c.P.sur};font-size:${c.wide ? 17 : 14}px">${glyph('danger', 16, c.P.sur, 2.4)}${c.t('warning', { level: c.t(`level_${level}`) })}</button>`;
+    const col = c.P[LEVEL_COLOUR[level]], top = warningGroups(c)[0], phen = top && top.level === level ? PHENOMENON[c.lang][top.phenomenon] : null;
+    const words = phen ? c.t('warning_of', { p: c.lang === 'fr' ? phen : phen.toLowerCase(), level: c.t(`level_${level}`) }) : c.t('warning', { level: c.t(`level_${level}`) });
+    right = `<button class="pastille" data-go="alerts" style="background:${col};color:${c.P.sur};font-size:${c.wide ? 17 : 14}px">${glyph('danger', 16, c.P.sur, 2.4)}${words}</button>`;
   } else {
     const read = c.data?.read_utc;
     right = num(read) ? `<span class="maj">${c.t('updated', { t: c.hm(read) })}</span>` : '';
@@ -629,37 +644,6 @@ function currentHours(c) {
   return hours.filter((h) => h && num(h.time_utc) && h.time_utc >= from);
 }
 
-// The 12 hours: temperature curve, icons above, rain pills below.
-function hoursCurve(c, w, h) {
-  const all = currentHours(c).slice(0, 12).filter((x) => num(x.temp_c));
-  if (all.length < 4) return '';
-  const P = c.P, n = all.length, fs = c.wide ? Math.round(16 * c.k) : 13, ti = c.wide ? Math.round(44 * c.k) : 26, hp = c.wide ? 34 : 24, pad = c.wide ? 22 : 14;
-  const yTop = c.wide ? 66 : 44, yPil = h - fs - 12 - hp, yBas = yPil - fs - 14;
-  const temps = all.map((x) => x.temp_c), mn = Math.min(...temps), mx = Math.max(...temps), id = `g${Math.random().toString(36).slice(2, 8)}`;
-  const amp = Math.max(4, mx - mn), low = (mn + mx) / 2 - amp / 2; // at least 4 °C from top to bottom: 2° must not look like a fall
-  const pts = all.map((x, i) => ({ x: pad + (i * (w - 2 * pad)) / (n - 1), y: yBas - 6 - ((x.temp_c - low) / amp) * (yBas - yTop - 26) }));
-  let s = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" x2="1" y1="0" y2="0">` +
-    temps.map((t, i) => `<stop offset="${r1((i / (n - 1)) * 100)}%" stop-color="${tempColour(P, t)}"/>`).join('') + `</linearGradient>` +
-    `<linearGradient id="${id}v" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${tempColour(P, (mn + mx) / 2)}" stop-opacity=".30"/><stop offset="1" stop-color="${tempColour(P, (mn + mx) / 2)}" stop-opacity="0"/></linearGradient></defs>`;
-  const d = smooth(pts);
-  s += `<path d="${d} L${r1(pts[n - 1].x)} ${yBas + 4} L${r1(pts[0].x)} ${yBas + 4} Z" fill="url(#${id}v)"/><path d="${d}" fill="none" stroke="url(#${id})" stroke-width="${c.wide ? 5.5 : 4.5}" stroke-linecap="round"/>`;
-  const step = (w - 2 * pad) / (n - 1) < 50 ? 2 : 1; // an icon every hour only where they do not touch
-  all.forEach((x, i) => { if (i % step === 0) s += iconAt(P, atNight(wmoKind(x.weather_code), x.is_day), pts[i].x, yTop - ti / 2 - 8, ti); });
-  const iMax = temps.indexOf(mx), iMin = temps.indexOf(mn);
-  [[iMax, -12], [iMin, fs + 12]].forEach(([i, dy]) => {
-    s += `<circle cx="${r1(pts[i].x)}" cy="${r1(pts[i].y)}" r="6" fill="var(--vc-carte)" stroke="${tempColour(P, temps[i])}" stroke-width="3"/>` +
-      `<text x="${r1(pts[i].x)}" y="${r1(pts[i].y + dy)}" font-size="${fs + 2}" font-weight="700" fill="${tempColour(P, temps[i])}" text-anchor="middle">${c.fmt(temps[i])}°</text>`;
-  });
-  const gap = (w - 2 * pad) / (n - 1), lw = Math.min(gap * 0.5, 16), top = 6;
-  all.forEach((x, i) => {
-    const v = x.precipitation_mm;
-    if (num(v) && v > 0) { const hh = Math.max(8, Math.sqrt(Math.min(v, top) / top) * hp); s += `<rect x="${r1(pts[i].x - lw / 2)}" y="${r1(yPil + hp - hh)}" width="${r1(lw)}" height="${r1(hh)}" rx="${r1(lw / 2)}" fill="${rainColour(P, v)}"/>`; }
-  });
-  for (let i = 0; i < n; i += 3) s += `<text x="${r1(pts[i].x)}" y="${h - 4}" font-size="${fs}" font-weight="700" fill="${i === 0 ? P.accent : P.t3}" text-anchor="${i === 0 ? 'start' : 'middle'}">${c.hourOnly(all[i].time_utc)}</text>`;
-  return s + '</svg>';
-}
-
-// The rain of the next hour (radar nowcast, France) and the first warning: the two pills that open Details and Alerts.
 // The rain of the next hour by the nowcast of the place (PIAF in France: 5-minute rates, or 15-minute amounts): the minutes
 // to the first rain, 0 when it rains now, -1 for none in the hour, null without a nowcast. The home page and the sentence of
 // the Details page both read it, so that they never say two different things about the hour.
@@ -683,19 +667,6 @@ function nowcastFirst(c) {
   return -1;
 }
 
-function rainPill(c, fs, g, inline) {
-  const rn = c.point?.rain_nowcast;
-  if (!rn) return '';
-  const steps = Array.isArray(rn.mm_per_step) ? rn.mm_per_step : null;
-  const total = steps && steps.every(num) ? steps.reduce((a, b) => a + b, 0) : null;
-  const first = nowcastFirst(c);
-  const text = first === null ? null : first < 0 ? c.t('rain_none') : first === 0 ? c.t('rain_now') : c.t('rain_in', { n: first });
-  if (!text) return '';
-  const detail = num(total) && total > 0 ? c.t('mm_hour', { mm: c.fmt(total, 1) }) : '';
-  const det = detail ? (inline ? ` <span class="det" style="font-size:${fs - 1}px">· ${detail}</span>` : `<small>${detail}</small>`) : '';
-  const go = c.config._pages.includes('details') ? ' data-go="details"' : '';
-  return `<button class="puce"${go} style="font-size:${fs}px;background:${alpha(c.P.pluie, 0.2)};border-color:${alpha(c.P.pluie, 0.65)}">${glyph('parapluie', g, c.P.pluie, 2.2)}<span class="tx">${text}${det}</span></button>`;
-}
 function warningPill(c, fs, g, inline) {
   const w = c.data?.warnings;
   const groups = warningGroups(c);
@@ -721,10 +692,6 @@ function days(c, list, n, o = {}) {
     `<span style="font-size:${fs + 2}px"><span class="mx" style="color:${tempColour(c.P, d.max)}">${c.fmt(d.max)}°</span> <span class="mn" style="font-size:${fs}px">${c.fmt(d.min)}°</span></span>` +
     (o.noRain ? '' : num(d.mm) ? (d.mm >= 0.5 ? `<span class="gel" style="background:${rainColour(c.P, d.mm / 6)};color:${c.P.sur}">${c.fmt(d.mm)}&nbsp;mm</span>` : `<span class="gel" style="color:${c.P.t3}">${c.t('dry')}</span>`) : '') +
     `</div>`).join('') + `</div>`;
-}
-function daysOfPoint(c) {
-  const daily = Array.isArray(c.point?.daily) ? c.point.daily : [];
-  return daily.filter((d) => d && typeof d.date === 'string').map((d) => ({ name: c.dayName(d.date), kind: wmoKind(d.code), max: d.tmax, min: d.tmin, mm: d.rain_mm }));
 }
 
 // ----------------------------------------------------------------------------------------------------------------- season
@@ -826,7 +793,7 @@ function seasonItems(c) {
 
 const toneColour = (c, tone) => (tone === 'neutre' ? c.P.t2 : c.P[tone]);
 // The home page: the strongest line, "+n" for the others; it opens Alerts. On a phone the detail goes when "+n" is there.
-function seasonPill(c, fs, g, inline) {
+function seasonPill(c, fs, g, inline, pad = '') {
   const items = seasonItems(c);
   if (!items.length) return '';
   const it = items[0], col = toneColour(c, it.tone), neutral = it.tone === 'neutre', more = items.length - 1;
@@ -834,7 +801,7 @@ function seasonPill(c, fs, g, inline) {
   const det = it.det && !(more && inline) ? (inline ? ` <span class="det" style="font-size:${fs - 1}px">· ${it.det}</span>` : `<small>${it.det}</small>`) : '';
   const go = c.config._pages.includes('alerts') ? ' data-go="alerts"' : '';
   const bg = neutral ? 'transparent' : alpha(col, 0.2), bd = neutral ? c.P.filet : alpha(col, 0.65);
-  return `<button class="puce"${go} style="font-size:${fs}px;background:${bg};border-color:${bd}">${glyph(it.glyph, g, col, 2.2)}<span class="tx">${it.pill}${plus}${det}</span></button>`;
+  return `<button class="puce"${go} style="font-size:${fs}px;${pad ? `padding:${pad};` : ''}background:${bg};border-color:${bd}">${glyph(it.glyph, g, col, 2.2)}<span class="tx">${it.pill}${plus}${det}</span></button>`;
 }
 
 function dangerScale(c, level, w) {
@@ -891,36 +858,445 @@ function seasonBlock(c, items, w) {
     items.map((it, i) => (i ? sep('12px 0') : '') + seasonEntry(c, it, w)).join('');
 }
 
+// ------------------------------------------------------------------------------------------------------ hours, days, glow
+// The columns of the hours and of the days are the Meridien screen's, tinted by their sun ("Lueur", chosen on the sketches of
+// 2026-11-27): the tint of the sky at the top of the column, fading downwards; grey to gold with the share of sun, navy at night.
+// The share of sun is 1 - the cloud cover of the hours of daylight, else a guess from the weather code.
+const sunOfCode = (code) => (!num(code) ? 0.3 : code === 0 ? 0.9 : code === 1 ? 0.75 : code === 2 ? 0.5 : code === 3 ? 0.12 : code <= 48 ? 0.1 : 0.06);
+function glow(P, sun, day) {
+  const s = clamp(num(sun) ? sun : 0.3, 0, 1);
+  const col = day ? mix(P.lueurCouvert, P.lueurSoleil, s) : P.lueurNuit;
+  const a = (day ? 0.11 + 0.21 * s : 0.16) * P.lueurA;
+  return `linear-gradient(to bottom,${alpha(col, Math.min(0.62, a * 2.3))} 0%,${alpha(col, a * 0.9)} 38%,${alpha(col, 0.03)} 100%)`;
+}
+const column = (c, left, width, height, bg, ring, radius) => `<div class="cl" style="left:${r1(left + 1)}px;width:${r1(Math.max(1, width - 2))}px;height:${height}px;border-radius:${radius}px;background:${bg}${ring ? `;box-shadow:inset 0 0 0 1.5px ${alpha(c.P.accent, 0.75)}` : ''}"></div>`;
+const cells = (n, top, list, style = '') => `<div class="gr" style="top:${top}px;grid-template-columns:repeat(${n},minmax(0,1fr));${style}">${list.join('')}</div>`;
+const section = (left, right = '') => `<div class="st"><b>${left}</b>${right ? `<span>${right}</span>` : ''}</div>`;
+const uid = () => `v${Math.random().toString(36).slice(2, 8)}`;
+const sum = (l) => l.reduce((a, b) => a + b, 0);
+const vals = (list, key) => list.map((x) => x[key]).filter(num);
+const gustColour = (P, v) => (v >= 80 ? P.orange : v >= 60 ? P.jaune : null);
+const colonOf = (c) => (c.lang === 'fr' ? '&nbsp;: ' : ': ');
+// A horizontal gradient through the colours of a list of temperatures, one stop in the middle of each column.
+const tempStops = (P, id, temps, w) => `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="0" x2="${r1(w)}" y1="0" y2="0">` +
+  temps.map((t, i) => `<stop offset="${r1(((i + 0.5) / temps.length) * 100)}%" stop-color="${tempColour(P, t)}"/>`).join('') + '</linearGradient>';
+// Where the wind of some hours comes from: the mean of their vectors, weighted by the speed.
+function windFrom(hours) {
+  let x = 0, y = 0;
+  for (const h of hours) if (num(h.wind_deg) && num(h.wind_kmh)) { x += Math.sin(rad(h.wind_deg)) * h.wind_kmh; y += Math.cos(rad(h.wind_deg)) * h.wind_kmh; }
+  return x || y ? ((Math.atan2(x, y) * 180) / Math.PI + 360) % 360 : null;
+}
+function sunOfHours(hours) {
+  const lit = hours.filter((h) => h.is_day !== false && num(h.cloud_cover_pct));
+  return lit.length ? lit.reduce((a, h) => a + 1 - h.cloud_cover_pct / 100, 0) / lit.length : null;
+}
+function isDayAt(c, h, mid = 1800) {
+  if (typeof h.is_day === 'boolean') return h.is_day;
+  const co = c.point?.coordinates;
+  return num(co?.lat) && num(co?.lon) ? sunUp(co.lat, co.lon, h.time_utc + mid) : true;
+}
+
+// The hours from now by 1, 2 or 3 hours, as the width allows (a column of at least 34 px by hour, 28 px by 2 hours): the
+// temperature at the start of the slot, its most significant weather (the highest WMO code), the sum of its rain, its highest
+// chance of rain, its mean wind and its highest gust.
+function hourSlots(c, w) {
+  const hours = currentHours(c).filter((h) => num(h.temp_c));
+  const step = w / 24 >= 34 ? 1 : w / 12 >= 28 ? 2 : 3;
+  const n = Math.min(Math.floor(hours.length / step), 24 / step);
+  if (n < 4) return null;
+  const slots = [];
+  for (let i = 0; i < n; i++) {
+    const g = hours.slice(i * step, (i + 1) * step), codes = vals(g, 'weather_code'), code = codes.length ? Math.max(...codes) : null;
+    const day = isDayAt(c, g[0], step * 1800);
+    const mm = vals(g, 'precipitation_mm'), p = vals(g, 'precipitation_probability_pct'), wind = vals(g, 'wind_kmh'), gust = vals(g, 'wind_gust_kmh');
+    slots.push({
+      ts: g[0].time_utc, t: g[0].temp_c, kind: atNight(wmoKind(code), day), day, sun: day ? (sunOfHours(g) ?? sunOfCode(code)) : null,
+      mm: mm.length ? sum(mm) : null, p: p.length ? Math.max(...p) : null, wind: wind.length ? sum(wind) / wind.length : null,
+      gust: gust.length ? Math.max(...gust) : null, deg: windFrom(g),
+    });
+  }
+  return { step, slots };
+}
+
+// The legend of the glow: night, then grey to gold.
+const glowLegend = (c) => `${c.t('night')}<span class="ramp" style="background:linear-gradient(to right,${alpha(c.P.lueurNuit, 0.55)} 0%,${alpha(c.P.lueurNuit, 0.55)} 22%,${alpha(c.P.lueurCouvert, 0.45)} 30%,${alpha(c.P.lueurSoleil, 0.85)} 100%)"></span>${c.t('sun')}`;
+
+// The next 24 hours: a column per slot, its icon, the temperature curve, the rain, its chance (when the forecast gives one), the
+// wind and the gusts, the hour. `tight`: a flatter curve, 12 px less (the card has a fixed size).
+function hoursBlock(c, w, tight = false) {
+  const S = hourSlots(c, w);
+  if (!S) return '';
+  const P = c.P, list = S.slots, n = list.length, cw = w / n, hasP = list.some((x) => num(x.p));
+  const cut = tight ? 12 : 0, H = (hasP ? 206 : 192) - cut, yWind = (hasP ? 158 : 144) - cut;
+  const temps = list.map((x) => x.t), mn = Math.min(...temps), mx = Math.max(...temps);
+  const amp = Math.max(4, mx - mn), low = (mn + mx) / 2 - amp / 2; // at least 4 °C from top to bottom: 2° must not look like a fall
+  const pts = temps.map((t, i) => ({ x: cw * (i + 0.5), y: 66 - cut - ((t - low) / amp) * (44 - cut) }));
+  const id = uid(), top = 2.5 * S.step;
+  let s = section(S.step === 1 ? c.t('hours_each') : c.t('hours_by', { n: S.step }), glowLegend(c)) +
+    `<div class="cols" style="width:${r1(w)}px;height:${H}px">` + list.map((x, i) => column(c, cw * i, cw, H, glow(P, x.sun, x.day), i === 0, 9)).join('');
+  s += cells(n, 2, list.map((x) => icon(P, x.kind, 24)));
+  s += `<svg class="ov" style="top:26px" width="${r1(w)}" height="${74 - cut}" viewBox="0 0 ${r1(w)} ${74 - cut}" aria-hidden="true"><defs>${tempStops(P, id, temps, w)}</defs>` +
+    `<path d="${smooth(pts)}" fill="none" stroke="url(#${id})" stroke-width="4" stroke-linecap="round"/></svg>`;
+  s += list.map((x, i) => `<span class="lb" style="left:${r1(pts[i].x - 20)}px;top:${r1(pts[i].y + 7)}px;width:40px;font-size:13px;color:${tempColour(P, x.t)}">${c.fmt(x.t)}°</span>`).join('');
+  s += cells(n, 104 - cut, list.map((x) => {
+    const mm = num(x.mm) && x.mm >= 0.1 ? x.mm : 0, bh = mm ? Math.max(4, Math.sqrt(Math.min(mm, top) / top) * 22) : 0;
+    return `<div class="pl">${mm ? `<span style="color:${P.pluieFaible}">${c.fmt(mm, mm < 10 ? 1 : 0)}</span><i style="height:${r1(bh)}px;background:${rainColour(P, mm / S.step)}"></i>` : ''}</div>`;
+  }));
+  if (hasP) s += cells(n, 144 - cut, list.map((x) => `<span class="pc">${num(x.p) ? `${x.p}&nbsp;%` : ''}</span>`));
+  s += cells(n, yWind, list.map((x) => {
+    const g = num(x.gust) ? gustColour(P, x.gust) : null;
+    return `<div class="vt"><span>${num(x.deg) ? arrow(11, x.deg, P.vent) : ''}${c.fmt(x.wind)}</span>${num(x.gust) ? `<small style="color:${g || P.t3};font-weight:${g ? 700 : 400}">${c.fmt(x.gust)}</small>` : ''}</div>`;
+  }));
+  s += cells(n, H - 17, list.map((x, i) => `<span class="hr" style="color:${i === 0 ? P.accent : P.t2}">${c.hourOnly(x.ts)}</span>`));
+  return `<div class="bloc">${s}</div></div>`;
+}
+
+// The days: a column per day, tinted by its sun; the highest and lowest as two curves around a band; the rain, its chance, the
+// strongest wind (with the gusts and the direction where the hours of the answer cover the day). `tight`: flatter curves, 26 px less.
+function daysBlock(c, w, nMax, tight = false) {
+  const P = c.P, today = c.dayKey(c.now);
+  const list = (Array.isArray(c.point?.daily) ? c.point.daily : []).filter((d) => d && typeof d.date === 'string' && d.date >= today && num(d.tmax) && num(d.tmin)).slice(0, nMax);
+  const n = list.length;
+  if (n < 2) return '';
+  const cut = tight ? 26 : 0, cw = w / n, hasP = list.some((d) => num(d.rain_probability_pct)), H = (hasP ? 250 : 236) - cut;
+  const hourly = Array.isArray(c.point?.hourly) ? c.point.hourly.filter((h) => h && num(h.time_utc)) : [];
+  const info = list.map((d) => {
+    const hrs = hourly.filter((h) => c.dayKey(h.time_utc) === d.date && h.time_utc >= c.now - (c.now % 3600));
+    const start = Date.parse(`${d.date}T00:00:00Z`) / 1000 - c.offset, need = Math.round((start + 86400 - Math.max(start, c.now - (c.now % 3600))) / 3600);
+    const whole = need > 0 && hrs.length >= need - 1; // an hour of slack for the change of time
+    const gusts = vals(hrs, 'wind_gust_kmh');
+    return { sun: sunOfHours(hrs.filter((h) => h.is_day === true)) ?? sunOfCode(d.code), gust: whole && gusts.length ? Math.max(...gusts) : null, deg: whole ? windFrom(hrs) : null };
+  });
+  const lo = Math.floor(Math.min(...list.map((d) => d.tmin))) - 1, hi = Math.ceil(Math.max(...list.map((d) => d.tmax))) + 1;
+  const yOf = (t) => 150 - cut - ((t - lo) / (hi - lo)) * (76 - cut);
+  const mx = list.map((d, i) => ({ x: cw * (i + 0.5), y: yOf(d.tmax) })), mn = list.map((d, i) => ({ x: cw * (i + 0.5), y: yOf(d.tmin) }));
+  const maxD = smooth(mx), minD = smooth(mn), band = `${maxD}${smooth(mn.slice().reverse()).replace(/^M/, ' L')} Z`, id = uid();
+  const mean = (key) => sum(list.map((d) => d[key])) / n;
+  const legend = c.t(info.some((x) => num(x.gust)) ? 'days_legend_gusts' : 'days_legend');
+  let s = section(c.t('days_title', { n }), legend) + `<div class="cols" style="width:${r1(w)}px;height:${H}px">` +
+    list.map((d, i) => column(c, cw * i, cw, H, glow(P, info[i].sun, true), i === 0, 10)).join('');
+  s += cells(n, 3, list.map((d, i) => `<div class="dh"><b style="color:${i === 0 ? P.accent : P.texte}">${i === 0 ? c.t('today_short') : `${c.dayName(d.date)} ${Number(d.date.slice(8))}`}</b>${icon(P, wmoKind(d.code), 30)}</div>`));
+  const dot = (p, col) => `<circle cx="${r1(p.x)}" cy="${r1(p.y)}" r="3.75" fill="var(--vc-carte)" stroke="${col}" stroke-width="2.5"/>`;
+  s += `<svg class="ov" style="top:0" width="${r1(w)}" height="${170 - cut}" viewBox="0 0 ${r1(w)} ${170 - cut}" aria-hidden="true"><defs>` +
+    `<linearGradient id="${id}b" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${tempColour(P, mean('tmax'))}" stop-opacity=".2"/><stop offset="1" stop-color="${tempColour(P, mean('tmin'))}" stop-opacity=".16"/></linearGradient>` +
+    tempStops(P, `${id}x`, list.map((d) => d.tmax), w) + tempStops(P, `${id}n`, list.map((d) => d.tmin), w) + '</defs>' +
+    `<path d="${band}" fill="url(#${id}b)"/><path d="${maxD}" fill="none" stroke="url(#${id}x)" stroke-width="4" stroke-linecap="round"/>` +
+    `<path d="${minD}" fill="none" stroke="url(#${id}n)" stroke-width="3" stroke-linecap="round"/>` +
+    list.map((d, i) => dot(mx[i], tempColour(P, d.tmax)) + dot(mn[i], tempColour(P, d.tmin))).join('') + '</svg>';
+  s += list.map((d, i) => `<span class="lb" style="left:${r1(mx[i].x - 22)}px;top:${r1(mx[i].y - 26)}px;width:44px;font-size:15px;color:${tempColour(P, d.tmax)}">${c.fmt(d.tmax)}°</span>` +
+    `<span class="lb" style="left:${r1(mn[i].x - 22)}px;top:${r1(mn[i].y + 7)}px;width:44px;font-size:13px;font-weight:500;color:${tempColour(P, d.tmin)}">${c.fmt(d.tmin)}°</span>`).join('');
+  s += cells(n, 176 - cut, list.map((d, i) => {
+    const mm = num(d.rain_mm) ? d.rain_mm : null, wet = mm !== null && mm >= 0.5;
+    const bh = mm > 0 ? Math.max(4, Math.sqrt(Math.min(mm, 30) / 30) * 24) : 2;
+    const txt = mm === null ? '' : wet ? `${mm < 1 ? c.fmt(mm, 1) : c.fmt(mm)}&nbsp;mm` : c.t('dry');
+    return `<div class="db"><div class="bw"><i style="height:${r1(bh)}px;background:${wet ? rainColour(P, mm / 6) : P.creux}"></i></div>` +
+      `<b style="color:${wet ? P.pluieFaible : P.t3}">${txt}</b>` + (hasP ? `<span class="pc">${num(d.rain_probability_pct) ? `${d.rain_probability_pct}&nbsp;%` : ''}</span>` : '') +
+      `<span class="vt2">${num(info[i].deg) ? arrow(11, info[i].deg, P.vent) : ''}${num(d.wind_max) ? c.fmt(d.wind_max) : ''}${num(info[i].gust) ? `<small>/${c.fmt(info[i].gust)}</small>` : ''}</span></div>`;
+  }));
+  return `<div class="bloc">${s}</div></div>`;
+}
+
+// ------------------------------------------------------------------------------------------------------------------ now
+// The highest gust of the next hours: AROME-PI's 15-minute steps where there are, else the hours of the answer (12 hours).
+function gustPeak(c) {
+  const steps = (Array.isArray(c.point?.short_term?.steps) ? c.point.short_term.steps : []).filter((s) => num(s.time_utc) && num(s.wind_gust_kmh) && s.time_utc + 900 > c.now);
+  const list = steps.length ? steps : currentHours(c).slice(0, 12).filter((h) => num(h.wind_gust_kmh));
+  if (!list.length) return null;
+  const best = list.reduce((a, b) => (b.wind_gust_kmh > a.wind_gust_kmh ? b : a));
+  return { v: best.wind_gust_kmh, at: best.time_utc };
+}
+// The trend of the pressure, the rule of the Vigie site: a change of 1 hPa or more in 3 hours, read on the history of the answer.
+function pressureTrend(c) {
+  const ph = (Array.isArray(c.point?.pressure_history) ? c.point.pressure_history : []).filter((x) => x && num(x.time_utc) && num(x.pressure_hpa)).sort((a, b) => a.time_utc - b.time_utc);
+  if (ph.length < 2) return '';
+  const last = ph[ph.length - 1];
+  if (c.now - last.time_utc > 3 * 3600) return '';
+  const old = ph.reduce((a, x) => (Math.abs(x.time_utc - (last.time_utc - 10800)) < Math.abs(a.time_utc - (last.time_utc - 10800)) ? x : a));
+  const hours = (last.time_utc - old.time_utc) / 3600;
+  if (hours < 1.5) return '';
+  const per3 = ((last.pressure_hpa - old.pressure_hpa) * 3) / hours;
+  return per3 >= 1 ? '↗' : per3 <= -1 ? '↘' : '→';
+}
+// The next sunrise and sunset, to the minute (none in a polar day or night).
+function sunTimes(c) {
+  const co = c.point?.coordinates;
+  if (!num(co?.lat) || !num(co?.lon)) return null;
+  const up = (ts) => sunUp(co.lat, co.lon, ts), out = { up: up(c.now) };
+  let prev = out.up;
+  for (let i = 1; i <= 156 && !(out.rise && out.set); i++) {
+    const ts = c.now + i * 600, u = up(ts);
+    if (u === prev) continue;
+    let a = ts - 600, b = ts;
+    while (b - a > 60) { const m = Math.floor((a + b) / 2); if (up(m) === prev) a = m; else b = m; }
+    if (u && !out.rise) out.rise = b;
+    if (!u && !out.set) out.set = b;
+    prev = u;
+  }
+  return out;
+}
+// The European air quality index in the bands of the site, and their colours.
+const AQI_FROM = [20, 40, 60, 80, 100];
+const AQI_TONE = ['vert', 'vert', 'jaune', 'orange', 'rouge', 'rouge'];
+function nowFacts(c) {
+  const P = c.P, cur = c.point?.current || {}, out = [];
+  const peak = gustPeak(c);
+  if (peak) out.push(c.t('gust_peak', { v: `<b style="color:${gustColour(P, peak.v) || P.vent}">${c.fmt(peak.v)}</b>`, t: c.hm(peak.at) }));
+  if (num(cur.pressure_hpa)) { const tr = pressureTrend(c); out.push(`<b style="color:${P.texte}">${c.fmt(cur.pressure_hpa)}</b>&nbsp;hPa${tr ? ` ${tr}` : ''}`); }
+  const air = [];
+  if (num(cur.aqi_eu)) { const i = AQI_FROM.filter((b) => cur.aqi_eu >= b).length; air.push(c.t('air', { w: `<b style="color:${P[AQI_TONE[i]]}">${c.t('aqi_word')[i]}</b>` })); }
+  if (num(cur.uv_index)) air.push(c.t('uv', { v: c.fmt(cur.uv_index) }));
+  if (air.length) out.push(air.join(' · '));
+  const sun = sunTimes(c);
+  if (sun && (sun.rise || sun.set)) {
+    const set = sun.set ? `↓&nbsp;${c.hm(sun.set)}` : '', rise = sun.rise ? `↑&nbsp;${c.hm(sun.rise)}` : '';
+    out.push(`<svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5" fill="${P.jaune}"/></svg>${(sun.up ? [set, rise] : [rise, set]).filter(Boolean).join(' · ')}`);
+  }
+  return out;
+}
+// Now: icon, temperature in its colour, the weather, feeling and humidity, the wind; beside it the gusts to come, the pressure, the
+// air and the UV, the sun.
+function nowBlock(c, w) {
+  const P = c.P, m = momentOfPoint(c), cur = c.point?.current || {};
+  const k = clamp(w / 448, 0.8, c.wide ? 1.25 : 1), fs = k < 0.9 ? 11 : 12;
+  const hum = num(cur.humidity_pct) ? `${c.fmt(cur.humidity_pct)}&nbsp;%` : '';
+  const feels = [num(m.feels) ? c.t('feels', { t: c.fmt(m.feels) }) : '', hum].filter(Boolean).join(' · ');
+  const wind = num(m.wind) ? `<span class="nl">${num(m.deg) ? arrow(13, m.deg, P.vent) : ''}<span><b style="color:${P.vent}">${c.fmt(m.wind)}</b>&nbsp;km/h${num(m.gust) ? ` · ${c.t('gusts_abbr')} <b style="color:${P.vent}">${c.fmt(m.gust)}</b>` : ''}</span></span>` : '';
+  const facts = nowFacts(c);
+  return `<div class="now" style="min-height:${Math.round(68 * k)}px">${icon(P, m.kind, Math.round(54 * k))}` +
+    (num(m.temp) ? `<span class="temp" style="font-size:${Math.round(52 * k)}px;color:${tempColour(P, m.temp)}">${c.fmt(m.temp)}°</span>` : '') +
+    `<div class="now-t">${m.label ? `<b style="font-size:${Math.round(15 * Math.min(k, 1.1))}px">${esc(m.label)}</b>` : ''}${feels ? `<span>${feels}</span>` : ''}${wind}</div>` +
+    (facts.length ? `<div class="now-f" style="width:${Math.round(146 * k)}px;font-size:${fs}px">${facts.map((f) => `<span>${f}</span>`).join('')}</div>` : '') + '</div>';
+}
+
+// ----------------------------------------------------------------------------------------------------------------- rain
+// The steps of the nowcast still to come (the one in progress included), in mm/h: twelve 5-minute rates (PIAF) or four
+// 15-minute amounts. `at` is the start of a step; an older API without `start_utc` counts from now (`known` false).
+function nowcastBars(c) {
+  const rn = c.point?.rain_nowcast;
+  const rates = Array.isArray(rn?.rate_5m_mm_h) && rn.rate_5m_mm_h.length && rn.rate_5m_mm_h.every(num) ? rn.rate_5m_mm_h : null;
+  const steps = Array.isArray(rn?.mm_per_step) && rn.mm_per_step.length && rn.mm_per_step.every(num) ? rn.mm_per_step : null;
+  if (!rates && !steps) return [];
+  const minutes = rates ? 5 : rn.interval_minutes || 15, start = num(rn.start_utc) ? rn.start_utc : null;
+  return (rates || steps.map((v) => (v * 60) / minutes)).map((r, i) => ({ r, minutes, known: start !== null, at: (start ?? c.now) + i * minutes * 60 }))
+    .filter((b) => !b.known || b.at + b.minutes * 60 > c.now);
+}
+const SNOWY = ['snow', 'wet_snow', 'snow_pellets'];
+// The kind of precipitation of a WMO code, in the words of AROME-PI.
+function wmoPrecip(code) {
+  if (!num(code)) return 'rain';
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'snow';
+  if (code === 56 || code === 57 || code === 66 || code === 67) return 'freezing';
+  return code >= 51 && code <= 55 ? 'drizzle' : 'rain';
+}
+// The kind of precipitation at a time: AROME-PI's step there, else the hour of the answer, else the weather now.
+function kindAt(c, ts) {
+  const st = c.point?.short_term, m = (st?.interval_minutes || 15) * 60;
+  const s = (Array.isArray(st?.steps) ? st.steps : []).find((x) => num(x.time_utc) && x.time_utc <= ts && ts < x.time_utc + m && typeof x.precipitation === 'string' && x.precipitation !== 'none');
+  if (s) return s.precipitation;
+  const h = currentHours(c).find((x) => x.time_utc <= ts && ts < x.time_utc + 3600);
+  return wmoPrecip(h ? h.weather_code : c.point?.current?.weather_code);
+}
+// The rain from now on, as one list of slots: the nowcast first, then AROME-PI by 15 minutes, then the hours; each source only
+// after the end of the one before. A slot: {from, to, wet, kind, r} (r in mm per hour, null when unknown).
+function rainSlots(c) {
+  const out = [];
+  let end = c.now;
+  const push = (from, to, wet, kind, r) => { if (to <= end) return; out.push({ from: Math.max(from, end), to, wet, kind, r }); end = to; };
+  for (const b of nowcastBars(c)) push(b.at, b.at + b.minutes * 60, b.r > 0, null, b.r);
+  const st = c.point?.short_term, m = (st?.interval_minutes || 15) * 60;
+  for (const s of Array.isArray(st?.steps) ? st.steps : []) {
+    if (num(s.time_utc) && typeof s.precipitation === 'string') push(s.time_utc, s.time_utc + m, s.precipitation !== 'none', s.precipitation === 'none' ? null : s.precipitation, null);
+  }
+  for (const h of currentHours(c)) if (num(h.precipitation_mm)) push(h.time_utc, h.time_utc + 3600, h.precipitation_mm >= 0.1, wmoPrecip(h.weather_code), h.precipitation_mm);
+  return out;
+}
+const intensity = (r) => (r >= 3 ? 'int_heavy' : r >= 1 ? 'int_moderate' : 'int_light');
+const dayAndHour = (c, ts) => { const d = dayWord(c, ts, false); return { d: d ? `${d} ` : '', t: c.hm(ts) }; };
+// After a dry hour: when the next rain comes, or until when it stays dry.
+function nextRain(c, after) {
+  const slots = rainSlots(c), wet = slots.find((s) => s.wet && s.to > after);
+  if (wet) return c.t('next_rain', dayAndHour(c, Math.max(wet.from, after)));
+  const last = slots[slots.length - 1];
+  return last && last.to > after ? c.t('dry_until', dayAndHour(c, last.to)) : '';
+}
+// The rain of the next hour (the nowcast of the place, PIAF in France): when it comes, how strong, a bar per step. It opens
+// Details. The words are the ones the Details page reads too (nowcastFirst), so the two never say two things about the hour.
+function rainTile(c, w) {
+  const first = nowcastFirst(c);
+  if (first === null) return '';
+  const P = c.P, bars = nowcastBars(c), wet = bars.filter((b) => b.r > 0);
+  const snow = first >= 0 && SNOWY.includes(kindAt(c, c.now + first * 60));
+  const head = first < 0 ? c.t('rain_none') : first === 0 ? c.t(snow ? 'snow_now' : 'rain_now') : c.t(snow ? 'snow_in' : 'rain_in', { n: first });
+  let sub;
+  if (wet.length) {
+    const a = intensity(wet[0].r), b = intensity(Math.max(...wet.map((x) => x.r)));
+    sub = a === b ? c.t(a) : c.t('then', { a: c.t(a), b: c.t(b) });
+  } else sub = nextRain(c, c.now + 3600);
+  const marks = bars.length && bars[0].known ? [...new Set([0, Math.floor((bars.length - 1) / 2), bars.length - 1])] : [];
+  const go = c.config._pages.includes('details') ? ' data-go="details"' : '';
+  return `<button class="tuile"${go} style="background:${alpha(P.pluie, 0.12)};border-color:${alpha(P.pluie, 0.45)}">${glyph('parapluie', 22, P.pluie, 2.2)}` +
+    `<span class="tt" style="max-width:${Math.round(w * 0.6)}px"><b>${head}</b>${sub ? `<small>${sub}</small>` : ''}</span>` +
+    `<span class="tb"><span class="bars">${bars.map((x) => `<i style="height:${x.r > 0 ? r1(5 + Math.sqrt(Math.min(x.r, 4) / 4) * 25) : 3}px;background:${x.r > 0 ? rainColour(P, x.r) : P.creux}"></i>`).join('')}</span>` +
+    (marks.length > 1 ? `<span class="tl">${marks.map((i) => `<span>${c.hm(bars[i].at)}</span>`).join('')}</span>` : '') + '</span></button>';
+}
+
+// ------------------------------------------------------------------------------------------------------------- details
+// The first local noon at least 12 hours ahead ("tomorrow noon" in the evening).
+function nextNoon(c) {
+  let ts = Date.parse(`${c.dayKey(c.now)}T12:00:00Z`) / 1000 - c.offset;
+  while (ts - c.now < 12 * 3600) ts += 86400;
+  return ts;
+}
+// The rain until then, said in a few periods: "Dry → 14:50", "Rain → 16:15", "Lull → 17:30"... A dry gap of 30 minutes or
+// less between two rains is part of the rain, and a rain whose known rates all stay under 1 mm/h is light.
+function rainChips(c, until) {
+  const P = c.P, runs = [];
+  for (const s of rainSlots(c)) {
+    if (s.from >= until) break;
+    const to = Math.min(s.to, until), last = runs[runs.length - 1];
+    if (last && last.wet === s.wet) { last.to = to; last.kind = last.kind || s.kind; if (num(s.r)) last.rs.push(s.r); } else runs.push({ wet: s.wet, from: s.from, to, kind: s.kind, rs: num(s.r) ? [s.r] : [] });
+  }
+  for (let i = 1; i < runs.length - 1; i++) {
+    if (!runs[i].wet && runs[i].to - runs[i].from <= 1800 && runs[i - 1].wet && runs[i + 1].wet) {
+      const a = runs[i - 1], b = runs[i + 1];
+      runs.splice(i - 1, 3, { wet: true, from: a.from, to: b.to, kind: a.kind || b.kind, rs: a.rs.concat(b.rs) });
+      i -= 1;
+    }
+  }
+  if (!runs.length) return '';
+  const rain = { bg: alpha(P.pluie, 0.16), bd: alpha(P.pluie, 0.55), dot: P.pluie }, dry = { bg: alpha(P.vert, 0.1), bd: alpha(P.vert, 0.45), dot: P.vert };
+  return '<div class="chipsr">' + runs.slice(0, 8).map((r, i) => {
+    let what;
+    if (r.wet) {
+      const k = kindWord(c, r.kind || 'rain');
+      what = r.rs.length && Math.max(...r.rs) < 1 ? c.t('light_kind', { k: c.lang === 'fr' ? k : k.toLowerCase() }) : k;
+    } else what = i > 0 && i < runs.length - 1 && r.to - r.from < 3 * 3600 ? c.t('lull') : c.t('dry_word');
+    const st = r.wet ? rain : dry;
+    return `<span class="pp" style="background:${st.bg};border-color:${st.bd}"><i style="background:${st.dot}"></i>${what}<span>→ ${c.hm(r.to)}</span></span>`;
+  }).join('') + '</div>';
+}
+// Within the hour: a bar per step of the nowcast, the levels of a moderate and a heavy rain dashed.
+function minutesBlock(c, w) {
+  const bars = nowcastBars(c);
+  if (!bars.length || nowcastFirst(c) === null) return '';
+  const P = c.P, rn = c.point.rain_nowcast, n = bars.length, bw = w - 52, firstWet = bars.findIndex((b) => b.r > 0);
+  const src = typeof rn.attribution === 'string' && rn.attribution.includes('PIAF') ? c.t('radar_piaf') : 'Open-Meteo';
+  let s = section(c.t('in_hour', { n: bars[0].minutes }), `${src} · mm/h`) + `<div class="cols" style="width:${r1(w)}px;height:72px">`;
+  [[14, 'int_heavy'], [38, 'int_moderate']].forEach(([y, key]) => { s += `<div class="dl" style="top:${y}px;width:${bw}px"></div><span class="lb2" style="left:${bw + 4}px;top:${y - 7}px">${c.t(key)}</span>`; });
+  s += `<div class="bars5" style="width:${bw}px">${bars.map((b) => `<i style="height:${b.r > 0 ? r1(Math.max(5, Math.min(b.r, 4) * 12)) : 3}px;background:${b.r > 0 ? rainColour(P, b.r) : P.creux}"></i>`).join('')}</div>`;
+  s += `<div class="bars5 lbl" style="width:${bw}px;top:56px">` + bars.map((b, i) => {
+    const show = i === 0 || i === firstWet || (n <= 6 || (i % 2 === 0 && Math.abs(i - firstWet) > 1));
+    const txt = !show ? '' : i === 0 && (!b.known || b.at <= c.now) ? c.t('now_short') : b.known ? c.hm(b.at) : '';
+    const on = i === 0 || i === firstWet;
+    return `<span style="color:${i === 0 ? P.accent : i === firstWet ? P.pluieFaible : P.t3};font-weight:${on ? 700 : 500}">${txt}</span>`;
+  }).join('') + '</div></div>';
+  return `<div class="bloc">${s}</div>`;
+}
+// Until the evening by quarter hour (AROME-PI): the gusts as a curve with their peak, the periods of rain, hail and visibility.
+function quarterBlock(c, w) {
+  const st = c.point?.short_term, m = (st?.interval_minutes || 15) * 60;
+  const steps = (Array.isArray(st?.steps) ? st.steps : []).filter((s) => num(s.time_utc) && s.time_utc + m > c.now).slice(0, 20);
+  if (steps.length < 2) return '';
+  const P = c.P, n = steps.length, cw = w / n, colon = colonOf(c);
+  const said = (level) => level && (level !== 'none' || w >= 420);
+  const right = [said(st.hail?.level) ? `${c.t('hail').toLowerCase()}${colon}${c.t(`hail_${st.hail.level}`)}` : '', said(st.visibility?.level) ? `${c.t('visibility').toLowerCase()}${colon}${c.t(`vis_${st.visibility.level}`)}` : ''].filter(Boolean).join(' · ');
+  let s = section(c.t('quarter_until', { t: c.hm(steps[n - 1].time_utc + m) }), right) + `<div class="cols" style="width:${r1(w)}px;height:92px">`;
+  const g = steps.map((x) => (num(x.wind_gust_kmh) ? x.wind_gust_kmh : null)), gv = g.filter(num);
+  if (gv.length >= 2) {
+    const lo = Math.max(0, Math.floor((Math.min(...gv) - 5) / 10) * 10), hi = Math.max(lo + 30, Math.ceil((Math.max(...gv) + 5) / 10) * 10);
+    const Y = (v) => 46 - ((v - lo) / (hi - lo)) * 36;
+    const pts = g.map((v, i) => (num(v) ? { x: cw * (i + 0.5), y: Y(v), v, ts: steps[i].time_utc } : null)).filter(Boolean);
+    const d = smooth(pts), best = pts.reduce((a, b) => (b.v > a.v ? b : a)), hot = gustColour(P, best.v) || P.texte;
+    s += `<span class="lb2" style="${best.x > w / 2 ? 'left:0' : 'right:0'};top:0">${c.t('gusts_unit')}</span>` +
+      `<svg class="ov" style="top:0" width="${r1(w)}" height="48" viewBox="0 0 ${r1(w)} 48" aria-hidden="true">` +
+      (lo < 80 && 80 < hi ? `<line x1="0" x2="${r1(w)}" y1="${r1(Y(80))}" y2="${r1(Y(80))}" stroke="${P.orange}" stroke-width="1" stroke-dasharray="4 4" opacity=".6"/>` : '') +
+      `<path d="${d} L${r1(pts[pts.length - 1].x)} 48 L${r1(pts[0].x)} 48 Z" fill="${alpha(P.vent, 0.14)}"/><path d="${d}" fill="none" stroke="${P.vent}" stroke-width="2.5" stroke-linecap="round"/>` +
+      `<circle cx="${r1(best.x)}" cy="${r1(best.y)}" r="4.5" fill="var(--vc-carte)" stroke="${hot}" stroke-width="2.5"/></svg>` +
+      `<span class="lb2 pk" style="${best.x > w - 100 ? `right:${r1(w - best.x - 6)}px` : `left:${r1(Math.max(0, best.x - 6))}px`};top:${r1(best.y >= 22 ? best.y - 22 : best.y + 7)}px;color:${hot}">${c.t('peak_at', { v: c.fmt(best.v), t: c.hm(best.ts) })}</span>`;
+  }
+  const runs = [];
+  steps.forEach((x, i) => {
+    const wet = typeof x.precipitation === 'string' && x.precipitation !== 'none', r = runs[runs.length - 1];
+    if (r && r.wet === wet) r.n += 1; else runs.push({ wet, n: 1, i0: i, kind: wet ? x.precipitation : null });
+  });
+  s += runs.map((r) => {
+    const wd = r.n * cw - 2, txt = wd >= 34 ? (r.wet ? kindWord(c, r.kind).toLowerCase() : c.t('dry')) : '';
+    return `<div class="run" style="left:${r1(r.i0 * cw + 1)}px;width:${r1(wd)}px;${r.wet ? `background:${P.pluie};border-color:${P.pluie};color:${P.sur}` : `border-color:${P.filet};color:${P.t4}`}">${txt}</div>`;
+  }).join('');
+  const marks = [];
+  steps.forEach((x, i) => { if ((i === 0 || c.local(x.time_utc).getUTCMinutes() === 0) && (!marks.length || i - marks[marks.length - 1] >= 3)) marks.push(i); });
+  s += marks.map((i) => `<span class="lb2 tk" style="left:${r1(clamp(cw * (i + 0.5) - 22, 0, w - 44))}px;top:76px;width:44px">${c.hm(steps[i].time_utc)}</span>`).join('');
+  return `<div class="bloc">${s}</div></div>`;
+}
+// The next 48 hours hour by hour: a column per hour tinted by its sun, the days apart, the rain, its chance when the forecast
+// gives one, the wind every few hours.
+function hours48Block(c, w) {
+  const hrs = currentHours(c).slice(0, 48);
+  if (hrs.length < 12) return '';
+  const P = c.P, n = hrs.length, cw = w / n, hasP = hrs.some((h) => num(h.precipitation_probability_pct));
+  let s = section(c.t('h48', { n }), c.t(hasP ? 'h48_legend' : 'h48_legend_nop')) + `<div class="cols" style="width:${r1(w)}px;height:122px">`;
+  s += hrs.map((h, i) => {
+    const day = isDayAt(c, h);
+    return `<div class="cl" style="left:${r1(i * cw + 0.5)}px;width:${r1(Math.max(1, cw - 1))}px;height:92px;border-radius:3px;background:${glow(P, day ? (sunOfHours([h]) ?? sunOfCode(h.weather_code)) : null, day)}"></div>`;
+  }).join('');
+  hrs.forEach((h, i) => {
+    if (i > 0 && c.local(h.time_utc).getUTCHours() === 0) s += `<div class="ml" style="left:${r1(i * cw)}px"></div><span class="lb2 dn" style="left:${r1(i * cw + 3)}px;top:0">${c.dayName(c.dayKey(h.time_utc))}</span>`;
+  });
+  if (hasP) {
+    const pts = hrs.map((h, i) => (num(h.precipitation_probability_pct) ? { x: cw * (i + 0.5), y: 40 - (h.precipitation_probability_pct / 100) * 32 } : null)).filter(Boolean);
+    s += `<svg class="ov" style="top:0" width="${r1(w)}" height="44" viewBox="0 0 ${r1(w)} 44" aria-hidden="true"><path d="${smooth(pts)}" fill="none" stroke="${P.t2}" stroke-width="1.5" stroke-dasharray="3 3" opacity=".8"/></svg>` +
+      `<span class="lb2" style="left:4px;top:30px;font-size:9px;color:${P.t3}">${c.t('chance')}</span>`;
+  }
+  const bw = r1(Math.min(6, cw * 0.7));
+  s += cells(n, 44, hrs.map((h) => {
+    const v = num(h.precipitation_mm) && h.precipitation_mm >= 0.1 ? h.precipitation_mm : 0;
+    return `<i class="b48" style="width:${bw}px;height:${v ? r1(Math.max(3, (Math.min(v, 2) / 2) * 44)) : 0}px;background:${rainColour(P, v)}"></i>`;
+  }), 'height:48px;align-items:end');
+  const every = cw * 3 >= 30 ? 3 : cw * 4 >= 30 ? 4 : 6;
+  hrs.forEach((h, i) => {
+    if (i % every || !num(h.wind_kmh)) return;
+    s += `<span class="w3" style="left:${r1(clamp(cw * (i + 0.5) - 15, 0, w - 30))}px;top:94px;width:30px">${num(h.wind_deg) ? arrow(9, h.wind_deg, P.vent) : ''}${c.fmt(h.wind_kmh)}</span>`;
+  });
+  hrs.forEach((h, i) => {
+    if (i % 6) return;
+    s += `<span class="lb2 tk" style="left:${r1(clamp(cw * (i + 0.5) - 15, 0, w - 30))}px;top:108px;width:30px;color:${i === 0 ? P.accent : P.t3}">${c.hourOnly(h.time_utc)}</span>`;
+  });
+  return `<div class="bloc">${s}</div></div>`;
+}
+// The chances per 3-hour window of the ensembles (PE-AROME), a cell per window shaded by its chance: rain of 1 mm or more,
+// gusts of 56 km/h (30 kt) or more and thunderstorms always; gusts of 93 km/h (50 kt), snow and hail when one window has some.
+function chancesBlock(c, w) {
+  const sr = c.point?.probabilities?.short_range;
+  const all = (Array.isArray(sr?.windows) ? sr.windows : []).filter((x) => x && num(x.to_utc) && x.to_utc > c.now);
+  if (!all.length) return '';
+  const P = c.P, lab = c.wide ? 104 : 84, win = all.slice(0, clamp(Math.floor((w - lab) / 34), 4, 16));
+  const ROWS = [['rain_1mm_pct', 'pe_rain', P.pluie, true], ['gust_30kt_pct', 'pe_gust56', P.orange, true], ['gust_50kt_pct', 'pe_gust93', P.rouge, false],
+    ['storm_pct', 'pe_storm', P.jaune, true], ['snow_1mm_pct', 'pe_snow', P.t2, false], ['hail_pct', 'pe_hail', P.t2, false]];
+  const rows = ROWS.filter(([key, , , always]) => win.some((x) => num(x[key])) && (always || win.some((x) => x[key] > 0)));
+  const src = num(sr.members) ? c.t('chances_src', { n: sr.members }) : c.t('chances_src_plain');
+  let s = section(c.t('chances', { h: sr.window_hours || 3 }), src) + `<div class="pe" style="grid-template-columns:${lab}px repeat(${win.length},minmax(0,1fr))"><span></span>`;
+  s += win.map((x) => `<span class="h">${c.hourOnly(x.to_utc)}</span>`).join('');
+  for (const [key, label, col] of rows) {
+    s += `<span class="r" style="color:${col}">${c.t(label)}</span>` + win.map((x) => {
+      const v = x[key];
+      return num(v) ? `<span class="v" style="background:${alpha(col, 0.08 + (v / 100) * 0.82)};color:${v >= 55 ? P.sur : P.t2}">${v}</span>` : '<span class="v"></span>';
+    }).join('');
+  }
+  return `<div class="bloc">${s}</div></div>`;
+}
+
 // ------------------------------------------------------------------------------------------------------------------- pages
+// The home page in France (piste B of the sketches, with the rain tile of piste A): now, the rain of the hour, the strongest line
+// of the season, the next 24 hours and the days. The credits are on the other pages.
 function pageHome(c) {
   if (!c.inFrance) return pageHomeWorld(c);
-  const P = c.P, W = c.W;
-  const now = momentOfPoint(c);
-  const m = moment(c, now);
-  const credit = foot(c, providers(c.point?.weather_attribution, c.point?.rain_nowcast?.attribution, seasonItems(c)[0]?.attribution));
+  const W = c.W, season = seasonPill(c, 13, 18, true, '7px 12px');
   if (c.wide) {
-    // The moment (icon, temperature, words) needs about 640 px at full size: in a column it is scaled to that column.
-    const fit = (w) => clamp(w / (640 * c.k), 0.6, 1);
-    const pills = `<div class="pills">${rainPill(c, 18, 26, false)}${warningPill(c, 18, 26, false)}${seasonPill(c, 18, 26, false)}</div>`;
-    const half = Math.floor((W - 26) / 2);
-    const pair = `<div class="grille" style="grid-template-columns:1fr 1fr;align-items:center"><div>${moment(c, now, fit(half))}</div><div>${pills}</div></div>`;
-    const daysBlock = sep('20px 0 16px') + days(c, daysOfPoint(c), 7) + credit;
-    if (W >= 900) {
-      // A wall screen: the moment and the pills on the left, the 12 hours on the right.
-      const left = Math.round(Math.min(560, W * 0.45)), right = W - left - 26;
-      const curve = hoursCurve(c, right, Math.round(318 * clamp(c.k, 0.8, 1.05)));
-      if (curve) return `<div class="grille" style="grid-template-columns:${left}px 1fr;align-items:center"><div>${moment(c, now, fit(left))}<div style="height:24px"></div>${pills}</div><div>${curve}</div></div>` + daysBlock;
-    } else {
-      // Between a phone and a wall: the 12 hours across the card, under the moment and the pills.
-      const curve = hoursCurve(c, W, 230);
-      if (curve) return pair + `<div style="height:14px"></div>${curve}` + daysBlock;
-    }
-    // Without the hours (an instance that does not give them yet): the moment and the two pills side by side.
-    return pair + daysBlock;
+    const left = Math.round(W * 0.52), right = W - left - 20;
+    return `<div class="pile" style="gap:10px"><div class="duo" style="grid-template-columns:${left}px ${right}px">${nowBlock(c, left)}` +
+      `<div class="pile" style="gap:8px">${rainTile(c, right)}${season}</div></div>${hoursBlock(c, W)}${daysBlock(c, W, 10)}</div>`;
   }
-  const curve = hoursCurve(c, W, 200);
-  return m + (curve ? `<div style="height:10px"></div>${curve}` : '') + `<div style="height:12px"></div><div class="pills">${rainPill(c, 14, 20, true)}${warningPill(c, 14, 20, true)}${seasonPill(c, 14, 20, true)}</div>` +
-    sep() + days(c, daysOfPoint(c), 5) + credit;
+  return `<div class="pile" style="gap:8px">${nowBlock(c, W)}${rainTile(c, W)}${season}${hoursBlock(c, W, !!season)}${daysBlock(c, W, 7, !!season)}</div>`;
 }
 
 // Outside France: the weather of the home's own entity when one is chosen; else the warnings, the earthquakes and the tide.
@@ -973,130 +1349,20 @@ function quakeWhen(c, q) {
 // The word of a kind of precipitation of AROME-PI ("rain", "snow"...); an unknown kind is said as such, never as its code.
 const kindWord = (c, kind) => c.t(`kind_${kind}` in TEXT.en ? `kind_${kind}` : 'kind_unknown');
 
-// The sentence of the rain on the Details page when there is a nowcast: within the hour it follows the nowcast (the home
-// page's), after the hour AROME-PI. Two Météo-France forecasts can disagree (PIAF dry for 40 minutes while AROME-PI has rain
-// from now on, read on 2026-11-22): the card then says what the home page says.
-function rainWithNowcast(c, st, first) {
-  const step = (st.interval_minutes || 15) * 60;
-  const steps = st.steps.filter((x) => num(x.time_utc));
-  const last = steps[steps.length - 1];
-  const wet = (x) => typeof x.precipitation === 'string' && x.precipitation !== 'none';
-  const from = first < 0 ? c.now + 3600 : c.now;
-  const rainy = steps.filter((x) => wet(x) && x.time_utc + step > from);
-  const kindOf = (x) => kindWord(c, x ? x.precipitation : 'rain');
-  if (first < 0) {
-    if (!rainy.length) return last ? c.t('precip_none', { t: c.hm(last.time_utc + step) }) : c.t('rain_none');
-    const start = rainy[0].time_utc, stop = rainy[rainy.length - 1].time_utc;
-    const how = steps.some((x) => x.time_utc > start && x.time_utc < stop && !wet(x)) ? c.t('on_and_off') : '';
-    return c.t('precip_at', { kind: kindOf(rainy[0]), at: c.hm(start), t: c.hm(stop + step), how });
-  }
-  const start = c.now + first * 60;
-  const stop = rainy.length ? rainy[rainy.length - 1].time_utc + step : null;
-  if (stop === null || stop <= start) return first === 0 ? c.t('rain_now') : c.t('rain_in', { n: first });
-  const how = steps.some((x) => x.time_utc + step > start && x.time_utc < stop - step && !wet(x)) ? c.t('on_and_off') : '';
-  const kind = kindOf(rainy[0]);
-  return first === 0 ? c.t('precip_now', { kind, t: c.hm(stop), how }) : c.t('precip_in', { kind, n: first, t: c.hm(stop), how });
-}
-
+// The Details page (piste A of the sketches, "three magnifiers"): the rain until tomorrow noon in a few periods, then the hour by
+// 5 minutes (the nowcast), the evening by quarter hour (AROME-PI), 48 hours hour by hour, and the chances per 3 hours (PE-AROME).
 function pageDetails(c) {
-  const st = c.point?.short_term, pr = c.point?.probabilities;
-  const big = c.wide ? Math.round(31 * c.k) : 23, g = c.wide ? Math.round(36 * c.k) : 28;
-  const lines = [];
-  const nowcast = nowcastFirst(c);
-  if (st && Array.isArray(st.steps) && st.steps.length) {
-    const lastStep = st.steps[st.steps.length - 1];
-    const end = num(lastStep?.time_utc) ? lastStep.time_utc + (st.interval_minutes || 15) * 60 : null;
-    const span = Array.isArray(st.precipitation) ? st.precipitation[0] : null;
-    let rain;
-    if (nowcast !== null) {
-      rain = rainWithNowcast(c, st, nowcast);
-    } else if (span && num(span.first_at_utc)) {
-      const kind = kindWord(c, span.kind);
-      const until = num(span.last_at_utc) ? c.hm(span.last_at_utc + (st.interval_minutes || 15) * 60) : '';
-      const mins = Math.round((span.first_at_utc - c.now) / 300) * 5;
-      // "until" is the last step of that kind: when dry steps come between, the rain is said to come and go.
-      const between = st.steps.filter((x) => num(x.time_utc) && x.time_utc >= span.first_at_utc && x.time_utc <= (span.last_at_utc ?? span.first_at_utc));
-      const how = between.some((x) => x.precipitation === 'none') ? c.t('on_and_off') : '';
-      rain = span.first_at_utc <= c.now + 120 ? c.t('precip_now', { kind, t: until, how }) : mins <= 90 ? c.t('precip_in', { kind, n: mins, t: until, how }) : c.t('precip_at', { kind, at: c.hm(span.first_at_utc), t: until, how });
-    } else if (end !== null) rain = c.t('precip_none', { t: c.hm(end) });
-    if (rain) lines.push(`<div class="ligne" style="font-size:${big}px">${glyph('parapluie', g, c.P.pluie, 2.3)}<span class="em-pluie">${rain}</span></div>`);
-    if (num(st.gusts?.max_kmh) && num(st.gusts?.at_utc)) lines.push(`<div class="ligne" style="font-size:${big}px">${glyph('vent', g, c.P.vent, 2.3)}<span class="em-vent">${c.t('gusts_at', { v: c.fmt(st.gusts.max_kmh), t: c.hm(st.gusts.at_utc) })}</span></div>`);
-  }
-  const answer = lines.length ? `<div class="rep">${lines.join('')}</div>` : '';
-  const chips = [];
-  if (st?.hail?.level) chips.push(`<span class="chip">${c.t('hail')}&nbsp;: <b>${c.t(`hail_${st.hail.level}`)}</b></span>`);
-  if (st?.visibility?.level) chips.push(`<span class="chip">${c.t('visibility')}&nbsp;: <b>${c.t(`vis_${st.visibility.level}`)}</b></span>`);
-  const w0 = Array.isArray(pr?.short_range?.windows) ? pr.short_range.windows[0] : null;
-  if (w0 && num(w0.gust_50kt_pct) && num(w0.to_utc)) chips.push(`<span class="chip">${c.t('gust93', { p: w0.gust_50kt_pct, t: c.hm(w0.to_utc) })}</span>`);
-  const chipsHtml = chips.length ? `<div class="chips" style="font-size:${c.wide ? 15 : 13}px">${chips.join('')}</div>`.replace(/&nbsp;: /g, c.lang === 'fr' ? '&nbsp;: ' : ': ') : '';
-  const nHours = st && num(st.horizon_minutes) ? Math.max(1, Math.round(st.horizon_minutes / 60)) : 5;
-  const stepsTitle = (w) => title(c, 'horloge', c.t('next_hours', { n: nHours }), c.wide ? `AROME-PI, ${c.t('step15')}` : 'AROME-PI') + stepsBand(c, st, w, c.wide ? 230 : 150);
-  const windows = Array.isArray(pr?.short_range?.windows) ? pr.short_range.windows : [];
-  const legend = `<span style="color:${c.P.pluie}">■ ${c.t('legend_rain')}</span>&ensp;<span style="color:${c.P.vent}">■ ${c.t('legend_gust')}</span>`;
-  const probaBlock = (w, n) => windows.length ? title(c, 'jauge', `${c.t('chances', { h: pr.short_range.window_hours || 3 })}&ensp;<span style="font-weight:500">${legend}</span>`, c.wide ? `PE-AROME, ${n} × ${pr.short_range.window_hours || 3} h` : '') + probabilities(c, windows, w, c.wide ? 178 : 150, n, pr.short_range.window_hours) : '';
-  // PIAF, the nowcast of the sentence, is Météo-France's too (its own credit also names the providers of the other parts).
-  const credit = foot(c, providers(st?.attribution, pr?.attribution), nowcast !== null ? ' (PIAF, AROME-PI, PE-AROME)' : ' (AROME-PI, PE-AROME)');
+  const W = c.W, st = c.point?.short_term, pr = c.point?.probabilities, rn = c.point?.rain_nowcast;
+  const until = nextNoon(c), chips = rainChips(c, until), day = dayWord(c, until, false);
+  const chipsBlock = chips ? `<div class="bloc">${section(c.t('rain_until', { t: `${day ? `${day} ` : ''}${c.t('noon')}` }))}${chips}</div>` : '';
+  const models = [typeof rn?.attribution === 'string' && rn.attribution.includes('PIAF') ? 'PIAF' : '', st?.steps?.length ? 'AROME-PI' : '', pr?.short_range?.windows?.length ? 'PE-AROME' : ''].filter(Boolean);
+  const credit = foot(c, providers(rn?.attribution, st?.attribution, pr?.attribution, c.point?.weather_attribution), models.length ? ` (${models.join(', ')})` : '');
   if (c.wide) {
-    const left = Math.round(Math.min(372, c.W * 0.4)), right = c.W - left - 28;
-    return `<div class="grille" style="grid-template-columns:${left}px 1fr;align-items:start"><div>${answer}<div style="height:22px"></div>${chipsHtml}</div><div>${st?.steps?.length ? stepsTitle(right) : ''}</div></div>` +
-      (windows.length ? sep('18px 0 14px') + probaBlock(c.W, Math.min(8, windows.length)) : '') + credit;
+    const half = Math.floor((W - 28) / 2);
+    return `<div class="pile" style="gap:14px">${chipsBlock}<div class="duo" style="grid-template-columns:${half}px ${half}px;align-items:start;gap:28px">` +
+      `<div class="pile" style="gap:14px">${minutesBlock(c, half)}${quarterBlock(c, half)}</div><div class="pile" style="gap:14px">${hours48Block(c, half)}${chancesBlock(c, half)}</div></div></div>${credit}`;
   }
-  return answer + (st?.steps?.length ? sep() + stepsTitle(c.W) + `<div style="height:8px"></div>${chipsHtml}` : chipsHtml) +
-    (windows.length ? sep() + probaBlock(c.W, Math.min(6, windows.length)) : '') + credit;
-}
-// The short term (AROME-PI): precipitation by 15-minute step, the gusts as a curve.
-function stepsBand(c, st, w, h) {
-  const steps = (st?.steps || []).filter((s) => num(s.time_utc));
-  if (!steps.length) return '';
-  const P = c.P, n = steps.length, fs = c.wide ? 14 : 12, gx = c.wide ? 76 : 62, x0 = gx, x1 = w - 8, gap = (x1 - x0) / n;
-  const yPl = 4, hPl = c.wide ? 24 : 18, yR0 = yPl + hPl + 26, yR1 = h - 22;
-  const gusts = steps.map((s) => (num(s.wind_gust_kmh) ? s.wind_gust_kmh : null)), known = gusts.filter(num);
-  const lo = known.length ? Math.max(0, Math.floor((Math.min(...known) - 10) / 10) * 10) : 0, hi = known.length ? Math.ceil((Math.max(...known) + 10) / 10) * 10 : 100;
-  const Y = (v) => yR1 - ((v - lo) / (hi - lo)) * (yR1 - yR0);
-  let s = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">`;
-  s += `<text x="0" y="${yPl + hPl - 4}" font-size="${fs}" font-weight="700" fill="${P.t3}">${c.t('rain')}</text>`;
-  steps.forEach((st0, i) => {
-    const wet = typeof st0.precipitation === 'string' && st0.precipitation !== 'none';
-    s += `<rect x="${r1(x0 + i * gap + 1.5)}" y="${wet ? yPl : yPl + hPl / 2 - 2}" width="${r1(Math.max(1, gap - 3))}" height="${wet ? hPl : 4}" rx="${wet ? 5 : 2}" fill="${wet ? P.pluie : P.filet}"/>`;
-  });
-  if (known.length >= 2) {
-    s += `<text x="0" y="${r1((yR0 + yR1) / 2 + 4)}" font-size="${fs}" font-weight="700" fill="${P.t3}">${c.t('gust_lbl')}</text>`;
-    const marks = [lo + (hi - lo) / 3, lo + (2 * (hi - lo)) / 3].map((v) => Math.round(v / 10) * 10);
-    marks.forEach((v) => (s += `<line x1="${x0}" y1="${r1(Y(v))}" x2="${x1}" y2="${r1(Y(v))}" stroke="${P.filet}" stroke-width="1" stroke-dasharray="3 5"/><text x="${x0 - 6}" y="${r1(Y(v) + 4)}" font-size="${fs - 1}" fill="${P.t4}" text-anchor="end">${v}</text>`));
-    const pts = gusts.map((v, i) => (num(v) ? { x: x0 + i * gap + gap / 2, y: Y(v), v } : null)).filter(Boolean);
-    const d = smooth(pts), id = `r${Math.random().toString(36).slice(2, 8)}`;
-    s += `<defs><linearGradient id="${id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${P.vent}" stop-opacity=".32"/><stop offset="1" stop-color="${P.vent}" stop-opacity="0"/></linearGradient></defs>`;
-    s += `<path d="${d} L${r1(pts[pts.length - 1].x)} ${yR1} L${r1(pts[0].x)} ${yR1} Z" fill="url(#${id})"/><path d="${d}" fill="none" stroke="${P.vent}" stroke-width="${c.wide ? 4.5 : 3.5}" stroke-linecap="round"/>`;
-    const best = pts.reduce((a, b) => (b.v > a.v ? b : a));
-    s += `<circle cx="${r1(best.x)}" cy="${r1(best.y)}" r="6" fill="var(--vc-carte)" stroke="${P.texte}" stroke-width="3"/><text x="${r1(best.x)}" y="${r1(best.y - 11)}" font-size="${fs + 4}" font-weight="700" fill="${P.texte}" text-anchor="middle">${c.fmt(best.v)}</text>`;
-  }
-  const ticks = [0, Math.round(n / 3), Math.round((2 * n) / 3), n - 1];
-  [...new Set(ticks)].forEach((i, k) => (s += `<text x="${r1(x0 + i * gap + gap / 2)}" y="${h - 4}" font-size="${fs}" font-weight="700" fill="${k === 0 ? P.accent : P.t3}" text-anchor="${k === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}">${c.hm(steps[i].time_utc)}</text>`));
-  return s + '</svg>';
-}
-// Chances per window of the ensembles (PE-AROME): rain of 1 mm or more, gusts of 30 kt (56 km/h) or more.
-function probabilities(c, windows, w, h, n, hours) {
-  const P = c.P, fs = c.wide ? 14 : 12, gap = w / n, lw = Math.min(gap * 0.62, 34), hr = (h - 20) / 2 - 16, wh = 3600 * (num(hours) ? hours : 3);
-  let s = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">`;
-  [['rain_1mm_pct', P.pluie, 0], ['gust_30kt_pct', P.vent, 1]].forEach(([key, col, row]) => {
-    const yb = 14 + hr + row * (hr + 18);
-    windows.slice(0, n).forEach((win, i) => {
-      const v = win[key], x = i * gap + (gap - lw) / 2;
-      s += `<rect x="${r1(x)}" y="${r1(yb - hr)}" width="${r1(lw)}" height="${r1(hr)}" rx="6" fill="${P.filet}" opacity=".55"/>`;
-      if (num(v)) {
-        const hh = Math.max(3, (v / 100) * hr);
-        s += `<rect x="${r1(x)}" y="${r1(yb - hh)}" width="${r1(lw)}" height="${r1(hh)}" rx="6" fill="${col}" opacity="${v ? 1 : 0}"/>` +
-          `<text x="${r1(x + lw / 2)}" y="${r1(yb - hr - 3)}" font-size="${fs}" font-weight="700" fill="${v >= 50 ? P.texte : P.t3}" text-anchor="middle">${v}</text>`;
-      }
-    });
-  });
-  windows.slice(0, n).forEach((win, i) => {
-    if (!num(win.to_utc)) return;
-    const from = win.to_utc - wh;
-    const label = c.lang === 'fr' ? `${c.local(from).getUTCHours()}-${c.local(win.to_utc).getUTCHours()} h` : `${c.local(from).getUTCHours()}-${c.local(win.to_utc).getUTCHours()}h`;
-    s += `<text x="${r1(i * gap + gap / 2)}" y="${h - 3}" font-size="${fs - 1}" font-weight="700" fill="${i === 0 ? P.accent : P.t3}" text-anchor="middle">${label}</text>`;
-  });
-  return s + '</svg>';
+  return `<div class="pile" style="gap:14px">${chipsBlock}${minutesBlock(c, W)}${quarterBlock(c, W)}${hours48Block(c, W)}${chancesBlock(c, W)}</div>${credit}`;
 }
 
 function pageAlerts(c) {
@@ -1321,7 +1587,8 @@ function availablePages(c, wanted) {
   const pt = c.point, d = c.data;
   const has = {
     home: true,
-    details: !!(pt?.short_term?.steps?.length || pt?.probabilities?.short_range?.windows?.length),
+    details: !!(pt?.short_term?.steps?.length || pt?.probabilities?.short_range?.windows?.length ||
+      (c.inFrance && (nowcastFirst(c) !== null || currentHours(c).length >= 12))),
     alerts: true,
     sea: !!(d?.tides || (d?.spot && d?.activities)),
     normal: c.normals?.status === 'available',
@@ -1332,9 +1599,9 @@ const PAGE_RENDER = { home: pageHome, details: pageDetails, alerts: pageAlerts, 
 
 // ------------------------------------------------------------------------------------------------------------------- style
 const STYLE = `
-:host{display:block}
-ha-card{overflow:hidden;--vc-carte:var(--ha-card-background,var(--card-background-color,#19232E))}
-.root{padding:var(--vc-pad);font-weight:500;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+:host{display:block;height:100%}
+ha-card{height:760px;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden;--vc-carte:var(--ha-card-background,var(--card-background-color,#19232E))}
+.root{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:var(--vc-pad);font-weight:500;touch-action:pan-y;user-select:none;-webkit-user-select:none}
 svg{display:block;overflow:visible} svg text{font-family:inherit}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer;text-align:left}
 .entete{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
@@ -1348,7 +1615,8 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cu
 .nav button{display:flex;align-items:center;justify-content:center;gap:6px;border-radius:10px;font-weight:700;color:var(--vc-t3);white-space:nowrap;overflow:hidden}
 .nav button.actif{background:var(--vc-accent);color:var(--vc-sur)}
 .nav button:focus-visible,.puce:focus-visible,.pastille:focus-visible{outline:2px solid var(--vc-accent);outline-offset:2px}
-.page{color:var(--vc-texte)}
+.page{color:var(--vc-texte);flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;outline:none}
+.page::-webkit-scrollbar{display:none}
 .grille{display:grid;gap:26px}
 .moment{display:flex;align-items:center;gap:12px}
 .temp{font-weight:700;line-height:.9;letter-spacing:-1px}
@@ -1394,6 +1662,71 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cu
 .ligne2 .ecart{margin-left:auto}
 .t2{color:var(--vc-t2)} .t3{color:var(--vc-t3)} .b{font-weight:700}
 .vide{color:var(--vc-t2);font-size:14px;padding:8px 0}
+.pile{display:flex;flex-direction:column;min-width:0}
+.duo{display:grid;gap:20px;align-items:center}
+.bloc{display:flex;flex-direction:column;gap:4px;min-width:0}
+.st{display:flex;justify-content:space-between;align-items:center;gap:10px;height:16px;min-width:0}
+.st b{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--vc-t3);white-space:nowrap}
+.st>span{display:block;font-size:10.5px;color:var(--vc-t4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ramp{display:inline-block;width:72px;height:8px;border-radius:4px;vertical-align:middle;margin:0 6px}
+.now{display:flex;align-items:center;gap:8px;min-width:0;flex:none}
+.now .temp{font-weight:700;line-height:1;letter-spacing:-1px}
+.now-t{display:flex;flex-direction:column;gap:3px;flex:1 1 auto;min-width:0}
+.now-t>*{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.now-t>span{font-size:12px;color:var(--vc-t2)}
+.now-t .nl{display:flex;align-items:center;gap:4px;font-size:13px}
+.now-f{display:flex;flex-direction:column;gap:2px;flex:none;color:var(--vc-t2);white-space:nowrap}
+.now-f>span{display:block;overflow:hidden;text-overflow:ellipsis}
+.now-f svg{display:inline-block;vertical-align:-1px;margin-right:4px}
+.tuile{display:flex;align-items:center;gap:10px;height:56px;box-sizing:border-box;padding:0 12px;border-radius:12px;border:1px solid;width:100%;color:var(--vc-texte);flex:none}
+.tuile .tt{display:flex;flex-direction:column;gap:1px;flex:0 1 auto;min-width:0}
+.tuile .tt b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tuile .tt small{font-size:12px;color:var(--vc-t2);font-weight:500;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tuile .tb{flex:1 1 auto;display:flex;flex-direction:column;gap:3px;min-width:60px}
+.tuile .bars{height:30px;display:flex;align-items:flex-end;gap:4px}
+.tuile .bars i,.bars5 i{flex:1 1 0;border-radius:3px;display:block}
+.tuile .tl{display:flex;justify-content:space-between;font-size:10px;color:var(--vc-t3);font-weight:500;white-space:nowrap}
+.cols{position:relative;flex:none}
+.cl{position:absolute;top:0;box-sizing:border-box}
+.gr{position:absolute;left:0;right:0;display:grid;justify-items:center}
+.ov{position:absolute;left:0}
+.lb{position:absolute;text-align:center;font-weight:700;line-height:1.2;white-space:nowrap}
+.lb2{position:absolute;font-size:10px;color:var(--vc-t4);white-space:nowrap;line-height:1.2}
+.lb2.pk{font-size:12px;font-weight:700}
+.lb2.tk{text-align:center;font-weight:700;color:var(--vc-t3)}
+.lb2.dn{font-weight:700;color:var(--vc-t2)}
+.pl{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;height:38px;width:100%;font-size:10px;font-weight:700}
+.pl i{display:block;width:min(18px,70%);border-radius:4px}
+.pc{font-size:10px;color:var(--vc-t3);white-space:nowrap}
+.vt{display:flex;flex-direction:column;align-items:center;line-height:1.25}
+.vt span{display:flex;align-items:center;gap:2px;font-size:12px;font-weight:700;color:var(--vc-vent)}
+.vt small{font-size:10px}
+.hr{font-size:11px;font-weight:700;white-space:nowrap}
+.dh{display:flex;flex-direction:column;align-items:center;gap:1px}
+.dh b{font-size:13px;white-space:nowrap}
+.db{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%}
+.db .bw{height:24px;width:100%;display:flex;align-items:flex-end;justify-content:center}
+.db .bw i{display:block;width:min(26px,55%);border-radius:4px}
+.db b{font-size:12px;white-space:nowrap}
+.vt2{display:flex;align-items:center;gap:2px;margin-top:3px;font-size:12px;font-weight:700;color:var(--vc-vent);white-space:nowrap}
+.vt2 small{font-size:10px;font-weight:400;color:var(--vc-t3)}
+.chipsr{display:flex;flex-wrap:wrap;gap:6px}
+.pp{height:28px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 9px;border-radius:14px;border:1px solid;font-size:13px;font-weight:700;color:var(--vc-texte);white-space:nowrap}
+.pp i{width:8px;height:8px;border-radius:4px;flex:none}
+.pp span{font-weight:400;color:var(--vc-t2)}
+.dl{position:absolute;left:0;border-top:1px dashed var(--vc-creux)}
+.bars5{position:absolute;left:0;top:0;height:50px;display:flex;align-items:flex-end;gap:4px}
+.bars5 i{border-radius:4px 4px 2px 2px}
+.bars5.lbl{height:auto;align-items:flex-start}
+.bars5.lbl span{flex:1 1 0;text-align:center;white-space:nowrap;font-size:10px;overflow:visible;min-width:0}
+.run{position:absolute;top:52px;height:20px;box-sizing:border-box;border-radius:5px;border:1px solid;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;overflow:hidden;white-space:nowrap}
+.ml{position:absolute;top:0;height:92px;border-left:1px dashed var(--vc-creux)}
+.b48{display:block;border-radius:3px 3px 1px 1px}
+.w3{position:absolute;display:flex;align-items:center;justify-content:center;gap:1px;font-size:10px;font-weight:700;color:var(--vc-vent);white-space:nowrap}
+.pe{display:grid;gap:3px;align-items:center}
+.pe .h{font-size:10px;font-weight:700;color:var(--vc-t3);text-align:center;white-space:nowrap}
+.pe .r{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pe .v{height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
 `;
 
 // -------------------------------------------------------------------------------------------------------------------- card
@@ -1426,8 +1759,10 @@ class VigieCard extends HTMLElement {
     if (changed || first) this._render();
   }
 
-  getCardSize() { return 9; }
-  getGridOptions() { return { columns: 12, min_columns: 6 }; }
+  // A fixed size, the one of the sketches (480 x 760 px): 12 rows of the sections grid, 15 units of 50 px elsewhere; a page
+  // longer than the card scrolls inside it.
+  getCardSize() { return 15; }
+  getGridOptions() { return { columns: 12, min_columns: 6, rows: 12, min_rows: 12, max_rows: 12 }; }
 
   connectedCallback() {
     this._timer = setInterval(() => this._fetch(), REFRESH_MS);
@@ -1530,12 +1865,13 @@ class VigieCard extends HTMLElement {
       root.addEventListener('keydown', (ev) => { if (ev.key === 'ArrowRight' || ev.key === 'ArrowLeft') { const pages = this._visible || [], i = pages.indexOf(this._page); const next = pages[clamp(i + (ev.key === 'ArrowRight' ? 1 : -1), 0, pages.length - 1)]; if (next) this._go(next); } });
     }
     const root = this.shadowRoot.querySelector('.root');
-    const width = this._width || this.getBoundingClientRect().width || 380;
+    // The blocks are drawn to the pixel: the width inside the border of ha-card (1 px each side by default).
+    const width = (this._width || this.getBoundingClientRect().width || 380) - 2;
     const lang = this._lang || 'en';
     const config = { ...this._config, _weatherState: this._entity || null, _forecast: this._forecast || [] };
     const c = makeContext(lang, !!this._dark, width, this._data, config);
     const P = c.P;
-    const vars = { carte: null, texte: P.texte, t2: P.t2, t3: P.t3, t4: P.t4, filet: P.filet, accent: P.accent, sur: P.sur, pluie: P.pluie, vent: P.vent, piste: this._dark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.03)' };
+    const vars = { carte: null, texte: P.texte, t2: P.t2, t3: P.t3, t4: P.t4, filet: P.filet, accent: P.accent, sur: P.sur, pluie: P.pluie, vent: P.vent, creux: P.creux, piste: this._dark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.03)' };
     root.style.cssText = Object.entries(vars).filter(([, v]) => v).map(([k, v]) => `--vc-${k}:${v}`).join(';') + `;--vc-pad:${c.pad}px`;
     if (this._error || !this._data) {
       const words = this._error === 'not_found' ? c.t('not_found') : this._error === 'weather_off' ? c.t('weather_off') : this._error ? c.t('error') : c.t('loading');

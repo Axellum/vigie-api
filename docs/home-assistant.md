@@ -308,8 +308,8 @@ Assistant, like the rest of the card, and the hours of the night show the moon.
 
 | Page | What it shows | Where |
 | --- | --- | --- |
-| Home | Now (icon, temperature in its colour, feels like, wind and gusts), the next 12 hours (a temperature curve with the rain of each hour, once the instance gives the hours, API ADR 0040), the rain of the next hour (radar nowcast), the first warning and the strongest line of the season (each opens its page), the days. | Everywhere; outside France see below |
-| Details | A sentence for the rain (within the hour the same nowcast as the home page, AROME-PI after it: the two can disagree, the card says one thing) and one for the gusts, then the next hours by 15 minutes (AROME-PI: precipitation, gusts), hail and visibility, and the chances per 3 hours of rain and of gusts of 56 km/h or more (PE-AROME). | France |
+| Home | Now (icon, temperature in its colour, feels like, humidity, the strongest gust to come, the pressure and its trend, the air quality and the UV, sunrise and sunset), the rain of the next hour in 12 bars of 5 minutes (radar nowcast, else AROME-PI; it opens Details), the strongest line of the season (it opens Alerts), the next 24 hours by 2 hours (by 3 on a narrow card, hour by hour on a wide one) and the next 7 days (10 on a wall screen). The hours and the days are columns tinted by their sun (grey to gold, navy at night; the current hour and today ringed), with the temperature, the rain and the wind; the days as two curves, highest and lowest. The hours need an instance that gives them (API ADR 0040). The warning is the pill of the header, named by its phenomenon. | Everywhere; outside France see below |
+| Details | The rain until tomorrow noon in a few periods (dry, rain, light rain, lull, each with its end), then the next hour by 5 minutes (radar nowcast), the next hours by quarter hour (AROME-PI: precipitation, gusts; hail and visibility), 48 hours hour by hour in the same tinted columns, and the chances per 3 hours (PE-AROME: rain of 1 mm, gusts of 56 km/h, storm; snow, gusts of 93 km/h and hail when a window has some). Within the hour the nowcast and AROME-PI can disagree; the card shows both, each in its block. | France |
 | Alerts | The official level, one row per phenomenon with its end on a timeline, the headline of the issuer as it was issued, the link to its bulletin; in France the river sections under warning nearby (Vigicrues); the lines of the season (below); the earthquakes nearby. | Everywhere |
 | Sea | The tide of the next 24 hours (high and low waters; in France the estimated coefficient), the waves, and the verdicts of the spot for surf, kite, boat and shore fishing, with the reason when it is not "good". | Near the coast |
 | Normal? | Today's highest and lowest against the normals of the month (nearest Météo-France station), the forecast gusts against the record of the month, the wind measured now nearby. | France |
@@ -332,8 +332,9 @@ already use), said as such; without one, it shows the warnings, the earthquakes 
 
 It follows the language of Home Assistant (French or English) and its dark mode (two themes of the Vigie family); its
 background is the dashboard's. From 640 px wide it takes the layout of a wall screen (the bar at the top right, the hours
-beside "now"). Swipe left or right, or use the arrow keys, to change pages. Every page credits the providers of what it
-shows, relayed by the instance.
+beside "now"). It has a fixed size, 760 px high (12 rows of the sections view, not resizable): a page longer than that
+scrolls inside the card. Swipe left or right, or use the arrow keys, to change pages. Every page but the home page credits
+the providers of what it shows, relayed by the instance.
 
 Its limits are those of the data: it shows the **official** level only; the tide is the open sea's, computed by the instance
 (in a bay the real tide can come an hour or more later, and it is not for navigation); the verdicts of a spot are rules of
