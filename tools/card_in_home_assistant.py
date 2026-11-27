@@ -47,8 +47,9 @@ WIDTHS = {"phone": (390, 1100), "wall": (1280, 900)}
 PAGES = ("home", "details", "alerts", "sea", "mountain", "normal")
 # A station of the Mountain page, at a public place (the replay answers every station with the point recorded at Chamonix).
 STATION = {"name": "Chamonix", "latitude": 45.92, "longitude": 6.87, "base_m": 1350, "top_m": 2400}
-# What the Mountain page draws of a station when the instance gave its weather at both altitudes and its bulletin.
-MOUNTAIN_WORDS = ("Iso 0", "Avalanches", "24 h · en haut et en bas", "Bulletin d’avalanches")
+# What the Mountain page draws of a station when the instance gave its weather at both altitudes and its bulletin (its titles
+# are in capitals on the screen: compared without case).
+MOUNTAIN_WORDS = ("iso 0", "avalanches", "24 h · en haut et en bas", "bulletin d’avalanches")
 # What is cut or crowded in a page of the card: a text ended by an ellipsis, or the texts of two neighbouring columns less
 # than 3 px apart (measured on the text itself: a cell stretched to its column hides where its text ends).
 CROWDED = r"""(p) => {
@@ -202,14 +203,16 @@ def edit_stations(page: Page, out: Path) -> list[str]:
     configs = "() => window.__configs.map((c) => c.stations || [])"
     try:
         stations.first.locator("ha-selector-location").wait_for(timeout=30_000)
-        if stations.first.locator("ha-selector-number").count() != 2:
+        # The position's own form draws the latitude and the longitude as numbers too: the altitudes are the last two.
+        if stations.first.locator("ha-selector-number").count() < 2:
             return ["the editor does not draw the two altitudes of a station"]
         page.locator("vigie-card-editor #st-add").click()
-        stations.nth(1).locator("ha-selector-number").nth(1).locator("input").wait_for(timeout=30_000)
+        top = stations.nth(1).locator("ha-selector-number").last.locator("input")
+        top.wait_for(timeout=30_000)
         added = page.evaluate(configs)[-1]
         if len(added) != 2 or (added[1].get("latitude"), added[1].get("longitude")) != (PLACE["latitude"], PLACE["longitude"]):
             return [f"the station added is not at the place of Home Assistant: {added}"]
-        stations.nth(1).locator("ha-selector-number").nth(1).locator("input").fill("2000")
+        top.fill("2000")
         page.wait_for_function("() => (window.__configs.at(-1).stations || [])[1]?.top_m === 2000", timeout=10_000)
         page.wait_for_timeout(1500)  # the map of the new station drawn
         page.locator("#editeur").screenshot(path=str(out / "wall_sombre_editeur_stations.png"))
@@ -326,7 +329,7 @@ def main(argv: list[str] | None = None) -> int:
                     text = card.locator(".page").inner_text()
                     if not text.strip() or "ne répondent pas" in text:
                         problems.append(f"{name}/{page_id}: empty or in error: {text[:120]!r}")
-                    if page_id == "mountain" and (absent := [w for w in MOUNTAIN_WORDS if w not in text]):
+                    if page_id == "mountain" and (absent := [w for w in MOUNTAIN_WORDS if w not in text.lower()]):
                         problems.append(f"{name}/{theme}/mountain: no {absent} in {text[:160]!r}")
                     card.screenshot(path=str(args.out / f"{name}_{theme}_{page_id}.png"))
                     if page_id == "home":  # the home page fits the card of fixed height without scrolling

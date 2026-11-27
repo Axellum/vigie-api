@@ -2312,9 +2312,12 @@ class VigieCard extends HTMLElement {
       body = `<div class="vide">${c.t('error')}</div>`;
     }
     root.innerHTML = `${top}<div class="page" tabindex="0">${body}</div>`;
-    // The names of the pages that do not fit their tab (six pages on a phone, a longer word in English): the icons alone.
+    // The names of the pages that do not fit their tab (six pages on a phone, a longer word in English): the icons alone. A name
+    // is centred in its tab, so it overflows on both sides and `scrollWidth` misses its left half: its own width is measured,
+    // with 4 px kept on each side (seen in a real Home Assistant: "Montagne" cut at both ends of its tab, on a phone).
     const tabs = root.querySelector('.nav');
-    if (tabs && !c.wide && [...tabs.querySelectorAll('button')].some((b) => b.scrollWidth > b.clientWidth + 0.5)) tabs.outerHTML = nav(c, visible, this._page, true);
+    const tight = (b) => { const r = document.createRange(); r.selectNodeContents(b); return r.getBoundingClientRect().width > b.clientWidth - 8; };
+    if (tabs && !c.wide && [...tabs.querySelectorAll('button')].some(tight)) tabs.outerHTML = nav(c, visible, this._page, true);
     // The home page fits the card without scrolling: drawn a few px too tall (fonts, a long header, a pill of the season), it is
     // drawn again with flatter curves, by what it is over as measured here, at most three times (the blocks round their
     // heights; nothing to measure while the card is hidden).
