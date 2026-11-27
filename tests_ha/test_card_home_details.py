@@ -43,6 +43,8 @@ context.__input = input;
 process.stdout.write(vm.runInContext(`(() => {
   const i = __input, all = ['home', 'details', 'alerts', 'sea', 'normal'];
   const c = makeContext(i.lang, true, i.width, i.data, { type: 'custom:vigie-card', _pages: all });
+  if (i.squeeze) c.squeeze = i.squeeze;  // what the card measured the home page over by (see _render)
+  if (i.now_less) c.nowLess = i.now_less;  // a line of "now" measured cut (see _render)
   const card = new VigieCard();
   return JSON.stringify({ home: pageHome(c), details: pageDetails(c), pages: availablePages(c, all), header: header(c).right,
     grid: card.getGridOptions(), size: card.getCardSize() });
@@ -50,11 +52,12 @@ process.stdout.write(vm.runInContext(`(() => {
 """
 
 
-def render(point: dict[str, Any], *, lang: str = "fr", width: int = 374, now: int = EVENING, warnings: dict[str, Any] | None = None) -> dict[str, Any]:
+def render(point: dict[str, Any], *, lang: str = "fr", width: int = 374, now: int = EVENING, warnings: dict[str, Any] | None = None,
+           squeeze: int = 0, now_less: int = 0) -> dict[str, Any]:
     data = {"point": point, "forest_fire": None, "warnings": warnings, "earthquakes": None, "tides": None, "normals": None}
     result = subprocess.run(
         ["node", "-e", RUNNER, str(CARD_FILE)],
-        input=json.dumps({"lang": lang, "width": width, "now_ms": now * 1000, "data": data}),
+        input=json.dumps({"lang": lang, "width": width, "now_ms": now * 1000, "data": data, "squeeze": squeeze, "now_less": now_less}),
         capture_output=True, text=True, encoding="utf-8", check=False,
     )
     assert result.returncode == 0, result.stderr
@@ -62,10 +65,84 @@ def render(point: dict[str, Any], *, lang: str = "fr", width: int = 374, now: in
 
 
 def test_the_card_has_the_fixed_size_of_the_sketches() -> None:
-    """480 x 760 px: 12 rows of the sections grid, not resizable, 15 units of 50 px elsewhere."""
+    """480 x 760 px: 12 rows and the whole width of a section of the sections grid, not resizable, 15 units of 50 px elsewhere."""
     out = render(ANGOULEME)
-    assert out["grid"] == {"columns": 12, "min_columns": 6, "rows": 12, "min_rows": 12, "max_rows": 12}
+    assert out["grid"] == {"columns": 12, "min_columns": 12, "rows": 12, "min_rows": 12, "max_rows": 12}
     assert out["size"] == 15
+
+
+def heights(html: str) -> list[int]:
+    """The heights of the blocks of columns, hours then days."""
+    return [int(h) for h in re.findall(r'class="cols" style="width:[^;"]*;height:(\d+)px"', html)]
+
+
+def test_a_home_page_measured_too_tall_is_drawn_with_flatter_curves_never_flatter_than_set() -> None:
+    """The card measures its home page and draws it again by what it is over (Home Assistant's fonts, a long header): the
+    hours lose a third, the days two thirds, at most 20 and 40 px (the curves stay readable; past that the page scrolls)."""
+    drawn = heights(render(ANGOULEME)["home"])
+    over12 = heights(render(ANGOULEME, squeeze=12)["home"])
+    assert over12[0] == drawn[0] - 4 and over12[1] == drawn[1] - 8
+    assert heights(render(ANGOULEME, squeeze=500)["home"]) == [192 - 20, 250 - 40]  # no chance per hour, a chance per day
+
+
+def test_on_a_narrow_card_the_now_block_leaves_out_what_would_be_cut() -> None:
+    """Measured on 2026-11-27 with Home Assistant's fonts: the gust of now does not fit under 370 px inside, the humidity under
+    340; the gusts to come stay beside."""
+    wide = text(render(ANGOULEME, width=412)["home"])  # 380 px inside, the phone of the author
+    assert "ressenti 8° · 83 %" in wide and "raf. 22" in wide
+    narrow = text(render(ANGOULEME, width=374)["home"])
+    assert "ressenti 8° · 83 %" in narrow and "raf." not in narrow and "Rafales 26 vers 21 h 30" in narrow
+    narrower = text(render(ANGOULEME, width=360)["home"])
+    assert "ressenti 8°" in narrower and "83 %" not in narrower.split("Rafales")[0]
+
+
+def test_a_line_of_now_measured_cut_is_drawn_again_with_less() -> None:
+    """The widths above are measured in French; a longer word ("gusts") or another font is measured by the card itself."""
+    assert "gusts 22" in text(render(ANGOULEME, lang="en", width=412)["home"])
+    less = text(render(ANGOULEME, lang="en", width=412, now_less=1)["home"])
+    assert "gusts 22" not in less and "feels like 8° · 83 %" in less
+    assert "83 %" not in text(render(ANGOULEME, lang="en", width=412, now_less=2)["home"]).split("Gusts")[0]
+
+
+def day_names(html: str) -> list[str]:
+    return [text(b) for b in re.findall(r'<div class="dh"><b[^>]*>(.*?)</b>', html)]
+
+
+def test_narrow_day_columns_say_the_day_name_alone_and_smaller_amounts() -> None:
+    """Seen on the dashboard of the author on 2026-11-27: a card 339 px wide (a section of three on a desktop), seven
+    columns of 44 px, "Sam 28Dim 29" and "21 mm0,5 mm" touching."""
+    narrow = render(ANGOULEME, width=339)["home"]
+    assert day_names(narrow) == ["Auj.", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"] and 'class="bloc serre"' in narrow
+    wide = render(ANGOULEME, width=412)["home"]
+    assert day_names(wide)[:3] == ["Auj.", "Lun 23", "Mar 24"] and "serre" not in wide
+    css = CARD_FILE.read_text(encoding="utf-8")
+    assert ".serre .db b{font-size:11px}" in css and ".serre .vt2{font-size:11px" in css
+
+
+def test_on_narrow_hour_columns_english_says_the_hour_alone() -> None:
+    """"21:00" does not fit a column of 32 px beside "23:00"; "21 h" does."""
+    hours = lambda html: [text(x) for x in re.findall(r'<span class="hr"[^>]*>(.*?)</span>', html)]  # noqa: E731
+    assert hours(render(ANGOULEME, lang="en", width=412)["home"])[:3] == ["21", "23", "01"]
+    assert hours(render(ANGOULEME, lang="en", width=1200)["home"])[:2] == ["21:00", "22:00"]
+    assert hours(render(ANGOULEME, width=412)["home"])[:2] == ["21 h", "23 h"]
+
+
+def test_the_gust_of_today_is_left_out_when_below_the_wind_of_the_whole_day() -> None:
+    """Today the gust is the one of the hours still to come, the wind the highest of the whole day: "33/24" read wrong."""
+    winds = re.findall(r'<span class="vt2">(.*?)</span></div>', render(ANGOULEME)["home"])
+    assert text(winds[0]) == "33" and "<small>" not in winds[0]
+    assert text(winds[1]).replace(" ", "") == "13/25"
+
+
+def test_the_redrawn_pages_set_their_own_line_height_and_the_rain_tile_drops_the_times_it_has_no_room_for() -> None:
+    """Home Assistant gives its text a line height of 1.6, which made the home page of the fixed card scroll on a phone."""
+    css = CARD_FILE.read_text(encoding="utf-8")
+    assert re.search(r"\n\.pile\{[^}]*line-height:normal", css)
+    assert re.search(r"\n:host\{display:block\}", css)  # not the height of a panel view: the card is 760 px high
+    assert "@container (max-width:130px){.tuile .tl span:nth-child(2){display:none}}" in css
+    assert "@container (max-width:80px){.tuile .tl{display:none}}" in css
+    # its second line ("Prochaine pluie après-demain vers 6 h") goes on two lines rather than ending in "…"
+    assert re.search(r"\.tuile \.tt small\{[^}]*-webkit-line-clamp:2", css)
 
 
 def test_home_says_now_the_rain_of_the_hour_the_hours_and_the_days_without_credits() -> None:

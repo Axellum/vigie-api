@@ -14,6 +14,8 @@ the dashboard resource the integration lists where the www folder is served), an
 
 It fails when the frontend did not load the card, when the card shows no page or an error (then a capture
 ``echec_<width>_<theme>.png`` and what the card and Home Assistant said are kept), when a page of the card is missing,
+when its home page does not fit the card (760 px high: it must not scroll, with Home Assistant's own fonts and line height)
+or cuts a text (an ellipsis) or crowds two neighbouring columns (their texts less than 3 px apart),
 when the editor does not draw all its fields, or when the browser logs an error of the card (or any uncaught error while
 the editor is open). The other errors of Home Assistant's frontend are printed, with the elements their file names. Standard library and Playwright only; it never talks to anything but the
 Home Assistant and the fake instance on this machine.
@@ -40,6 +42,30 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeout
 PLACE = {"latitude": 43.48, "longitude": -1.56}  # Biarritz, a public place: the place of the recorded answers
 WIDTHS = {"phone": (390, 1100), "wall": (1280, 900)}
 PAGES = ("home", "details", "alerts", "sea", "normal")
+# What is cut or crowded in a page of the card: a text ended by an ellipsis, or the texts of two neighbouring columns less
+# than 3 px apart (measured on the text itself: a cell stretched to its column hides where its text ends).
+CROWDED = r"""(p) => {
+  const out = [], box = (n) => { const r = document.createRange(); r.selectNodeContents(n); return r.getBoundingClientRect(); };
+  for (const e of p.querySelectorAll('*')) {
+    if (getComputedStyle(e).textOverflow === 'ellipsis' && e.scrollWidth > e.clientWidth + 0.5) out.push('cut: ' + e.textContent.trim().slice(0, 30));
+  }
+  for (const g of p.querySelectorAll('.gr')) {
+    let prev = null;
+    for (const cell of g.children) {
+      let l = Infinity, r = -Infinity;
+      const walk = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+      for (let t = walk.nextNode(); t; t = walk.nextNode()) {
+        const b = t.textContent.trim() ? box(t) : null;
+        if (b && b.width) { l = Math.min(l, b.left); r = Math.max(r, b.right); }
+      }
+      if (l === Infinity) continue;
+      const text = cell.textContent.trim().replace(/\s+/g, ' ').slice(0, 12);
+      if (prev && l - prev.r < 3) out.push('crowded: ' + prev.text + ' | ' + text);
+      prev = { r, text };
+    }
+  }
+  return out;
+}"""
 DASHBOARD = "essai-carte"  # a dashboard of its own (the default one is left as it is); no "vigie" in its address, which would pass for the card's
 # The spot whose verdicts were recorded ("auto" would pick the Grande Plage, nearer the place, whose verdicts were not).
 SPOT = "biarritz-plage-des-corsaires"
@@ -266,6 +292,13 @@ def main(argv: list[str] | None = None) -> int:
                     if not text.strip() or "ne répondent pas" in text:
                         problems.append(f"{name}/{page_id}: empty or in error: {text[:120]!r}")
                     card.screenshot(path=str(args.out / f"{name}_{theme}_{page_id}.png"))
+                    if page_id == "home":  # the home page fits the card of fixed height without scrolling
+                        over = card.locator(".page").evaluate("(p) => p.scrollHeight - p.clientHeight")
+                        if over > 0:
+                            problems.append(f"{name}/{theme}/home: {over} px taller than the card, it scrolls")
+                        crowded = card.locator(".page").evaluate(CROWDED)
+                        if crowded:
+                            problems.append(f"{name}/{theme}/home: {'; '.join(crowded[:4])}")
                 if dark and name == "wall":  # the editor of the card, in Home Assistant's own form
                     phase[0] = "editor"
                     page.set_viewport_size({"width": width, "height": 1500})  # the whole editor, down to its last field

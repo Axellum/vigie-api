@@ -922,12 +922,12 @@ function hourSlots(c, w) {
 const glowLegend = (c) => `${c.t('night')}<span class="ramp" style="background:linear-gradient(to right,${alpha(c.P.lueurNuit, 0.55)} 0%,${alpha(c.P.lueurNuit, 0.55)} 22%,${alpha(c.P.lueurCouvert, 0.45)} 30%,${alpha(c.P.lueurSoleil, 0.85)} 100%)"></span>${c.t('sun')}`;
 
 // The next 24 hours: a column per slot, its icon, the temperature curve, the rain, its chance (when the forecast gives one), the
-// wind and the gusts, the hour. `tight`: a flatter curve, 12 px less (the card has a fixed size).
-function hoursBlock(c, w, tight = false) {
+// wind and the gusts, the hour. `cut`: a flatter curve, that many px less (the card has a fixed size; at most 20).
+function hoursBlock(c, w, cut = 0) {
   const S = hourSlots(c, w);
   if (!S) return '';
   const P = c.P, list = S.slots, n = list.length, cw = w / n, hasP = list.some((x) => num(x.p));
-  const cut = tight ? 12 : 0, H = (hasP ? 206 : 192) - cut, yWind = (hasP ? 158 : 144) - cut;
+  const H = (hasP ? 206 : 192) - cut, yWind = (hasP ? 158 : 144) - cut;
   const temps = list.map((x) => x.t), mn = Math.min(...temps), mx = Math.max(...temps);
   const amp = Math.max(4, mx - mn), low = (mn + mx) / 2 - amp / 2; // at least 4 °C from top to bottom: 2° must not look like a fall
   const pts = temps.map((t, i) => ({ x: cw * (i + 0.5), y: 66 - cut - ((t - low) / amp) * (44 - cut) }));
@@ -947,25 +947,29 @@ function hoursBlock(c, w, tight = false) {
     const g = num(x.gust) ? gustColour(P, x.gust) : null;
     return `<div class="vt"><span>${num(x.deg) ? arrow(11, x.deg, P.vent) : ''}${c.fmt(x.wind)}</span>${num(x.gust) ? `<small style="color:${g || P.t3};font-weight:${g ? 700 : 400}">${c.fmt(x.gust)}</small>` : ''}</div>`;
   }));
-  s += cells(n, H - 17, list.map((x, i) => `<span class="hr" style="color:${i === 0 ? P.accent : P.t2}">${c.hourOnly(x.ts)}</span>`));
+  // Under 36 px a column has no room for "21:00" (English): the hour alone, the title says what the row is.
+  s += cells(n, H - 17, list.map((x, i) => `<span class="hr" style="color:${i === 0 ? P.accent : P.t2}">${cw < 36 ? c.hourOnly(x.ts).replace(/:00$/, '') : c.hourOnly(x.ts)}</span>`));
   return `<div class="bloc">${s}</div></div>`;
 }
 
 // The days: a column per day, tinted by its sun; the highest and lowest as two curves around a band; the rain, its chance, the
-// strongest wind (with the gusts and the direction where the hours of the answer cover the day). `tight`: flatter curves, 26 px less.
-function daysBlock(c, w, nMax, tight = false) {
+// strongest wind (with the gusts and the direction where the hours of the answer cover the day). `cut`: flatter curves, that many
+// px less (at most 40).
+function daysBlock(c, w, nMax, cut = 0) {
   const P = c.P, today = c.dayKey(c.now);
   const list = (Array.isArray(c.point?.daily) ? c.point.daily : []).filter((d) => d && typeof d.date === 'string' && d.date >= today && num(d.tmax) && num(d.tmin)).slice(0, nMax);
   const n = list.length;
   if (n < 2) return '';
-  const cut = tight ? 26 : 0, cw = w / n, hasP = list.some((d) => num(d.rain_probability_pct)), H = (hasP ? 250 : 236) - cut;
+  // Under 50 px a column has no room for "Mar 24" nor "0,5 mm" beside its neighbour: the day name alone, smaller amounts.
+  const cw = w / n, tight = cw < 50, hasP = list.some((d) => num(d.rain_probability_pct)), H = (hasP ? 250 : 236) - cut;
   const hourly = Array.isArray(c.point?.hourly) ? c.point.hourly.filter((h) => h && num(h.time_utc)) : [];
   const info = list.map((d) => {
     const hrs = hourly.filter((h) => c.dayKey(h.time_utc) === d.date && h.time_utc >= c.now - (c.now % 3600));
     const start = Date.parse(`${d.date}T00:00:00Z`) / 1000 - c.offset, need = Math.round((start + 86400 - Math.max(start, c.now - (c.now % 3600))) / 3600);
     const whole = need > 0 && hrs.length >= need - 1; // an hour of slack for the change of time
-    const gusts = vals(hrs, 'wind_gust_kmh');
-    return { sun: sunOfHours(hrs.filter((h) => h.is_day === true)) ?? sunOfCode(d.code), gust: whole && gusts.length ? Math.max(...gusts) : null, deg: whole ? windFrom(hrs) : null };
+    // Today the gust is the one of the hours still to come, sometimes below the wind of the whole day: then none (not "33/24").
+    const gusts = vals(hrs, 'wind_gust_kmh'), gust = whole && gusts.length ? Math.max(...gusts) : null;
+    return { sun: sunOfHours(hrs.filter((h) => h.is_day === true)) ?? sunOfCode(d.code), gust: num(gust) && !(num(d.wind_max) && gust <= d.wind_max) ? gust : null, deg: whole ? windFrom(hrs) : null };
   });
   const lo = Math.floor(Math.min(...list.map((d) => d.tmin))) - 1, hi = Math.ceil(Math.max(...list.map((d) => d.tmax))) + 1;
   const yOf = (t) => 150 - cut - ((t - lo) / (hi - lo)) * (76 - cut);
@@ -975,7 +979,7 @@ function daysBlock(c, w, nMax, tight = false) {
   const legend = c.t(info.some((x) => num(x.gust)) ? 'days_legend_gusts' : 'days_legend');
   let s = section(c.t('days_title', { n }), legend) + `<div class="cols" style="width:${r1(w)}px;height:${H}px">` +
     list.map((d, i) => column(c, cw * i, cw, H, glow(P, info[i].sun, true), i === 0, 10)).join('');
-  s += cells(n, 3, list.map((d, i) => `<div class="dh"><b style="color:${i === 0 ? P.accent : P.texte}">${i === 0 ? c.t('today_short') : `${c.dayName(d.date)} ${Number(d.date.slice(8))}`}</b>${icon(P, wmoKind(d.code), 30)}</div>`));
+  s += cells(n, 3, list.map((d, i) => `<div class="dh"><b style="color:${i === 0 ? P.accent : P.texte}">${i === 0 ? c.t('today_short') : tight ? c.dayName(d.date) : `${c.dayName(d.date)} ${Number(d.date.slice(8))}`}</b>${icon(P, wmoKind(d.code), 30)}</div>`));
   const dot = (p, col) => `<circle cx="${r1(p.x)}" cy="${r1(p.y)}" r="3.75" fill="var(--vc-carte)" stroke="${col}" stroke-width="2.5"/>`;
   s += `<svg class="ov" style="top:0" width="${r1(w)}" height="${170 - cut}" viewBox="0 0 ${r1(w)} ${170 - cut}" aria-hidden="true"><defs>` +
     `<linearGradient id="${id}b" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${tempColour(P, mean('tmax'))}" stop-opacity=".2"/><stop offset="1" stop-color="${tempColour(P, mean('tmin'))}" stop-opacity=".16"/></linearGradient>` +
@@ -993,7 +997,7 @@ function daysBlock(c, w, nMax, tight = false) {
       `<b style="color:${wet ? P.pluieFaible : P.t3}">${txt}</b>` + (hasP ? `<span class="pc">${num(d.rain_probability_pct) ? `${d.rain_probability_pct}&nbsp;%` : ''}</span>` : '') +
       `<span class="vt2">${num(info[i].deg) ? arrow(11, info[i].deg, P.vent) : ''}${num(d.wind_max) ? c.fmt(d.wind_max) : ''}${num(info[i].gust) ? `<small>/${c.fmt(info[i].gust)}</small>` : ''}</span></div>`;
   }));
-  return `<div class="bloc">${s}</div></div>`;
+  return `<div class="bloc${tight ? ' serre' : ''}">${s}</div></div>`;
 }
 
 // ------------------------------------------------------------------------------------------------------------------ now
@@ -1054,18 +1058,22 @@ function nowFacts(c) {
   return out;
 }
 // Now: icon, temperature in its colour, the weather, feeling and humidity, the wind; beside it the gusts to come, the pressure, the
-// air and the UV, the sun.
+// air and the UV, the sun. So that nothing is cut on a narrow card (measured on 2026-11-27 with Home Assistant's fonts): under
+// 370 px inside, the gust of now is left out (the gusts to come stay beside); under 340, the humidity too, and the icon and the
+// temperature are smaller.
 function nowBlock(c, w) {
-  const P = c.P, m = momentOfPoint(c), cur = c.point?.current || {};
-  const k = clamp(w / 448, 0.8, c.wide ? 1.25 : 1), fs = k < 0.9 ? 11 : 12;
-  const hum = num(cur.humidity_pct) ? `${c.fmt(cur.humidity_pct)}&nbsp;%` : '';
+  const P = c.P, m = momentOfPoint(c), cur = c.point?.current || {}, less = Math.max(c.nowLess || 0, w < 340 ? 2 : w < 370 ? 1 : 0);
+  const narrow = less >= 1, narrower = less >= 2;
+  c.nowLevel = less; // what the card measures after drawing starts from (_render)
+  const k = clamp(w / 448, narrower ? 0.72 : 0.8, c.wide ? 1.25 : 1), fs = k < 0.9 ? 11 : 12;
+  const hum = num(cur.humidity_pct) && !narrower ? `${c.fmt(cur.humidity_pct)}&nbsp;%` : '';
   const feels = [num(m.feels) ? c.t('feels', { t: c.fmt(m.feels) }) : '', hum].filter(Boolean).join(' · ');
-  const wind = num(m.wind) ? `<span class="nl">${num(m.deg) ? arrow(13, m.deg, P.vent) : ''}<span><b style="color:${P.vent}">${c.fmt(m.wind)}</b>&nbsp;km/h${num(m.gust) ? ` · ${c.t('gusts_abbr')} <b style="color:${P.vent}">${c.fmt(m.gust)}</b>` : ''}</span></span>` : '';
+  const wind = num(m.wind) ? `<span class="nl">${num(m.deg) ? arrow(13, m.deg, P.vent) : ''}<span><b style="color:${P.vent}">${c.fmt(m.wind)}</b>&nbsp;km/h${num(m.gust) && !narrow ? ` · ${c.t('gusts_abbr')} <b style="color:${P.vent}">${c.fmt(m.gust)}</b>` : ''}</span></span>` : '';
   const facts = nowFacts(c);
   return `<div class="now" style="min-height:${Math.round(68 * k)}px">${icon(P, m.kind, Math.round(54 * k))}` +
     (num(m.temp) ? `<span class="temp" style="font-size:${Math.round(52 * k)}px;color:${tempColour(P, m.temp)}">${c.fmt(m.temp)}°</span>` : '') +
     `<div class="now-t">${m.label ? `<b style="font-size:${Math.round(15 * Math.min(k, 1.1))}px">${esc(m.label)}</b>` : ''}${feels ? `<span>${feels}</span>` : ''}${wind}</div>` +
-    (facts.length ? `<div class="now-f" style="width:${Math.round(146 * k)}px;font-size:${fs}px">${facts.map((f) => `<span>${f}</span>`).join('')}</div>` : '') + '</div>';
+    (facts.length ? `<div class="now-f" style="width:${Math.round(146 * Math.max(k, 0.8))}px;font-size:${fs}px">${facts.map((f) => `<span>${f}</span>`).join('')}</div>` : '') + '</div>';
 }
 
 // ----------------------------------------------------------------------------------------------------------------- rain
@@ -1287,16 +1295,19 @@ function chancesBlock(c, w) {
 
 // ------------------------------------------------------------------------------------------------------------------- pages
 // The home page in France (piste B of the sketches, with the rain tile of piste A): now, the rain of the hour, the strongest line
-// of the season, the next 24 hours and the days. The credits are on the other pages.
+// of the season, the next 24 hours and the days. The credits are on the other pages. It has to fit the card: with the pill of
+// the season on a narrow card, or when the card measures it too tall (`c.squeeze`, px, see `_render`), the curves of the hours
+// and of the days are flattened, a third and two thirds of what is missing.
 function pageHome(c) {
   if (!c.inFrance) return pageHomeWorld(c);
   const W = c.W, season = seasonPill(c, 13, 18, true, '7px 12px');
+  const less = (season && !c.wide ? 38 : 0) + (c.squeeze || 0), cutH = Math.min(20, Math.round(less / 3)), cutD = Math.min(40, less - cutH);
   if (c.wide) {
     const left = Math.round(W * 0.52), right = W - left - 20;
     return `<div class="pile" style="gap:10px"><div class="duo" style="grid-template-columns:${left}px ${right}px">${nowBlock(c, left)}` +
-      `<div class="pile" style="gap:8px">${rainTile(c, right)}${season}</div></div>${hoursBlock(c, W)}${daysBlock(c, W, 10)}</div>`;
+      `<div class="pile" style="gap:8px">${rainTile(c, right)}${season}</div></div>${hoursBlock(c, W, cutH)}${daysBlock(c, W, 10, cutD)}</div>`;
   }
-  return `<div class="pile" style="gap:8px">${nowBlock(c, W)}${rainTile(c, W)}${season}${hoursBlock(c, W, !!season)}${daysBlock(c, W, 7, !!season)}</div>`;
+  return `<div class="pile" style="gap:8px">${nowBlock(c, W)}${rainTile(c, W)}${season}${hoursBlock(c, W, cutH)}${daysBlock(c, W, 7, cutD)}</div>`;
 }
 
 // Outside France: the weather of the home's own entity when one is chosen; else the warnings, the earthquakes and the tide.
@@ -1598,8 +1609,10 @@ function availablePages(c, wanted) {
 const PAGE_RENDER = { home: pageHome, details: pageDetails, alerts: pageAlerts, sea: pageSea, normal: pageNormal };
 
 // ------------------------------------------------------------------------------------------------------------------- style
+// The home and Details pages (`.pile`) set their own line height: Home Assistant gives its text 1.6, which made their blocks
+// taller than drawn and the card of fixed height overflow on a phone (seen on 2026-11-27). The other pages keep Home Assistant's.
 const STYLE = `
-:host{display:block;height:100%}
+:host{display:block}
 ha-card{height:760px;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden;--vc-carte:var(--ha-card-background,var(--card-background-color,#19232E))}
 .root{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:var(--vc-pad);font-weight:500;touch-action:pan-y;user-select:none;-webkit-user-select:none}
 svg{display:block;overflow:visible} svg text{font-family:inherit}
@@ -1662,7 +1675,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cu
 .ligne2 .ecart{margin-left:auto}
 .t2{color:var(--vc-t2)} .t3{color:var(--vc-t3)} .b{font-weight:700}
 .vide{color:var(--vc-t2);font-size:14px;padding:8px 0}
-.pile{display:flex;flex-direction:column;min-width:0}
+.pile{display:flex;flex-direction:column;min-width:0;line-height:normal}
 .duo{display:grid;gap:20px;align-items:center}
 .bloc{display:flex;flex-direction:column;gap:4px;min-width:0}
 .st{display:flex;justify-content:space-between;align-items:center;gap:10px;height:16px;min-width:0}
@@ -1681,11 +1694,13 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cu
 .tuile{display:flex;align-items:center;gap:10px;height:56px;box-sizing:border-box;padding:0 12px;border-radius:12px;border:1px solid;width:100%;color:var(--vc-texte);flex:none}
 .tuile .tt{display:flex;flex-direction:column;gap:1px;flex:0 1 auto;min-width:0}
 .tuile .tt b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tuile .tt small{font-size:12px;color:var(--vc-t2);font-weight:500;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tuile .tb{flex:1 1 auto;display:flex;flex-direction:column;gap:3px;min-width:60px}
+.tuile .tt small{font-size:12px;color:var(--vc-t2);font-weight:500;line-height:1.2;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.tuile .tb{flex:1 1 auto;display:flex;flex-direction:column;gap:3px;min-width:60px;container-type:inline-size}
 .tuile .bars{height:30px;display:flex;align-items:flex-end;gap:4px}
 .tuile .bars i,.bars5 i{flex:1 1 0;border-radius:3px;display:block}
 .tuile .tl{display:flex;justify-content:space-between;font-size:10px;color:var(--vc-t3);font-weight:500;white-space:nowrap}
+@container (max-width:130px){.tuile .tl span:nth-child(2){display:none}}
+@container (max-width:80px){.tuile .tl{display:none}}
 .cols{position:relative;flex:none}
 .cl{position:absolute;top:0;box-sizing:border-box}
 .gr{position:absolute;left:0;right:0;display:grid;justify-items:center}
@@ -1710,6 +1725,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cu
 .db b{font-size:12px;white-space:nowrap}
 .vt2{display:flex;align-items:center;gap:2px;margin-top:3px;font-size:12px;font-weight:700;color:var(--vc-vent);white-space:nowrap}
 .vt2 small{font-size:10px;font-weight:400;color:var(--vc-t3)}
+.serre .db b{font-size:11px}.serre .vt2{font-size:11px;gap:1px}.serre .vt2 small{font-size:9px}
 .chipsr{display:flex;flex-wrap:wrap;gap:6px}
 .pp{height:28px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 9px;border-radius:14px;border:1px solid;font-size:13px;font-weight:700;color:var(--vc-texte);white-space:nowrap}
 .pp i{width:8px;height:8px;border-radius:4px;flex:none}
@@ -1759,10 +1775,10 @@ class VigieCard extends HTMLElement {
     if (changed || first) this._render();
   }
 
-  // A fixed size, the one of the sketches (480 x 760 px): 12 rows of the sections grid, 15 units of 50 px elsewhere; a page
-  // longer than the card scrolls inside it.
+  // A fixed size, the one of the sketches (480 x 760 px): 12 rows and the whole width of a section of the sections grid (half
+  // of it, about 240 px, cuts its texts), 15 units of 50 px elsewhere; a page longer than the card scrolls inside it.
   getCardSize() { return 15; }
-  getGridOptions() { return { columns: 12, min_columns: 6, rows: 12, min_rows: 12, max_rows: 12 }; }
+  getGridOptions() { return { columns: 12, min_columns: 12, rows: 12, min_rows: 12, max_rows: 12 }; }
 
   connectedCallback() {
     this._timer = setInterval(() => this._fetch(), REFRESH_MS);
@@ -1775,6 +1791,8 @@ class VigieCard extends HTMLElement {
       });
     }
     this._resize?.observe(this);
+    // Drawn before the fonts are there, the home page was measured with others: once they are, it is drawn and measured again.
+    document.fonts?.ready?.then(() => { if (this.isConnected) this._render(); });
     if (this._hass && this._data) this._fetch();
     this._subscribeForecast();
   }
@@ -1893,6 +1911,22 @@ class VigieCard extends HTMLElement {
       body = `<div class="vide">${c.t('error')}</div>`;
     }
     root.innerHTML = `${top}<div class="page" tabindex="0">${body}</div>`;
+    // The home page fits the card without scrolling: drawn a few px too tall (fonts, a long header, a pill of the season), it is
+    // drawn again with flatter curves, by what it is over as measured here, at most three times (the blocks round their
+    // heights; nothing to measure while the card is hidden).
+    // The lines of "now" are measured the same way: one cut (a longer word than in French, a wider font) draws the block again
+    // without the gust of now, then without the humidity.
+    const page = root.querySelector('.page'), cut = () => [...page.querySelectorAll('.now-t>*')].some((e) => e.scrollWidth > e.clientWidth + 0.5);
+    for (let i = 0; i < 2 && this._page === 'home' && c.inFrance && cut(); i++) {
+      c.nowLess = (c.nowLevel || 0) + 1;
+      try { page.innerHTML = pageHome(c); } catch (err) { console.error('Vigie card:', err); break; }
+    }
+    for (let i = 0; i < 3 && this._page === 'home' && c.inFrance; i++) {
+      const over = page.scrollHeight - page.clientHeight;
+      if (over <= 0) break;
+      c.squeeze = (c.squeeze || 0) + over;
+      try { page.innerHTML = pageHome(c); } catch (err) { console.error('Vigie card:', err); break; }
+    }
   }
 }
 

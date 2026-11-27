@@ -332,8 +332,10 @@ already use), said as such; without one, it shows the warnings, the earthquakes 
 
 It follows the language of Home Assistant (French or English) and its dark mode (two themes of the Vigie family); its
 background is the dashboard's. From 640 px wide it takes the layout of a wall screen (the bar at the top right, the hours
-beside "now"). It has a fixed size, 760 px high (12 rows of the sections view, not resizable): a page longer than that
-scrolls inside the card. Swipe left or right, or use the arrow keys, to change pages. Every page but the home page credits
+beside "now"). It has a fixed size, 760 px high (12 rows and the whole width of a section of the sections view, not
+resizable): the home page always fits, without a cut text (on a narrow card its curves are flatter, "now" leaves out the gust
+of now, then the humidity, the line under the rain tile takes two lines and the days are said by their name alone), a longer
+page scrolls inside the card. Swipe left or right, or use the arrow keys, to change pages. Every page but the home page credits
 the providers of what it shows, relayed by the instance.
 
 Its limits are those of the data: it shows the **official** level only; the tide is the open sea's, computed by the instance
