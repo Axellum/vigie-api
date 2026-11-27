@@ -7,7 +7,6 @@ attribute per phenomenon; they read Météo-France's words, not values. These te
 
 from __future__ import annotations
 
-import re
 from collections.abc import Callable
 from copy import deepcopy
 from datetime import UTC, datetime
@@ -52,6 +51,9 @@ PHENOMENA = {
     "Vagues-submersion",
 }
 COLOURS = {"Vert", "Jaune", "Orange", "Rouge"}
+# The keys of its `1_hour_forecast`, in its order (the snapshot of Home Assistant's tests of the integration): the Météo-France
+# card of HACF draws these nine and no other (one CSS class each, `rain-35min`...).
+KEYS = ["0 min", "5 min", "10 min", "15 min", "20 min", "25 min", "35 min", "45 min", "55 min"]
 
 
 @pytest.fixture(autouse=True)
@@ -76,11 +78,12 @@ async def test_the_next_rain_of_biarritz_in_the_slots_of_meteo_france(
         "15 min": "Temps sec",
         "20 min": "Temps sec",
         "25 min": "Temps sec",
-        "30 min": "Temps sec",
-        "40 min": "Pluie faible",
-        "50 min": "Pluie faible",
+        "35 min": "Temps sec",
+        "45 min": "Pluie faible",
+        "55 min": "Pluie faible",
     }
-    assert state.state == datetime.fromisoformat(slots[7]["start"]).isoformat()
+    assert list(state.attributes["1_hour_forecast"]) == KEYS
+    assert state.state == datetime.fromisoformat(slots[7]["start"]).isoformat()  # the real start of the slot keyed 45
     assert state.attributes["device_class"] == "timestamp"
     assert "Météo-France" in state.attributes["attribution"]
 
@@ -150,7 +153,8 @@ def test_the_words_of_the_rates() -> None:
 
 
 def test_outside_france_the_four_quarter_hours_of_the_model() -> None:
-    """Tokyo has no PIAF slots: the four 15-minute steps (mm per step, so ×4 for a rate) from the start the API gives."""
+    """Tokyo has no PIAF slots: the four 15-minute steps (mm per step, so ×4 for a rate) from the start the API gives, spread
+    over Météo-France's nine parts; the part keyed 45 (40 to 50 minutes) is across the last two steps and takes the stronger."""
     point = deepcopy(recorded("point_tokyo_2026-11-22.json"))
     start = 1795784400
     point["rain_nowcast"].update({"start_utc": start, "mm_per_step": [0.0, 0.1, 0.5, 2.0]})
@@ -158,9 +162,22 @@ def test_outside_france_the_four_quarter_hours_of_the_model() -> None:
     hour = one_hour_forecast(point, None)
     assert hour == (
         start,
-        {"0 min": "Temps sec", "15 min": "Pluie faible", "30 min": "Pluie modérée", "45 min": "Pluie forte"},
+        {
+            "0 min": "Temps sec",
+            "5 min": "Temps sec",
+            "10 min": "Temps sec",
+            "15 min": "Pluie faible",
+            "20 min": "Pluie faible",
+            "25 min": "Pluie faible",
+            "35 min": "Pluie modérée",
+            "45 min": "Pluie forte",
+            "55 min": "Pluie forte",
+        },
     )
+    assert list(hour[1]) == KEYS
     assert next_rain_at(*hour) == datetime.fromtimestamp(start + 15 * 60, tz=UTC)
+    point["rain_nowcast"]["mm_per_step"] = [0.0, 0.0, 0.5, 0.0]
+    assert next_rain_at(*one_hour_forecast(point, None)) == datetime.fromtimestamp(start + 30 * 60, tz=UTC)  # keyed 35
 
 
 def test_a_step_unknown_or_no_start_makes_no_hour() -> None:
@@ -196,11 +213,11 @@ def test_the_phenomena_and_their_colours() -> None:
 async def test_the_format_the_cards_read(
     hass: HomeAssistant, mock_instance: Callable[..., None], mock_entry: MockConfigEntry, haute_corse: dict, no_stream: None
 ) -> None:
-    """Keys `<n> min` and Météo-France's rain words; the alert's level words and phenomenon names, nothing else of theirs."""
+    """Météo-France's nine keys and its rain words; the alert's level words and phenomenon names, nothing else of theirs."""
     mock_instance(haute_corse)
     await setup_entry(hass, mock_entry)
     forecast = hass.states.get(NEXT_RAIN).attributes["1_hour_forecast"]
-    assert all(re.fullmatch(r"\d+ min", key) for key in forecast) and set(forecast.values()) <= RAIN_WORDS
+    assert list(forecast) == KEYS and set(forecast.values()) <= RAIN_WORDS
     alert = hass.states.get(ALERT)
     standard = {"options", "device_class", "friendly_name", "icon", "attribution"}
     assert set(alert.attributes) - standard <= PHENOMENA
