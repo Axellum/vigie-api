@@ -11,6 +11,9 @@ API (`GET /v1/vigilances`, see [the README](../README.md#official-weather-warnin
 - a **maximum level** sensor (`none`, `yellow`, `orange`, `red`) with the list of the warnings in its attributes;
 - a **warning active** binary sensor (yellow or above);
 - a **vigilance** event entity that fires `new`, `upgraded` or `ended`, to start automations;
+- a **weather alert** sensor, the same warnings in the format of Home Assistant's Météo-France integration, for the cards
+  written for it (and, with the weather option, a **next rain** sensor in that format; both described below,
+  [ADR 0046](decisions/0046-home-assistant-meteo-france-format-sensors.md));
 - and, as a layer of their own, the **earthquakes** near the place (`GET /v1/earthquakes`, USGS and EMSC): a **strongest
   earthquake** sensor and an **earthquake** event entity that fires `new_earthquake` once per earthquake. They are not
   official warnings and never change the three entities above;
@@ -75,7 +78,7 @@ own. The same address and the same place (to about 11 m) is refused as already c
 | River radius | 5 km (1 to 50) | In France, how far from the place a river section (Vigicrues) still counts. The API's own default is 5 and its maximum 50. |
 | Earthquake radius | 300 km (10 to 3000) | How far from the place an earthquake counts. This value is a setting, not a measure of danger: a strong earthquake far away can be felt, a small one nearby may not be. |
 | Earthquake minimum magnitude | 4.5 (4.5 to 9) | The smallest magnitude shown and announced. The feeds the API reads list nothing below 4.5. |
-| Weather of the place and dashboard card | on | Adds the weather entity and the three sensors of "Weather of the place" below, and the data of the dashboard card. Untick it to keep the warnings and the earthquakes only: the weather routes are then not read at all. |
+| Weather of the place and dashboard card | on | Adds the weather entity and the three sensors of "Weather of the place" below, the *Next rain* sensor, and the data of the dashboard card. Untick it to keep the warnings and the earthquakes only: the weather routes are then not read at all. |
 | Experimental pre-alert for Turkey (unofficial) | off | **A test, being improved, not an official warning.** Adds the sensor below for a place in Turkey, read from an instance that runs the pre-alert (`VIGIE_PREALERT_TR=1`; the public instance may or may not). |
 
 Changing an option reloads the entry. **Reconfigure** (the three dots of the entry) changes the address, the place or
@@ -83,11 +86,12 @@ the name without losing the entities.
 
 The screens are in English and French (`translations/`), following the language of Home Assistant. The entity ids are
 built from the translated names: with an entry named "Vigie Home" and English, `sensor.vigie_home_maximum_level`,
-`binary_sensor.vigie_home_warning_active`, `event.vigie_home_vigilance`, `sensor.vigie_home_strongest_earthquake` and
-`event.vigie_home_earthquake` (in French: `..._niveau_maximal`, `..._vigilance_active`, `..._vigilance`,
-`..._seisme_le_plus_fort`, `..._seisme`). With the weather option: `weather.vigie_home` (named after the entry),
-`sensor.vigie_home_rain_in_the_next_hour`, `sensor.vigie_home_strongest_gust_next_hours` and `sensor.vigie_home_next_high_tide`
-(in French: `..._pluie_dans_l_heure`, `..._rafale_la_plus_forte_prochaines_heures`, `..._prochaine_pleine_mer`).
+`binary_sensor.vigie_home_warning_active`, `event.vigie_home_vigilance`, `sensor.vigie_home_weather_alert`,
+`sensor.vigie_home_strongest_earthquake` and `event.vigie_home_earthquake` (in French: `..._niveau_maximal`,
+`..._vigilance_active`, `..._vigilance`, `..._vigilance_meteo`, `..._seisme_le_plus_fort`, `..._seisme`). With the weather
+option: `weather.vigie_home` (named after the entry), `sensor.vigie_home_rain_in_the_next_hour`, `sensor.vigie_home_next_rain`,
+`sensor.vigie_home_strongest_gust_next_hours` and `sensor.vigie_home_next_high_tide` (in French: `..._pluie_dans_l_heure`,
+`..._prochaine_pluie`, `..._rafale_la_plus_forte_prochaines_heures`, `..._prochaine_pleine_mer`).
 
 ## Entities
 
@@ -275,6 +279,28 @@ and at its base (`/v1/point?elevation=`, without the sea) and its avalanche bull
 shared by every screen; at most 6 stations are kept. The answers are trimmed to what the page draws. An instance older than
 `elevation` answers at the altitude of its forecast cell: the integration then says so (`elevation_ignored`) rather than draw the
 same weather as the top and the base.
+
+### For the cards written for Météo-France's integration (two sensors)
+
+Some dashboard cards were written for Home Assistant's own Météo-France integration: the Météo-France weather card of HACF,
+Weather Plus Card. Two sensors give them Vigie's rain of the hour and warnings in that integration's exact format
+([ADR 0046](decisions/0046-home-assistant-meteo-france-format-sensors.md)), so they show them without any change on their side.
+Weather Plus Card finds both by itself; in the card of HACF, set `rainForecastEntity` and `alertEntity` to them.
+
+- **Next rain** (`sensor.vigie_home_next_rain`, in French `..._prochaine_pluie`; with the weather option): the start of the
+  first part of the hour that is not dry, unknown when the whole hour is dry or not known. `forecast_time_ref` is the start of
+  the hour (ISO, UTC) and `1_hour_forecast` the word of each part, keyed by its minutes from that start: in metropolitan France
+  the nine slots of Météo-France PIAF (`"0 min"` to `"25 min"` by 5 minutes, then `"30 min"`, `"40 min"`, `"50 min"`), elsewhere
+  the four 15-minute steps of the forecast model (`"0 min"` to `"45 min"`; a model, not a radar). The words are Météo-France's
+  from the rate: below 0.2 mm/h `Temps sec`, below 1.6 `Pluie faible`, below 6 `Pluie modérée`, then `Pluie forte`.
+- **Weather alert** (`sensor.vigie_home_weather_alert`, in French `..._vigilance_meteo`): `green`, `yellow`, `orange` or `red`
+  (`green` where the maximum level says `none`, unknown where it is unknown), and one attribute per phenomenon of the warnings
+  in force or announced, in Météo-France's words: `Vent violent`, `Pluie-inondation`, `Orages`, `Inondation`, `Neige-verglas`,
+  `Canicule`, `Grand-froid`, `Avalanches`, `Vagues-submersion`, each with `Vert`, `Jaune`, `Orange` or `Rouge`. A warning for
+  rain that floods is `Pluie-inondation`, a river flood `Inondation`; fire, fog and other warnings only count in the state.
+
+These words stay in French whatever the language of Home Assistant, as in Météo-France's integration: the cards compare them.
+For automations, prefer the maximum level and the rain of the next hour, which keep the API's values.
 
 ## The dashboard card
 

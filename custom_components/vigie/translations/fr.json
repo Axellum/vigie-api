@@ -74,6 +74,15 @@
           "red": "Rouge"
         }
       },
+      "weather_alert": {
+        "name": "Vigilance météo",
+        "state": {
+          "green": "Vert",
+          "yellow": "Jaune",
+          "orange": "Orange",
+          "red": "Rouge"
+        }
+      },
       "strongest_earthquake": {
         "name": "Séisme le plus fort"
       },
@@ -88,6 +97,9 @@
       },
       "rain_next_hour": {
         "name": "Pluie dans l'heure"
+      },
+      "next_rain": {
+        "name": "Prochaine pluie"
       },
       "strongest_gust_next_hours": {
         "name": "Rafale la plus forte, prochaines heures"

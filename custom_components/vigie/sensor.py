@@ -1,5 +1,7 @@
 """The maximum level of the official warnings that cover the place, the strongest earthquake near it (a layer of its own), and the
-experimental, unofficial pre-alert for Turkey when its option is ticked."""
+experimental, unofficial pre-alert for Turkey when its option is ticked. With the weather of the place, the rain of the next hour,
+the strongest gust and the next high tide; and two sensors in the format of Météo-France's integration, for the cards of others
+(ADR 0046)."""
 
 from __future__ import annotations
 
@@ -15,6 +17,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from .const import MAX_LEVEL_STATES, PREALERT_LEVEL_STATES
 from .coordinator import VigieConfigEntry, VigieCoordinator, VigiePrealertCoordinator, VigieQuakeCoordinator
 from .entity import VigieEntity, VigiePrealertEntity, VigieQuakeEntity, VigieWeatherDataEntity
+from .meteo_france_format import ALERT_STATES, alert_attributes, alert_state, next_rain_at, one_hour_forecast
 from .models import build_attributes
 from .prealert import build_prealert_attributes
 from .quakes import build_quake_attributes
@@ -34,11 +37,20 @@ PARALLEL_UPDATES = 0
 async def async_setup_entry(hass: HomeAssistant, entry: VigieConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback) -> None:
     """Add the sensors of the entry."""
     runtime = entry.runtime_data
-    entities: list[SensorEntity] = [VigieMaxLevelSensor(runtime.coordinator), VigieStrongestQuakeSensor(runtime.quakes)]
+    entities: list[SensorEntity] = [
+        VigieMaxLevelSensor(runtime.coordinator),
+        VigieWeatherAlertSensor(runtime.coordinator),
+        VigieStrongestQuakeSensor(runtime.quakes),
+    ]
     if runtime.prealert is not None:
         entities.append(VigiePrealertSensor(runtime.prealert))
     if runtime.weather is not None:
-        entities += [VigieRainNextHourSensor(runtime.weather), VigieGustSensor(runtime.weather), VigieNextHighTideSensor(runtime.weather)]
+        entities += [
+            VigieRainNextHourSensor(runtime.weather),
+            VigieNextRainSensor(runtime.weather),
+            VigieGustSensor(runtime.weather),
+            VigieNextHighTideSensor(runtime.weather),
+        ]
     async_add_entities(entities)
 
 
@@ -93,6 +105,44 @@ class VigieRainNextHourSensor(VigieWeatherDataEntity, SensorEntity):
     @property
     def attribution(self) -> str | None:
         return _credit(self._nowcast.get("attribution"))
+
+
+class VigieNextRainSensor(VigieWeatherDataEntity, SensorEntity):
+    """The next rain of the hour in the format of Météo-France's integration, for the cards written for it (ADR 0046).
+
+    The state is the start of the first part of the hour that is not dry ("Temps sec"), unknown when the whole hour is dry or
+    the hour is not known. Attributes `forecast_time_ref` (the start of the hour, ISO, UTC) and `1_hour_forecast`
+    (`{"0 min": "Temps sec", "5 min": "Pluie faible", ...}`): in metropolitan France the nine slots of PIAF, elsewhere the four
+    15-minute steps of the forecast model.
+    """
+
+    _attr_translation_key = "next_rain"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def __init__(self, coordinator: VigieWeatherCoordinator) -> None:
+        super().__init__(coordinator, "next_rain")
+
+    @property
+    def _hour(self) -> tuple[int, dict[str, str]] | None:
+        point = self.coordinator.data.point if self.coordinator.data is not None else None
+        return one_hour_forecast(point, rain_slots(point))
+
+    @property
+    def native_value(self) -> datetime | None:
+        hour = self._hour
+        return next_rain_at(*hour) if hour is not None else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        hour = self._hour
+        if hour is None:
+            return {"forecast_time_ref": None, "1_hour_forecast": None}
+        return {"forecast_time_ref": utc_datetime(hour[0]).isoformat(), "1_hour_forecast": hour[1]}
+
+    @property
+    def attribution(self) -> str | None:
+        nowcast = self.coordinator.data.point.get("rain_nowcast") if self.coordinator.data is not None else None
+        return _credit(nowcast.get("attribution")) if isinstance(nowcast, dict) else None
 
 
 class VigieGustSensor(VigieWeatherDataEntity, SensorEntity):
@@ -193,6 +243,29 @@ class VigieMaxLevelSensor(VigieEntity, SensorEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         """The count, the level of each phenomenon, the state of the sources and a bounded list of the warnings."""
         return build_attributes(self.coordinator.data, self.hass.config.language)
+
+
+class VigieWeatherAlertSensor(VigieEntity, SensorEntity):
+    """The official warnings of the place in the format of Météo-France's integration, for the cards written for it (ADR 0046).
+
+    The state is `green`, `yellow`, `orange` or `red` (`green` where the maximum level says `none`; unknown where it is
+    unknown). One attribute per phenomenon, in Météo-France's words: `{"Vent violent": "Jaune", "Orages": "Jaune"}`.
+    """
+
+    _attr_translation_key = "weather_alert"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = list(ALERT_STATES)
+
+    def __init__(self, coordinator: VigieCoordinator) -> None:
+        super().__init__(coordinator, "weather_alert")
+
+    @property
+    def native_value(self) -> str | None:
+        return alert_state(self.coordinator.data.max_level)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return alert_attributes(self.coordinator.data.vigilances)
 
 
 class VigieStrongestQuakeSensor(VigieQuakeEntity, SensorEntity):

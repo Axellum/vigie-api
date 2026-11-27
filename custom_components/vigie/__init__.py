@@ -4,7 +4,8 @@ A personal project, shared in case it helps. It reads an instance of the Vigie A
 `/v1/earthquakes` for the earthquakes near the place, a layer of its own, and `/v1/experimental/prealert` only when its
 experimental option is ticked) and does not issue any warning: it is not an official warning service, follow the warnings of your national authorities.
 With the option "Weather and card" (on by default), it also reads the weather of the place (`/v1/point`), its tide, the normals of
-the month and the wind measured nearby, gives a weather entity and three sensors, and serves all of it to the dashboard card,
+the month and the wind measured nearby, gives a weather entity and four sensors (one of them in the format of Météo-France's
+integration, ADR 0046), and serves all of it to the dashboard card,
 which ships with it (`frontend/vigie-card.js`, loaded by the frontend without a resource to add by hand; `card.py`).
 """
 

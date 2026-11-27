@@ -10,11 +10,23 @@
           "red": "mdi:alert-octagon"
         }
       },
+      "weather_alert": {
+        "default": "mdi:weather-cloudy-alert",
+        "state": {
+          "green": "mdi:shield-check-outline",
+          "yellow": "mdi:alert-outline",
+          "orange": "mdi:alert",
+          "red": "mdi:alert-octagon"
+        }
+      },
       "strongest_earthquake": {
         "default": "mdi:waveform"
       },
       "rain_next_hour": {
         "default": "mdi:weather-pouring"
+      },
+      "next_rain": {
+        "default": "mdi:weather-rainy"
       },
       "strongest_gust_next_hours": {
         "default": "mdi:weather-windy"
