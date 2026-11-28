@@ -8,8 +8,9 @@ replays the answers recorded for Biarritz (``python tools/fake_instance.py --rep
 3. puts the card on a dashboard of its own, under a banner that says the data are a replay;
 4. opens the dashboard in Chromium (Playwright) at a phone width and a wall width, in the dark and the light themes, goes
    through every page of the card by its bar (the Mountain page with a station at Chamonix: its weather is simulated at
-   its two altitudes, see ``tools/fake_instance.py``; the Sea page with the beach of the spot recorded), and saves a capture of
-   each; then opens the card's editor, adds a station, gives it its top altitude, and removes it.
+   its two altitudes, see ``tools/fake_instance.py``; the Sea page with the beach of the spot recorded; the Map page without
+   its background, which is not asked), and saves a capture of each; then opens the card's editor, adds a station, gives it
+   its top altitude, and removes it.
 
 With ``--card-from /local/vigie/vigie-card.js`` it also fails when the frontend loaded the card from anywhere else (ADR 0044:
 the dashboard resource the integration lists where the www folder is served), and says whether it came compressed.
@@ -44,7 +45,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
 PLACE = {"latitude": 43.48, "longitude": -1.56}  # Biarritz, a public place: the place of the recorded answers
 WIDTHS = {"phone": (390, 1100), "wall": (1280, 900)}
-PAGES = ("home", "details", "alerts", "sea", "mountain", "normal")
+PAGES = ("home", "details", "alerts", "sea", "map", "mountain", "normal")
 # A station of the Mountain page, at a public place (the replay answers every station with the point recorded at Chamonix).
 STATION = {"name": "Chamonix", "latitude": 45.92, "longitude": 6.87, "base_m": 1350, "top_m": 2400}
 # What the Mountain page draws of a station when the instance gave its weather at both altitudes and its bulletin (its titles
@@ -246,6 +247,9 @@ def main(argv: list[str] | None = None) -> int:
         for dark in (True, False):
             for name, (width, height) in WIDTHS.items():
                 context = browser.new_context(viewport={"width": width, "height": height}, locale="fr-FR", timezone_id="Europe/Paris")
+                # The background of the Map page (OpenFreeMap) is not asked: the page says it could not load it, and the run talks
+                # to nothing but this Home Assistant and the fake instance.
+                context.route(re.compile(r"^https://tiles\.openfreemap\.org/"), lambda route: route.abort())
                 page = context.new_page()
                 errors: list[str] = []
                 phase = ["dashboard"]  # or "editor": what was on the screen when an error came
