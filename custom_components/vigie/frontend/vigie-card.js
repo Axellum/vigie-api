@@ -3075,12 +3075,22 @@ class VigieCard extends HTMLElement {
       paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 5, 8, 7, 12, 10],
         'circle-color': ['match', ['get', 'q'], 0, S.q[0], 1, S.q[1], 2, S.q[2], 3, S.q[3], S.surface],
         'circle-stroke-color': S.ink, 'circle-stroke-width': 1, 'circle-stroke-opacity': 0.55 } });
-    map.addLayer({ id: 'spot-label', type: 'symbol', source: 'spots', minzoom: 8,
-      layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'], 'text-size': 12, 'text-offset': [0, 1], 'text-anchor': 'top', 'text-optional': true },
+    // A name goes below its point, else above, right or left of it, where neither a pin nor another name is; else it is not
+    // shown (the sheet says it).
+    const name = (size, offset) => ({ 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'], 'text-size': size,
+      'text-variable-anchor': ['top', 'bottom', 'left', 'right'], 'text-radial-offset': offset, 'text-justify': 'auto', 'text-padding': 1,
+      'text-optional': true });
+    map.addLayer({ id: 'spot-label', type: 'symbol', source: 'spots', minzoom: 8, layout: name(12, 0.9),
       paint: { 'text-color': S.ink, 'text-halo-color': S.surface, 'text-halo-width': 1.5 } });
-    map.addLayer({ id: 'bath-label', type: 'symbol', source: 'places', minzoom: 11.5, filter: ['==', ['get', 't'], 'bathing'],
-      layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'], 'text-size': 11, 'text-offset': [0, 0.8], 'text-anchor': 'top', 'text-optional': true },
+    map.addLayer({ id: 'bath-label', type: 'symbol', source: 'places', minzoom: 11.5, filter: ['==', ['get', 't'], 'bathing'], layout: name(11, 0.7),
       paint: { 'text-color': S.muted, 'text-halo-color': S.surface, 'text-halo-width': 1.5 } });
+    // The room of the pins and of the stars (HTML over the map): invisible icons of their size, on top, so that MapLibre
+    // places no name under them (the names of the spots and of the background alike).
+    map.addSource('pins', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map.addLayer({ id: 'pin-room', type: 'symbol', source: 'pins',
+      layout: { 'icon-image': ['get', 'img'], 'icon-anchor': ['get', 'anchor'], 'icon-offset': ['get', 'off'], 'icon-allow-overlap': true, 'icon-ignore-placement': false },
+      paint: { 'icon-opacity': 0 } });
+    this._roomKey = null;
     this._drawn = this._mapDrawKey();
     this._mapPinsLayout();
   }
@@ -3107,6 +3117,7 @@ class VigieCard extends HTMLElement {
     const W = box.clientWidth, H = box.clientHeight, act = this._mapActNow(), S = MAP_COLOURS[this._glTheme || 'dark'];
     const kept = keptOf(this._config), sel = this._mapSel?.kind === 'spot' ? this._mapSel.id : null;
     let html = '';
+    const room = []; // [spot, width, height, anchor, offset] of each pin and star drawn
     if (W && H && map.getZoom() >= 8) {
       const taken = [];
       const order = [...spots].sort((a, b) => (b.id === sel) - (a.id === sel) || kept.includes(b.id) - kept.includes(a.id) || mapBand(b, act) - mapBand(a, act));
@@ -3123,6 +3134,7 @@ class VigieCard extends HTMLElement {
         if (r.x1 > W - 4 || r.y0 < 2 || r.y1 > H - 2) continue;
         if (taken.some((q) => !(r.x1 + 4 < q.x0 || r.x0 > q.x1 + 4 || r.y1 + 3 < q.y0 || r.y0 > q.y1 + 3))) continue;
         taken.push(r);
+        room.push([s, w, 26, right ? 'right' : 'left', [right ? -9 : 9, 0]]);
         const band = mapBand(s, act);
         const dot = `<span class="pd${band < 0 ? ' none' : ''}"${band < 0 ? '' : ` style="background:${S.q[band]}"`}></span>`;
         const arrowSvg = wind ? `<svg class="pi" viewBox="0 0 16 16" style="transform:rotate(${Math.round(n.wind_from_deg + 180)}deg)">${MAP_ARROW}</svg>` : '';
@@ -3136,9 +3148,25 @@ class VigieCard extends HTMLElement {
       if (!s) continue;
       const p = map.project([s.lon, s.lat]);
       if (p.x < -10 || p.y < -10 || p.x > W + 10 || p.y > H + 10) continue;
-      html += `<span class="fav" style="left:${Math.round(p.x + 2)}px;top:${Math.round(p.y - 20)}px">${star(true, 17, c.P.jaune, c.P.t2)}</span>`;
+      html += `<span class="fav" style="left:${Math.round(p.x + 3)}px;top:${Math.round(p.y - 24)}px">${star(true, 17, c.P.jaune, c.P.t2)}</span>`;
+      room.push([s, 14, 10, 'bottom-left', [4, -13]]); // the top of the star: the name of its beach fits below it, at the level of its point
     }
     box.innerHTML = html;
+    this._mapRoom(room);
+  }
+  // The pins and stars given to MapLibre as obstacles, only when they changed (a move redraws them, rarely changes them).
+  _mapRoom(room) {
+    const map = this._gl, source = map?.getSource('pins');
+    if (!source) return;
+    const features = room.map(([s, w, h, anchor, off]) => {
+      const width = Math.ceil(w / 8) * 8, img = `vigie-room-${width}x${h}`; // a few sizes, each made once
+      if (!map.hasImage(img)) map.addImage(img, { width, height: h, data: new Uint8Array(width * h * 4) });
+      return { type: 'Feature', geometry: { type: 'Point', coordinates: [s.lon, s.lat] }, properties: { img, anchor, off } };
+    });
+    const key = JSON.stringify(features.map((f) => [f.geometry.coordinates, f.properties.img, f.properties.anchor]));
+    if (key === this._roomKey) return;
+    this._roomKey = key;
+    source.setData({ type: 'FeatureCollection', features });
   }
   // A touch on the map: the spot or the place under it (10 px around, for a finger), or none, which closes the sheet.
   _mapClick(e) {

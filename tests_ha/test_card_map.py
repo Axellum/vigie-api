@@ -138,3 +138,44 @@ def test_the_beaches_of_the_sea_page() -> None:
     assert render(config={"_kept": ["a", "b"], "_temp": "z"})["tabs"] == ["a", "b", "z"]
     assert render(config={"_kept": ["a", "b"], "_temp": "b"})["tabs"] == ["a", "b"]
     assert render(config={"_kept": [f"s{i}" for i in range(8)]})["kept"] == [f"s{i}" for i in range(6)]
+
+
+ROOM = r"""
+const fs = require('fs'), vm = require('vm');
+const context = { console, HTMLElement: class {}, customElements: { get: () => undefined, define: () => {} } };
+context.window = context;
+vm.createContext(context);
+vm.runInContext(fs.readFileSync(process.argv[1], 'utf8'), context, { filename: 'vigie-card.js' });
+process.stdout.write(vm.runInContext(`(() => {
+  const layers = [], sources = {}, images = {};
+  let sets = 0;
+  const map = { getSource: (id) => sources[id], addLayer: (l) => layers.push(l), hasImage: (id) => id in images,
+    addSource: (id, s) => { sources[id] = { data: s.data, setData(d) { sets += 1; this.data = d; } }; },
+    addImage: (id, img) => { images[id] = [img.width, img.height, img.data.length]; } };
+  const card = Object.create(VigieCard.prototype);
+  Object.assign(card, { _gl: map, _mapData: { spots: [] }, _places: null, _config: { type: 'custom:vigie-card' } });
+  card._mapLayers();
+  const room = [[{ lon: -1.44, lat: 43.66 }, 119, 26, 'right', [-9, 0]], [{ lon: -1.44, lat: 43.66 }, 14, 10, 'bottom-left', [4, -13]]];
+  card._mapRoom(room); card._mapRoom(room);  // the same pins: the map is not given them again
+  return JSON.stringify({ layers: layers.map((l) => ({ id: l.id, layout: l.layout || {}, paint: l.paint || {} })), images, sets,
+    room: sources.pins.data.features.map((f) => f.properties) });
+})()`, context));
+"""
+
+
+def test_the_names_make_room_for_the_pins() -> None:
+    # The pins and the stars are HTML over the map, which MapLibre does not see: an invisible icon of their size on the top
+    # layer keeps their room, so that no name of a spot, of a place or of the background is drawn under them (seen on the
+    # coast of Hossegor on 2026-11-28); a name tries its four sides before it gives up.
+    result = subprocess.run(["node", "-e", ROOM, str(CARD_FILE)], capture_output=True, text=True, encoding="utf-8", check=False)
+    assert result.returncode == 0, result.stderr
+    out = json.loads(result.stdout)
+    layers = {layer["id"]: layer for layer in out["layers"]}
+    assert out["layers"][-1]["id"] == "pin-room"
+    room = layers["pin-room"]
+    assert room["paint"]["icon-opacity"] == 0 and room["layout"]["icon-allow-overlap"] is True and room["layout"]["icon-ignore-placement"] is False
+    for label in ("spot-label", "bath-label"):
+        assert layers[label]["layout"]["text-variable-anchor"] == ["top", "bottom", "left", "right"] and "text-anchor" not in layers[label]["layout"]
+    assert out["room"] == [{"img": "vigie-room-120x26", "anchor": "right", "off": [-9, 0]}, {"img": "vigie-room-16x10", "anchor": "bottom-left", "off": [4, -13]}]
+    assert out["images"] == {"vigie-room-120x26": [120, 26, 120 * 26 * 4], "vigie-room-16x10": [16, 10, 16 * 10 * 4]}
+    assert out["sets"] == 1
