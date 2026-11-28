@@ -85,6 +85,18 @@ MAX_BEACHES: Final = 6
 BEACH_HOURS: Final = 27
 BATHING_ASK_KM: Final = 2.0
 BATHING_NEAR_KM: Final = 1.0
+# The card's Map page (ADR 0048): every spot of the instance with its verdicts and the figures of the hour
+# (`/v1/activities/overview`, `/v1/surf/overview`), kept as long as the verdicts of a spot; and the places of the French coast
+# (`/v1/sea/places`, a catalogue that changes with a release of the API), kept a day and read by pages of PLACES_PAGE.
+MAP_REFRESH: Final = ACTIVITIES_REFRESH
+PLACES_REFRESH: Final = timedelta(hours=24)
+PLACES_PAGE: Final = 500
+MAX_PLACES: Final = 10_000
+# The beaches kept with a star on the Map page or ticked in the editor, one list per entry (Home Assistant's storage, so every
+# screen sees the same ones): at most MAX_BEACHES, the tabs of the Sea page.
+FAVORITES_STORAGE_KEY: Final = f"{DOMAIN}.favorites"
+FAVORITES_STORAGE_VERSION: Final = 1
+SIGNAL_FAVORITES: Final = f"{DOMAIN}_favorites"
 # The altitudes the API accepts for a point (`GET /v1/point?elevation=`), in metres.
 MIN_ELEVATION_M: Final = -500
 MAX_ELEVATION_M: Final = 9000

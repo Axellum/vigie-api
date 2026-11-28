@@ -12,6 +12,10 @@ does not change and reads the new one after an update.
 
 Elsewhere (resources in YAML, no ``www`` folder when Home Assistant started, a copy that fails), the frontend loads it from the
 integration's own path, with the version of the integration in the URL, as before.
+
+MapLibre GL JS, which draws the card's Map page (ADR 0048), goes beside the card in both places: ``maplibre/`` next to the copy
+in the ``www`` folder (with compressed copies too), and ``/vigie/maplibre/`` next to the integration's own path. The card asks
+it there, from its own address, only when the Map page opens: no CDN, and nothing more for the other pages.
 """
 
 from __future__ import annotations
@@ -40,6 +44,12 @@ CARD_URL = "/vigie/vigie-card.js"
 LOCAL_FOLDER = ("www", "vigie")
 LOCAL_NAMES = ("vigie-card.js", "vigie-card.js.gz")
 LOCAL_URL = "/local/vigie/vigie-card.js"
+# MapLibre GL JS (frontend/maplibre/README.md): its files, compressed beside the copy of the card, and its licence as it is.
+MAPLIBRE_VERSION = "6.14.0"
+MAPLIBRE_FOLDER = CARD_FILE.parent / "maplibre"
+MAPLIBRE_URL = "/vigie/maplibre"
+MAPLIBRE_NAMES = ("maplibre-gl.mjs", "maplibre-gl-worker.mjs", "maplibre-gl.css")
+MAPLIBRE_PLAIN = ("LICENSE.txt",)
 # Set when the last entry took the resource away, so an entry added again in the same run puts it back.
 CARD_REMOVED = f"{DOMAIN}_card_removed"
 
@@ -54,7 +64,13 @@ async def async_register_card(hass: HomeAssistant) -> bool:
 
     integration = await async_get_integration(hass, DOMAIN)
     # Always served at the integration's own path too: a resource added by hand to it keeps working.
-    await hass.http.async_register_static_paths([StaticPathConfig(CARD_URL, str(CARD_FILE), cache_headers=False)])
+    await hass.http.async_register_static_paths(
+        [
+            StaticPathConfig(CARD_URL, str(CARD_FILE), cache_headers=False),
+            # Its address carries the version of MapLibre: kept by the browsers until it changes.
+            StaticPathConfig(MAPLIBRE_URL, str(MAPLIBRE_FOLDER), cache_headers=True),
+        ]
+    )
     if not await async_list_as_resource(hass):
         add_extra_js_url(hass, f"{CARD_URL}?v={integration.version}")
     return True
@@ -77,18 +93,38 @@ def _local_served(hass: HomeAssistant) -> bool:
     return any(isinstance(resource, web.StaticResource) and resource.canonical == "/local" for resource in resources)
 
 
+def _write(path: Path, content: bytes) -> None:
+    """Written aside then moved in place, so the frontend never serves half a file."""
+    partial = path.with_name(f".{path.name}.part")
+    partial.write_bytes(content)
+    partial.replace(path)
+
+
+def _copy_maplibre(folder: Path) -> None:
+    """MapLibre beside the card, each file with its compressed copy; a file already there as it is, and its compressed copy,
+    are left alone (MapLibre is 1.6 MB: it is compressed again only when it changes)."""
+    folder.mkdir(parents=True, exist_ok=True)
+    for name in (*MAPLIBRE_NAMES, *MAPLIBRE_PLAIN):
+        data = (MAPLIBRE_FOLDER / name).read_bytes()
+        path, packed = folder / name, folder / f"{name}.gz"
+        same = path.is_file() and path.read_bytes() == data
+        if not same:
+            _write(path, data)
+        if name in MAPLIBRE_NAMES and (not same or not packed.is_file()):
+            _write(packed, gzip.compress(data, compresslevel=9, mtime=0))
+
+
 def _copy(folder: Path) -> str:
-    """Write the card and its compressed copy into the folder where they differ; the digest of the card."""
+    """Write the card and its compressed copy, and MapLibre beside them, into the folder where they differ; the digest of
+    the card."""
     data = CARD_FILE.read_bytes()
     folder.mkdir(parents=True, exist_ok=True)
     for name, content in zip(LOCAL_NAMES, (data, gzip.compress(data, compresslevel=9, mtime=0)), strict=True):
         path = folder / name
         if path.is_file() and path.read_bytes() == content:
             continue
-        # Written aside then moved in place, so the frontend never serves half a file.
-        partial = folder / f".{name}.part"
-        partial.write_bytes(content)
-        partial.replace(path)
+        _write(path, content)
+    _copy_maplibre(folder / "maplibre")
     return hashlib.sha256(data).hexdigest()[:12]
 
 
@@ -125,12 +161,17 @@ async def async_list_as_resource(hass: HomeAssistant) -> bool:
 
 
 def _remove_copy(folder: Path) -> None:
+    maplibre = folder / "maplibre"
+    for name in (*MAPLIBRE_NAMES, *MAPLIBRE_PLAIN):
+        (maplibre / name).unlink(missing_ok=True)
+        (maplibre / f"{name}.gz").unlink(missing_ok=True)
     for name in LOCAL_NAMES:
         (folder / name).unlink(missing_ok=True)
-    try:
-        folder.rmdir()
-    except OSError:
-        pass  # something else was put in it, or it is already gone
+    for empty in (maplibre, folder):
+        try:
+            empty.rmdir()
+        except OSError:
+            pass  # something else was put in it, or it is already gone
 
 
 async def async_remove_card(hass: HomeAssistant) -> None:

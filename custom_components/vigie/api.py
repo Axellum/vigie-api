@@ -35,6 +35,9 @@ FOREST_FIRE_PATH = "/v1/forest-fire"
 AVALANCHES_PATH = "/v1/avalanches"
 # The beaches of the card's Sea page: the monitored bathing sites near a spot (its forecast is `SPOTS_PATH/{spot_id}`).
 SEA_PLACES_PATH = "/v1/sea/places"
+# The card's Map page: every spot at once, its verdicts (the best of the next 24 hours) and the figures of the hour.
+ACTIVITIES_OVERVIEW_PATH = "/v1/activities/overview"
+SURF_OVERVIEW_PATH = "/v1/surf/overview"
 
 # Decimals of the position sent to the API: about one metre. The stream rounds a followed point to four.
 POSITION_DECIMALS = 5
@@ -188,6 +191,20 @@ class VigieClient:
         water over four years (the French coast; an instance older than this route answers 404)."""
         params = {"type": "bathing", "near_lat": f"{lat:.{POSITION_DECIMALS}f}", "near_lon": f"{lon:.{POSITION_DECIMALS}f}", "radius_km": f"{radius_km:g}", "limit": "20"}
         return await self._get_json(SEA_PLACES_PATH, params, WEATHER_TIMEOUT_S)
+
+    async def activities_overview(self) -> Any:
+        """``GET /v1/activities/overview``: every spot's four activities in short (the best verdict of the next 24 hours, the
+        verdict of the hour, the best slot), with the official coastal warnings."""
+        return await self._get_json(ACTIVITIES_OVERVIEW_PATH, None, WEATHER_TIMEOUT_S)
+
+    async def surf_overview(self) -> Any:
+        """``GET /v1/surf/overview``: every spot's hour under way (swell, wind, tide) and its best slot of the next three days."""
+        return await self._get_json(SURF_OVERVIEW_PATH, None, WEATHER_TIMEOUT_S)
+
+    async def sea_places(self, offset: int, limit: int) -> Any:
+        """``GET /v1/sea/places``, one page of the whole catalogue (ports, slipways, anchorages, dive and bathing sites of the
+        French coast), by kind and name (an instance older than this route answers 404)."""
+        return await self._get_json(SEA_PLACES_PATH, {"limit": str(limit), "offset": str(offset)}, WEATHER_TIMEOUT_S)
 
     async def forest_fire(self, lat: float, lon: float) -> Any:
         """``GET /v1/forest-fire``: the forest fire danger of the department of a point (Météo-France, June to September).

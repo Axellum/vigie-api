@@ -110,7 +110,7 @@ async def setup_entry_with(hass: HomeAssistant, mock_instance: Callable[..., Non
     await setup_entry(hass, entry)
 
 
-async def test_a_spot_that_is_not_near_the_place_is_refused_and_not_read(
+async def test_a_spot_far_from_the_place_is_read_and_one_the_instance_does_not_have_is_refused(
     hass: HomeAssistant,
     hass_ws_client: WebSocketGenerator,
     mock_instance: Callable[..., None],
@@ -118,10 +118,20 @@ async def test_a_spot_that_is_not_near_the_place_is_refused_and_not_read(
     aioclient_mock: AiohttpClientMocker,
     no_stream: None,
 ) -> None:
+    """A beach kept with a star on the Map page can be far from the place (ADR 0048): any spot of the instance is read, with
+    its distance; an id the instance does not have is refused, and nothing is asked for it."""
     await setup_entry_with(hass, mock_instance, biarritz_entry, aioclient_mock)
-    answer = await ask(hass_ws_client, hass, {"type": "vigie/card/beach", "spot": "trevou-treguignec-plage-de-trestel"})
-    assert not answer["success"] and answer["error"]["code"] == "not_found"
-    assert not [call for call in aioclient_mock.mock_calls if call[1].path.startswith("/v1/surf/spots/")]
+    far = "trevou-treguignec-plage-de-trestel"  # in Brittany, beyond the spots the editor offers
+    assert far not in [spot["id"] for spot in (await ask(hass_ws_client, hass, {"type": "vigie/card/spots"}))["result"]]
+    aioclient_mock.get(f"{URL}/v1/surf/spots/{far}", json=FORECAST)
+    aioclient_mock.get(f"{URL}/v1/activities/{far}", json=ACTIVITIES)
+    answer = await ask(hass_ws_client, hass, {"type": "vigie/card/beach", "spot": far})
+    assert answer["success"], answer
+    assert answer["result"]["spot"]["distance_km"] > 400 and answer["result"]["activities"]["activities"]
+    assert [call[1].query["days"] for call in aioclient_mock.mock_calls if call[1].path == f"/v1/surf/spots/{far}"] == ["2"]
+    unknown = await ask(hass_ws_client, hass, {"type": "vigie/card/beach", "spot": "nowhere-plage"})
+    assert not unknown["success"] and unknown["error"]["code"] == "not_found"
+    assert not [call for call in aioclient_mock.mock_calls if call[1].path.endswith("/nowhere-plage")]
 
 
 async def test_without_the_bathing_sites_the_rest_of_the_beach_is_there(

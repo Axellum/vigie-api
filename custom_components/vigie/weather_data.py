@@ -8,7 +8,9 @@ hour; Météo-France publishes it from June to September). The spots and their v
 (``/v1/surf/spots``, ``/v1/activities/{spot}``), and kept for a while. So are the beaches of the card's Sea page: the forecast
 of the spot (``/v1/surf/spots/{spot}``), the water at its cell (``/v1/point`` with the sea) and its monitored bathing site
 (``/v1/sea/places``); and the stations of the card's Mountain page: the weather at their top and at their base
-(``/v1/point?elevation=``) and their avalanche bulletin (``/v1/avalanches``). Each is trimmed to what its page draws.
+(``/v1/point?elevation=``) and their avalanche bulletin (``/v1/avalanches``); and the card's Map page: every spot with its
+verdicts and the figures of its hour (``/v1/activities/overview``, ``/v1/surf/overview``) and the places of the French coast
+(``/v1/sea/places``, the whole catalogue). Each is trimmed to what its page draws.
 
 Nothing here makes up a weather value: what the API did not give stays unknown. The few numbers worked out here (a sum of the
 rain steps of the next hour, the strongest gust among the next hours, the next high water) are read from the answer as it is,
@@ -44,12 +46,16 @@ from .const import (
     BEACH_REFRESH,
     DOMAIN,
     FOREST_FIRE_REFRESH,
+    MAP_REFRESH,
     MAX_BEACHES,
     MAX_LISTED_SPOTS,
+    MAX_PLACES,
     MAX_SPOT_DISTANCE_KM,
     MAX_STATIONS,
     MOUNTAIN_REFRESH,
     NORMALS_REFRESH,
+    PLACES_PAGE,
+    PLACES_REFRESH,
     SPOTS_REFRESH,
     STATION_BOX_DEG,
     TIDES_REFRESH,
@@ -272,6 +278,124 @@ def nearby_spots(answer: Any, lat: float, lon: float) -> list[dict[str, Any]]:
             found.append({"id": spot["id"], "name": spot.get("name"), "place": spot.get("place"), "distance_km": round(distance, 1)})
     found.sort(key=lambda spot: spot["distance_km"])
     return found[:MAX_LISTED_SPOTS]
+
+
+def spot_of(answer: Any, spot_id: str, lat: float, lon: float) -> dict[str, Any] | None:
+    """A spot of an answer of ``/v1/surf/spots``, wherever it is, with its distance from the place; ``None`` for an id the
+    instance does not have (a beach kept with a star on the Map page can be far from the place)."""
+    spots = answer.get("spots") if isinstance(answer, dict) else None
+    for spot in spots if isinstance(spots, list) else ():
+        if isinstance(spot, dict) and spot.get("id") == spot_id:
+            s_lat, s_lon = _number(spot.get("lat")), _number(spot.get("lon"))
+            distance = round(distance_km(lat, lon, s_lat, s_lon), 1) if s_lat is not None and s_lon is not None else None
+            return {"id": spot_id, "name": spot.get("name"), "place": spot.get("place"), "distance_km": distance}
+    return None
+
+
+# --------------------------------------------------------------------------------------------------------------- the map
+# The four activities of the Map page, in the order of its buttons, and what it draws of the hour of a spot.
+MAP_ACTIVITIES = ("surf", "kite", "boat", "shore_fishing")
+_VERDICTS = ("good", "possible", "poor")
+_MAP_ANSWER_KEEP = ("generated_utc", "stale", "wind_range", "limits", "disclaimer", "attribution")
+
+
+def _rounded(value: Any, digits: int) -> float | int | None:
+    """``value`` rounded to ``digits`` (a whole number for none); ``None`` when it is not a finite number."""
+    number = _number(value)
+    if number is None:
+        return None
+    return round(number) if digits == 0 else round(number, digits)
+
+
+def _text(value: Any) -> str | None:
+    return value if isinstance(value, str) else None
+
+
+def _map_now(now: Any) -> dict[str, Any] | None:
+    """The hour under way of a spot of ``/v1/surf/overview``: its swell, its wind and its tide, as the API gave them."""
+    if not isinstance(now, dict):
+        return None
+    swell = now.get("swell") if isinstance(now.get("swell"), dict) else {}
+    wind = now.get("wind") if isinstance(now.get("wind"), dict) else {}
+    tide = now.get("tide") if isinstance(now.get("tide"), dict) else {}
+    return {
+        "time_utc": now.get("time_utc") if isinstance(now.get("time_utc"), int) else None,
+        "swell_m": _rounded(swell.get("height_m"), 1),
+        "period_s": _rounded(swell.get("period_s"), 0),
+        "swell_from_deg": _rounded(swell.get("from_deg"), 0),
+        "wind_kmh": _rounded(wind.get("speed_kmh"), 0),
+        "gust_kmh": _rounded(wind.get("gust_kmh"), 0),
+        "wind_from_deg": _rounded(wind.get("from_deg"), 0),
+        "wind_relative": _text(wind.get("relative")),
+        "tide_trend": _text(tide.get("trend")),
+        "tide_stage": _text(tide.get("stage")),
+    }
+
+
+def _verdicts(spot: dict[str, Any]) -> dict[str, str | None]:
+    found = {activity.get("id"): activity for activity in spot.get("activities") or [] if isinstance(activity, dict)}
+    kept: dict[str, str | None] = {}
+    for name in MAP_ACTIVITIES:
+        activity = found.get(name) or {}
+        verdict = activity.get("verdict")
+        kept[name] = verdict if activity.get("available") is not False and verdict in _VERDICTS else None
+    return kept
+
+
+def _list_of(answer: Any, key: str) -> list[Any]:
+    items = answer.get(key) if isinstance(answer, dict) else None
+    return items if isinstance(items, list) else []
+
+
+def map_spots(spots: Any, overview: Any, surf: Any) -> dict[str, Any]:
+    """What the Map page draws of every spot: where it is and where it faces (``/v1/surf/spots``), the verdict of each
+    activity, the best of the daylight hours of the next 24 (``/v1/activities/overview``, the verdict of the website's pins),
+    and the figures of the hour under way (``/v1/surf/overview``). A verdict or a figure the API did not give is ``None``; a
+    spot the list of spots does not have is left out (it has no place to be drawn)."""
+    verdicts = {spot["id"]: _verdicts(spot) for spot in _list_of(overview, "spots") if isinstance(spot, dict) and isinstance(spot.get("id"), str)}
+    hours = {spot["id"]: _map_now(spot.get("now")) for spot in _list_of(surf, "spots") if isinstance(spot, dict) and isinstance(spot.get("id"), str)}
+    drawn = []
+    for spot in _list_of(spots, "spots"):
+        if not isinstance(spot, dict) or not isinstance(spot.get("id"), str):
+            continue
+        lat, lon = _rounded(spot.get("lat"), 5), _rounded(spot.get("lon"), 5)
+        if lat is None or lon is None:
+            continue
+        drawn.append(
+            {
+                "id": spot["id"],
+                "name": _text(spot.get("name")),
+                "place": _text(spot.get("place")),
+                "lat": lat,
+                "lon": lon,
+                "facing_deg": _rounded(spot.get("facing_deg"), 0),
+                "verdicts": verdicts.get(spot["id"], dict.fromkeys(MAP_ACTIVITIES)),
+                "now": hours.get(spot["id"]),
+            }
+        )
+    answer = overview if isinstance(overview, dict) else {}
+    return {
+        **{key: answer.get(key) for key in _MAP_ANSWER_KEEP},
+        "verdicts_read": isinstance(overview, dict),
+        "hour_read": isinstance(surf, dict),
+        "hour_attribution": surf.get("attribution") if isinstance(surf, dict) else None,
+        "spots": drawn,
+    }
+
+
+# A place of the catalogue, as the Map page receives it: a short list rather than an object, there are thousands.
+PLACE_FIELDS = ("id", "type", "lat", "lon", "name", "near", "quality")
+_PLACES_KEEP = ("count", "by_type", "built_utc", "note", "licence", "attribution")
+
+
+def map_place(place: Any) -> list[Any] | None:
+    """A place of ``/v1/sea/places`` as ``PLACE_FIELDS``; ``None`` without a kind or a position."""
+    if not isinstance(place, dict) or not isinstance(place.get("id"), str) or not isinstance(place.get("type"), str):
+        return None
+    lat, lon = _rounded(place.get("lat"), 5), _rounded(place.get("lon"), 5)
+    if lat is None or lon is None:
+        return None
+    return [place["id"], place["type"], lat, lon, _text(place.get("name")), _text(place.get("near")), _text(place.get("quality"))]
 
 
 @dataclass(frozen=True, slots=True)
@@ -518,6 +642,11 @@ class VigieWeatherCoordinator(DataUpdateCoordinator[WeatherData]):
         self._activities: dict[str, _Slow] = {}
         self._stations: OrderedDict[tuple[float, float, int | None, int], _Station] = OrderedDict()
         self._beaches: OrderedDict[str, _Beach] = OrderedDict()
+        self._overview = _Slow(MAP_REFRESH)
+        self._surf_overview = _Slow(MAP_REFRESH)
+        self._places = _Slow(PLACES_REFRESH)
+        self._map_lock = asyncio.Lock()  # two screens asking at once: one read
+        self._places_lock = asyncio.Lock()
 
     async def _async_update_data(self) -> WeatherData:
         try:
@@ -555,19 +684,23 @@ class VigieWeatherCoordinator(DataUpdateCoordinator[WeatherData]):
         answer = await self._spots.get(self.client.surf_spots)
         return nearby_spots(answer, self.latitude, self.longitude)
 
+    async def async_spot(self, spot_id: str) -> dict[str, Any] | None:
+        """A spot of the instance, near the place or not, with its distance; ``None`` for an id the instance does not have."""
+        return spot_of(await self._spots.get(self.client.surf_spots), spot_id, self.latitude, self.longitude)
+
     async def async_activities(self, spot_id: str) -> dict[str, Any] | None:
-        """The verdicts of a spot near the place (read every 30 minutes at most); ``None`` for a spot that is not near it."""
-        if spot_id not in {spot["id"] for spot in await self.async_spots()}:
+        """The verdicts of a spot of the instance (read every 30 minutes at most); ``None`` for an id it does not have."""
+        if await self.async_spot(spot_id) is None:
             return None
         slow = self._activities.setdefault(spot_id, _Slow(ACTIVITIES_REFRESH))
         answer = await slow.get(lambda: self.client.activities(spot_id))
         return answer if isinstance(answer, dict) else None
 
     async def async_beach(self, spot_id: str) -> dict[str, Any] | None:
-        """A beach of the Sea page: a spot near the place (``None`` for one that is not), its forecast hour by hour, its verdicts,
-        the water at its cell and its monitored bathing site, trimmed to what the page draws. A part that could not be read is
-        ``None``."""
-        near = next((spot for spot in await self.async_spots() if spot["id"] == spot_id), None)
+        """A beach of the Sea page: a spot of the instance, near the place or kept with a star far from it (``None`` for an id
+        it does not have), its forecast hour by hour, its verdicts, the water at its cell and its monitored bathing site, trimmed
+        to what the page draws. A part that could not be read is ``None``."""
+        near = await self.async_spot(spot_id)
         if near is None:
             return None
         beach = self._beaches.pop(spot_id, None) or _Beach()
@@ -595,6 +728,45 @@ class VigieWeatherCoordinator(DataUpdateCoordinator[WeatherData]):
             "water": beach_water(water),
             "bathing": bathing_site(bathing, spot),
         }
+
+    async def async_map(self) -> dict[str, Any]:
+        """Every spot of the Map page with its verdicts and the figures of its hour (read every ``MAP_REFRESH`` at most). An
+        instance older than the overviews gives the spots without them; one that gives no spot, an empty map."""
+        async with self._map_lock:
+            spots, overview, surf = await asyncio.gather(
+                self._spots.get(self.client.surf_spots),
+                self._overview.get(self.client.activities_overview),
+                self._surf_overview.get(self.client.surf_overview),
+            )
+        return map_spots(spots, overview, surf)
+
+    async def _read_places(self) -> dict[str, Any]:
+        first = await self.client.sea_places(0, PLACES_PAGE)
+        if not isinstance(first, dict) or not isinstance(first.get("places"), list):
+            raise VigieError("Unreadable answer: not an answer of /v1/sea/places")
+        count = first["count"] if isinstance(first.get("count"), int) else len(first["places"])
+        places = list(first["places"])
+        # The pages in turn, never past MAX_PLACES nor past a page that brings nothing (an instance that ignores `offset`).
+        while len(places) < min(count, MAX_PLACES):
+            more = _list_of(await self.client.sea_places(len(places), PLACES_PAGE), "places")
+            if not more:
+                break
+            places.extend(more)
+        seen: set[str] = set()
+        kept = []
+        for place in places[:MAX_PLACES]:
+            item = map_place(place)
+            if item is not None and item[0] not in seen:
+                seen.add(item[0])
+                kept.append(item)
+        return {**{key: first.get(key) for key in _PLACES_KEEP}, "fields": list(PLACE_FIELDS), "places": kept}
+
+    async def async_places(self) -> dict[str, Any] | None:
+        """The places of the French coast for the Map page, read once a day by pages; ``None`` when the instance has none
+        (older than ``/v1/sea/places``) or could not give them yet."""
+        async with self._places_lock:
+            answer = await self._places.get(self._read_places)
+        return answer if isinstance(answer, dict) else None
 
     async def async_mountain(self, lat: float, lon: float, base_m: int | None, top_m: int) -> dict[str, Any]:
         """A station of the Mountain page: the weather at its top and at its base (``None``: at the altitude of the model's cell),

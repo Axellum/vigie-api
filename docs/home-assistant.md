@@ -269,11 +269,12 @@ danger of the department (`/v1/forest-fire`, Météo-France, June to September).
 spot (`/v1/activities/{spot_id}`, read only when a card asks for a spot within 60 km, and kept 30 minutes) go to the dashboard
 card, not to entities: they are too large for the attributes of a state.
 
-**For the card**, the integration answers five commands on Home Assistant's own WebSocket: `vigie/card/entries` and
+**For the card**, the integration answers ten commands on Home Assistant's own WebSocket: `vigie/card/entries` and
 `vigie/card/spots` (for the card's editor), `vigie/card/data` (what the card shows for one entry, with the verdicts of
-`spot`, an identifier or `auto` for the nearest spot within 20 km), `vigie/card/beach` (a beach of the Sea page: `spot`, one
-of the spots within 60 km) and `vigie/card/mountain` (a station of the Mountain page: `lat`, `lon`, `top_m` and the optional
-`base_m`). The card never calls the instance itself.
+`spot`, an identifier or `auto` for the nearest spot within 20 km), `vigie/card/beach` (a beach of the Sea page: `spot`, any
+spot of the instance), `vigie/card/mountain` (a station of the Mountain page: `lat`, `lon`, `top_m` and the optional
+`base_m`), `vigie/card/map` and `vigie/card/places` (the Map page), and `vigie/card/favorites`, `vigie/card/favorites/set`
+and `vigie/card/favorites/subscribe` (the beaches kept for the Sea page). The card never calls the instance itself.
 
 **A station of the Mountain page** is read only when a card asks for it: three requests to the instance, the weather at its top
 and at its base (`/v1/point?elevation=`, without the sea) and its avalanche bulletin (`/v1/avalanches`), kept 10 minutes and
@@ -281,11 +282,24 @@ shared by every screen; at most 6 stations are kept. The answers are trimmed to 
 `elevation` answers at the altitude of its forecast cell: the integration then says so (`elevation_ignored`) rather than draw the
 same weather as the top and the base.
 
-**A beach of the Sea page** (a spot within 60 km, ticked in the editor, or the one of `spot` when none is) is read only when a
-card shows the Sea page: its forecast hour by hour (`/v1/surf/spots/{spot_id}?days=2`), the water at its cell (`/v1/point`
+**A beach of the Sea page** (a spot ticked in the editor or kept with a star on the Map page, or the one of `spot` when none
+is) is read only when a card shows the Sea page: its forecast hour by hour (`/v1/surf/spots/{spot_id}?days=2`), the water at its cell (`/v1/point`
 with the sea), the monitored bathing sites within 2 km (`/v1/sea/places`, France: the class of their water over four years)
 and its verdicts (`/v1/activities/{spot_id}`), kept 30 minutes (the bathing sites a day) and shared by every screen; at most 6
 beaches are kept. The answers are trimmed to what the page draws.
+
+**The Map page** ([ADR 0048](decisions/0048-home-assistant-card-map-page.md)) is read only when a card opens it: every spot of
+the instance with the verdict of each activity, the best of the daylight hours of the next 24 as on the website's pins
+(`/v1/activities/overview`), and the swell, the wind and the tide of the hour under way (`/v1/surf/overview`), kept 30 minutes;
+and the places of the French coast, ports, slipways, anchorages, dive and bathing sites (`/v1/sea/places`, the whole
+catalogue by pages of 500, some 4,000 places in 9 requests), kept a day. Both are shared by every screen. The map itself is
+drawn by MapLibre GL JS 6.14 (BSD 3-Clause), which the integration serves beside the card (`/local/vigie/maplibre/`, with
+compressed copies, or `/vigie/maplibre/`): no CDN, and the other pages never load it.
+
+**The beaches kept for the Sea page** belong to the entry, in Home Assistant's storage (`.storage/vigie.favorites`), not to a
+dashboard: a star on the phone shows on the tablet at once (`vigie/card/favorites/subscribe`), and it needs neither the rights
+of an administrator nor a dashboard saved again. At most 6, each a spot of the instance, near the place or not. Until some are
+kept, the card shows the beaches of its configuration (`beaches`); removing the entry removes its list.
 
 ### For the cards written for Météo-France's integration (two sensors)
 

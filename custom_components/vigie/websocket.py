@@ -8,12 +8,19 @@ card's demand, and kept for 30 minutes.
 - ``vigie/card/data``: what the card shows for one entry (``entry_id``; the first entry with the option when it is left out),
   with the verdicts of ``spot`` (an identifier, or ``auto`` for the nearest spot within ``AUTO_SPOT_KM``).
 - ``vigie/card/spots``: the spots near the place of an entry, for the card's editor.
-- ``vigie/card/beach``: a beach of the Sea page (``spot``, one of the spots near the place): its forecast hour by hour, its
-  verdicts, the water at its cell and its monitored bathing site, read when the card asks and kept for 30 minutes (the
-  bathing site, a class over four years, for a day).
+- ``vigie/card/beach``: a beach of the Sea page (``spot``, any spot of the instance: one near the place, or one kept with a star
+  on the Map page, far from it): its forecast hour by hour, its verdicts, the water at its cell and its monitored bathing
+  site, read when the card asks and kept for 30 minutes (the bathing site, a class over four years, for a day).
 - ``vigie/card/mountain``: a station of the Mountain page (``lat``, ``lon``, ``top_m``, and ``base_m``, the altitude of the model's
   cell when it is left out): the weather at its top and at its base, and its avalanche bulletin, read when the card asks and
   kept for 10 minutes.
+- ``vigie/card/map``: every spot of the Map page, with the verdict of each activity and the figures of its hour, kept for 30
+  minutes (ADR 0048).
+- ``vigie/card/places``: the places of the French coast (ports, slipways, anchorages, dive and bathing sites) for the Map
+  page, read once a day; ``null`` from an instance that has none.
+- ``vigie/card/favorites``: the beaches kept for the Sea page of an entry (``favorites.py``), ``null`` until some are kept;
+  ``vigie/card/favorites/set`` keeps a new list (``spots``, at most ``MAX_BEACHES`` spots of the instance), and
+  ``vigie/card/favorites/subscribe`` sends the list at once, then each time it changes, so every open card follows a star.
 """
 
 from __future__ import annotations
@@ -24,9 +31,19 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
-from .const import CONF_WEATHER_AND_CARD, DEFAULT_WEATHER_AND_CARD, DOMAIN, MAX_ELEVATION_M, MIN_ELEVATION_M
+from .const import (
+    CONF_WEATHER_AND_CARD,
+    DEFAULT_WEATHER_AND_CARD,
+    DOMAIN,
+    MAX_BEACHES,
+    MAX_ELEVATION_M,
+    MIN_ELEVATION_M,
+    SIGNAL_FAVORITES,
+)
 from .coordinator import VigieConfigEntry
+from .favorites import favorites_of
 
 # "auto": the nearest spot, only when it is this close to the place (a spot farther away is not "the sea of the place").
 AUTO_SPOT_KM = 20.0
@@ -40,6 +57,11 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_spots)
     websocket_api.async_register_command(hass, ws_beach)
     websocket_api.async_register_command(hass, ws_mountain)
+    websocket_api.async_register_command(hass, ws_map)
+    websocket_api.async_register_command(hass, ws_places)
+    websocket_api.async_register_command(hass, ws_favorites)
+    websocket_api.async_register_command(hass, ws_set_favorites)
+    websocket_api.async_register_command(hass, ws_subscribe_favorites)
 
 
 def _loaded(hass: HomeAssistant) -> list[VigieConfigEntry]:
@@ -81,14 +103,14 @@ async def ws_spots(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
 @websocket_api.websocket_command({vol.Required("type"): "vigie/card/beach", vol.Optional("entry_id"): str, vol.Required("spot"): str})
 @websocket_api.async_response
 async def ws_beach(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
-    """A beach of the Sea page, read through the entry (its instance, its cache); ``not_found`` for a spot not near the place."""
+    """A beach of the Sea page, read through the entry (its instance, its cache); ``not_found`` for a spot the instance does not have."""
     entry = _entry(hass, msg.get("entry_id"))
     if entry is None or not _with_weather(entry):
         connection.send_error(msg["id"], "not_found", "No Vigie entry with the option Weather and card")
         return
     beach = await entry.runtime_data.weather.async_beach(msg["spot"])  # type: ignore[union-attr]
     if beach is None:
-        connection.send_error(msg["id"], "not_found", "No such spot near the place of the entry")
+        connection.send_error(msg["id"], "not_found", "No such spot on the instance of the entry")
         return
     connection.send_result(msg["id"], {"language": hass.config.language, **beach})
 
@@ -116,6 +138,94 @@ async def ws_mountain(hass: HomeAssistant, connection: websocket_api.ActiveConne
     weather = entry.runtime_data.weather
     station = await weather.async_mountain(msg["lat"], msg["lon"], msg.get("base_m"), msg["top_m"])  # type: ignore[union-attr]
     connection.send_result(msg["id"], {"language": hass.config.language, **station})
+
+
+NO_WEATHER = "No Vigie entry with the option Weather and card"
+
+
+@websocket_api.websocket_command({vol.Required("type"): "vigie/card/map", vol.Optional("entry_id"): str})
+@websocket_api.async_response
+async def ws_map(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Every spot of the Map page, read through the entry (its instance, its cache)."""
+    entry = _entry(hass, msg.get("entry_id"))
+    if entry is None or not _with_weather(entry):
+        connection.send_error(msg["id"], "not_found", NO_WEATHER)
+        return
+    answer = await entry.runtime_data.weather.async_map()  # type: ignore[union-attr]
+    connection.send_result(msg["id"], {"language": hass.config.language, **answer})
+
+
+@websocket_api.websocket_command({vol.Required("type"): "vigie/card/places", vol.Optional("entry_id"): str})
+@websocket_api.async_response
+async def ws_places(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """The places of the French coast for the Map page, read through the entry; ``null`` when the instance has none."""
+    entry = _entry(hass, msg.get("entry_id"))
+    if entry is None or not _with_weather(entry):
+        connection.send_error(msg["id"], "not_found", NO_WEATHER)
+        return
+    connection.send_result(msg["id"], await entry.runtime_data.weather.async_places())  # type: ignore[union-attr]
+
+
+@websocket_api.websocket_command({vol.Required("type"): "vigie/card/favorites", vol.Optional("entry_id"): str})
+@websocket_api.async_response
+async def ws_favorites(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """The beaches kept for the Sea page of the entry; ``null`` until some are kept."""
+    entry = _entry(hass, msg.get("entry_id"))
+    if entry is None or not _with_weather(entry):
+        connection.send_error(msg["id"], "not_found", NO_WEATHER)
+        return
+    connection.send_result(msg["id"], {"entry_id": entry.entry_id, "spots": await favorites_of(hass).async_get(entry.entry_id)})
+
+
+def _unique(spots: list[str]) -> list[str]:
+    if len(set(spots)) != len(spots):
+        raise vol.Invalid("a spot is given twice")
+    return spots
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "vigie/card/favorites/set",
+        vol.Optional("entry_id"): str,
+        vol.Required("spots"): vol.All([vol.All(str, vol.Length(min=1, max=200))], vol.Length(max=MAX_BEACHES), _unique),
+    }
+)
+@websocket_api.async_response
+async def ws_set_favorites(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Keep these beaches for the Sea page of the entry, in this order; each must be a spot of its instance."""
+    entry = _entry(hass, msg.get("entry_id"))
+    if entry is None or not _with_weather(entry):
+        connection.send_error(msg["id"], "not_found", NO_WEATHER)
+        return
+    weather = entry.runtime_data.weather
+    for spot in msg["spots"]:
+        if await weather.async_spot(spot) is None:  # type: ignore[union-attr]
+            connection.send_error(msg["id"], "not_found", f"No spot {spot} on the instance of the entry, or no list of spots yet")
+            return
+    spots = await favorites_of(hass).async_set(entry.entry_id, msg["spots"])
+    connection.send_result(msg["id"], {"entry_id": entry.entry_id, "spots": spots})
+
+
+@websocket_api.websocket_command({vol.Required("type"): "vigie/card/favorites/subscribe", vol.Optional("entry_id"): str})
+@websocket_api.async_response
+async def ws_subscribe_favorites(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """The beaches kept for the entry at once, then each time they change (``{"spots": [...]}`` or ``{"spots": null}``)."""
+    entry = _entry(hass, msg.get("entry_id"))
+    if entry is None or not _with_weather(entry):
+        connection.send_error(msg["id"], "not_found", NO_WEATHER)
+        return
+    entry_id = entry.entry_id
+    # Read before subscribing, and nothing awaited after: a star that lands meanwhile comes after this first list.
+    current = await favorites_of(hass).async_get(entry_id)
+
+    @callback
+    def forward(changed: str, spots: list[str]) -> None:
+        if changed == entry_id:
+            connection.send_message(websocket_api.event_message(msg["id"], {"spots": spots}))
+
+    connection.subscriptions[msg["id"]] = async_dispatcher_connect(hass, SIGNAL_FAVORITES, forward)
+    connection.send_result(msg["id"])
+    connection.send_message(websocket_api.event_message(msg["id"], {"spots": current}))
 
 
 def _quakes(entry: VigieConfigEntry) -> dict[str, Any] | None:

@@ -177,7 +177,13 @@ REPLAY_ROUTES = {
     "/v1/earthquakes": "earthquakes_biarritz_2026-11-22.json",
     "/v1/forest-fire": "forestfire_biarritz_2026-11-22.json",
     "/v1/avalanches": "avalanches_chamonix_2026-11-27.json",
+    # The Map page of the card: every spot's verdicts and hour.
+    "/v1/activities/overview": "activitiesoverview_2026-11-28.json",
+    "/v1/surf/overview": "surfoverview_2026-11-28.json",
 }
+# The catalogue of the places of the coast (``GET /v1/sea/places`` without ``near_lat``, the Map page): the places of a box
+# around Biarritz; with ``near_lat`` the route answers the bathing sites near the beach (``REPLAY_ROUTES``).
+REPLAY_CATALOGUE = "seaplaces_catalogue_basque_2026-11-28.json"
 REPLAY_VIGILANCES = "vigilances_biarritz_2026-11-22.json"
 # A route read apart from the others: moved from its own time of reading (the key that holds it), not from the point's.
 # The bulletin writes its times as texts (``2026-11-27T17:00:00Z``): they are moved, from its own read, as texts.
@@ -188,6 +194,9 @@ REPLAY_OWN_READ = {
     # The beach of the Sea page: its forecast and its verdicts, read together, keep their tides in step.
     "/v1/activities/biarritz-plage-des-corsaires": "generated_utc",
     "/v1/surf/spots/biarritz-plage-des-corsaires": "generated_utc",
+    # The overviews of the Map page, read the next day.
+    "/v1/activities/overview": "generated_utc",
+    "/v1/surf/overview": "generated_utc",
 }
 # The point a station of the Mountain page asks at an altitude (``GET /v1/point?elevation=``).
 REPLAY_MOUNTAIN = "point_chamonix_2026-11-22.json"
@@ -258,6 +267,7 @@ class Replay:
         self._answers = {route: read(name) for route, name in REPLAY_ROUTES.items()}
         self._vigilances = read(REPLAY_VIGILANCES)
         self._mountain = read(REPLAY_MOUNTAIN)
+        self._catalogue = read(REPLAY_CATALOGUE)
         point = self._answers["/v1/point"]
         self.read_utc: int = point["server_utc"]
         self._offset: int = point.get("utc_offset_s") or 0
@@ -268,10 +278,15 @@ class Replay:
         local = lambda t: datetime.datetime.fromtimestamp(t + self._offset, tz=datetime.timezone.utc).date()  # noqa: E731
         return seconds, (local(now) - local(read_utc)).days
 
-    def answer(self, route: str, now: Optional[int] = None, elevation_m: Optional[int] = None) -> Optional[Any]:
+    def answer(
+        self, route: str, now: Optional[int] = None, elevation_m: Optional[int] = None, catalogue: bool = False
+    ) -> Optional[Any]:
         """The recorded answer of ``route`` moved to ``now``; None when nothing was recorded for it. The point asked at an
-        altitude (``elevation_m``) is the one of the Mountain page (``at_altitude``)."""
+        altitude (``elevation_m``) is the one of the Mountain page (``at_altitude``); the places asked without a point
+        (``catalogue``), the catalogue of the Map page, served whatever the page asked (it holds them all)."""
         now = int(time.time()) if now is None else now
+        if route == "/v1/sea/places" and catalogue:
+            return copy.deepcopy(self._catalogue)
         if route == "/v1/point" and elevation_m is not None:
             return at_altitude(_moved(copy.deepcopy(self._mountain), *self._shift(now, self._mountain["server_utc"])), elevation_m)
         if route not in self._answers:
@@ -318,7 +333,8 @@ def make_handler(scenario: Scenario, replay: Optional[Replay] = None) -> type[Ba
                         return self._send(200, replay.vigilances(scenario))
                     return self._send(200, vigilances(scenario, lat, lon, float(query.get("river_radius_km", 5.0))))
                 elevation = int(query["elevation"]) if "elevation" in query else None
-                if method == "GET" and replay is not None and (recorded := replay.answer(url.path, elevation_m=elevation)) is not None:
+                catalogue = "near_lat" not in query
+                if method == "GET" and replay is not None and (recorded := replay.answer(url.path, elevation_m=elevation, catalogue=catalogue)) is not None:
                     return self._send(200, recorded)
                 if method == "GET" and url.path == "/fake":
                     return self._send(200, {"warnings": [{key: w[key] for key in ("id", "level", "phenomenon", "event")} for w in scenario.warnings()]})
