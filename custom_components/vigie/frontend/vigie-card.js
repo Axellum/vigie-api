@@ -3,14 +3,15 @@
 // where it can, ADR 0044), and it asks its data of Home Assistant (WebSocket command `vigie/card/data`), never of the instance; the
 // last answer is kept, so the card draws at once while it asks again. A value the data does not give is not drawn:
 // no empty box, no guess. The Mountain page asks for the stations chosen in the editor the same way (`vigie/card/mountain`).
-// The Sea page asks for its beaches the same way (`vigie/card/beach`).
+// The Sea page asks for its beaches the same way (`vigie/card/beach`). The Map page asks for the spots and the places of the coast
+// (`vigie/card/map`, `vigie/card/places`), and its star keeps a beach for the Sea page of every screen (`vigie/card/favorites`).
 // Colours: the "Sombre uni" and "Clair" themes of the Vigie family, chosen by the dark mode of Home
 // Assistant (the background of the card stays the dashboard's own). Weather icons: the icon set of the Vigie family (ADR 0045), in
 // the style chosen in the editor (`icon_style`), coloured by the same themes.
 
 const TAG = 'vigie-card';
 const EDITOR_TAG = 'vigie-card-editor';
-const PAGE_IDS = ['home', 'details', 'alerts', 'sea', 'mountain', 'normal'];
+const PAGE_IDS = ['home', 'details', 'alerts', 'sea', 'map', 'mountain', 'normal'];
 const REFRESH_MS = 5 * 60 * 1000; // the integration reads the instance every 10 minutes
 const IDLE_RETURN_MS = 60 * 1000;
 const CYCLE_MS = 20 * 1000;
@@ -69,6 +70,13 @@ const VERDICT_COLOUR = { good: 'vert', possible: 'jaune', poor: 'rouge' };
 const TEXT = {
   fr: {
     page_home: 'Accueil', page_details: 'Détails', page_alerts: 'Alertes', page_sea: 'Mer', page_mountain: 'Montagne', page_normal: 'Normal ?',
+    page_map: 'Carte', ma_surf: 'Surf', ma_kite: 'Kite', ma_boat: 'Bateau', ma_shore_fishing: 'Pêche', mp_swell: 'houle', mp_wind: 'vent',
+    mp_rising: 'monte', mp_falling: 'descend', mp_stage_high: 'tiers haut', mp_stage_mid: 'mi-marée', mp_stage_low: 'tiers bas', mp_facing: 'tournée vers {d}°',
+    mp_keep: 'Garder', mp_kept: 'Gardée', mp_keep_help: 'Garder cette plage dans la page Mer, sur tous les écrans', mp_unkeep_help: 'Retirer cette plage de la page Mer',
+    mp_full: '6 plages au plus : retirez-en une pour garder celle-ci.', mp_keep_error: 'L’étoile n’a pas été enregistrée.', mp_open: 'Page Mer', mp_close: 'Fermer',
+    mp_no_verdict: 'non évalué', mp_near: 'près de {n}', mp_place_note: 'Un lieu de la côte, sans prévision.', pl_port: 'Port', pl_slipway: 'Cale de mise à l’eau',
+    pl_anchorage: 'Mouillage', pl_dive: 'Site de plongée', pl_bathing: 'Site de baignade', mp_loading: 'Chargement de la carte…',
+    mp_no_gl: 'Carte indisponible sur cet appareil', mp_error: 'La carte ne s’est pas chargée.',
     station_n: 'Station {n}', mtn_now: 'en ce moment', mtn_from: 'dès {t}', mtn_snow_down: 'Neige {w} jusqu’au pied',
     mtn_snow_top: 'Neige {w} en haut, pluie en bas', mtn_rain: 'Pluie {w} jusqu’en haut', mtn_snow: 'Neige {w}', mtn_rain_only: 'Pluie {w}',
     mtn_dry: 'Sec pour 24&nbsp;h', mtn_fine: 'grand beau {d}', iso0: 'Iso 0', iso_up: 'jusqu’à {v} {d}', iso_down: 'descend à {v} {d}',
@@ -164,6 +172,13 @@ const TEXT = {
   },
   en: {
     page_home: 'Home', page_details: 'Details', page_alerts: 'Alerts', page_sea: 'Sea', page_mountain: 'Mountain', page_normal: 'Normal?',
+    page_map: 'Map', ma_surf: 'Surf', ma_kite: 'Kite', ma_boat: 'Boat', ma_shore_fishing: 'Fishing', mp_swell: 'swell', mp_wind: 'wind',
+    mp_rising: 'rising', mp_falling: 'falling', mp_stage_high: 'upper third', mp_stage_mid: 'mid-tide', mp_stage_low: 'lower third', mp_facing: 'facing {d}°',
+    mp_keep: 'Keep', mp_kept: 'Kept', mp_keep_help: 'Keep this beach on the Sea page, on every screen', mp_unkeep_help: 'Remove this beach from the Sea page',
+    mp_full: 'Six beaches at most: remove one to keep this one.', mp_keep_error: 'The star was not saved.', mp_open: 'Sea page', mp_close: 'Close',
+    mp_no_verdict: 'not rated', mp_near: 'near {n}', mp_place_note: 'A place of the coast, without a forecast.', pl_port: 'Port', pl_slipway: 'Slipway',
+    pl_anchorage: 'Anchorage', pl_dive: 'Dive site', pl_bathing: 'Bathing site', mp_loading: 'Loading the map…',
+    mp_no_gl: 'Map not available on this device', mp_error: 'The map did not load.',
     station_n: 'Station {n}', mtn_now: 'now', mtn_from: 'from {t}', mtn_snow_down: 'Snow {w}, down to the base',
     mtn_snow_top: 'Snow {w} up high, rain at the base', mtn_rain: 'Rain {w}, up to the top', mtn_snow: 'Snow {w}', mtn_rain_only: 'Rain {w}',
     mtn_dry: 'Dry for 24&nbsp;h', mtn_fine: 'sunny {d}', iso0: 'Freezing level', iso_up: 'up to {v} {d}', iso_down: 'down to {v} {d}',
@@ -327,6 +342,7 @@ const EDITOR_TEXT = {
     start_page: 'Page d’ouverture', idle: 'Écran qu’on ne touche pas', idle_return: 'Retour à la page d’ouverture après une minute', idle_cycle: 'Faire défiler les pages toutes les 20 secondes',
     idle_none: 'Rester sur la page choisie', beaches: 'Plages de la page Mer',
     beaches_help: 'Jusqu’à 6 spots à moins de 60 km, chacun dans un onglet de la page Mer ; sans plage cochée, la page Mer montre le spot ci-dessous.',
+    beaches_kept_help: 'Jusqu’à 6 plages, chacune dans un onglet de la page Mer : les spots à moins de 60 km, et ceux gardés d’une étoile sur la page Carte. La liste vaut pour tous les écrans de ce lieu et s’enregistre tout de suite ; sans plage, la page Mer montre le spot ci-dessous.',
     spot: 'Sans plage cochée : spot de la page Mer', spot_auto: 'Le plus proche (moins de 20 km)', spot_none: 'Aucun',
     weather_entity: 'Hors de France : entité météo de la maison', weather_entity_help: 'Pour l’accueil d’un lieu hors de France ; sans elle, l’accueil montre les alertes, les séismes et la marée.',
     icon_style: 'Style des icônes météo', icon_style_help: 'Les icônes de l’écran Meridien, en quatre styles ; leurs couleurs suivent le thème clair ou sombre.',
@@ -338,6 +354,7 @@ const EDITOR_TEXT = {
     start_page: 'Opening page', idle: 'Screen nobody touches', idle_return: 'Back to the opening page after a minute', idle_cycle: 'Go through the pages every 20 seconds',
     idle_none: 'Stay on the page chosen', beaches: 'Beaches of the Sea page',
     beaches_help: 'Up to 6 spots within 60 km, each in a tab of the Sea page; with no beach ticked, the Sea page shows the spot below.',
+    beaches_kept_help: 'Up to 6 beaches, each in a tab of the Sea page: the spots within 60 km, and those kept with a star on the Map page. The list is the same on every screen of this place and is saved at once; with no beach, the Sea page shows the spot below.',
     spot: 'With no beach ticked: spot of the Sea page', spot_auto: 'The nearest (within 20 km)', spot_none: 'None',
     weather_entity: 'Outside France: weather entity of the home', weather_entity_help: 'For the home page of a place outside France; without it the home page shows the warnings, the earthquakes and the tide.',
     icon_style: 'Style of the weather icons', icon_style_help: 'The icons of the Meridien screen, in four styles; their colours follow the light or dark theme.',
@@ -566,12 +583,14 @@ const GLYPHS = {
   secheresse: '<path d="M12 3 C12 3 5 11 5 15 a7 7 0 0 0 14 0 C19 11 12 3 12 3 Z"/><line x1="4" y1="4" x2="20" y2="20"/>',
   fleur: '<circle cx="12" cy="7" r="3"/><circle cx="17" cy="12" r="3"/><circle cx="12" cy="17" r="3"/><circle cx="7" cy="12" r="3"/><circle cx="12" cy="12" r="1.4"/>',
   brume: '<line x1="4" y1="9" x2="20" y2="9"/><line x1="3" y1="13" x2="21" y2="13"/><line x1="5" y1="17" x2="19" y2="17"/>',
+  carte: '<path d="M3 6.5 L9 4 L15 6.5 L21 4 V17.5 L15 20 L9 17.5 L3 20 Z"/><line x1="9" y1="4" x2="9" y2="17.5"/><line x1="15" y1="6.5" x2="15" y2="20"/>',
+  croix: '<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>',
 };
 const glyph = (name, s, c, sw = 2) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" style="flex:none" aria-hidden="true">${GLYPHS[name] || ''}</svg>`;
 // Wind arrow: it points where the wind GOES.
 const arrow = (s, fromDeg, c) => `<svg width="${s}" height="${s}" viewBox="-1.1 -1.1 2.2 2.2" style="flex:none" aria-hidden="true"><g transform="rotate(${(fromDeg + 180) % 360})"><path d="M0 -1 L0.62 0.85 L0 0.42 L-0.62 0.85 Z" fill="${c}"/></g></svg>`;
 const ACTIVITY_GLYPH = { surf: 'planche', kite: 'cerfVolant', boat: 'voilier', shore_fishing: 'seau' };
-const PAGE_GLYPH = { home: 'accueil', details: 'horloge', alerts: 'danger', sea: 'vagues', mountain: 'montagne', normal: 'jauge' };
+const PAGE_GLYPH = { home: 'accueil', details: 'horloge', alerts: 'danger', sea: 'vagues', map: 'carte', mountain: 'montagne', normal: 'jauge' };
 
 // The providers named in the credits the data give, in the order of the list: the pages say who the values are from.
 const PROVIDERS = ['Météo-France', 'Vigicrues', 'VigiEau', 'MeteoAlarm', 'Open-Meteo', 'Copernicus', 'SLF', 'Avalanche.report', 'EOT20', 'OpenStreetMap', 'USGS', 'EMSC', 'NOAA', 'ECMWF', 'DWD'];
@@ -1545,14 +1564,22 @@ function frieze(c, groups, w) {
 
 // ------------------------------------------------------------------------------------------------------------------ the sea
 // The Sea page (sketch "Mer · sous-menu des plages" of 2026-11-27, without the flag of the beach, which no open source gives):
-// the beaches chosen in the editor (`beaches`, spots near the place), or without them the spot of `spot` (the nearest within
+// the beaches kept (a star of the Map page or the editor, `vigie/card/favorites`; before any, the `beaches` of the configuration),
+// and the one a sheet of the Map page opened without keeping it, or without them the spot of `spot` (the nearest within
 // 20 km by default), each asked with `vigie/card/beach`: its name, the tide and the water, six tiles (waves, swell, wind, the
 // baïnes, the class of the water, the lifeguards or the sun), the verdicts of the activities hour by hour, the tide of 24 hours
 // and the next hours by 3 hours. A tile without its value is not drawn. Without a beach, while the spot of `spot` is asked, or
 // with an integration that does not answer `vigie/card/beach` (the online demo): the page of before, the tide of the place, its
 // sea and the verdicts of its spot.
 const MAX_BEACHES = 6;
-const beachesOf = (config) => [...new Set((Array.isArray(config?.beaches) ? config.beaches : []).filter((b) => typeof b === 'string' && b))].slice(0, MAX_BEACHES);
+// The beaches kept: the list of the entry once one was written (`_kept`, followed by the card), else the configuration's.
+const keptOf = (config) => [...new Set((Array.isArray(config?._kept) ? config._kept : Array.isArray(config?.beaches) ? config.beaches : [])
+  .filter((b) => typeof b === 'string' && b))].slice(0, MAX_BEACHES);
+// The tabs of the Sea page: the beaches kept, and last the spot a sheet of the Map page opened without keeping it (`_temp`).
+const beachesOf = (config) => {
+  const kept = keptOf(config), temp = config?._temp;
+  return typeof temp === 'string' && temp && !kept.includes(temp) ? [...kept, temp] : kept;
+};
 // The beaches of the page, with the names the card knows of them (the spots of the editor's list, or the spot of the data).
 function beachList(config, data, spots) {
   const ids = beachesOf(config), known = Array.isArray(spots) ? spots : [];
@@ -1607,7 +1634,7 @@ const extremesOf = (B) => (Array.isArray(B?.activities?.tide?.extremes) ? B.acti
   .filter((e) => e && num(e.time_utc) && (e.kind === 'high' || e.kind === 'low')).sort((a, b) => a.time_utc - b.time_utc);
 
 // The name, the tide (rising or falling, the next high or low water, the coefficient where there is one) and the water.
-function beachHead(c, B, name, H0) {
+function beachHead(c, B, name, H0, id = null) {
   const next = extremesOf(B).find((e) => e.time_utc > c.now);
   const trend = H0?.tide?.trend === 'rising' || H0?.tide?.trend === 'falling' ? H0.tide.trend : next ? (next.kind === 'high' ? 'rising' : 'falling') : null;
   const parts = [];
@@ -1617,7 +1644,8 @@ function beachHead(c, B, name, H0) {
   if (coefs.length) parts.push(c.t('coef', { c: [...coefs].sort((a, b) => Math.abs(a.brest_high_water_utc - c.now) - Math.abs(b.brest_high_water_utc - c.now))[0].value }));
   const sst = B?.water?.sea_surface_temperature_c;
   const water = num(sst) ? `<div class="beau"><small>${c.t('water')}</small><b>${c.fmt(sst)}°</b></div>` : '';
-  return `<div class="bh"><div class="bht"><b>${esc(name)}</b>${parts.length ? `<span>${parts.join(' · ')}</span>` : ''}</div>${water}</div>`;
+  const keep = c.keptReady && id ? keepButton(c, id, true) : ''; // the star of the Map page, kept or not
+  return `<div class="bh"><div class="bht"><b>${esc(name)}</b>${parts.length ? `<span>${parts.join(' · ')}</span>` : ''}</div>${water}${keep}</div>`;
 }
 
 // The six tiles: what the sea, the swell and the wind do in the hour under way, then the baïnes, the class of the water and the
@@ -1770,7 +1798,7 @@ function pageSea(c) {
   const credit = foot(c, names);
   c.beachTilesAt = (level) => beachTiles(c, B, H0, level, tilePad);  // drawn again by the card when a word of the tiles is cut
   const tiles = beachTiles(c, B, H0, c.tilesLevel || 0, tilePad);
-  const left = (w) => beachHead(c, B, name, H0) + tiles + beachActivities(c, B, w, rowH);
+  const left = (w) => beachHead(c, B, name, H0, list[i]?.id) + tiles + beachActivities(c, B, w, rowH);
   const right = (w) => beachTide(c, B, w, tideH) + beachTable(c, B, cellH);
   if (c.wide) {
     const half = Math.floor((c.W - 28) / 2);
@@ -2205,10 +2233,11 @@ function availablePages(c, wanted) {
     sea: !!(d?.tides || (d?.spot && d?.activities)) || beachesOf(c.config).length > 0,
     mountain: stationsOf(c.config).length > 0,
     normal: c.normals?.status === 'available',
+    map: c.mapAvailable !== false, // not with an integration that does not answer `vigie/card/map`
   };
   return wanted.filter((p) => has[p]);
 }
-const PAGE_RENDER = { home: pageHome, details: pageDetails, alerts: pageAlerts, sea: pageSea, mountain: pageMountain, normal: pageNormal };
+const PAGE_RENDER = { home: pageHome, details: pageDetails, alerts: pageAlerts, sea: pageSea, map: pageMap, mountain: pageMountain, normal: pageNormal };
 
 // ------------------------------------------------------------------------------------------------------------------- style
 // The home and Details pages (`.pile`) set their own line height: Home Assistant gives its text 1.6, which made their blocks
@@ -2415,7 +2444,195 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cu
 .btab .l{font-size:11px;font-weight:700;color:var(--vc-t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .btab .l small{font-size:10px;font-weight:500;color:var(--vc-t3)}
 .btab .c{border-radius:5px;display:flex;align-items:center;justify-content:center;gap:2px;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;min-width:0}
+.carte-page{display:flex;flex-direction:column;gap:10px;height:100%;min-height:0}
+.carte-page .pied{margin-top:0}
+.macts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;flex:none}
+.mact{display:flex;align-items:center;justify-content:center;gap:5px;border:1.5px solid var(--vc-filet);border-radius:999px;padding:6px 4px;font-size:13px;font-weight:700;color:var(--vc-t2);white-space:nowrap;overflow:hidden;min-width:0}
+.mact span{overflow:hidden;text-overflow:ellipsis}
+.mact.on{background:var(--vc-accent);border-color:var(--vc-accent);color:var(--vc-sur)}
+.carte-zone{position:relative;flex:1 1 auto;min-height:200px;border-radius:14px;overflow:hidden;border:1.5px solid var(--vc-filet)}
+.carte-box,.carte-box .carte-gl{position:absolute;inset:0}.carte-box.off{visibility:hidden}
+.carte-pins{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2}
+.vigie-pin{position:absolute;pointer-events:auto;z-index:2;display:flex;align-items:center;gap:5px;height:26px;max-width:190px;padding:0 9px 0 7px;border:1px solid var(--s-line);border-radius:13px;box-sizing:border-box;background:color-mix(in srgb,var(--s-surface) 94%,transparent);color:var(--s-ink);font-size:13px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.vigie-pin.selected{border-color:var(--s-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--s-accent) 35%,transparent);z-index:3}
+.vigie-pin .pd{flex:none;width:10px;height:10px;border-radius:50%;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--s-ink) 30%,transparent)}
+.vigie-pin .pd.none{border:1px dashed var(--s-muted);box-shadow:none;box-sizing:border-box}
+.vigie-pin .pt{overflow:hidden;text-overflow:ellipsis}
+.vigie-pin svg.pi{flex:none;width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.vigie-pin .ptd{color:var(--s-accent)}
+.fav{position:absolute;pointer-events:none;z-index:4;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}
+.fiche{position:absolute;left:8px;right:8px;bottom:8px;z-index:5;max-width:440px;box-sizing:border-box;background:var(--vc-carte);border:1.5px solid var(--vc-filet);border-radius:14px;padding:12px 12px 10px;display:flex;flex-direction:column;gap:8px;box-shadow:0 6px 18px rgba(0,0,0,.35);line-height:normal;color:var(--vc-texte)}
+.fiche .fh{display:flex;align-items:flex-start;gap:8px}
+.fiche .fn{flex:1 1 auto;min-width:0}
+.fiche .fn b{display:block;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fiche .fn small{display:block;font-size:13px;color:var(--vc-t3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fiche .x{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--vc-filet);display:grid;place-items:center;flex:none}
+.fiche .fvds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.fiche .fvds span{display:flex;align-items:center;justify-content:center;gap:4px;border-radius:9px;padding:5px 2px;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;min-width:0}
+.fiche .fnow{font-size:13px;color:var(--vc-t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fiche .fnow b{color:var(--vc-texte)}
+.fiche .fw{display:inline-flex;align-items:center;gap:3px;vertical-align:-2px}
+.fiche .acts{display:flex;gap:8px}
+.fiche .acts button{display:flex;align-items:center;justify-content:center;gap:6px;border-radius:11px;padding:8px 12px;font-size:14px;font-weight:700;border:1.5px solid var(--vc-filet);white-space:nowrap}
+.fiche .acts button.go{flex:1 1 auto;background:var(--vc-accent);border-color:var(--vc-accent);color:var(--vc-sur)}
+.fiche .plein{font-size:12px;color:var(--vc-t2)}
+.keep[disabled],.bstar[disabled]{opacity:.45;cursor:default}
+.carte-msg{position:absolute;inset:0;z-index:4;display:grid;place-items:center;padding:16px;text-align:center;color:var(--vc-t3);font-size:14px;pointer-events:none}
+.carte-zone .maplibregl-ctrl-attrib{font-size:10px}
+.bstar{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--vc-filet);display:grid;place-items:center;flex:none}
 `;
+
+// ------------------------------------------------------------------------------------------------------------------ the map
+// The Map page (ADR 0048 of the API; sketch "Carte · fiche d'abord" of 2026-11-28): the spots of the instance on a map of the
+// coast, each coloured by the verdict of the activity chosen (the best of the daylight hours of the next 24, as on the pins of
+// the website's `/sea` page) with a figure of its hour beside it, and the places of the coast (bathing sites, ports, slipways,
+// anchorages, dive sites). A touch on a spot opens its sheet: its four verdicts, its hour, a star that keeps it among the
+// beaches of the Sea page (`vigie/card/favorites/set`: six at most, shared by every screen of the entry) and its Sea page. A
+// place that is not a spot has a sheet without them (no surf forecast there). MapLibre GL JS is served by the integration
+// beside the card and loaded only when the page opens; the background is OpenFreeMap's, in the website's two styles, with
+// the names in French where the tiles have them (vigie-web `src/lib/basemap.ts`).
+const MAPLIBRE_VERSION = '6.14.0'; // the integration's `frontend/maplibre/`, its digests checked by `tests_ha/test_map.py`
+// Where the card was loaded from (`/local/vigie/`, where the integration copies it with compressed copies of MapLibre, or
+// `/vigie/`): read from the stack of an error thrown while the file runs. A module has no `document.currentScript`, and
+// `import.meta` would make the file one that the tests' Node cannot run; `/vigie/` when the stack does not say.
+const CARD_HOME = (() => {
+  try { throw new Error('where'); } catch (err) {
+    const m = String(err?.stack || '').match(/(https?:\/\/[^\s'"()]*?\/)vigie-card\.js/);
+    return m ? m[1] : '/vigie/';
+  }
+})();
+const MAP_LIB = `${CARD_HOME}maplibre/maplibre-gl.mjs?v=${MAPLIBRE_VERSION}`;
+const MAP_CSS = `${CARD_HOME}maplibre/maplibre-gl.css?v=${MAPLIBRE_VERSION}`;
+let mapLib = null;
+const loadMapLib = () => (mapLib ||= import(MAP_LIB).catch((err) => { mapLib = null; throw err; }));
+// MapLibre 6 draws with WebGL 2: a screen without it keeps the other pages, and this one says that the map is not available.
+let webgl2 = null;
+function hasWebgl2() {
+  if (webgl2 !== null) return webgl2;
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2');
+    webgl2 = !!gl;
+    gl?.getExtension('WEBGL_lose_context')?.loseContext(); // the test does not keep a context of the few a page has
+  } catch (err) { webgl2 = false; }
+  return webgl2;
+}
+const MAP_STYLE_URL = { dark: 'https://tiles.openfreemap.org/styles/dark', light: 'https://tiles.openfreemap.org/styles/positron' };
+// The website's map: a spot in four steps of blue by its verdict (`--surf-q0` to `--surf-q3` of vigie-web `src/app.css`),
+// the bathing sites in teal, the pins on its surface colour.
+const MAP_COLOURS = {
+  dark: { ink: '#e2e9ed', muted: '#8b9ea9', line: '#22323c', surface: '#121e26', accent: '#72b4e2', q: ['#2a3b46', '#2f6185', '#4f97c9', '#9fd3f5'], bath: '#5fd0c4' },
+  light: { ink: '#12222c', muted: '#566873', line: '#d2dbe1', surface: '#f9fbfc', accent: '#1d5a85', q: ['#d5e0e7', '#9fc0d6', '#4f8fbd', '#1b5582'], bath: '#13857a' },
+};
+const MAP_BAND = { good: 3, possible: 2, poor: 0 };
+const MAP_ACTS = ['surf', 'kite', 'boat', 'shore_fishing'];
+const MAP_PINS = 12; // spots drawn with their figure at once, the best first; the others keep their dot
+const MAP_PLACES_MS = 6 * 3600 * 1000; // the integration reads the places once a day
+const MAP_LAYERS = ['spot-dot', 'bath-dot', 'place-dot'];
+const MAP_TIDE = {
+  rising: '<path d="M1.5 14c1.6-1.2 3-1.2 4.4 0s2.8 1.2 4.2 0 2.8-1.2 4.4 0"/><path d="M8 10.5V2.5M5 5.5l3-3 3 3"/>',
+  falling: '<path d="M1.5 14c1.6-1.2 3-1.2 4.4 0s2.8 1.2 4.2 0 2.8-1.2 4.4 0"/><path d="M8 2.5v8M5 7.5l3 3 3-3"/>',
+};
+const MAP_ARROW = '<path d="M8 13V3M4 7l4-4 4 4"/>';
+const MAP_LOCALE_FR = {
+  'CooperativeGesturesHandler.WindowsHelpText': 'Ctrl + molette pour zoomer',
+  'CooperativeGesturesHandler.MacHelpText': '⌘ + molette pour zoomer',
+  'CooperativeGesturesHandler.MobileHelpText': 'Deux doigts pour déplacer la carte',
+  'NavigationControl.ZoomIn': 'Zoomer', 'NavigationControl.ZoomOut': 'Dézoomer',
+  'AttributionControl.ToggleAttribution': 'Afficher les crédits', 'AttributionControl.MapFeedback': 'Signaler une erreur de la carte',
+};
+// The star of a kept beach: filled when it is kept.
+const star = (on, s, col, line) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" aria-hidden="true" style="flex:none"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z" fill="${on ? col : 'none'}" stroke="${on ? col : line}" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
+const mapAct = (c) => (MAP_ACTS.includes(c.mapAct) ? c.mapAct : 'surf');
+const mapBand = (s, act) => MAP_BAND[s?.verdicts?.[act]] ?? -1;
+
+// The figure of a pin, for the activity chosen: the swell and its period for the surf, the wind for the kite and the boat, the
+// stage of the tide for the fishing on foot (as the website's pins).
+function mapPinText(c, s, act) {
+  const n = s?.now || {};
+  if (act === 'surf') return num(n.swell_m) ? `${c.fmt(n.swell_m, 1)} m${num(n.period_s) ? ` · ${c.fmt(n.period_s)} s` : ''}` : null;
+  if (act === 'kite' || act === 'boat') return num(n.wind_kmh) ? `${c.fmt(n.wind_kmh)} km/h` : null;
+  return ['high', 'mid', 'low'].includes(n.tide_stage) ? c.t(`mp_stage_${n.tide_stage}`) : null;
+}
+
+// The places of `vigie/card/places` (short lists, in the order of its `fields`) as objects.
+function placesOf(answer) {
+  const f = Array.isArray(answer?.fields) ? answer.fields : [], list = Array.isArray(answer?.places) ? answer.places : [];
+  const [i, t, la, lo, n, ne, q] = ['id', 'type', 'lat', 'lon', 'name', 'near', 'quality'].map((k) => f.indexOf(k));
+  if (i < 0 || t < 0 || la < 0 || lo < 0) return [];
+  const text = (p, k) => (k >= 0 && typeof p[k] === 'string' && p[k] ? p[k] : null);
+  return list.filter((p) => Array.isArray(p) && typeof p[i] === 'string' && num(p[la]) && num(p[lo]))
+    .map((p) => ({ id: p[i], type: p[t], lat: p[la], lon: p[lo], name: text(p, n), near: text(p, ne), quality: text(p, q) }));
+}
+
+// The button of the star: with its words in a sheet, alone in the head of a beach of the Sea page. Disabled when six beaches are
+// kept already, with the reason in its title.
+function keepButton(c, id, alone = false) {
+  const P = c.P, kept = keptOf(c.config), on = kept.includes(id), full = !on && kept.length >= MAX_BEACHES;
+  const words = c.t(on ? 'mp_kept' : 'mp_keep'), why = full ? c.t('mp_full') : c.t(on ? 'mp_unkeep_help' : 'mp_keep_help');
+  return `<button class="${alone ? 'bstar' : 'keep'}${on ? ' on' : ''}" data-keep="${esc(id)}" aria-pressed="${on}" title="${esc(why)}"` +
+    `${alone ? ` aria-label="${esc(why)}"` : ''}${full ? ' disabled' : ''}>${star(on, alone ? 18 : 16, P.jaune, P.t2)}${alone ? '' : `<span>${words}</span>`}</button>`;
+}
+
+// The hour of a spot in its sheet: its time, the swell, the wind and the tide. `short`: without the words, when the line was
+// cut (a phone's card of 339 px).
+function mapNowLine(c, s, short = false) {
+  const P = c.P, n = s?.now || {}, parts = [];
+  if (num(n.time_utc)) parts.push(`<b>${c.hourOnly(n.time_utc)}</b>`);
+  if (num(n.swell_m)) parts.push(`${short ? '' : `${c.t('mp_swell')} `}${c.fmt(n.swell_m, 1)}&nbsp;m${num(n.period_s) ? ` · ${c.fmt(n.period_s)}&nbsp;s` : ''}`);
+  if (num(n.wind_kmh)) parts.push(`<span class="fw">${num(n.wind_from_deg) ? arrow(12, n.wind_from_deg, P.vent) : ''}${short ? '' : `${c.t('mp_wind')} `}${c.fmt(n.wind_kmh)}&nbsp;km/h</span>`);
+  if (n.tide_trend === 'rising' || n.tide_trend === 'falling') parts.push(c.t(short ? `mp_${n.tide_trend}` : n.tide_trend === 'rising' ? 'sea_rising' : 'sea_falling'));
+  return parts.length > (num(n.time_utc) ? 1 : 0) ? `<div class="fnow">${parts.join(' · ')}</div>` : '';
+}
+
+function mapSpotSheet(c, s) {
+  const P = c.P;
+  const vds = MAP_ACTS.map((a) => {
+    const v = s.verdicts?.[a], col = VERDICT_COLOUR[v] ? P[VERDICT_COLOUR[v]] : P.t4;
+    const said = `${c.t(`ma_${a}`)}${c.lang === 'fr' ? '&nbsp;: ' : ': '}${VERDICT_COLOUR[v] ? c.t(`verdict_${v}`) : c.t('mp_no_verdict')}`;
+    return `<span title="${said}" aria-label="${said}" style="background:${alpha(col, 0.16)};color:${col}">${glyph(ACTIVITY_GLYPH[a], 13, col, 2.2)}${c.t(`ma_${a}`)}</span>`;
+  }).join('');
+  const sub = [s.place, num(s.facing_deg) ? c.t('mp_facing', { d: s.facing_deg }) : null].filter(Boolean).map(esc).join(' · ');
+  const full = !keptOf(c.config).includes(s.id) && keptOf(c.config).length >= MAX_BEACHES;
+  const open = c.seaWanted ? `<button class="go" data-open-sea="${esc(s.id)}">${glyph('vagues', 16, P.sur, 2.2)}<span>${c.t('mp_open')}</span></button>` : '';
+  const acts = c.keptReady || open ? `<div class="acts">${c.keptReady ? keepButton(c, s.id) : ''}${open}</div>` : '';
+  return `<div class="fiche" role="dialog" aria-label="${esc(s.name || '')}"><div class="fh"><div class="fn"><b>${esc(s.name || s.id)}</b>${sub ? `<small>${sub}</small>` : ''}</div>` +
+    `<button class="x" data-sheet-close aria-label="${c.t('mp_close')}">${glyph('croix', 14, P.t2, 2.4)}</button></div>` +
+    `<div class="fvds">${vds}</div>${mapNowLine(c, s)}${full && c.keptReady ? `<div class="plein">${c.t('mp_full')}</div>` : ''}` +
+    `${c.keepError ? `<div class="plein">${c.t('mp_keep_error')}</div>` : ''}${acts}</div>`;
+}
+
+function mapPlaceSheet(c, p) {
+  const P = c.P, kind = TEXT[c.lang]?.[`pl_${p.type}`] ? c.t(`pl_${p.type}`) : p.type;
+  const sub = [p.name ? kind : null, p.near ? c.t('mp_near', { n: p.near }) : null].filter(Boolean).map(esc).join(' · ');
+  const tone = QUALITY_TONE[p.quality];
+  const quality = tone ? `<div class="fnow">${c.t('water_quality')}${c.lang === 'fr' ? '&nbsp;: ' : ': '}<b style="color:${P[tone]}">${c.t(`quality_${p.quality}`)}</b> · ${c.t('quality_d')}</div>` : '';
+  return `<div class="fiche" role="dialog" aria-label="${esc(p.name || kind)}"><div class="fh"><div class="fn"><b>${esc(p.name || kind)}</b>${sub ? `<small>${sub}</small>` : ''}</div>` +
+    `<button class="x" data-sheet-close aria-label="${c.t('mp_close')}">${glyph('croix', 14, P.t2, 2.4)}</button></div>${quality}<div class="note">${c.t('mp_place_note')}</div></div>`;
+}
+
+// Who the points come from: the credits of the spots, of their hour and of the places (the background says its own, in the
+// map's corner).
+function mapCredit(c) {
+  const text = [c.map?.attribution, c.map?.hour_attribution, c.places?.attribution].filter((x) => typeof x === 'string').join(' ');
+  const names = providers(text);
+  names.push(...[...SEA_PROVIDERS, 'Sandre'].filter((p) => text.includes(p)));
+  if (c.places?.by_type?.bathing) names.push(c.t('bathing_source'));
+  return foot(c, names);
+}
+
+function pageMap(c) {
+  const P = c.P, act = mapAct(c);
+  const chips = MAP_ACTS.map((a) => {
+    const on = a === act;
+    return `<button class="mact${on ? ' on' : ''}" role="tab" aria-selected="${on}" data-mact="${a}">${glyph(ACTIVITY_GLYPH[a], 15, on ? P.sur : P.t2, 2.2)}<span>${c.t(`ma_${a}`)}</span></button>`;
+  }).join('');
+  const words = { nogl: 'mp_no_gl', error: 'mp_error', loading: 'mp_loading' }[c.mapState];
+  const sel = c.mapSelected;
+  const sheet = sel?.spot ? mapSpotSheet(c, sel.spot) : sel?.place ? mapPlaceSheet(c, sel.place) : '';
+  return `<div class="carte-page"><div class="macts" role="tablist">${chips}</div><div class="carte-zone">` +
+    `${words ? `<div class="carte-msg">${c.t(words)}</div>` : ''}${sheet}</div>${mapCredit(c)}</div>`;
+}
+const placesKept = new Map(); // the places of each entry, for every card of the page
 
 // -------------------------------------------------------------------------------------------------------------------- card
 class VigieCard extends HTMLElement {
@@ -2428,12 +2645,13 @@ class VigieCard extends HTMLElement {
     if (!pages.length) throw new Error(`pages: at least one of ${PAGE_IDS.join(', ')}`);
     if (config.stations !== undefined && !Array.isArray(config.stations)) throw new Error('stations: a list of {name, latitude, longitude, base_m, top_m}');
     if (config.beaches !== undefined && !Array.isArray(config.beaches)) throw new Error('beaches: a list of spot ids (the spots near the place)');
-    this._config = { ...config, _pages: pages };
+    this._config = { ...config, _pages: pages, _kept: this._kept ?? null, _temp: this._temp ?? null };
     if (!this._page || !pages.includes(this._page)) this._page = pages.includes(config.start_page) ? config.start_page : pages[0];
     const key = lastKey(this._config);
     if (key !== this._dataKey) { this._dataKey = key; this._data = lastAnswer(key); this._error = null; }
     if (this._hass) this._fetch();
     this._subscribeForecast();
+    this._subscribeKept();
     this._render();
   }
 
@@ -2518,7 +2736,14 @@ class VigieCard extends HTMLElement {
     } finally {
       this._askingSpots = false;
     }
+    this._namesOfBeaches();
     this._render();
+  }
+  // A beach kept far from the place (a star of the Map page): its name from the spots of the map, asked for it.
+  _namesOfBeaches() {
+    const known = [...(this._spotNames || []), ...(Array.isArray(this._mapData?.spots) ? this._mapData.spots : [])];
+    if (this._askingSpots || this._mapData || this._askingMap || Date.now() - (this._mapAt || 0) < REFRESH_MS) return;
+    if (beachesOf(this._config).some((id) => !known.some((s) => s && s.id === id))) this._fetchMap();
   }
 
   set hass(hass) {
@@ -2529,7 +2754,7 @@ class VigieCard extends HTMLElement {
     const ent = this._config?.weather_entity ? hass?.states?.[this._config.weather_entity] : null;
     const changed = lang !== this._lang || dark !== this._dark || ent !== this._entity;
     this._lang = lang; this._dark = dark; this._entity = ent;
-    if (first) { this._fetch(); this._subscribeForecast(); }
+    if (first) { this._fetch(); this._subscribeForecast(); this._subscribeKept(); }
     if (changed || first) this._render();
   }
 
@@ -2553,12 +2778,16 @@ class VigieCard extends HTMLElement {
     document.fonts?.ready?.then(() => { if (this.isConnected) this._render(); });
     if (this._hass && this._data) this._fetch();
     this._subscribeForecast();
+    this._subscribeKept();
+    clearTimeout(this._glDropTimer);
   }
 
   disconnectedCallback() {
     clearInterval(this._timer); clearInterval(this._tick);
     this._resize?.disconnect();
     this._unsubscribeForecast();
+    this._unsubscribeKept();
+    if (this._gl) this._glDropTimer = setTimeout(() => this._mapDrop(), 60 * 1000);
   }
 
   async _fetch() {
@@ -2566,6 +2795,7 @@ class VigieCard extends HTMLElement {
     this._fetchMountain();
     this._fetchBeach();
     this._fetchSpotNames();
+    if (this._page === 'map') { this._fetchMap(); this._fetchPlaces(); }
     if (this._asking) return;
     const key = this._dataKey;
     const spot = this._config.spot === 'none' ? null : this._config.spot || 'auto';
@@ -2623,8 +2853,337 @@ class VigieCard extends HTMLElement {
     return pages.includes(this._config?.start_page) ? this._config.start_page : pages[0];
   }
 
+  // ---- the beaches kept (`vigie/card/favorites`): the list of the entry, followed by every open card
+  _subscribeKept() {
+    const entry = this._config?.entry_id || '';
+    if (!this._hass?.connection || !this._config || !this.isConnected) return;
+    if (this._keptFor === entry && (this._keptUnsub || this._keptAsking)) return;
+    this._unsubscribeKept();
+    this._keptFor = entry;
+    this._kept = null; this._keptReady = false;
+    this._config = { ...this._config, _kept: null };
+    const msg = { type: 'vigie/card/favorites/subscribe' };
+    if (entry) msg.entry_id = entry;
+    this._keptAsking = true;
+    this._hass.connection.subscribeMessage((m) => { if (this._keptFor === entry) { this._keptReady = true; this._applyKept(m?.spots); } }, msg)
+      .then((unsub) => { if (this._keptFor === entry) this._keptUnsub = unsub; else unsub(); })
+      .catch(() => { /* an integration without the command: the beaches of the configuration, no star */ })
+      .finally(() => { this._keptAsking = false; });
+  }
+  _unsubscribeKept() {
+    if (this._keptUnsub) { try { this._keptUnsub(); } catch (err) { /* already closed */ } }
+    this._keptUnsub = null; this._keptFor = null;
+  }
+  // A new list of kept beaches (`null`: none written yet, the configuration's): the beach shown on the Sea page stays shown.
+  _applyKept(spots, shownId = this._page === 'sea' ? this._beachNow()?.id : null) {
+    this._kept = Array.isArray(spots) ? spots.filter((b) => typeof b === 'string' && b) : null;
+    this._config = { ...this._config, _kept: this._kept, _temp: this._temp || null };
+    if (shownId) { const i = beachesOf(this._config).indexOf(shownId); if (i >= 0) this._beachIdx = i; }
+    this._fetchSpotNames();
+    this._namesOfBeaches(); // a beach kept on another screen, far from the place: its name
+    this._render();
+  }
+  // The star of a beach: kept or not, for every screen of the entry. Drawn at once, put back if Home Assistant refuses it.
+  async _keep(id) {
+    if (!this._hass || !id || !this._keptReady) return;
+    this._touched = Date.now();
+    const kept = keptOf(this._config), on = !kept.includes(id);
+    if (on && kept.length >= MAX_BEACHES) return;
+    const next = on ? [...kept, id] : kept.filter((b) => b !== id);
+    const shown = this._page === 'sea' ? this._beachNow()?.id : null;
+    if (!on && shown === id) this._temp = id; // the beach shown stays, its star empty, until another page is chosen
+    if (on && this._temp === id) this._temp = null;
+    const before = this._kept;
+    this._keepError = null;
+    this._applyKept(next, shown);
+    const msg = { type: 'vigie/card/favorites/set', spots: next };
+    if (this._config.entry_id) msg.entry_id = this._config.entry_id;
+    try {
+      const answer = await this._hass.callWS(msg);
+      if (Array.isArray(answer?.spots)) this._applyKept(answer.spots);
+    } catch (err) {
+      this._keepError = err?.code || 'error';
+      if (!on && this._temp === id) this._temp = null;
+      this._applyKept(before);
+    }
+  }
+
+  // ---- the Map page
+  _mapKey() { return `m|${this._config?.entry_id || ''}`; }
+  _mapActNow() { return MAP_ACTS.includes(this._mapActivity) ? this._mapActivity : 'surf'; }
+  // The spots and their verdicts, asked when the page is shown, again every REFRESH_MS while it is (the integration keeps them
+  // 30 minutes for every screen); the last answer is kept, so the page draws at once.
+  async _fetchMap() {
+    if (!this._hass || !this._config || this._askingMap) return;
+    const key = this._mapKey();
+    if (key !== this._mapFor) { this._mapFor = key; this._mapData = lastAnswer(key); this._mapError = null; this._mapSel = null; }
+    const msg = { type: 'vigie/card/map' };
+    if (this._config.entry_id) msg.entry_id = this._config.entry_id;
+    this._askingMap = true;
+    try {
+      const data = await this._hass.callWS(msg);
+      keepAnswer(key, data);
+      if (key === this._mapFor) { this._mapData = data; this._mapError = null; }
+    } catch (err) {
+      if (key === this._mapFor) this._mapError = err?.code || 'error';
+    } finally {
+      this._askingMap = false;
+      this._mapAt = Date.now();
+    }
+    if (this._mapKey() !== key) { this._fetchMap(); return; } // another entry was chosen meanwhile
+    this._mapDraw();
+    this._render();
+  }
+  // The places of the coast, asked once for every card of the page (the integration reads them once a day).
+  async _fetchPlaces() {
+    const key = this._mapKey(), kept = placesKept.get(key);
+    if (kept && Date.now() - kept.at < MAP_PLACES_MS) { if (this._places !== kept) { this._places = kept; this._mapDraw(); } return; }
+    if (!this._hass || this._askingPlaces) return;
+    const msg = { type: 'vigie/card/places' };
+    if (this._config.entry_id) msg.entry_id = this._config.entry_id;
+    this._askingPlaces = true;
+    let answer = null;
+    try { answer = await this._hass.callWS(msg); } catch (err) { answer = null; } finally { this._askingPlaces = false; }
+    // An instance without the route, or a failure: no places, asked again after the same time (the spots are drawn all the same).
+    const { places, ...about } = answer && typeof answer === 'object' ? answer : {};
+    const got = { at: Date.now(), about: answer ? about : null, list: placesOf(answer) };
+    placesKept.set(key, got);
+    if (this._mapKey() === key) { this._places = got; this._mapDraw(); this._render(); }
+  }
+  _mapSpot(id) { return Array.isArray(this._mapData?.spots) ? this._mapData.spots.find((s) => s && s.id === id) || null : null; }
+
+  // The map itself: one element kept across the drawings of the card (the page is drawn again with `innerHTML`, the map moves
+  // into the new page), its pins drawn over it as buttons.
+  _mapMount(zone, c) {
+    if (!zone) return;
+    this._mapC = c;
+    if (c.mapState === 'nogl') return;
+    if (!this._mapBox) {
+      const box = (this._mapBox = document.createElement('div'));
+      box.className = 'carte-box';
+      box.innerHTML = '<div class="carte-gl"></div><div class="carte-pins"></div>';
+      box.addEventListener('click', (ev) => {
+        const pin = ev.target.closest('[data-pin]');
+        if (pin) { ev.stopPropagation(); this._mapSelect('spot', pin.dataset.pin); }
+      });
+    }
+    zone.prepend(this._mapBox); // under the sheet and the words
+    const S = MAP_COLOURS[c.dark ? 'dark' : 'light'];
+    this._mapBox.style.cssText = `--s-ink:${S.ink};--s-muted:${S.muted};--s-line:${S.line};--s-surface:${S.surface};--s-accent:${S.accent}`;
+    this._mapBox.classList.toggle('off', !!c.mapState); // loading or failed: its words alone, no pin over an empty map
+    const retry = this._glRetry;
+    this._glRetry = false;
+    if (retry && this._glError) this._glError = false; // MapLibre that did not load, asked again when the page opens again
+    if (this._gl) {
+      if (retry && this._glStyleError && !this._glReady) { this._glStyleError = false; this._gl.setStyle(MAP_STYLE_URL[this._glTheme], { diff: false }); }
+      this._gl.resize();
+      const look = `${c.dark ? 'dark' : 'light'}|${c.lang}`;
+      if (look !== this._glLook) { this._glLook = look; this._glTheme = c.dark ? 'dark' : 'light'; this._drawn = null; this._gl.setStyle(MAP_STYLE_URL[this._glTheme], { diff: false }); }
+      this._mapDraw();
+      this._mapPinsLayout();
+      return;
+    }
+    if (this._glLoading || this._glError) return;
+    this._glLoading = true;
+    if (!this.shadowRoot.getElementById('carte-css')) {
+      const link = document.createElement('link');
+      link.id = 'carte-css'; link.rel = 'stylesheet'; link.href = MAP_CSS;
+      this.shadowRoot.appendChild(link);
+    }
+    Promise.all([loadMapLib(), this._mapData ? null : this._fetchMap()]).then(([ml]) => {
+      if (!this._mapBox) return; // dropped meanwhile
+      // The theme when the map is made, not when it was asked: the card draws its last answer before Home Assistant gives its
+      // dark mode (seen on 2026-11-28: a light background in a dark card).
+      this._glTheme = this._dark ? 'dark' : 'light';
+      this._glLook = `${this._glTheme}|${this._lang}`;
+      const map = (this._gl = new ml.Map({
+        container: this._mapBox.querySelector('.carte-gl'),
+        style: MAP_STYLE_URL[this._glTheme],
+        ...this._mapView(),
+        attributionControl: { compact: true },
+        // One finger moves the dashboard, two move the map (the card is on a page that scrolls); Ctrl and the wheel zoom.
+        cooperativeGestures: true,
+        dragRotate: false, pitchWithRotate: false, touchPitch: false,
+        keyboard: false, // the arrows change the pages of the card
+        locale: this._lang === 'fr' ? MAP_LOCALE_FR : {},
+      }));
+      map.touchZoomRotate.disableRotation();
+      map.addControl(new ml.NavigationControl({ showCompass: false }), 'top-right');
+      map.on('style.load', () => { this._mapLocalize(); this._drawn = null; this._mapLayers(); });
+      map.on('load', () => {
+        // The credit folded on its "i": unfolded, it covers the bottom of a small map (seen at 339 px).
+        this._mapBox?.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
+        this._glReady = true;
+        this._glStyleError = false;
+        this._render();
+      });
+      map.on('move', () => this._mapPinsLayout());
+      map.on('click', (e) => this._mapClick(e));
+      // A background that cannot be read before the map is drawn (a screen without the Internet): said, and asked again when
+      // the page opens again; a tile missing later is only written to the console.
+      map.on('error', (e) => {
+        console.warn('Vigie card map:', e?.error?.message || e?.error || e);
+        if (!this._glReady && !this._glStyleError) { this._glStyleError = true; this._render(); }
+      });
+    }).catch((err) => {
+      console.error('Vigie card map:', err);
+      this._glError = true;
+      this._render();
+    }).finally(() => { this._glLoading = false; });
+  }
+  // Where the map opens: on the beaches kept, or on the place, or on France.
+  _mapView() {
+    const kept = keptOf(this._config).map((id) => this._mapSpot(id)).filter(Boolean).map((s) => [s.lon, s.lat]);
+    const co = this._data?.point?.coordinates;
+    const pts = kept.length ? kept : num(co?.lon) && num(co?.lat) ? [[co.lon, co.lat]] : [];
+    if (pts.length === 1) return { center: pts[0], zoom: 9.6 };
+    if (!pts.length) return { center: [-2.2, 46.6], zoom: 4.6 };
+    const lons = pts.map((p) => p[0]), lats = pts.map((p) => p[1]);
+    return { bounds: [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], fitBoundsOptions: { padding: 56, maxZoom: 10.5 } };
+  }
+  // The names of the background in French where the tiles have them, as on the website (vigie-web `localizedTextField`).
+  _mapLocalize() {
+    const map = this._gl;
+    if (!map || this._lang !== 'fr') return;
+    for (const layer of map.getStyle()?.layers || []) {
+      if (layer.type !== 'symbol') continue;
+      const field = map.getLayoutProperty(layer.id, 'text-field');
+      if (field == null || !JSON.stringify(field).includes('"name_en"')) continue;
+      map.setLayoutProperty(layer.id, 'text-field', ['coalesce', ['get', 'name:fr'], field]);
+    }
+  }
+  _mapFeatures() {
+    const act = this._mapActNow(), spots = Array.isArray(this._mapData?.spots) ? this._mapData.spots.filter((s) => s && num(s.lat) && num(s.lon)) : [];
+    const ids = new Set(spots.map((s) => s.id));
+    const point = (lon, lat, properties) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties });
+    return {
+      spots: { type: 'FeatureCollection', features: spots.map((s) => point(s.lon, s.lat, { id: s.id, name: s.name || '', q: mapBand(s, act) })) },
+      places: { type: 'FeatureCollection', features: (this._places?.list || []).filter((p) => !ids.has(p.id)).map((p) => point(p.lon, p.lat, { id: p.id, t: p.type, name: p.name || '' })) },
+    };
+  }
+  _mapLayers() {
+    const map = this._gl;
+    if (!map || map.getSource('spots')) return;
+    const S = MAP_COLOURS[this._glTheme || 'dark'], { spots, places } = this._mapFeatures();
+    map.addSource('places', { type: 'geojson', data: places });
+    map.addSource('spots', { type: 'geojson', data: spots });
+    map.addLayer({ id: 'bath-dot', type: 'circle', source: 'places', minzoom: 8.5, filter: ['==', ['get', 't'], 'bathing'],
+      paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 2.5, 13, 5], 'circle-color': S.bath, 'circle-opacity': 0.85, 'circle-stroke-color': S.surface, 'circle-stroke-width': 1 } });
+    map.addLayer({ id: 'place-dot', type: 'circle', source: 'places', minzoom: 10.5, filter: ['!=', ['get', 't'], 'bathing'],
+      paint: { 'circle-radius': 3, 'circle-color': S.muted, 'circle-stroke-color': S.surface, 'circle-stroke-width': 1 } });
+    map.addLayer({ id: 'spot-dot', type: 'circle', source: 'spots',
+      paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 5, 8, 7, 12, 10],
+        'circle-color': ['match', ['get', 'q'], 0, S.q[0], 1, S.q[1], 2, S.q[2], 3, S.q[3], S.surface],
+        'circle-stroke-color': S.ink, 'circle-stroke-width': 1, 'circle-stroke-opacity': 0.55 } });
+    map.addLayer({ id: 'spot-label', type: 'symbol', source: 'spots', minzoom: 8,
+      layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'], 'text-size': 12, 'text-offset': [0, 1], 'text-anchor': 'top', 'text-optional': true },
+      paint: { 'text-color': S.ink, 'text-halo-color': S.surface, 'text-halo-width': 1.5 } });
+    map.addLayer({ id: 'bath-label', type: 'symbol', source: 'places', minzoom: 11.5, filter: ['==', ['get', 't'], 'bathing'],
+      layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'], 'text-size': 11, 'text-offset': [0, 0.8], 'text-anchor': 'top', 'text-optional': true },
+      paint: { 'text-color': S.muted, 'text-halo-color': S.surface, 'text-halo-width': 1.5 } });
+    this._drawn = this._mapDrawKey();
+    this._mapPinsLayout();
+  }
+  _mapDrawKey() { return `${this._mapActNow()}|${this._mapAt || 0}|${this._places?.at || 0}`; }
+  // The spots and the places given to the map again, only when they or the activity changed.
+  _mapDraw() {
+    const map = this._gl;
+    if (!map || !map.getSource('spots')) return;
+    const key = this._mapDrawKey();
+    if (key !== this._drawn) {
+      this._drawn = key;
+      const { spots, places } = this._mapFeatures();
+      map.getSource('spots').setData(spots);
+      map.getSource('places').setData(places);
+    }
+    this._mapPinsLayout();
+  }
+  // The pins: the figure of the hour of the spots in view, the best verdicts first, never over one another; a star on the
+  // beaches kept.
+  _mapPinsLayout() {
+    const map = this._gl, box = this._mapBox?.querySelector('.carte-pins'), c = this._mapC;
+    if (!map || !box || !c) return;
+    const spots = Array.isArray(this._mapData?.spots) ? this._mapData.spots.filter((s) => s && num(s.lat) && num(s.lon)) : [];
+    const W = box.clientWidth, H = box.clientHeight, act = this._mapActNow(), S = MAP_COLOURS[this._glTheme || 'dark'];
+    const kept = keptOf(this._config), sel = this._mapSel?.kind === 'spot' ? this._mapSel.id : null;
+    let html = '';
+    if (W && H && map.getZoom() >= 8) {
+      const taken = [];
+      const order = [...spots].sort((a, b) => (b.id === sel) - (a.id === sel) || kept.includes(b.id) - kept.includes(a.id) || mapBand(b, act) - mapBand(a, act));
+      for (const s of order) {
+        if (taken.length >= MAP_PINS) break;
+        const p = map.project([s.lon, s.lat]);
+        if (p.x < 0 || p.y < 0 || p.x > W || p.y > H) continue;
+        const text = mapPinText(c, s, act) || s.name || '';
+        const n = s.now || {}, wind = (act === 'kite' || act === 'boat') && num(n.wind_from_deg), tide = MAP_TIDE[n.tide_trend]; // the arrow of the tide on every pin, as on the website
+        const w = Math.round(26 + Math.min(text.length, 22) * 7.2 + (wind ? 16 : 0) + (tide ? 14 : 0));
+        const r = { x0: p.x - 9 - w, x1: p.x - 9, y0: p.y - 13, y1: p.y + 13 };
+        let right = true;
+        if (r.x0 < 4) { r.x0 = p.x + 9; r.x1 = p.x + 9 + w; right = false; }
+        if (r.x1 > W - 4 || r.y0 < 2 || r.y1 > H - 2) continue;
+        if (taken.some((q) => !(r.x1 + 4 < q.x0 || r.x0 > q.x1 + 4 || r.y1 + 3 < q.y0 || r.y0 > q.y1 + 3))) continue;
+        taken.push(r);
+        const band = mapBand(s, act);
+        const dot = `<span class="pd${band < 0 ? ' none' : ''}"${band < 0 ? '' : ` style="background:${S.q[band]}"`}></span>`;
+        const arrowSvg = wind ? `<svg class="pi" viewBox="0 0 16 16" style="transform:rotate(${Math.round(n.wind_from_deg + 180)}deg)">${MAP_ARROW}</svg>` : '';
+        const tideSvg = tide ? `<svg class="pi ptd" viewBox="0 0 16 16">${tide}</svg>` : '';
+        const at = right ? `right:${Math.round(W - r.x1)}px` : `left:${Math.round(r.x0)}px`;
+        html += `<button class="vigie-pin${s.id === sel ? ' selected' : ''}" data-pin="${esc(s.id)}" aria-label="${esc(s.name || s.id)}" style="${at};top:${Math.round(r.y0)}px">${dot}<span class="pt">${esc(text)}</span>${arrowSvg}${tideSvg}</button>`;
+      }
+    }
+    for (const id of kept) {
+      const s = spots.find((x) => x.id === id);
+      if (!s) continue;
+      const p = map.project([s.lon, s.lat]);
+      if (p.x < -10 || p.y < -10 || p.x > W + 10 || p.y > H + 10) continue;
+      html += `<span class="fav" style="left:${Math.round(p.x + 2)}px;top:${Math.round(p.y - 20)}px">${star(true, 17, c.P.jaune, c.P.t2)}</span>`;
+    }
+    box.innerHTML = html;
+  }
+  // A touch on the map: the spot or the place under it (10 px around, for a finger), or none, which closes the sheet.
+  _mapClick(e) {
+    const map = this._gl, p = e.point, layers = MAP_LAYERS.filter((l) => map.getLayer(l));
+    const f = layers.length ? map.queryRenderedFeatures([[p.x - 10, p.y - 10], [p.x + 10, p.y + 10]], { layers })[0] : null;
+    if (!f) { if (this._mapSel) this._mapSelect(null); return; }
+    this._mapSelect(f.layer.id === 'spot-dot' ? 'spot' : 'place', f.properties?.id);
+  }
+  _mapSelect(kind, id) {
+    this._touched = Date.now();
+    this._keepError = null;
+    this._mapSel = kind && id ? { kind, id } : null;
+    this._mapPanned = null;
+    this._render();
+  }
+  // The point of the sheet kept in view above it.
+  _mapKeepInView(root) {
+    const sel = this._mapSel, map = this._gl, sheet = root.querySelector('.fiche'), zone = root.querySelector('.carte-zone');
+    if (!sel || !map || !sheet || !zone || this._mapPanned === sel.id) return;
+    this._mapPanned = sel.id;
+    const at = sel.kind === 'spot' ? this._mapSpot(sel.id) : (this._places?.list || []).find((x) => x.id === sel.id);
+    if (!at) return;
+    const p = map.project([at.lon, at.lat]), free = zone.clientHeight - sheet.offsetHeight - 8;
+    if (free > 60 && (p.y > free - 16 || p.y < 16)) map.panBy([0, Math.round(p.y - free / 2)], { duration: 200 });
+  }
+  // "Sea page" in a sheet: the Sea page of that spot, in a tab of its own when it is not kept (an empty star, until another page).
+  _mapOpenSea(id) {
+    if (!id) return;
+    this._touched = Date.now();
+    this._temp = keptOf(this._config).includes(id) ? null : id;
+    this._config = { ...this._config, _temp: this._temp };
+    this._beachIdx = Math.max(0, beachesOf(this._config).indexOf(id));
+    this._page = 'sea';
+    this._fetchBeach();
+    this._render();
+  }
+  // A card left for a while (another dashboard) gives back its map, a WebGL context of the few a page has.
+  _mapDrop() {
+    try { this._gl?.remove(); } catch (err) { /* already gone */ }
+    this._gl = null; this._glReady = false; this._mapBox = null; this._drawn = null;
+  }
+
   _go(page) {
     if (!this._visible?.includes(page)) return;
+    if (page === 'map') this._glRetry = true; // a map that could not load is tried again
     this._page = page; this._touched = Date.now(); this._render();
   }
 
@@ -2639,9 +3198,16 @@ class VigieCard extends HTMLElement {
         if (bt) { ev.stopPropagation(); this._beachIdx = Number(bt.dataset.beach) || 0; this._touched = Date.now(); this._fetchBeach(); this._render(); return; }
         const st = ev.target.closest('[data-station]');
         if (st) { ev.stopPropagation(); this._station = Number(st.dataset.station) || 0; this._touched = Date.now(); this._fetchMountain(); this._render(); return; }
+        const ma = ev.target.closest('[data-mact]');
+        if (ma) { ev.stopPropagation(); this._mapActivity = ma.dataset.mact; this._touched = Date.now(); this._render(); return; }
+        const kp = ev.target.closest('[data-keep]');
+        if (kp) { ev.stopPropagation(); this._keep(kp.dataset.keep); return; }
+        const os = ev.target.closest('[data-open-sea]');
+        if (os) { ev.stopPropagation(); this._mapOpenSea(os.dataset.openSea); return; }
+        if (ev.target.closest('[data-sheet-close]')) { ev.stopPropagation(); this._mapSelect(null); return; }
         const el = ev.target.closest('[data-go]'); if (el) { ev.stopPropagation(); this._go(el.dataset.go); }
       });
-      root.addEventListener('pointerdown', (ev) => { this._touched = Date.now(); this._swipe = { x: ev.clientX, y: ev.clientY }; });
+      root.addEventListener('pointerdown', (ev) => { this._touched = Date.now(); this._swipe = ev.target.closest('.carte-zone') ? null : { x: ev.clientX, y: ev.clientY }; });
       root.addEventListener('pointerup', (ev) => {
         const s = this._swipe; this._swipe = null;
         if (!s) return;
@@ -2657,6 +3223,8 @@ class VigieCard extends HTMLElement {
     // The blocks are drawn to the pixel: the width inside the border of ha-card (1 px each side by default).
     const width = (this._width || this.getBoundingClientRect().width || 380) - 2;
     const lang = this._lang || 'en';
+    // The beach a sheet of the Map page opened stays a tab of the Sea page only while the Sea page is shown.
+    if (this._temp && this._page !== 'sea') { this._temp = null; this._config = { ...this._config, _temp: null }; }
     const S = this._stationNow();
     if (S && stationKey(this._config, S) !== this._mKey) { this._mKey = stationKey(this._config, S); this._mountain = lastAnswer(this._mKey); this._mError = null; }
     const Bn = this._beachNow();
@@ -2667,7 +3235,22 @@ class VigieCard extends HTMLElement {
     c.mountainError = S ? this._mError : null;
     c.beach = Bn ? this._beach : null;
     c.beachError = Bn ? this._bError : null;
-    c.spots = this._spotNames || null;
+    c.spots = this._mapData?.spots ? [...(this._spotNames || []), ...this._mapData.spots] : this._spotNames || null;
+    c.keptReady = !!this._keptReady;
+    c.keepError = this._keepError || null;
+    c.mapAvailable = !['unknown_command', 'not_found'].includes(this._mapError);
+    if (this._page === 'map') {
+      if (Date.now() - (this._mapAt || 0) > REFRESH_MS) this._fetchMap();
+      this._fetchPlaces();
+      c.mapAct = this._mapActNow();
+      c.map = this._mapData || null;
+      c.places = this._places?.about || null;
+      c.seaWanted = (this._config._pages || []).includes('sea');
+      c.mapState = !hasWebgl2() ? 'nogl' : this._glError || (this._glStyleError && !this._glReady) || (this._mapError && !this._mapData) ? 'error' : this._glReady && this._mapData ? null : 'loading';
+      const sel = this._mapSel, spot = sel?.kind === 'spot' ? this._mapSpot(sel.id) : null;
+      const place = sel?.kind === 'place' ? (this._places?.list || []).find((p) => p.id === sel.id) : null;
+      c.mapSelected = spot ? { spot } : place ? { place } : null;
+    }
     const P = c.P;
     const vars = { carte: null, texte: P.texte, t2: P.t2, t3: P.t3, t4: P.t4, filet: P.filet, accent: P.accent, sur: P.sur, pluie: P.pluie, vent: P.vent, creux: P.creux, piste: this._dark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.03)' };
     root.style.cssText = Object.entries(vars).filter(([, v]) => v).map(([k, v]) => `--vc-${k}:${v}`).join(';') + `;--vc-pad:${c.pad}px`;
@@ -2691,6 +3274,13 @@ class VigieCard extends HTMLElement {
       body = `<div class="vide">${c.t('error')}</div>`;
     }
     root.innerHTML = `${top}<div class="page" tabindex="0">${body}</div>`;
+    if (this._page === 'map') {
+      this._mapMount(root.querySelector('.carte-zone'), c);
+      // The hour of the sheet cut (a phone's card of 339 px): without its words.
+      const line = root.querySelector('.fiche .fnow');
+      if (line && c.mapSelected?.spot && line.scrollWidth > line.clientWidth + 0.5) line.outerHTML = mapNowLine(c, c.mapSelected.spot, true);
+      this._mapKeepInView(root);
+    }
     // The names of the pages that do not fit their tab (six pages on a phone, a longer word in English): the icons alone. A name
     // is centred in its tab, so it overflows on both sides and `scrollWidth` misses its left half: its own width is measured,
     // with 4 px kept on each side (seen in a real Home Assistant: "Montagne" cut at both ends of its tab, on a phone). A wide
@@ -2772,6 +3362,39 @@ class VigieCardEditor extends HTMLElement {
     const msg = { type: 'vigie/card/spots' };
     if (this._config?.entry_id) msg.entry_id = this._config.entry_id;
     try { this._spots = await this._hass.callWS(msg); } catch (err) { this._spots = []; }
+    await this._loadKept();
+  }
+  // The beaches kept for the entry (`vigie/card/favorites`, the stars of the Map page), and the names of those far from the place.
+  async _loadKept() {
+    const entry = this._config?.entry_id, msg = { type: 'vigie/card/favorites' };
+    if (entry) msg.entry_id = entry;
+    try { const answer = await this._hass.callWS(msg); this._kept = Array.isArray(answer?.spots) ? answer.spots : null; this._keptOk = true; }
+    catch (err) { this._kept = null; this._keptOk = false; }
+    const near = new Set((this._spots || []).map((s) => s.id)), far = (this._kept || []).filter((id) => !near.has(id));
+    this._far = far.map((id) => ({ id }));
+    if (!far.length) return;
+    const ask = { type: 'vigie/card/map' };
+    if (entry) ask.entry_id = entry;
+    try { const map = await this._hass.callWS(ask); this._far = far.map((id) => (map?.spots || []).find((s) => s && s.id === id) || { id }); } catch (err) { /* the ids */ }
+  }
+  // A change of the form. With the list of the entry, the beaches go there at once, for every screen (a dashboard's
+  // configuration would keep them for one card only): the configuration then loses its own `beaches`.
+  _fromForm(value) {
+    const config = { ...this._config, ...value };
+    if (this._keptOk) {
+      const next = [...new Set(Array.isArray(value.beaches) ? value.beaches : [])].slice(0, MAX_BEACHES);
+      const shown = this._kept ?? (Array.isArray(this._config.beaches) ? this._config.beaches : []);
+      if (next.join('\n') === shown.join('\n')) config.beaches = this._config.beaches;
+      else { delete config.beaches; this._writeKept(next); }
+    }
+    this._changed(config);
+  }
+  async _writeKept(spots) {
+    const msg = { type: 'vigie/card/favorites/set', spots }, before = this._kept;
+    if (this._config?.entry_id) msg.entry_id = this._config.entry_id;
+    this._kept = spots;
+    try { const answer = await this._hass.callWS(msg); this._kept = Array.isArray(answer?.spots) ? answer.spots : spots; } catch (err) { this._kept = before; }
+    this._render();
   }
   _t(key) { return EDITOR_TEXT[this._lang || 'en'][key] ?? key; }
   _changed(config) {
@@ -2806,29 +3429,32 @@ class VigieCardEditor extends HTMLElement {
     if (!this._formReady) { holder.innerHTML = this._formReady === false ? `<div class="fallback">${this._t('no_form')}</div>` : ''; return; }
     if (!this._form) {
       this._form = document.createElement('ha-form');
-      this._form.addEventListener('value-changed', (ev) => this._changed({ ...this._config, ...ev.detail.value }));
+      this._form.addEventListener('value-changed', (ev) => this._fromForm(ev.detail.value));
       holder.appendChild(this._form);
     }
     const lang = this._lang || 'en', T = TEXT[lang];
     const entries = (this._entries || []).filter((e) => e.weather_and_card);
     const spots = this._spots || [];
     const order = this._order();
-    const spotLabel = (s) => `${s.name || s.id}${s.place ? `, ${s.place}` : ''} (${String(s.distance_km).replace('.', lang === 'fr' ? ',' : '.')} km)`;
+    const spotLabel = (s) => `${s.name || s.id}${s.place ? `, ${s.place}` : ''}${num(s.distance_km) ? ` (${String(s.distance_km).replace('.', lang === 'fr' ? ',' : '.')} km)` : ''}`;
+    const beaches = [...spots, ...(this._far || []).filter((f) => !spots.some((s) => s.id === f.id))];
     this._form.hass = this._hass;
     this._form.schema = [
       { name: 'entry_id', selector: { select: { mode: 'dropdown', options: entries.map((e) => ({ value: e.entry_id, label: e.title })) } } },
       { name: 'name', selector: { text: {} } },
       { name: 'start_page', selector: { select: { mode: 'dropdown', options: order.filter((p) => this._shown().includes(p)).map((p) => ({ value: p, label: T[`page_${p}`] })) } } },
       { name: 'idle', selector: { select: { mode: 'dropdown', options: ['return', 'cycle', 'none'].map((v) => ({ value: v, label: this._t(`idle_${v}`) })) } } },
-      { name: 'beaches', selector: { select: { multiple: true, mode: 'list', options: spots.map((s) => ({ value: s.id, label: spotLabel(s) })) } } },
+      { name: 'beaches', selector: { select: { multiple: true, mode: 'list', options: beaches.map((s) => ({ value: s.id, label: spotLabel(s) })) } } },
       { name: 'spot', selector: { select: { mode: 'dropdown', options: [{ value: 'auto', label: this._t('spot_auto') }, { value: 'none', label: this._t('spot_none') },
         ...spots.map((s) => ({ value: s.id, label: spotLabel(s) }))] } } },
       { name: 'weather_entity', selector: { entity: { domain: 'weather' } } },
       { name: 'icon_style', selector: { select: { mode: 'dropdown', options: ICON_STYLES.map((v) => ({ value: v, label: this._t(`icons_${v}`) })) } } },
     ];
-    this._form.data = { idle: 'return', spot: 'auto', beaches: [], start_page: 'home', icon_style: 'meridien', ...this._config };
+    this._form.data = { idle: 'return', spot: 'auto', beaches: [], start_page: 'home', icon_style: 'meridien', ...this._config,
+      ...(this._keptOk && this._kept ? { beaches: this._kept } : {}) };
     this._form.computeLabel = (s) => this._t(s.name);
-    this._form.computeHelper = (s) => (['weather_entity', 'icon_style', 'beaches'].includes(s.name) ? this._t(`${s.name}_help`) : undefined);
+    this._form.computeHelper = (s) => (s.name === 'beaches' && this._keptOk ? this._t('beaches_kept_help')
+      : ['weather_entity', 'icon_style', 'beaches'].includes(s.name) ? this._t(`${s.name}_help`) : undefined);
   }
   // The stations of the Mountain page: one small form each (rebuilt only when their number changes, so typing keeps its focus).
   _renderStations() {
