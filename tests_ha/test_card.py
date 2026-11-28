@@ -27,6 +27,9 @@ from custom_components.vigie.card import (
     CARD_FILE,
     CARD_URL,
     LOCAL_URL,
+    MAPLIBRE_FOLDER,
+    MAPLIBRE_NAMES,
+    MAPLIBRE_URL,
     async_card_back,
     async_register_card,
     async_remove_card,
@@ -50,9 +53,12 @@ async def test_the_card_is_served_and_loaded_with_the_version(hass: HomeAssistan
     hass.http = MagicMock(async_register_static_paths=AsyncMock())
     with patch("homeassistant.components.frontend.add_extra_js_url") as add:
         assert await async_register_card(hass) is True
-    (config,) = hass.http.async_register_static_paths.call_args.args[0]
+    config, maplibre = hass.http.async_register_static_paths.call_args.args[0]
     assert config.url_path == CARD_URL and Path(config.path) == CARD_FILE and CARD_FILE.is_file()
     assert config.cache_headers is False  # the version in the URL is what makes a browser read a new card
+    # MapLibre beside it, for its Map page: its address carries its version, so it may be kept (ADR 0048).
+    assert maplibre.url_path == MAPLIBRE_URL == "/vigie/maplibre" and Path(maplibre.path) == MAPLIBRE_FOLDER
+    assert maplibre.cache_headers is True and all((MAPLIBRE_FOLDER / name).is_file() for name in MAPLIBRE_NAMES)
     version = (await hass.async_add_executor_job((COMPONENT / "manifest.json").read_text)).split('"version": "')[1].split('"')[0]
     add.assert_called_once_with(hass, f"{CARD_URL}?v={version}")
 
@@ -131,8 +137,26 @@ async def test_listed_as_a_resource_where_local_is_served(hass: HomeAssistant, w
     assert (www / "vigie" / "vigie-card.js").read_bytes() == card
     assert gzip.decompress((www / "vigie" / "vigie-card.js.gz").read_bytes()) == card  # served to browsers that accept gzip
     assert await ours(hass) == [(f"{LOCAL_URL}?v={DIGEST}", "module")]
-    (config,) = hass.http.async_register_static_paths.call_args.args[0]
+    config, _ = hass.http.async_register_static_paths.call_args.args[0]
     assert config.url_path == CARD_URL  # still served at the integration's path, for a resource added there by hand
+    # MapLibre beside the copy, each file with its compressed copy, and its licence (ADR 0048).
+    for name in MAPLIBRE_NAMES:
+        source = (MAPLIBRE_FOLDER / name).read_bytes()
+        assert (www / "vigie" / "maplibre" / name).read_bytes() == source
+        assert gzip.decompress((www / "vigie" / "maplibre" / f"{name}.gz").read_bytes()) == source
+    assert (www / "vigie" / "maplibre" / "LICENSE.txt").read_bytes() == (MAPLIBRE_FOLDER / "LICENSE.txt").read_bytes()
+    # Unchanged at the next start: not compressed nor written again.
+    packed = www / "vigie" / "maplibre" / "maplibre-gl.mjs.gz"
+    before = packed.stat().st_mtime_ns
+    with patch("homeassistant.components.frontend.add_extra_js_url"):
+        assert await async_register_card(hass) is True
+    assert packed.stat().st_mtime_ns == before
+    # A compressed copy gone (or a file changed by hand) is written again.
+    packed.unlink()
+    (www / "vigie" / "maplibre" / "maplibre-gl.css").write_text("changed", encoding="utf-8")
+    with patch("homeassistant.components.frontend.add_extra_js_url"):
+        assert await async_register_card(hass) is True
+    assert packed.is_file() and (www / "vigie" / "maplibre" / "maplibre-gl.css").read_bytes() == (MAPLIBRE_FOLDER / "maplibre-gl.css").read_bytes()
 
 
 async def test_a_new_card_replaces_the_old_url_and_a_double_goes(hass: HomeAssistant, www: Path) -> None:

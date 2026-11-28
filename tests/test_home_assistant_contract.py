@@ -24,7 +24,7 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel
 
-from app.models.activities import ActivitiesForecast
+from app.models.activities import ActivitiesForecast, ActivitiesOverview
 from app.models.avalanches import AvalancheResponse
 from app.models.climate import ClimateNormalsResponse
 from app.models.earthquakes import EarthquakesResponse
@@ -33,7 +33,7 @@ from app.models.prealert import PrealertResponse
 from app.models.schemas import PointResponse, SeverityLevel
 from app.models.sea_places import PlaceList
 from app.models.stations import StationWindMap
-from app.models.surf import SurfForecast, SurfSpots
+from app.models.surf import SurfForecast, SurfOverview, SurfSpots
 from app.models.tides import TidesResponse
 from app.models.vigilance import VigilanceCoverage, VigilancePhenomenon, VigilancesResponse
 from tests_ha import payloads
@@ -55,6 +55,8 @@ WEATHER_MODELS: dict[str, type[BaseModel]] = {
     "activities_": ActivitiesForecast,
     "forestfire_": ForestFireResponse,
     "avalanches_": AvalancheResponse,
+    "activitiesoverview_": ActivitiesOverview,
+    "surfoverview_": SurfOverview,
 }
 WEATHER_FIXTURES = sorted(path for prefix in WEATHER_MODELS for path in (ROOT / "tests_ha" / "fixtures").glob(f"{prefix}*.json"))
 
@@ -209,6 +211,10 @@ def test_the_replay_serves_the_recorded_answers_moved_to_now() -> None:
     assert abs(VigilancesResponse.model_validate(answer).server_utc - later) < 60  # read a few seconds after the point
     assert replay.answer("/v1/earthquakes", now=later)["generated_utc"] == later  # read hours after the point: moved from its own read
     assert replay.answer("/v1/experimental/prealert", now=later) is None  # nothing recorded: the fake instance answers 404
+    # The places asked without a point: the catalogue of the Map page; with a point, the bathing sites near the beach.
+    catalogue = PlaceList.model_validate(replay.answer("/v1/sea/places", now=later, catalogue=True))
+    assert catalogue.count == len(catalogue.places) > 50 and {place.type for place in catalogue.places} >= {"port", "bathing"}
+    assert PlaceList.model_validate(replay.answer("/v1/sea/places", now=later)).count < catalogue.count
     # A station of the Mountain page: the point of Chamonix at the altitude asked, the hours with a freezing level; the bulletin's
     # times, texts, moved from its own read.
     top = PointResponse.model_validate(replay.answer("/v1/point", now=later, elevation_m=2400))

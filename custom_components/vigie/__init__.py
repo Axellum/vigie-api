@@ -6,7 +6,8 @@ experimental option is ticked) and does not issue any warning: it is not an offi
 With the option "Weather and card" (on by default), it also reads the weather of the place (`/v1/point`), its tide, the normals of
 the month and the wind measured nearby, gives a weather entity and four sensors (one of them in the format of Météo-France's
 integration, ADR 0046), and serves all of it to the dashboard card,
-which ships with it (`frontend/vigie-card.js`, loaded by the frontend without a resource to add by hand; `card.py`).
+which ships with it (`frontend/vigie-card.js`, loaded by the frontend without a resource to add by hand; `card.py`), with the
+beaches its Sea page keeps (`favorites.py`).
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ from .coordinator import (
     VigieQuakeCoordinator,
     VigieRuntimeData,
 )
+from .favorites import favorites_of
 from .stream import VigieStream
 from .weather_data import VigieWeatherCoordinator
 from .websocket import async_register_commands
@@ -83,6 +85,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: VigieConfigEntry) -> bo
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: VigieConfigEntry) -> None:
-    """The last Vigie entry removed: the card's dashboard resource and its copy go with it (ADR 0044)."""
+    """An entry removed: the beaches it kept go with it. The last one: the card's dashboard resource and its copy too (ADR 0044)."""
+    await favorites_of(hass).async_remove(entry.entry_id)
     if not any(other.entry_id != entry.entry_id for other in hass.config_entries.async_entries(DOMAIN)):
         await async_remove_card(hass)
