@@ -2451,7 +2451,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cu
 .mact span{overflow:hidden;text-overflow:ellipsis}
 .mact.on{background:var(--vc-accent);border-color:var(--vc-accent);color:var(--vc-sur)}
 .carte-zone{position:relative;flex:1 1 auto;min-height:200px;border-radius:14px;overflow:hidden;border:1.5px solid var(--vc-filet)}
-.carte-box,.carte-box .carte-gl{position:absolute;inset:0}
+.carte-box,.carte-box .carte-gl{position:absolute;inset:0}.carte-box.off{visibility:hidden}
 .carte-pins{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2}
 .vigie-pin{position:absolute;pointer-events:auto;z-index:2;display:flex;align-items:center;gap:5px;height:26px;max-width:190px;padding:0 9px 0 7px;border:1px solid var(--s-line);border-radius:13px;box-sizing:border-box;background:color-mix(in srgb,var(--s-surface) 94%,transparent);color:var(--s-ink);font-size:13px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .vigie-pin.selected{border-color:var(--s-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--s-accent) 35%,transparent);z-index:3}
@@ -2970,6 +2970,7 @@ class VigieCard extends HTMLElement {
     zone.prepend(this._mapBox); // under the sheet and the words
     const S = MAP_COLOURS[c.dark ? 'dark' : 'light'];
     this._mapBox.style.cssText = `--s-ink:${S.ink};--s-muted:${S.muted};--s-line:${S.line};--s-surface:${S.surface};--s-accent:${S.accent}`;
+    this._mapBox.classList.toggle('off', !!c.mapState); // loading or failed: its words alone, no pin over an empty map
     const retry = this._glRetry;
     this._glRetry = false;
     if (retry && this._glError) this._glError = false; // MapLibre that did not load, asked again when the page opens again
