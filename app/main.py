@@ -25,6 +25,8 @@ Endpoints:
 - ``GET    /v1/point``             : Weather at a GPS position (``lat, lon``): 15-minute rain, radar,
                                      marine (``marine=true``), river discharge, air quality / ash,
                                      space weather and nearby hazards.
+- ``GET    /v1/points``            : The weather of up to 40 places at once (``at=lat,lon`` repeated), for the weather
+                                     icons of a map: the weather block of ``/v1/point`` at each place (ADR 0047).
 - ``GET    /v1/snapshot``          : Multi-zone snapshot plus world hazards, under 16 KiB, for every
                                      display profile (``waveshare-7b``, ``tab5``, ``marine``, ``web``).
 - ``GET    /v1/embedded/frame``    : Compact text frame for the ESP32-P4 displays
@@ -158,6 +160,9 @@ from app.models.radar import RadarFrance, RadarNowcastFrance
 from app.models.rain_field import RainFieldMap
 from app.models.rain_observed import ObservedRainMap
 from app.models.schemas import (
+    POINTS_DAYS_DEFAULT,
+    POINTS_HOURS_DEFAULT,
+    POINTS_MAX,
     CAPFeedResponse,
     DeviceType,
     GeoJSONFeatureCollection,
@@ -166,6 +171,7 @@ from app.models.schemas import (
     MonitoredZoneConfig,
     MonitoredZoneUpsertRequest,
     PointResponse,
+    PointsResponse,
     ProviderHealth,
     SeverityLevel,
     SimulationRequest,
@@ -806,6 +812,39 @@ async def get_point_weather_and_hazards(
         fire_radius_km=fire_radius_km,
         elevation_m=None if elevation is None else int(round(elevation)),
     )
+
+
+def _parse_places(values: list[str]) -> list[tuple[float, float]]:
+    """The ``at=lat,lon`` values of ``/v1/points``, checked: 1 to ``POINTS_MAX`` WGS84 positions."""
+    if not 1 <= len(values) <= POINTS_MAX:
+        raise HTTPException(status_code=422, detail=f"Pass between 1 and {POINTS_MAX} places (at=lat,lon), not {len(values)}")
+    places: list[tuple[float, float]] = []
+    for value in values:
+        parts = value.split(",")
+        try:
+            lat, lon = (float(part) for part in parts) if len(parts) == 2 else (math.nan, math.nan)
+        except ValueError:
+            lat, lon = math.nan, math.nan
+        if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+            raise HTTPException(status_code=422, detail=f"'{value[:40]}' is not a WGS84 position lat,lon")
+        places.append((lat, lon))
+    return places
+
+
+@app.get("/v1/points", response_model=PointsResponse, tags=["Embedded & GPS"])
+async def get_points_weather(
+    at: list[str] = Query(
+        ...,
+        description=f"A place, as `lat,lon` in WGS84 decimal degrees; repeat the parameter for each place (1 to {POINTS_MAX})",
+    ),
+    hours: int = Query(default=POINTS_HOURS_DEFAULT, ge=1, le=72, description="Hours of forecast returned for each place, from the current one"),
+    days: int = Query(default=POINTS_DAYS_DEFAULT, ge=1, le=14, description="Days of forecast returned for each place, from today"),
+) -> PointsResponse:
+    """The weather of several places in one request, for the weather icons of a map (ADR 0047): for each place, the current
+    conditions, the rain of the next hour, the hours and the days of `/v1/point` (`compact=false`), read from the same sources and
+    caches, so each place agrees with `/v1/point` there. No hazards, marine, air or fires: ask `/v1/point` for the place opened. A
+    place whose weather could not be read has `current` null and empty lists."""
+    return await aggregator.build_points_response(_parse_places(at), hours=hours, days=days)
 
 
 @app.get("/v1/snapshot", response_model=SnapshotResponse, tags=["Embedded & GPS"])

@@ -768,6 +768,63 @@ class PointResponse(BaseModel):
 
 
 # ============================================================================
+# The weather of several places at once (/v1/points, ADR 0047)
+# ============================================================================
+
+POINTS_MAX = 40
+POINTS_HOURS_DEFAULT = 36
+POINTS_DAYS_DEFAULT = 5
+
+
+class PointsHour(BaseModel):
+    """One hour of a place of ``/v1/points``: the fields of ``HourlyWeatherPoint`` a map draws, with the same values."""
+
+    time_utc: int = Field(..., description="Start of the hour, UTC epoch seconds")
+    temp_c: Optional[float] = Field(default=None, description="Temperature at 2 m (deg C)")
+    precipitation_mm: Optional[float] = Field(default=None, ge=0.0, description="Hourly precipitation total (mm)")
+    precipitation_probability_pct: Optional[int] = Field(
+        default=None, ge=0, le=100, description="Hourly precipitation probability (%)"
+    )
+    wind_kmh: Optional[float] = Field(default=None, ge=0.0, description="Wind speed at 10 m (km/h)")
+    wind_gust_kmh: Optional[float] = Field(default=None, ge=0.0, description="Wind gusts at 10 m (km/h)")
+    wind_deg: Optional[int] = Field(default=None, ge=0, le=360, description="Wind direction at 10 m (degrees)")
+    cloud_cover_pct: Optional[int] = Field(default=None, ge=0, le=100, description="Total cloud cover (%)")
+    weather_code: Optional[int] = Field(default=None, ge=0, le=99, description="WMO weather interpretation code")
+    is_day: Optional[bool] = Field(default=None, description="True during local daylight, False at night, null when unknown")
+
+
+class PointsPlace(BaseModel):
+    """The weather of one place of ``/v1/points``: what ``/v1/point`` (``compact=false``) gives for its weather, cut short.
+
+    Read through the same sources and the same caches as ``/v1/point``: the values are the ones ``/v1/point`` gives at the same
+    time. A place no weather provider could answer has ``current`` null and no hour nor day."""
+
+    lat: float = Field(..., description="Latitude asked, rounded to 4 decimals")
+    lon: float = Field(..., description="Longitude asked, rounded to 4 decimals")
+    utc_offset_s: Optional[int] = Field(default=None, description="UTC offset at the place (seconds), if known")
+    weather_provider: Optional[str] = Field(default=None, description="Weather provider used; null when none answered")
+    fallback_used: bool = Field(default=False, description="True when the weather came from a fallback source")
+    current: Optional[CurrentWeather] = Field(default=None, description="Current conditions, as `current` of `/v1/point` (without the air index)")
+    rain_nowcast: Optional[RainNowcast] = Field(
+        default=None,
+        description="The rain of the next hour, as `rain_nowcast` of `/v1/point` without its radar fields; null when unknown",
+    )
+    hourly: list[PointsHour] = Field(default_factory=list, description="The hours from the current one on (`hours` of them at most)")
+    daily: list[DailyForecast] = Field(default_factory=list, description="The days from today on (`days` of them at most)")
+
+
+class PointsResponse(BaseModel):
+    """The weather of up to 40 places at once (``/v1/points``): the weather icons of a map."""
+
+    version: str = Field(default="1.0")
+    server_utc: int
+    hours: int = Field(..., description="Most hours given per place")
+    days: int = Field(..., description="Most days given per place")
+    places: list[PointsPlace] = Field(..., description="One entry per place asked, in the order asked")
+    attribution: Optional[str] = Field(default=None, description="Credit of every weather provider used; null when none answered")
+
+
+# ============================================================================
 # IETF RFC 7946 GeoJSON (/v1/geojson/hazards)
 # ============================================================================
 

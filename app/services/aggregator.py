@@ -22,6 +22,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -178,6 +179,8 @@ from app.models.forecast import HazardForecast
 from app.models.places import WatchedPoint, WatchedPointUpsertRequest
 from app.models.pollens import PollensResponse
 from app.models.schemas import (
+    POINTS_DAYS_DEFAULT,
+    POINTS_HOURS_DEFAULT,
     SEVERITY_RANK,
     AirQualityStatus,
     CAPAlert,
@@ -200,6 +203,9 @@ from app.models.schemas import (
     MonitoredZoneConfig,
     MonitoredZoneUpsertRequest,
     PointResponse,
+    PointsHour,
+    PointsPlace,
+    PointsResponse,
     ProviderHealth,
     RainNowcast,
     SeverityLevel,
@@ -313,6 +319,41 @@ async def _or_none(awaitable: Awaitable[T]) -> Optional[T]:
 async def _none_coro() -> None:
     """Awaitable that yields ``None`` (placeholder for an optional provider that was not requested)."""
     return None
+
+
+def rain_nowcast_of(weather_bundle: Optional[Mapping[str, Any]], radar_meta: Mapping[str, Any]) -> RainNowcast:
+    """The ``rain_nowcast`` block of a point: the rain of the next hour of its weather bundle, and the radar frame of ``radar_meta``
+    (empty: no radar field). The same block for ``/v1/point`` and, without radar, for ``/v1/points``."""
+    rain_steps: Optional[list[float]] = weather_bundle.get("rain_next_60m") if weather_bundle else None
+    # Twelve 5-minute rates only when the rain comes from Météo-France PIAF (``_with_piaf_rain``)
+    rain_rates: Optional[list[float]] = (
+        weather_bundle.get("rain_rate_5m_mm_h") if weather_bundle and rain_steps is not None else None
+    )
+    return RainNowcast(
+        interval_minutes=15,
+        start_utc=weather_bundle.get("rain_next_60m_start_utc") if weather_bundle and rain_steps is not None else None,
+        mm_per_step=rain_steps,
+        rate_5m_mm_h=rain_rates,
+        rain_expected_60m=None if rain_steps is None else any(v > 0.05 for v in rain_steps),
+        max_mm_h=None
+        if rain_steps is None
+        else (round(max(rain_rates), 2) if rain_rates is not None else round(max(rain_steps) * 4.0, 2)),
+        radar_tile_url_template=radar_meta.get("radar_tile_url_template"),
+        radar_timestamp_utc=radar_meta.get("radar_timestamp_utc"),
+        # the rain steps come from the weather provider (Open-Meteo, and PIAF when it gave the rain), the radar fields from RainViewer
+        attribution=merge_credits(
+            weather_bundle.get("attribution") if weather_bundle and rain_steps is not None else None,
+            credit_text(*radar_meta.get("credit", RADAR))
+            if radar_meta.get("radar_tile_url_template") or radar_meta.get("radar_timestamp_utc") is not None
+            else None,
+        ),
+    )
+
+
+# ``/v1/points``: places read at a time, and the longest a place is waited for (a cold place in France asks the Météo-France
+# gateway, Open-Meteo's daily and hourly parts and PIAF, each with its own timeout; this bounds the whole).
+POINTS_CONCURRENCY = 8
+POINTS_TIMEOUT_S = 25.0
 
 
 class AggregatorService:
@@ -1918,30 +1959,7 @@ class AggregatorService:
         if compact:  # the 16 KiB profile carries no `near_places` (docs/decisions/0008-sensitive-points.md): ask `compact=false`
             enriched_nearby = [h.model_copy(update={"near_places": None}) for h in enriched_nearby]
 
-        rain_steps: Optional[list[float]] = weather_bundle.get("rain_next_60m") if weather_bundle else None
-        # Twelve 5-minute rates only when the rain comes from Météo-France PIAF (``_with_piaf_rain``)
-        rain_rates: Optional[list[float]] = (
-            weather_bundle.get("rain_rate_5m_mm_h") if weather_bundle and rain_steps is not None else None
-        )
-        rain_nowcast = RainNowcast(
-            interval_minutes=15,
-            start_utc=weather_bundle.get("rain_next_60m_start_utc") if weather_bundle and rain_steps is not None else None,
-            mm_per_step=rain_steps,
-            rate_5m_mm_h=rain_rates,
-            rain_expected_60m=None if rain_steps is None else any(v > 0.05 for v in rain_steps),
-            max_mm_h=None
-            if rain_steps is None
-            else (round(max(rain_rates), 2) if rain_rates is not None else round(max(rain_steps) * 4.0, 2)),
-            radar_tile_url_template=radar_meta.get("radar_tile_url_template"),
-            radar_timestamp_utc=radar_meta.get("radar_timestamp_utc"),
-            # the rain steps come from the weather provider (Open-Meteo, and PIAF when it gave the rain), the radar fields from RainViewer
-            attribution=merge_credits(
-                weather_bundle.get("attribution") if weather_bundle and rain_steps is not None else None,
-                credit_text(*radar_meta.get("credit", RADAR))
-                if radar_meta.get("radar_tile_url_template") or radar_meta.get("radar_timestamp_utc") is not None
-                else None,
-            ),
-        )
+        rain_nowcast = rain_nowcast_of(weather_bundle, radar_meta)
 
         if marine_conditions and marine_conditions.navigation_warning:
             if SEVERITY_RANK[SeverityLevel.ORANGE] > SEVERITY_RANK[local_level]:
@@ -2013,6 +2031,58 @@ class AggregatorService:
             # profile keeps the windows of the next 24 hours of PE-AROME; ``compact=false`` gives all of them (up to 51 hours).
             probabilities=compact_probabilities(probabilities, clock.wall()) if probabilities is not None and compact else probabilities,
         )
+
+    async def build_points_response(
+        self,
+        places: Sequence[tuple[float, float]],
+        hours: int = POINTS_HOURS_DEFAULT,
+        days: int = POINTS_DAYS_DEFAULT,
+    ) -> PointsResponse:
+        """The weather of several places at once (``/v1/points``, ADR 0047): for each, the weather block of ``/v1/point``
+        (``compact=false``), cut to what the weather icons of a map draw.
+
+        Each place is read with ``fetch_weather_with_fallback``, the reading of ``/v1/point``: same sources, same grid, same caches,
+        so a place costs what ``/v1/point`` would cost there, and nothing when a client asked it in the last minutes (two places of
+        the same cell share one request, ``BaseCollector`` joins the requests in flight). At most ``POINTS_CONCURRENCY`` places are
+        read at a time. A place whose reading fails or takes longer than ``POINTS_TIMEOUT_S`` has no weather, never another's."""
+        semaphore = asyncio.Semaphore(POINTS_CONCURRENCY)
+        now_s = int(clock.wall())
+
+        async def read(lat: float, lon: float) -> tuple[Optional[dict[str, Any]], bool]:
+            async with semaphore:
+                try:
+                    return await asyncio.wait_for(
+                        self.fetch_weather_with_fallback(lat, lon, include_hourly=True), timeout=POINTS_TIMEOUT_S
+                    )
+                except Exception:
+                    return None, False
+
+        readings = await asyncio.gather(*(read(lat, lon) for lat, lon in places))
+        out: list[PointsPlace] = []
+        credits: list[Optional[str]] = []
+        for (lat, lon), (bundle, fallback_used) in zip(places, readings, strict=True):
+            if not bundle:
+                out.append(PointsPlace(lat=round(lat, 4), lon=round(lon, 4)))
+                continue
+            forecast, _ = (
+                split_hourly_series(list(bundle["hourly_all"]), reference_utc=now_s) if bundle.get("hourly_all") else (None, None)
+            )
+            nowcast = rain_nowcast_of(bundle, {})
+            credits.append(bundle.get("attribution"))
+            out.append(
+                PointsPlace(
+                    lat=round(lat, 4),
+                    lon=round(lon, 4),
+                    utc_offset_s=bundle.get("utc_offset_s"),
+                    weather_provider=str(bundle["provider_name"]),
+                    fallback_used=fallback_used,
+                    current=bundle.get("current"),
+                    rain_nowcast=nowcast if nowcast.mm_per_step is not None else None,
+                    hourly=[PointsHour.model_validate(h.model_dump(include=set(PointsHour.model_fields))) for h in (forecast or [])[:hours]],
+                    daily=list(bundle.get("daily_10d") or [])[:days],
+                )
+            )
+        return PointsResponse(server_utc=now_s, hours=hours, days=days, places=out, attribution=merge_credits(*credits))
 
     async def build_snapshot(
         self,
