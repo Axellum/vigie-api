@@ -1639,8 +1639,10 @@ function beachTiles(c, B, H0, level = 0, pad = 6) {
   if (num(sw?.height_m)) tiles.push(tile(c.t('swell_k'), `${c.fmt(sw.height_m, 1)}&nbsp;m`, line(num(sw.period_s) && `${c.fmt(sw.period_s)}&nbsp;s`, dir(sw.from_deg)), P.texte, sw.from_deg));
   const wd = H0?.wind;
   if (num(wd?.speed_kmh)) {
-    const rel = { onshore: ['wind_onshore', P.orange], offshore: ['wind_offshore', P.vert], cross_shore: ['wind_cross_shore', P.t2] }[wd.relative];
-    const k = rel && !(tight && wd.relative === 'cross_shore') ? `${c.t('wind_k')} <b style="color:${rel[1]}">${c.t(rel[0])}</b>` : c.t('wind_k');
+    // The API says `cross-shore` (app/models/surf.py); the words of the card are keyed `cross_shore`.
+    const rk = typeof wd.relative === 'string' ? wd.relative.replace('-', '_') : null;
+    const rel = { onshore: ['wind_onshore', P.orange], offshore: ['wind_offshore', P.vert], cross_shore: ['wind_cross_shore', P.t2] }[rk];
+    const k = rel && !(tight && rk === 'cross_shore') ? `${c.t('wind_k')} <b style="color:${rel[1]}">${c.t(rel[0])}</b>` : c.t('wind_k');
     const gc = num(wd.gust_kmh) ? gustColour(P, wd.gust_kmh) : null;
     const g = num(wd.gust_kmh) ? `${c.t('gusts')} <b${gc ? ` style="color:${gc}"` : ''}>${c.fmt(wd.gust_kmh)}</b>` : '';
     tiles.push(tile(k, `${c.fmt(wd.speed_kmh)}&nbsp;${c.t('kmh')}`, line(g, dir(wd.from_deg)), P.vent, wd.from_deg));
